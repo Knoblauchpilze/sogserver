@@ -7,14 +7,11 @@ set (CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set (CMAKE_VERBOSE_MAKEFILE ON)
+#set (CMAKE_VERBOSE_MAKEFILE ON)
 
 set (CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
 
 project(sogserver)
-
-find_package (SDL2 REQUIRED)
-find_package (SDL2_ttf REQUIRED)
 
 set (SOURCES
   main.cpp
@@ -28,9 +25,5 @@ target_include_directories (sogserver PRIVATE
   )
 
 target_link_libraries(sogserver
-  sdl_core
-  sdl_graphic
-  sdl_app_core
-  ${SDL2_LIBRARY}
-  ${SDL2_TTF_LIBRARIES}
+  core_utils
   )

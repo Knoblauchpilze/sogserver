@@ -10,36 +10,36 @@ CREATE OR REPLACE FUNCTION update_created_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.created_at = now();
-  RETURN NEW;
+  return NEW;
 END;
 $$ language plpgsql;
 
 --
 -- Table describing universes.
 --
-create table universes (
+CREATE TABLE universes (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
     name text,
     created_at timestamp with time zone default current_timestamp,
     PRIMARY KEY (id)
-)
+);
 
 -- Trigger to update the `created_at` field of the table.
-create trigger update_universe_creation_time before insert on universes FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();
+CREATE TRIGGER update_universe_creation_time BEFORE INSERT ON universes FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();
 
 --
 -- Table describing players.
 --
-create table players (
+CREATE TABLE players (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
     name text,
     mail text,
     created_at timestamp with time zone default current_timestamp,
     PRIMARY KEY (id)
-)
+);
 
 -- Trigger to update the `created_at` field of the table.
-create trigger update_player_creation_time before insert on players FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();
+CREATE TRIGGER update_player_creation_time BEFORE INSERT ON players FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();
 
 --
 -- Table describing players' accounts in universes.
@@ -47,8 +47,8 @@ create trigger update_player_creation_time before insert on players FOR EACH ROW
 create table accounts (
   uni uuid references universes,
   player uuid references players,
-  created_at timestamp with time zone default current_timestamp,
-)
+  created_at timestamp with time zone default current_timestamp
+);
 
 -- Trigger to update the `created_at` field of the table.
-create trigger update_account_creation_time before insert on accounts FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();
+CREATE TRIGGER update_account_creation_time BEFORE INSERT ON accounts FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();

@@ -3,3 +3,5 @@ FROM postgres
 ENV POSTGRES_DB oglike_db
 ENV POSTGRES_USER og_administrator
 ENV POSTGRES_PASSWORD Ww76hQWbbt7zi2ItM6cNo4YYT
+
+COPY initdb.sql /docker-entrypoint-initdb.d/

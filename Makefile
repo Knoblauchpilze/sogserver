@@ -42,11 +42,24 @@ $(BINDIR)/$(BINNAME): $(SRC)
 # Target to clean any existing build results.
 clean:
 	@rm -rf $(BINDIR)
+	@rm -rf sandbox
 
-# Target providing information about the current version and git
-# status of the project.
+# Target providing information about the current version and
+# git status of the project.
 info:
 	 @echo "Version:           ${VERSION}"
 	 @echo "Git Tag:           ${GIT_TAG}"
 	 @echo "Git Commit:        ${GIT_COMMIT}"
 	 @echo "Git Tree State:    ${GIT_DIRTY}"
+
+# Target performing an install of the server into a sandbox
+# environment resembling the production setup.
+install: build
+	@mkdir -p sandbox
+	@cp scripts/*.sh sandbox
+	@cp -r $(BINDIR) sandbox
+	@cp configs/*.yml sandbox
+
+# Target providing a way to compile and run the server.
+run: install
+	@cd sandbox && ./run.sh local

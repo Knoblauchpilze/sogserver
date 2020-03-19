@@ -24,6 +24,7 @@ func main() {
 		usage()
 	}
 
-	// TODO: Implement the server.
+	// TODO: Implement the server maybe using this design pattern:
+	// https://pace.dev/blog/2018/05/09/how-I-write-http-services-after-eight-years
 	fmt.Println("Hello from oglike_server !")
 }

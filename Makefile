@@ -1,34 +1,52 @@
-debug:
-	mkdir -p build/Debug && cd build/Debug && cmake -DCMAKE_BUILD_TYPE=Debug ../.. && make -j 8
+# Main `Makefile` to build the server. The layout of this file has
+# been inspired by the following links:
+# https://github.com/golang-standards/project-layout
+# https://github.com/helm/helm/blob/master/Makefile
 
-release:
-	mkdir -p build/Release && cd build/Release && cmake -DCMAKE_BUILD_TYPE=Release ../.. && make -j 8
+# Common build variables.
+BINDIR      := $(CURDIR)/bin
+DIST_DIRS   := find * -type d -exec
+TARGETS     := linux/amd64
+TARGET_OBJS ?= linux-amd64.tar.gz linux-amd64.tar.gz.sha256 linux-amd64.tar.gz.sha256sum
+BINNAME     ?= oglike_server
 
+GOPATH        = $(shell go env GOPATH)
+ARCH          = $(shell uname -p)
+
+# go option
+PKG        := ./...
+TAGS       :=
+TESTS      := .
+TESTFLAGS  :=
+LDFLAGS    := -w -s
+GOFLAGS    :=
+SRC        := $(shell find . -type f -name '*.go' -print)
+
+# Required for globs to work correctly
+SHELL      = /usr/bin/env bash
+
+GIT_COMMIT = $(shell git rev-parse HEAD)
+GIT_SHA    = $(shell git rev-parse --short HEAD)
+GIT_TAG    = $(shell git describe --tags --abbrev=0 --exact-match 2>/dev/null)
+GIT_DIRTY  = $(shell test -n "`git status --porcelain`" && echo "dirty" || echo "clean")
+
+.PHONY: all
+all: build
+
+# Target defining the build operation for the server.
+build: $(BINDIR)/$(BINNAME)
+
+$(BINDIR)/$(BINNAME): $(SRC)
+	GO111MODULE=on go build $(GOFLAGS) -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $(BINDIR)/$(BINNAME) ./cmd/oglike_server
+
+# Target to clean any existing build results.
 clean:
-	rm -rf build
+	@rm -rf $(BINDIR)
 
-cleanSandbox:
-	rm -rf sandbox
-
-copyRelease:
-	cp build/Release/bin/* sandbox/bin
-
-copyDebug:
-	cp build/Debug/bin/* sandbox/bin
-
-copy:
-	mkdir -p sandbox/
-	mkdir -p sandbox/bin
-	rsync -avH data sandbox/
-	mv sandbox/data/*.sh sandbox/
-
-sandbox: release copy copyRelease
-
-sandboxDebug: debug copy copyDebug
-
-r: sandbox
-	cd sandbox && ./run.sh local
-
-d: sandboxDebug
-	cd sandbox && ./debug.sh local
-
+# Target providing information about the current version and git
+# status of the project.
+info:
+	 @echo "Version:           ${VERSION}"
+	 @echo "Git Tag:           ${GIT_TAG}"
+	 @echo "Git Commit:        ${GIT_COMMIT}"
+	 @echo "Git Tree State:    ${GIT_DIRTY}"

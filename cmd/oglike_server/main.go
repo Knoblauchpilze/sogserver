@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"net/http"
 )
 
 // usage :
@@ -13,6 +15,11 @@ func usage() {
 	// Server usage: nyce_renderer -config=[file]
 	fmt.Println("Usage:")
 	fmt.Println("-config=[file] for configuration file to use (local/master/staging/production)")
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(fmt.Sprintf("Handling request"))
+	fmt.Fprintf(w, "Hi there, I love %s!\n", r.URL.Path[1:])
 }
 
 // main :
@@ -26,5 +33,6 @@ func main() {
 
 	// TODO: Implement the server maybe using this design pattern:
 	// https://pace.dev/blog/2018/05/09/how-I-write-http-services-after-eight-years
-	fmt.Println("Hello from oglike_server !")
+	http.HandleFunc("/", handler)
+	log.Fatal(http.ListenAndServe(":3007", nil))
 }

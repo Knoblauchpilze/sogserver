@@ -13,7 +13,12 @@ BINNAME     ?= oglike_server
 GOPATH        = $(shell go env GOPATH)
 ARCH          = $(shell uname -p)
 
-# go option
+# Docker setup.
+SERVER_IMAGE_NAME     = oglike_image
+SERVER_CONTAINER_NAME = oglike_container
+SERVER_PORT           = 3007
+
+# Go options.
 PKG        := ./...
 TAGS       :=
 TESTS      := .
@@ -22,9 +27,7 @@ LDFLAGS    := -w -s
 GOFLAGS    :=
 SRC        := $(shell find . -type f -name '*.go' -print)
 
-# Required for globs to work correctly
-SHELL      = /usr/bin/env bash
-
+# Git information.
 GIT_COMMIT = $(shell git rev-parse HEAD)
 GIT_SHA    = $(shell git rev-parse --short HEAD)
 GIT_TAG    = $(shell git describe --tags --abbrev=0 --exact-match 2>/dev/null)
@@ -63,3 +66,23 @@ install: build
 # Target providing a way to compile and run the server.
 run: install
 	@cd sandbox && ./run.sh local
+
+# Target allowing to build the docker image for the server.
+docker:
+	docker build -t ${SERVER_IMAGE_NAME} .
+
+# Target allowing to remove any existing docker image of the server.
+remove: stop
+	docker rm ${SERVER_CONTAINER_NAME}
+
+# Target allowing to create the docker image for the server.
+create:
+	docker run -d --name ${SERVER_CONTAINER_NAME} -p ${SERVER_PORT}:${SERVER_PORT} ${SERVER_IMAGE_NAME}
+
+# Target allowing to start the docker image for the server.
+start:
+	docker start ${SERVER_CONTAINER_NAME}
+
+# Target allowing to stop the docker image fot the server.
+stop:
+	docker stop ${SERVER_CONTAINER_NAME}

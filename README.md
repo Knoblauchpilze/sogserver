@@ -22,9 +22,17 @@ Go to the project's repository `cd ~/path/to/the/repo`. From there, one need to 
 
 ## Build the server
 
-- Compile: `make r`
-- Install: `make install`
+Once the directory is cloned, move to the project's repository with `cd ~/path/to/the/repo`. From there launch the following commands:
+ * `go mod init oglike_server`
+ * `make`
+
+This should build the server and perform a launch of the executable in a controlled environment. To develop and integrate new features, several other targets are provided in the root `Makefile`:
+ * `build`: builds the server.
+ * `clean`: clean any existing build results.
+ * `info`: provide some information about the current git status of the project.
+ * `install`: copies the latest result of the build to a sandbox environment.
+ * `run`: perform a build of the server and run the latest result.
 
 # Usage
 
-The server can be contacted through standard `HTTP` request at the port specified in the configuration.
+The server can be contacted through standard `HTTP` request at the port specified in the configuration files (see [configs](https://github.com/Knoblauchpilze/sogserver/tree/master/configs)).

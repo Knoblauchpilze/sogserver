@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/KnoblauchPilze/sogserver/logger"
 )
 
 // usage :
@@ -30,6 +32,17 @@ func main() {
 	if *help {
 		usage()
 	}
+
+	logger := logger.NewStdLogger("", "127.0.0.1")
+
+	logger.Trace(Verbose, "Verbose message")
+	logger.Trace(Debug, "Debug message")
+	logger.Trace(Info, "Info message")
+	logger.Trace(Notice, "Notice message")
+	logger.Trace(Warning, "Warning message")
+	logger.Trace(Error, "Error message")
+	logger.Trace(Critical, "Critical message")
+	logger.Trace(Fatal, "Fatal message")
 
 	// TODO: Implement the server maybe using this design pattern:
 	// https://pace.dev/blog/2018/05/09/how-I-write-http-services-after-eight-years

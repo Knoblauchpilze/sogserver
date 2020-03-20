@@ -6,7 +6,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/KnoblauchPilze/sogserver/logger"
+	// Note that this link: https://stackoverflow.com/questions/55442878/organize-local-code-in-packages-using-go-modules
+	// proved helpful when trying to determine which syntax to adopt to use packages define locally.
+	"oglike_server/pkg/logger"
 )
 
 // usage :
@@ -33,16 +35,16 @@ func main() {
 		usage()
 	}
 
-	logger := logger.NewStdLogger("", "127.0.0.1")
+	l := logger.NewStdLogger("", "127.0.0.1")
 
-	logger.Trace(Verbose, "Verbose message")
-	logger.Trace(Debug, "Debug message")
-	logger.Trace(Info, "Info message")
-	logger.Trace(Notice, "Notice message")
-	logger.Trace(Warning, "Warning message")
-	logger.Trace(Error, "Error message")
-	logger.Trace(Critical, "Critical message")
-	logger.Trace(Fatal, "Fatal message")
+	l.Trace(logger.Verbose, "Verbose message")
+	l.Trace(logger.Debug, "Debug message")
+	l.Trace(logger.Info, "Info message")
+	l.Trace(logger.Notice, "Notice message")
+	l.Trace(logger.Warning, "Warning message")
+	l.Trace(logger.Error, "Error message")
+	l.Trace(logger.Critical, "Critical message")
+	l.Trace(logger.Fatal, "Fatal message")
 
 	// TODO: Implement the server maybe using this design pattern:
 	// https://pace.dev/blog/2018/05/09/how-I-write-http-services-after-eight-years

@@ -6,23 +6,23 @@ package logger
 type Severity int
 
 const (
-	Verbose Level = iota,
-		Debug,
-		Info,
-		Notice,
-		Warning,
-		Error,
-		Critical,
-		Fatal
+	Verbose Severity = iota
+	Debug
+	Info
+	Notice
+	Warning
+	Error
+	Critical
+	Fatal
 )
 
-// String :
+// Name :
 // Provides a string value from the input level identifier. This
 // is very useful when actually producing the logs for a given
 // level.
 //
 // Returns the string representing the input log level.
-func (l Level) String() string {
+func (s Severity) Name() string {
 	return [...]string{
 		"verbose",
 		"debug",
@@ -32,5 +32,36 @@ func (l Level) String() string {
 		"error",
 		"critical",
 		"fatal",
-	}[d]
+	}[s]
+}
+
+// Color :
+// Provides a color value representing the severity. This is used
+// as a visual way to distinguish between severity when displayed
+// in a logging device.
+//
+// Returns a color value that can be used to change the display
+// for the corresponding severity.
+func (s Severity) Color() Color {
+	return [...]Color{
+		Grey,
+		Blue,
+		Green,
+		Cyan,
+		Yellow,
+		Red,
+		Red,
+		Red,
+	}[s]
+}
+
+// String :
+// Provides a complete string representing the input severity and
+// which includes some color formatting to display it with a color
+// that matches its importance.
+//
+// Returns the string allowing to format the display device to
+// print this severity.
+func (s Severity) String() string {
+	return FormatWithBrackets(s.Name(), s.Color())
 }

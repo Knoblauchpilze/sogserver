@@ -3,7 +3,7 @@ package logger
 import (
 	"fmt"
 	"sync"
-	"unsafe"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -70,9 +70,9 @@ type configuration struct {
 // events are usually the carriers of metrics or relevant information about the
 // state of the application.
 //
-// The `Severity` value represents the actual importance of the log message.
+// The `severity` value represents the actual importance of the log message.
 //
-// The `Name` might be nil and represents a key describing the message. An example
+// The `name` might be nil and represents a key describing the message. An example
 // can be given as follows:
 //    Name: "Player"
 //    Content "Creation: date"
@@ -82,11 +82,11 @@ type configuration struct {
 // Note that this property is not displayed in the case of simple message but is
 // used in the case events.
 //
-// The `Content` represent the content of the message and is dumped as is during
+// The `content` represent the content of the message and is dumped as is during
 // the logging process. It might be anythng the user want, but common values are
 // plain strings for simple messages and json string for events.
 //
-// The `IsEvent` boolean is true if the trace represents an event and false otherwise.
+// The `isEvent` boolean is true if the trace represents an event and false otherwise.
 // Note that it does not imply anything about the values of `Name` or `Content`, the
 // only difference comes from the logging method. Events will be dumped without pretty
 // information (such as the name of the application, the timestamp, etc.) while simple
@@ -94,10 +94,10 @@ type configuration struct {
 // The reason behind that is that we consider that events should be self-explanatory
 // while simple messages should not.
 type traceMessage struct {
-	Level   Severity
-	Name    string
-	Content string
-	IsEvent bool
+	level   Severity
+	name    string
+	content string
+	isEvent bool
 }
 
 // StdLogger :
@@ -198,20 +198,18 @@ func parseConfiguration() configuration {
 // logger. If no such IP is provided (i.e. nil value) the default value "local"
 // is set so that we can determine that the machine is probably a local instance.
 //
-// The return value represents the produced logger. Note that this routine may
-// return an error in case the configuration cannot be performed for the new
-// logger to create. The return object should not be used in case the `error`
-// is not `nil`.
-func NewStdLogger(instanceID string, publicIP string) (StdLogger, error) {
+// The return value represents the produced logger.
+func NewStdLogger(instanceID string, publicIP string) StdLogger {
 	// Retrieve the configuration.
 	config := parseConfiguration()
 
+	fmt.Println(fmt.Sprintf("Conf is %v", config))
+
 	// Create the logger.
-	logger := Logger{
+	log := StdLogger{
 		config,
 		instanceID,
 		publicIP,
-		cGoModule,
 		make(chan traceMessage, config.Buffer),
 		make(chan bool),
 		false,
@@ -219,30 +217,38 @@ func NewStdLogger(instanceID string, publicIP string) (StdLogger, error) {
 		sync.WaitGroup{},
 	}
 
+	// Update the public IP and instance ID in case no values are provided.
+	if len(log.instanceID) == 0 {
+		log.instanceID = "local"
+	}
+	if len(log.publicIP) == 0 {
+		log.publicIP = "localhost"
+	}
+
 	// Start logging.
-	logger.waiter.Add(1)
-	go logger.performLogging()
+	log.waiter.Add(1)
+	go log.performLogging()
 
 	// Return the built-in logger.
-	return logger, nil
+	return log
 }
 
 // Release :
 // Used to perform the stopping of the active loop meant to handle logging
 // to the underlying device. It will block until the method actually does
 // return to make sure that the last logs posted will be dumped.
-func (logger *StdLogger) Release() {
+func (log *StdLogger) Release() {
 	// Request the termination of the active loop.
-	logger.endChannel <- false
+	log.endChannel <- false
 
 	// Close the log channel.
-	logger.locker.Lock()
-	logger.closed = true
-	close(logger.logChannel)
-	logger.locker.Unlock()
+	log.locker.Lock()
+	log.closed = true
+	close(log.logChannel)
+	log.locker.Unlock()
 
 	// Wait for the routine termination.
-	logger.waiter.Wait()
+	log.waiter.Wait()
 }
 
 // Trace :
@@ -257,7 +263,7 @@ func (logger *StdLogger) Release() {
 // The `level` describes the severity of the message to log.
 //
 // The `message` describes the content of the message to log.
-func (logger *StdLogger) Trace(level Severity, message string) {
+func (log *StdLogger) Trace(level Severity, message string) {
 	// Create a trace object from the input element.
 	trace := traceMessage{
 		level,
@@ -267,44 +273,38 @@ func (logger *StdLogger) Trace(level Severity, message string) {
 	}
 
 	// Enqueue the trace to the internal channel if it is not closed yet.
-	logger.locker.Lock()
-	defer logger.locker.Unlock()
-	if !logger.closed {
-		logger.logChannel <- trace
+	log.locker.Lock()
+	defer log.locker.Unlock()
+	if !log.closed {
+		log.logChannel <- trace
 	}
 }
 
 // performLogging :
 // Used to perform logging. This method is meant to be launched as a go routine
 // and will regularly poll the internal trace channel to perform logging.
-func (logger *StdLogger) performLogging() {
+func (log *StdLogger) performLogging() {
 	// Until we request stop, we must continue logging.
 	keepConnection := true
 
 	for keepConnection {
 		select {
-		case keepConnection = <-logger.endChannel:
+		case keepConnection = <-log.endChannel:
 			// The end channel has been activated, terminate the logging process.
 			break
-		case trace := <-logger.logChannel:
+		case trace := <-log.logChannel:
 			// A new trace is available, log it.
-			err := logger.performSingleLog(trace)
-			if err != nil {
-				fmt.Println(fmt.Sprintf("[%s] [%s] Could not log trace message properly (err: %v)", logger.config.AppName, logger.instanceID, err))
-			}
+			log.performSingleLog(trace)
 		}
 	}
 
 	// Iterate over the remaining message of the log channel.
-	for trace := range logger.logChannel {
-		err := logger.performSingleLog(trace)
-		if err != nil {
-			fmt.Println(fmt.Sprintf("[%s] [%s] Could not log trace message properly (err: %v)", logger.config.AppName, logger.instanceID, err))
-		}
+	for trace := range log.logChannel {
+		log.performSingleLog(trace)
 	}
 
 	// Set the routine as done.
-	logger.waiter.Done()
+	log.waiter.Done()
 }
 
 // performSingleLog :
@@ -315,9 +315,15 @@ func (logger *StdLogger) performLogging() {
 // and the suited wrapper method is used.
 //
 // The `trace` describes the message or event to log.
-//
-// The return value includes any error.
-func (logger *Logger) performSingleLog(trace traceMessage) error {
-	// TODO: Handle this.
-	fmt.Println(fmt.Sprintf("Should handle logging \"%s\"", trace.Content))
+func (log *StdLogger) performSingleLog(trace traceMessage) {
+	// Format the log to the standard output by providing some information about
+	// the message to log and the instance producing it.
+	out := FormatWithBrackets(log.config.AppName, Magenta)
+	out += " " + FormatWithBrackets(log.instanceID, Magenta)
+	out += " " + FormatWithNoBrackets(time.Now().Format("2006-01-02 15:04:05"), Magenta)
+	out += " " + trace.level.String()
+
+	out += " " + trace.content
+
+	fmt.Println(out)
 }

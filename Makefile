@@ -65,7 +65,7 @@ install: build
 
 # Target providing a way to compile and run the server.
 run: install
-	@cd sandbox && ./run.sh local
+	@cd sandbox && ./run.sh development
 
 # Target allowing to build the docker image for the server.
 docker:

@@ -1,0 +1,16 @@
+# Port to be used for the api
+App:
+  Port: 3000
+# Database setup
+Database:
+  Host: 'localhost'
+  Port: 5500
+  DBname: 'oglike_db'
+  User: 'og_administrator'
+  Password: 'Ww76hQWbbt7zi2ItM6cNo4YYT'
+# Logger setup
+Logger:
+  Name: "oglike"
+  Environment: "dev"
+  ForceLocal: true
+  Level: "debug"

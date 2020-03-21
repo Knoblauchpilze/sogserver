@@ -8,6 +8,7 @@ import (
 
 	// Note that this link: https://stackoverflow.com/questions/55442878/organize-local-code-in-packages-using-go-modules
 	// proved helpful when trying to determine which syntax to adopt to use packages define locally.
+	"oglike_server/pkg/arguments"
 	"oglike_server/pkg/logger"
 )
 
@@ -16,11 +17,11 @@ import (
 // to be able to fetch the configuration variables to use during the execution
 // of the server.
 func usage() {
-	// Server usage: nyce_renderer -config=[file]
 	fmt.Println("Usage:")
-	fmt.Println("-config=[file] for configuration file to use (local/master/staging/production)")
+	fmt.Println("./oglike_server -config=[file] for configuration file to use (development/production)")
 }
 
+// TODO: Remove this.
 func handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(fmt.Sprintf("Handling request"))
 	fmt.Fprintf(w, "Hi there, I love %s!\n", r.URL.Path[1:])
@@ -29,13 +30,26 @@ func handler(w http.ResponseWriter, r *http.Request) {
 // main :
 // Start the server and perform http listening.
 func main() {
-	// Handle help flag
+	// Define common flags.
 	help := flag.Bool("h", false, "Print usage")
+	conf := flag.String("config", "", "Configuration file to customize app behavior (development/production)")
+
+	// Parse flags.
+	flag.Parse()
+
+	// Check for help flag.
 	if *help {
 		usage()
 	}
 
-	l := logger.NewStdLogger("", "127.0.0.1")
+	// Parse configuration if any.
+	trueConf := ""
+	if conf != nil {
+		trueConf = *conf
+	}
+	metadata := arguments.Parse(trueConf)
+
+	l := logger.NewStdLogger(metadata.InstanceID, metadata.PublicIPv4)
 
 	l.Trace(logger.Verbose, "Verbose message")
 	l.Trace(logger.Debug, "Debug message")

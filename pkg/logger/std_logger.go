@@ -22,13 +22,19 @@ import (
 // The default value is "Unknown app".
 //
 // The `Environment` allows to specify which configuration is used by the
-// application executing the logger. Typical values include `master` and
-// all other settings such as `development`, etc. but other can be provided
-// at any time. Usually this string is meant to refer to a dedicated file
+// application executing the logger. Typical values include `production`
+// and all other settings such as `development`, etc. but other can be set
+// if needed. Usually this string is meant to refer to a dedicated file
 // describing the related configuration, which allows to quickly determine
 // which environment is used by any application without needing to check
 // other more obfuscated parameters.
-// The default value is "master".
+// The default value is "development".
+//
+// The `ForceLocal` allows to make sure that the instance ID assigned to
+// this logger will be "local" no matter what the value provided by the
+// runtime is. This allows to make logs in development environment clearer
+// by ignoring the automatically generated name.
+// The default value is `false`.
 //
 // The `Level` is a string representing the minimum level of a log message
 // in order for it to be displayed. Basically it allows to filter debug
@@ -52,6 +58,7 @@ import (
 type configuration struct {
 	AppName     string
 	Environment string
+	ForceLocal  bool
 	Level       string
 	Buffer      int
 }
@@ -121,8 +128,8 @@ type traceMessage struct {
 // running on a single machine.
 //
 // The `publicIP` represents the public IP of the machine as a string. Note that in
-// case no public IP can be determined a "local" value is used as default in order
-// not to mix this instance with true remote machines.
+// case no public IP can be determined a "localhost" value is used as default in
+// order not to mix this instance with true remote machines.
 //
 // The `logChannel` is used to receive the trace messages from go modules before
 // sending them to the logging device. Its size is determined by the configuration
@@ -163,7 +170,8 @@ func parseConfiguration() configuration {
 	// Provide a default configuration.
 	config := configuration{
 		"Unknown app",
-		"master",
+		"development",
+		false,
 		"info",
 		500,
 	}
@@ -174,6 +182,9 @@ func parseConfiguration() configuration {
 	}
 	if viper.IsSet("Logger.Environment") {
 		config.Environment = viper.GetString("Logger.Environment")
+	}
+	if viper.IsSet("Logger.ForceLocal") {
+		config.ForceLocal = viper.GetBool("Logger.ForceLocal")
 	}
 	if viper.IsSet("Logger.Level") {
 		config.Level = viper.GetString("Logger.Level")
@@ -191,19 +202,19 @@ func parseConfiguration() configuration {
 // The created logger will parse the configuration file provided by the env
 // and adapt its configuration right away.
 //
-// The `instanceID` string might be equal to "localhost" if no instance ID is
-// provided by the server's properties.
+// The `instanceID` string might be equal to "local" if no instance ID is
+// provided by the server's properties. Otherwise it corresponds to a unique
+// identifier of the machine running the logger.
 //
 // The `publicIP` provides the IP to use to target the machine executing the
-// logger. If no such IP is provided (i.e. nil value) the default value "local"
-// is set so that we can determine that the machine is probably a local instance.
+// logger. If no such IP is provided (i.e. empty value) the default value is
+// set to "localhost" so that we can still provide a consistent behavior by
+// assuming that the server is ran locally.
 //
 // The return value represents the produced logger.
-func NewStdLogger(instanceID string, publicIP string) StdLogger {
+func NewStdLogger(instanceID string, publicIP string) Logger {
 	// Retrieve the configuration.
 	config := parseConfiguration()
-
-	fmt.Println(fmt.Sprintf("Conf is %v", config))
 
 	// Create the logger.
 	log := StdLogger{
@@ -218,7 +229,7 @@ func NewStdLogger(instanceID string, publicIP string) StdLogger {
 	}
 
 	// Update the public IP and instance ID in case no values are provided.
-	if len(log.instanceID) == 0 {
+	if len(log.instanceID) == 0 || config.ForceLocal {
 		log.instanceID = "local"
 	}
 	if len(log.publicIP) == 0 {
@@ -230,7 +241,7 @@ func NewStdLogger(instanceID string, publicIP string) StdLogger {
 	go log.performLogging()
 
 	// Return the built-in logger.
-	return log
+	return &log
 }
 
 // Release :

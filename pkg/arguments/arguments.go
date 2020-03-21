@@ -40,8 +40,7 @@ import (
 // of machines. A common example includes providing lower log level in
 // production environment because we usually assumes that the debugging
 // has already been performed in development.
-// Typical values include can be `development`, `master`, `production`,
-// etc.
+// Typical values include can be `development`, `production`, etc.
 // The default value is "unknown".
 //
 // The `Port` specifies on which port the end points defined by the app

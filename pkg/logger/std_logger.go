@@ -17,11 +17,11 @@ import (
 // local configuration but information are retrieved from the configuration
 // file to modify it.
 //
-// The `AppName` describes a string for the name of the application using
+// The `name` describes a string for the name of the application using
 // the logger.
 // The default value is "Unknown app".
 //
-// The `Environment` allows to specify which configuration is used by the
+// The `environment` allows to specify which configuration is used by the
 // application executing the logger. Typical values include `production`
 // and all other settings such as `development`, etc. but other can be set
 // if needed. Usually this string is meant to refer to a dedicated file
@@ -30,20 +30,20 @@ import (
 // other more obfuscated parameters.
 // The default value is "development".
 //
-// The `ForceLocal` allows to make sure that the instance ID assigned to
+// The `forceLocal` allows to make sure that the instance ID assigned to
 // this logger will be "local" no matter what the value provided by the
 // runtime is. This allows to make logs in development environment clearer
 // by ignoring the automatically generated name.
 // The default value is `false`.
 //
-// The `Level` is a string representing the minimum level of a log message
+// The `level` is a string representing the minimum level of a log message
 // in order for it to be displayed. Basically it allows to filter debug
 // message from production environment or to also supress info message so
 // that important messages get their deserved visibility in critical envs
 // (such as production for example).
 // The default value is "info".
 //
-// The `Buffer` allows to specify the size of the buffer to handle log
+// The `buffer` allows to specify the size of the buffer to handle log
 // messages. As we might have phases where the application produce lots of
 // log messages, the logger does not directly output message to the standard
 // output. Instead it stores them in an internal buffer with a predefined
@@ -56,11 +56,11 @@ import (
 // process messages fast enough this buffer is bound to
 // The default value is 500.
 type configuration struct {
-	AppName     string
-	Environment string
-	ForceLocal  bool
-	Level       string
-	Buffer      int
+	name        string
+	environment string
+	forceLocal  bool
+	level       string
+	buffer      int
 }
 
 // traceMessage :
@@ -131,6 +131,11 @@ type traceMessage struct {
 // case no public IP can be determined a "localhost" value is used as default in
 // order not to mix this instance with true remote machines.
 //
+// The `Level` defines the minimum severity that a log message should have so as
+// to pass the filter that is applied to any trace before being displayed. This
+// allows to very easily control the volume of logs that will be effectively set
+// visible for the user without chaning any part of the code.
+//
 // The `logChannel` is used to receive the trace messages from go modules before
 // sending them to the logging device. Its size is determined by the configuration
 // file and it allows a lagless enqueuing of messages as long as the buffer is not
@@ -153,6 +158,7 @@ type StdLogger struct {
 	config     configuration
 	instanceID string
 	publicIP   string
+	level      Severity
 	logChannel chan traceMessage
 	endChannel chan bool
 	closed     bool
@@ -178,19 +184,19 @@ func parseConfiguration() configuration {
 
 	// Parse the description file if any.
 	if viper.IsSet("Logger.Name") {
-		config.AppName = viper.GetString("Logger.Name")
+		config.name = viper.GetString("Logger.Name")
 	}
 	if viper.IsSet("Logger.Environment") {
-		config.Environment = viper.GetString("Logger.Environment")
+		config.environment = viper.GetString("Logger.Environment")
 	}
 	if viper.IsSet("Logger.ForceLocal") {
-		config.ForceLocal = viper.GetBool("Logger.ForceLocal")
+		config.forceLocal = viper.GetBool("Logger.ForceLocal")
 	}
 	if viper.IsSet("Logger.Level") {
-		config.Level = viper.GetString("Logger.Level")
+		config.level = viper.GetString("Logger.Level")
 	}
 	if viper.IsSet("Logger.Buffer") {
-		config.Buffer = viper.GetInt("Logger.Buffer")
+		config.buffer = viper.GetInt("Logger.Buffer")
 	}
 
 	// All is well
@@ -221,7 +227,8 @@ func NewStdLogger(instanceID string, publicIP string) Logger {
 		config,
 		instanceID,
 		publicIP,
-		make(chan traceMessage, config.Buffer),
+		fromString(config.level),
+		make(chan traceMessage, config.buffer),
 		make(chan bool),
 		false,
 		sync.Mutex{},
@@ -229,7 +236,7 @@ func NewStdLogger(instanceID string, publicIP string) Logger {
 	}
 
 	// Update the public IP and instance ID in case no values are provided.
-	if len(log.instanceID) == 0 || config.ForceLocal {
+	if len(log.instanceID) == 0 || config.forceLocal {
 		log.instanceID = "local"
 	}
 	if len(log.publicIP) == 0 {
@@ -327,10 +334,18 @@ func (log *StdLogger) performLogging() {
 //
 // The `trace` describes the message or event to log.
 func (log *StdLogger) performSingleLog(trace traceMessage) {
+	// Make sure that the log can be displayed: this is done by checking that its
+	// severity is at least equal to the current log level.
+	if trace.level < log.level {
+		return
+	}
+
 	// Format the log to the standard output by providing some information about
 	// the message to log and the instance producing it.
-	out := FormatWithBrackets(log.config.AppName, Magenta)
+	out := FormatWithBrackets(log.config.name, Green)
+	out += " " + FormatWithBrackets(log.config.environment, Blue)
 	out += " " + FormatWithBrackets(log.instanceID, Magenta)
+	out += " " + FormatWithBrackets(log.publicIP, Magenta)
 	out += " " + FormatWithNoBrackets(time.Now().Format("2006-01-02 15:04:05"), Magenta)
 	out += " " + trace.level.String()
 

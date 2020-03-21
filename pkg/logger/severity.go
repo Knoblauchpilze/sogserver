@@ -1,5 +1,7 @@
 package logger
 
+import "strings"
+
 // Severity:
 // Describes the various available log severities that can be
 // used in conjunction with the logger interface.
@@ -64,4 +66,43 @@ func (s Severity) Color() Color {
 // print this severity.
 func (s Severity) String() string {
 	return FormatWithBrackets(s.Name(), s.Color())
+}
+
+// fromString :
+// Converts the input string into the corresponding severity value.
+// In case the input severity does not correspond to a known value
+// a `verbose` severity is returned.
+// Note that the case is not important (so `Debug`, `DeBug`, `debug`
+// or any other variations will all be converted to a severity of
+// `Debug`).
+//
+// The `level` represents the string to convert to a severity.
+//
+// Returns the severity associated to the input string.
+func fromString(level string) Severity {
+	// Lowercase the input string.
+	lower := strings.ToLower(level)
+
+	// Determine the severity associated to this string.
+	switch lower {
+	case "debug":
+		return Debug
+	case "info":
+		return Info
+	case "notice":
+		return Notice
+	case "warning":
+		return Warning
+	case "error":
+		return Error
+	case "critical":
+		return Critical
+	case "fatal":
+		return Fatal
+	case "verbose":
+		fallthrough
+	default:
+		// Assume verbose by default.
+		return Verbose
+	}
 }

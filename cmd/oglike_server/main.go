@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	// Note that this link: https://stackoverflow.com/questions/55442878/organize-local-code-in-packages-using-go-modules
 	// proved helpful when trying to determine which syntax to adopt to use packages define locally.
@@ -105,5 +106,5 @@ func main() {
 	// TODO: Implement the server maybe using this design pattern:
 	// https://pace.dev/blog/2018/05/09/how-I-write-http-services-after-eight-years
 	http.HandleFunc("/", h.handler)
-	http.ListenAndServe(":3007", nil)
+	http.ListenAndServe(":"+strconv.FormatInt(int64(metadata.Port), 10), nil)
 }

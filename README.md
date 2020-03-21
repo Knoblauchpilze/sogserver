@@ -37,10 +37,10 @@ This should build the server and perform a launch of the executable in a control
 ## Build the server docker image
 
 The server can also be packaged independently in a docker image. This is also provided by the root `Makefile` with dedicated targets:
- * Create the docker image: `make docker`
  * Remove any existing container (only if a `make create` has already been launched before): `make remove`.
+ * Create the docker image: `make docker`.
  * Create the docker container from the image: `make create`.
- * Run the container: `make start`
+ * Run the container: `make start`.
 
 Note that the server for now is only reachable if it uses the port `3000` as defined in the `Dockerfile`. This is a limitation that it is not yet planned to correct.
 To see the logs of the container one can use the `docker logs -f oglike_container` command. If the environment to use should be modified the environment variable `APP_ENVIRONMENT` can be overriden when creating the docker. So instead of the `make create` one can use the following option when launching the container: `--env APP_ENVIRONMENT=production`.

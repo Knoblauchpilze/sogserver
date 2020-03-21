@@ -218,7 +218,7 @@ func parseConfiguration() configuration {
 // assuming that the server is ran locally.
 //
 // The return value represents the produced logger.
-func NewStdLogger(instanceID string, publicIP string) Logger {
+func NewStdLogger(instanceID string, publicIP string) *StdLogger {
 	// Retrieve the configuration.
 	config := parseConfiguration()
 

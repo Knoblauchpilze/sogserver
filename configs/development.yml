@@ -5,9 +5,10 @@ App:
 Database:
   Host: 'localhost'
   Port: 5500
-  DBname: 'oglike_db'
+  Name: 'oglike_db'
   User: 'og_administrator'
   Password: 'Ww76hQWbbt7zi2ItM6cNo4YYT'
+  Timeout: 1
 # Logger setup
 Logger:
   Name: "oglike"

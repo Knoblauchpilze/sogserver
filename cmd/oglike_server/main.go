@@ -103,6 +103,8 @@ func main() {
 
 	h := Han{DB}
 
+	fmt.Println(fmt.Sprintf("Listening on port %d", metadata.Port))
+
 	// TODO: Implement the server maybe using this design pattern:
 	// https://pace.dev/blog/2018/05/09/how-I-write-http-services-after-eight-years
 	http.HandleFunc("/", h.handler)

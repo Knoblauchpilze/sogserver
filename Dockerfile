@@ -4,8 +4,9 @@ WORKDIR /opt/dist
 
 COPY sandbox /opt/dist
 
+ENV LD_LIBRARY_PATH /opt/dist/lib
+ENV APP_ENVIRONMENT development
+
 EXPOSE 3000
 
-ENV LD_LIBRARY_PATH /opt/dist/lib
-
-CMD /opt/dist/run.sh ${GO_ENV}
+CMD /opt/dist/run.sh ${APP_ENVIRONMENT}

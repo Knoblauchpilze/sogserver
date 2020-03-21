@@ -16,7 +16,6 @@ ARCH          = $(shell uname -p)
 # Docker setup.
 SERVER_IMAGE_NAME     = oglike_image
 SERVER_CONTAINER_NAME = oglike_container
-SERVER_PORT           = 3007
 
 # Go options.
 PKG        := ./...
@@ -34,7 +33,7 @@ GIT_TAG    = $(shell git describe --tags --abbrev=0 --exact-match 2>/dev/null)
 GIT_DIRTY  = $(shell test -n "`git status --porcelain`" && echo "dirty" || echo "clean")
 
 .PHONY: all
-all: build
+all: run
 
 # Target defining the build operation for the server.
 build: $(BINDIR)/$(BINNAME)
@@ -61,28 +60,34 @@ install: build
 	@mkdir -p sandbox
 	@cp scripts/*.sh sandbox
 	@cp -r $(BINDIR) sandbox
-	@cp configs/*.yml sandbox
+	@mkdir -p sandbox/data/config
+	@cp configs/*.yml sandbox/data/config
 
 # Target providing a way to compile and run the server.
 run: install
 	@cd sandbox && ./run.sh development
 
 # Target allowing to build the docker image for the server.
-docker:
+docker: install
 	docker build -t ${SERVER_IMAGE_NAME} .
 
 # Target allowing to remove any existing docker image of the server.
 remove: stop
 	docker rm ${SERVER_CONTAINER_NAME}
+	docker image rm ${SERVER_IMAGE_NAME}
 
 # Target allowing to create the docker image for the server.
-create:
-	docker run -d --name ${SERVER_CONTAINER_NAME} -p ${SERVER_PORT}:${SERVER_PORT} ${SERVER_IMAGE_NAME}
+create: docker
+	docker run -d --name ${SERVER_CONTAINER_NAME} -P ${SERVER_IMAGE_NAME}
 
 # Target allowing to start the docker image for the server.
 start:
 	docker start ${SERVER_CONTAINER_NAME}
 
-# Target allowing to stop the docker image fot the server.
+# Target allowing to stop the docker image for the server.
 stop:
 	docker stop ${SERVER_CONTAINER_NAME}
+
+# Target allowing to launch an interactive shell inside the server docker image.
+connect:
+	docker run -it -p ${SERVER_PORT}:${SERVER_PORT} --entrypoint /bin/bash ${SERVER_IMAGE_NAME}

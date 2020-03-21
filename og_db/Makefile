@@ -12,6 +12,7 @@ docker_db:
 # Target allowing to remove any existing docker image of the db.
 remove_db: stop_db
 	docker rm oglike_db_container
+	docker image rm oglike_db_image
 
 # Target allowing to create the docker image for the db.
 create_db:

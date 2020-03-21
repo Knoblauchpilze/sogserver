@@ -9,6 +9,7 @@ Database:
   User: 'og_administrator'
   Password: 'Ww76hQWbbt7zi2ItM6cNo4YYT'
   Timeout: 1
+  ConnectionsPool: 3
 # Logger setup
 Logger:
   Name: "oglike"

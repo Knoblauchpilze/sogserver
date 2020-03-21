@@ -43,13 +43,21 @@ import (
 // for this amount of time before trying again. This time
 // is expressed in seconds.
 // The default value is `5` seconds.
+//
+// The `connectionsPool` defines the number of concurrent
+// connections that can be issued on the underlying DB. The
+// larger this value the more stress will be put on the DB
+// but the more clients will be able to concurrently access
+// it.
+// The default value is `5`.
 type configuration struct {
-	host     string
-	port     int
-	name     string
-	user     string
-	password string
-	timeout  int
+	host            string
+	port            int
+	name            string
+	user            string
+	password        string
+	timeout         int
+	connectionsPool int
 }
 
 // DB :
@@ -102,6 +110,7 @@ func parseConfiguration() configuration {
 		"",
 		"",
 		5,
+		5,
 	}
 
 	// Fetch configuration values from the runtime.
@@ -123,9 +132,13 @@ func parseConfiguration() configuration {
 	if viper.IsSet("Database.Timeout") {
 		config.timeout = viper.GetInt("Database.Timeout")
 	}
+	if viper.IsSet("Database.ConnectionsPool") {
+		config.connectionsPool = viper.GetInt("Database.ConnectionsPool")
+	}
 
 	// Check whether we could find all the mandatory
-	// configuration properties.
+	// configuration properties and that the rest of
+	// the values are consistent.
 	if len(config.name) == 0 {
 		panic(fmt.Errorf("Invalid DB name fetched from configuration \"%s\"", config.name))
 	}
@@ -134,6 +147,12 @@ func parseConfiguration() configuration {
 	}
 	if len(config.password) == 0 {
 		panic(fmt.Errorf("Invalid DB password fetched from configuration \"%s\"", config.password))
+	}
+	if config.port < 0 {
+		panic(fmt.Errorf("Invalid DB port fetched from configuration %d", config.port))
+	}
+	if config.connectionsPool <= 0 {
+		panic(fmt.Errorf("Invalid DB connections pool fetched from configuration %d", config.connectionsPool))
 	}
 
 	return config
@@ -209,7 +228,7 @@ func (dbase *DB) createPoolAttempt() bool {
 			User:     config.user,
 			Password: config.password,
 		},
-		MaxConnections: 2,
+		MaxConnections: config.connectionsPool,
 		AcquireTimeout: 0,
 	})
 
@@ -236,6 +255,17 @@ func (dbase *DB) createPoolAttempt() bool {
 // Used to check the health of the connection to the DB. In case
 // the connection is found not to be healthy, a new attempt is
 // scheduled immediately.
+// Note that if the connection with the database has been lost
+// for some readon, the test performed by this method will not
+// allow to detect it and will thus return as if the connection
+// was still healthy.
+// This could be resolved by actually querying the DB (because
+// it seems that a query does flag the connection as invalid or
+// rather indicates that the connection is not valid anymore so
+// we effectively reach `0` in the current connection count) but
+// for now we will consider that it's enough. In any case when
+// a user actually performs a request we detect that and the
+// healthcheck fails so a new connection attempt is scheduled.
 func (dbase *DB) Healthcheck() {
 	// Retrieve the current connection status.
 	dbIsNil := false

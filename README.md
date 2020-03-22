@@ -15,11 +15,29 @@ Go to the project's repository `cd ~/path/to/the/repo`. From there, one needs to
 
 ## Build the database docker image
 
+Creating the database is useful so that the server can access tot he data model needed to perform the computations for the application. This includes all the hard-coded values used by the game during the simulation. This consists in two steps: building the db container and initializing it.
+
+### Create the DB container
+
 - Go to `og_db`.
 - Create the db: `make docker_db`.
 - Run the db: `make create_db`. Note that in case a previous operation already succeeded one should call `make remove_db` beforehand as a container with this name already exists.
-- Start the db container: `make start_db`.
-- Connect to the db if needed through the `make connect` target.
+- Initialize the database by calling the `make migrate` target: this will create the schema associated to the data model of the application and populate the needed fields.
+
+### Iterate on the DB schema
+
+In case some new information need to be added to the database one can use the migrations mechanism. By creating a new migration file in the relevant [directory](https://github.com/Knoblauchpilze/sogserver/tree/master/og_db/migrations) and naming accordingly (increment the number so that the `migrate` tool knows in which order migrations should be ran) it is possible to perform some modifications of the db by altering some properties. The migration should respect the existing constraints on the tables.
+Once this is done one can rebuild the db by using the `make migrate` target which will only apply the migrations not yet persisted in the db schema.
+
+### Managing the DB
+
+If the db container has been stopped for some reasons one can relaunch it through the `make start_db` command. One can also directly connect to the db using the `make connect` command. The password to do so can be found in the configuration files.
+In case a rebuild of the db is needed please proceed to launch the following commands:
+ - `make remove_db` will stop the db container (if needed) and remove any existing images/container image referencing it.
+ - `make docker_db` will rebuild the docker image of the db.
+ - `make create_db` will run the docker image as a fully-fleshed container.
+ - `make migrate` will initialize the db schema.
+Note that these commands should be launched directly fro the `og_db` directory.
 
 ## Build the server
 

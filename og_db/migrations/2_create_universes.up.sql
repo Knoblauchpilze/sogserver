@@ -9,6 +9,7 @@ CREATE TABLE universes (
     research_speed integer NOT NULL,
     fleet_to_ruins_ratio numeric(4,2) NOT NULL,
     defense_to_ruins_ratio numeric(4,2) NOT NULL default 0,
+    consumption_ratio numeric(3, 2),
     galaxy_count integer NOT NULL,
     solar_system_size integer NOT NULL,
     PRIMARY KEY (id)

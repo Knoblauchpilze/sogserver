@@ -37,6 +37,7 @@ In case a rebuild of the db is needed please proceed to launch the following com
  - `make docker_db` will rebuild the docker image of the db.
  - `make create_db` will run the docker image as a fully-fleshed container.
  - `make migrate` will initialize the db schema.
+ 
 Note that these commands should be launched directly fro the `og_db` directory.
 
 ## Build the server

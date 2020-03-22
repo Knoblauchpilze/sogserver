@@ -1,4 +1,7 @@
 
+-- Drop the table referencing the technologies per player.
+DROP TABLE player_technologies;
+
 -- Drop both the accounts and players tables and the associated triggers.
 DROP TRIGGER update_player_creation_time ON players;
 DROP TABLE players;

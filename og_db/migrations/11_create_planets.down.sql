@@ -1,4 +1,11 @@
 
+
+-- Create the table containing the ships on each planet.
+DROP TABLE planets_ships;
+
+-- Drop the table representing the defenses by planets.
+DROP TABLE planets_defenses;
+
 -- Drop the resources per planet table.
 DROP TABLE planets_resources;
 

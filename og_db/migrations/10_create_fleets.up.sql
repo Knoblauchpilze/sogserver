@@ -10,7 +10,7 @@ CREATE TABLE fleet_objectives (
 CREATE TABLE fleets (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
     name text,
-    objective uuid references fleet_objectives,
+    objective uuid NOT NULL references fleet_objectives,
     galaxy integer NOT NULL,
     solar_system integer NOT NULL,
     position integer NOT NULL,
@@ -24,9 +24,9 @@ CREATE TRIGGER update_fleet_creation_time BEFORE INSERT ON fleets FOR EACH ROW E
 
 -- Create the table for vessels belonging to a fleet.
 CREATE TABLE fleet_ships (
-  fleet uuid references fleets,
-  ship uuid references ships,
-  player uuid references players,
+  fleet uuid NOT NULL references fleets,
+  ship uuid NOT NULL references ships,
+  player uuid NOT NULL references players,
   amount integer NOT NULL default 0,
   start_galaxy integer NOT NULL,
   start_solar_system integer NOT NULL,

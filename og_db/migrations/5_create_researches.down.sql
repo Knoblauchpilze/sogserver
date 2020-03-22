@@ -1,9 +1,9 @@
 
--- Drop the researches' costs progress table.
-DROP TABLE researches_costs_progress;
+-- Drop the technologies' costs progress table.
+DROP TABLE technologies_costs_progress;
 
--- Drop the researches' costs table.
-DROP TABLE researches_costs;
+-- Drop the technologies' costs table.
+DROP TABLE technologies_costs;
 
--- Drop the researches table.
-DROP TABLE researches;
+-- Drop the technologies table.
+DROP TABLE technologies;

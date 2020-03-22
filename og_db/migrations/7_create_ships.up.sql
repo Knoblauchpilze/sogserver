@@ -3,7 +3,7 @@
 CREATE TABLE ships (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
     name text,
-    propulsion uuid NOT NULL references researches,
+    propulsion uuid NOT NULL references technologies,
     speed integer NOT NULL,
     cargo integer NOT NULL,
     shield integer NOT NULL,
@@ -21,7 +21,7 @@ CREATE TABLE ships_costs (
 -- Create the table representing the increase in propulsion speed for
 -- various propulsion technologies.
 CREATE TABLE ships_propulsion_increase (
-  propulsion uuid references researches,
+  propulsion uuid references technologies,
   increase integer NOT NULL
 );
 

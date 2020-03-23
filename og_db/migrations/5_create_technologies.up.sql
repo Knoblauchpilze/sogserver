@@ -36,7 +36,7 @@ INSERT INTO public.technologies ("name") VALUES('astrophysics');
 INSERT INTO public.technologies ("name") VALUES('intergalactic research network');
 INSERT INTO public.technologies ("name") VALUES('graviton');
 
-INSERT INTO public.technologies ("name") VALUES('weapon');
+INSERT INTO public.technologies ("name") VALUES('weapons');
 INSERT INTO public.technologies ("name") VALUES('shielding');
 INSERT INTO public.technologies ("name") VALUES('armour');
 
@@ -252,13 +252,13 @@ INSERT INTO public.technologies_costs ("technology", "res", "cost")
 -- Combat technologies.
 INSERT INTO public.technologies_costs ("technology", "res", "cost")
   VALUES(
-    (SELECT id FROM technologies WHERE name='weapon'),
+    (SELECT id FROM technologies WHERE name='weapons'),
     (SELECT id FROM resources WHERE name='metal'),
     800
   );
 INSERT INTO public.technologies_costs ("technology", "res", "cost")
   VALUES(
-    (SELECT id FROM technologies WHERE name='weapon'),
+    (SELECT id FROM technologies WHERE name='weapons'),
     (SELECT id FROM resources WHERE name='crystal'),
     200
   );
@@ -358,7 +358,7 @@ INSERT INTO public.technologies_costs_progress ("technology", "progress")
 -- Combat technologies.
 INSERT INTO public.technologies_costs_progress ("technology", "progress")
   VALUES(
-    (SELECT id FROM technologies WHERE name='weapon'),
+    (SELECT id FROM technologies WHERE name='weapons'),
     2
   );
 INSERT INTO public.technologies_costs_progress ("technology", "progress")

@@ -12,7 +12,7 @@ import (
 // database and logger and will perform the listening to handle the
 // clients' requests.
 // This article helped a bit to set up and describe the data model
-// and structures used to describe the server.
+// and structures used to describe the server:
 // https://pace.dev/blog/2018/05/09/how-I-write-http-services-after-eight-years
 //
 // The `port` allows to determine which port should be used by the

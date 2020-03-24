@@ -5,7 +5,8 @@ import (
 	"fmt"
 
 	// Note that this link: https://stackoverflow.com/questions/55442878/organize-local-code-in-packages-using-go-modules
-	// proved helpful when trying to determine which syntax to adopt to use packages define locally.
+	// proved helpful when trying to determine which syntax to adopt to
+	// use packages define locally.
 	"oglike_server/internal"
 	"oglike_server/pkg/arguments"
 	"oglike_server/pkg/db"
@@ -13,9 +14,9 @@ import (
 )
 
 // usage :
-// Displays the usage of the server. Typically requires a configuration file
-// to be able to fetch the configuration variables to use during the execution
-// of the server.
+// Displays the usage of the server. Typically requires a configuration
+// file to be able to fetch the configuration variables to use during
+// the execution of the server.
 func usage() {
 	fmt.Println("Usage:")
 	fmt.Println("./oglike_server -config=[file] for configuration file to use (development/production)")

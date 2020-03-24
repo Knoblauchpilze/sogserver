@@ -3,11 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net/http"
-	"strconv"
 
 	// Note that this link: https://stackoverflow.com/questions/55442878/organize-local-code-in-packages-using-go-modules
 	// proved helpful when trying to determine which syntax to adopt to use packages define locally.
+	"oglike_server/internal"
 	"oglike_server/pkg/arguments"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -20,39 +19,6 @@ import (
 func usage() {
 	fmt.Println("Usage:")
 	fmt.Println("./oglike_server -config=[file] for configuration file to use (development/production)")
-}
-
-type Han struct {
-	base *db.DB
-}
-
-// TODO: Remove this.
-func (h *Han) handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(fmt.Sprintf("Handling request"))
-
-	rows, err := h.base.DBQuery("select * from universes")
-	if err != nil {
-		fmt.Println(fmt.Sprintf("Query failed with err %v", err))
-	} else {
-		fmt.Println(fmt.Sprintf("Query succeeded with result %v", *rows))
-
-		var name string
-		var id string
-
-		row := 1
-		for rows.Next() {
-			rows.Scan(
-				&name,
-				&id,
-			)
-
-			fmt.Println(fmt.Sprintf("Row %d has name \"%s\" and id \"%s\"", row, name, id))
-
-			row++
-		}
-	}
-
-	fmt.Fprintf(w, "Hi there, I love %s!\n", r.URL.Path[1:])
 }
 
 // main :
@@ -90,23 +56,12 @@ func main() {
 		log.Release()
 	}()
 
+	// Create the server and set it up.
 	DB := db.NewPool(log)
+	server := internal.NewServer(metadata.Port, DB, log)
 
-	log.Trace(logger.Verbose, "Verbose message")
-	log.Trace(logger.Debug, "Debug message")
-	log.Trace(logger.Info, "Info message")
-	log.Trace(logger.Notice, "Notice message")
-	log.Trace(logger.Warning, "Warning message")
-	log.Trace(logger.Error, "Error message")
-	log.Trace(logger.Critical, "Critical message")
-	log.Trace(logger.Fatal, "Fatal message")
-
-	h := Han{DB}
-
-	fmt.Println(fmt.Sprintf("Listening on port %d", metadata.Port))
-
-	// TODO: Implement the server maybe using this design pattern:
-	// https://pace.dev/blog/2018/05/09/how-I-write-http-services-after-eight-years
-	http.HandleFunc("/", h.handler)
-	http.ListenAndServe(":"+strconv.FormatInt(int64(metadata.Port), 10), nil)
+	err := server.Serve()
+	if err != nil {
+		panic(fmt.Errorf("Unexpected error while listening to port %d (err: %v)", metadata.Port, err))
+	}
 }

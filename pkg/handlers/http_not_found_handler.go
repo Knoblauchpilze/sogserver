@@ -15,7 +15,7 @@ import (
 // The `log` represents the logger object to use to notify of any connexion
 // request on this endpoint.
 //
-// Returns a callable function that will log a message and return a `200` code
+// Returns a callable function that will log a message and return a `404` code
 // in case of an incoming connection.
 func NotFound(log logger.Logger) http.HandlerFunc {
 	// The return value is a callable `HTTP` handler.

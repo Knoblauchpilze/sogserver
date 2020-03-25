@@ -17,6 +17,7 @@ CREATE TABLE players (
   uni uuid NOT NULL references universes,
   player uuid NOT NULL references accounts,
   created_at timestamp with time zone default current_timestamp,
+  name text NOT NULL,
   PRIMARY KEY (id)
 );
 

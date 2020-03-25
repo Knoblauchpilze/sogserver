@@ -26,8 +26,11 @@ type UniverseProxy struct {
 
 // NewUniverseProxy :
 // Create a new proxy on the input `dbase` to access the
-// properties of universes as registered in the DB.
-// In case the provided DB is `nil` a panic is issued.
+// properties of universes as registered in the DB. In
+// case the provided DB is `nil` a panic is issued.
+// Information in the following thread helped shape this
+// component:
+// https://www.reddit.com/r/golang/comments/9i5cpg/good_approach_to_interacting_with_databases/
 //
 // The `dbase` represents the database whose accesses are
 // to be wrapped.
@@ -44,3 +47,14 @@ func NewUniverseProxy(dbase *db.DB, log logger.Logger) UniverseProxy {
 
 	return UniverseProxy{dbase, log}
 }
+
+// 	http.HandleFunc("/universes/universe_id/coordinates", handlers.NotFound(s.log))
+// 	http.HandleFunc("/universes/universe_id/coordinates/galaxy_id", handlers.NotFound(s.log))
+// 	http.HandleFunc("/universes/universe_id/coordinates/galaxy_id/system_id", handlers.NotFound(s.log))
+
+// 	http.HandleFunc("/universes/universe_id/planets", handlers.NotFound(s.log))
+// 	http.HandleFunc("/universes/universe_id/planet_id", handlers.NotFound(s.log))
+// 	http.HandleFunc("/universes/universe_id/planet_id/buildings", handlers.NotFound(s.log))
+// 	http.HandleFunc("/universes/universe_id/planet_id/ships", handlers.NotFound(s.log))
+// 	http.HandleFunc("/universes/universe_id/planet_id/fleets", handlers.NotFound(s.log))
+// 	http.HandleFunc("/universes/universe_id/planet_id/defenses", handlers.NotFound(s.log))

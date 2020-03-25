@@ -47,8 +47,5 @@ func (s *server) listAccount() http.HandlerFunc {
 		}
 
 		s.log.Trace(logger.Warning, fmt.Sprintf("Should serve account: vars are %v", vars))
-		// 	http.HandleFunc("/accounts/account_id/player_id/planets", handlers.NotFound(s.log))
-		// 	http.HandleFunc("/accounts/account_id/player_id/researches", handlers.NotFound(s.log))
-		// 	http.HandleFunc("/accounts/account_id/player_id/fleets", handlers.NotFound(s.log))
 	}
 }

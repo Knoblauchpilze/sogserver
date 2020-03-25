@@ -43,3 +43,78 @@ func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
 
 	return AccountProxy{dbase, log}
 }
+
+// Characters :
+// Return the list of universes into which the input user
+// is registered. The input stirng is interpreted as the
+// identifier of a player's account and use to query the
+// corresponding information in the database.
+//
+// The `user` is a string representing the identifier of
+// the account for this user.
+//
+// Returns the list of players' data registered for this
+// account along with any error. In case the error is not
+// `nil` the value of the array should be ignored.
+func Characters(user string) ([]Player, error) {
+	return nil, fmt.Errorf("Not implemented")
+}
+
+// Planets :
+// Return a list of planets associated to the player for
+// the relevant universe and account. It queries the DB
+// to fetch the relevant data and return it through an
+// array of planets.
+//
+// The `player` describes the account for which planets
+// should be fetched. We assume that it contains valid
+// data. If this is not the case no planets will likely
+// be retrieved.
+//
+// Returns the list of planets for this account along
+// with any error. In case the error is not `nil` the
+// value of the array should be ignored.
+func Planets(player Player) ([]Planet, error) {
+	// /accounts/account_id/player_id/planets
+	return nil, fmt.Errorf("Not implemented")
+}
+
+// Researches :
+// Return a list of the current researches developed on
+// the account of the specified player. It queries the
+// DB to fetch the relevant data and return it through
+// an array.
+//
+// The `player` describes the account for which researches
+// should be fetched. We assume that it contains valid
+// data. If this is not the case no researches will likely
+// be retrieved.
+//
+// Returns the list of researches for this account
+// along with any error. In case the error is not
+// `nil` the value of the array should be ignored.
+func Researches(player Player) ([]Research, error) {
+	// /accounts/account_id/player_id/researches
+	return nil, fmt.Errorf("Not implemented")
+}
+
+// Fleets :
+// Return a list of the current fleets deployed on the
+// account of the player. It is a convenience method
+// compared to fetching the fleet of a single planet
+// and looping on all the planets of the account.
+// The internal DB is queried to fetch the relevant
+// information.
+//
+// The `player` describes the account for which fleets
+// should be fetched. We assume that it contains valid
+// data. If this is not the case no fleets will likely
+// be retrieved.
+//
+// Returns the list of fleets for this account along
+// with any error. In case the error is not `nil` the
+// value of the array should be ignored.
+func Fleets(player Player) ([]Fleet, error) {
+	// /accounts/account_id/player_id/fleets
+	return nil, fmt.Errorf("Not implemented")
+}

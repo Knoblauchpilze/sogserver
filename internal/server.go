@@ -2,8 +2,11 @@ package internal
 
 import (
 	"fmt"
+	"net/http"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
+	"strconv"
+	"strings"
 )
 
 // server :
@@ -34,6 +37,26 @@ type server struct {
 	log   logger.Logger
 }
 
+// routeVars :
+// Define common information to be passed in the route to contact
+// the server. We handle extra path that can be added to the route
+// (typically to refine the behavior expected from the base route)
+// and some query parameters.
+// These values can be extracted from the input request through the
+// `extractRouteVars` method on the server.
+//
+// The `path` represents the extra path added to the route that
+// was provided to target the server. Typically if the server is
+// able to serve the `/universes` route, a request handled on the
+// `/universes/oberon` path will have `/oberon` in the `path`.
+//
+// The `params` define the query parameters associated to the input
+// request. Note that in some case no parameters are provided.
+type routeVars struct {
+	path   string
+	params map[string]string
+}
+
 // NewServer :
 // Create a new server with the input elements to use internally to
 // access data and perform logging.
@@ -53,4 +76,89 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 	}
 
 	return server{port, dbase, log}
+}
+
+// Serve :
+// Used to start listening to the port associated to this server
+// and handle incoming requests. This will return an error in case
+// something went wrong while listening to the port.
+func (s *server) Serve() error {
+	// Setup routes.
+	s.routes()
+
+	// Serve the root path.
+	return http.ListenAndServe(":"+strconv.FormatInt(int64(s.port), 10), nil)
+}
+
+// extractRouteVars :
+// This facet of the server allows to conveniently extract the information
+// available in the route used to contact the server. Using the input route
+// it will try to detect the query parameters defined for this route along
+// with information about the actual extra path that may have been provided
+// in the input route.
+// In case the route used to contact the server does not start with the input
+// `route` value an error is returned.
+//
+// The `route` represents the common route prefix that should be ignored to
+// extract parameters. We will try to match this pattern in the route and
+// then extract information after that.
+//
+// The `r` represents the request that should be parsed to extract query
+// parameters.
+//
+// Returns a map containing the query parameters as defined in the route.
+// The map may be empty but should not be `nil`. Also returns any error
+// that might have been encountered. The returned map should not be used
+// in case the error is not `nil`.
+func (s *server) extractRouteVars(route string, r *http.Request) (routeVars, error) {
+	vars := routeVars{
+		"",
+		make(map[string]string),
+	}
+
+	// Extract the route from the input request.
+	extra, err := extractRoute(r, route)
+	if err != nil {
+		return vars, fmt.Errorf("Could not extract vars from route \"%s\" (err: %v)", route, err)
+	}
+
+	// The extra path for the route is specified until we reach a '?' character.
+	// After that come the query parameters.
+	beginQueryParams := strings.Index(extra, "?")
+	if beginQueryParams < 0 {
+		// No query parameters found for this request: the `extra` path defines
+		// the extra route path.
+		vars.path = extra
+
+		return vars, nil
+	}
+
+	// Extract query parameters and the route (which is basically the part of
+	// the string before the beginning of the query params).
+	vars.path = extra[:beginQueryParams]
+	queryStr := extra[beginQueryParams+1:]
+
+	// Query parameters should be separated by '&' characters. Each parameter is
+	// separated between a key and a value through the '=' character.
+	params := strings.Split(queryStr, "&")
+	for _, param := range params {
+		// Split the parameter into its key and value component if possible.
+		tokens := strings.Split(param, "=")
+
+		// Discard invalid tokens.
+		if len(tokens) != 2 {
+			s.log.Trace(logger.Warning, fmt.Sprintf("Unable to parse query parameter \"%s\" in route \"%s\"", param, route))
+			continue
+		}
+
+		// Detect override.
+		existing, ok := vars.params[tokens[0]]
+		if ok {
+			s.log.Trace(logger.Warning, fmt.Sprintf("Overriding query parameter \"%s\": \"%s\" replaced by \"%s\"", tokens[0], existing, tokens[1]))
+		}
+
+		vars.params[tokens[0]] = tokens[1]
+	}
+
+	return vars, nil
 }

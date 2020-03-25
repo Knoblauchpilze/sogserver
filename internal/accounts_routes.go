@@ -15,28 +15,37 @@ import (
 // Returns the handler that can be executed to serve such requests.
 func (s *server) listAccounts() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		route, err := s.extractRoute(r, "/accounts")
+		vars, err := s.extractRouteVars("/accounts", r)
 		if err != nil {
 			panic(fmt.Errorf("Error while serving accounts (err: %v)", err))
 		}
 
-		s.log.Trace(logger.Warning, fmt.Sprintf("Should serve list of all accounts (route: \"%s\")", route))
+		// We have to assume that no `extra route` is provided on this
+		// endpoint.
+		if vars.path != "" {
+			s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when serving accounts", vars.path))
+		}
+
+		s.log.Trace(logger.Warning, fmt.Sprintf("Should serve accounts: vars are %v", vars))
 	}
 }
 
 // listAccount :
-// Provide detailed information about a single account referenced
-// by the input route. If no such account exist this will be sent
-// back to the client.
+// Analyze the route provided in input to retrieve the properties of
+// all accounts matching the requested information. This is usually
+// used in coordination with the `listAccounts` method where the user
+// will first fetch a list of all accounts and then maybe use this
+// list to query specific properties of a person. The return value
+// includes the list of properties using a `json` format.
 //
-// Returns the handler to be executed to serve these requests.
+// Returns the handler that can be executed to serve such requests.
 func (s *server) listAccount() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		account, err := s.extractRoute(r, "/accounts/")
+		vars, err := s.extractRouteVars("/accounts", r)
 		if err != nil {
 			panic(fmt.Errorf("Error while serving account (err: %v)", err))
 		}
 
-		s.log.Trace(logger.Warning, fmt.Sprintf("Should serve info for account \"%s\"", account))
+		s.log.Trace(logger.Warning, fmt.Sprintf("Should serve account: vars are %v", vars))
 	}
 }

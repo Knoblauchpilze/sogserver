@@ -14,28 +14,38 @@ import (
 // Returns the handler that can be executed to serve such requests.
 func (s *server) listUniverses() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		route, err := s.extractRoute(r, "/universes")
+		vars, err := s.extractRouteVars("/universes", r)
 		if err != nil {
 			panic(fmt.Errorf("Error while serving universes (err: %v)", err))
 		}
 
-		s.log.Trace(logger.Warning, fmt.Sprintf("Should serve list of all universes (route: \"%s\")", route))
+		// We have to assume that no `extra route` is provided on this
+		// endpoint.
+		if vars.path != "" {
+			s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when serving universes", vars.path))
+		}
+
+		s.log.Trace(logger.Warning, fmt.Sprintf("Should serve universes: vars are %v", vars))
 	}
 }
 
 // listUniverse :
-// Provide detailed information about a single universe referenced
-// by the input route. If no such universe exist this will be sent
-// back to the client.
+// Analyze the route provided in input to retrieve the properties of
+// all universes matching the requested information. This is usually
+// used in coordination with the `listUniverses` method where the
+// user will first fetch a list of all universes and then maybe use
+// this list to query specific properties of some universe.
+// The return value includes the list of properties using a `json`
+// format.
 //
-// Returns the handler to be executed to serve these requests.
+// Returns the handler that can be executed to serve such requests.
 func (s *server) listUniverse() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		uni, err := s.extractRoute(r, "/universes/")
+		vars, err := s.extractRouteVars("/universes", r)
 		if err != nil {
 			panic(fmt.Errorf("Error while serving universe (err: %v)", err))
 		}
 
-		s.log.Trace(logger.Warning, fmt.Sprintf("Should serve info for universe \"%s\"", uni))
+		s.log.Trace(logger.Warning, fmt.Sprintf("Should serve universe: vars are %v", vars))
 	}
 }

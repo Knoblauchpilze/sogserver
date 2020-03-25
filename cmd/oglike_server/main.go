@@ -7,7 +7,7 @@ import (
 	// Note that this link: https://stackoverflow.com/questions/55442878/organize-local-code-in-packages-using-go-modules
 	// proved helpful when trying to determine which syntax to adopt to
 	// use packages define locally.
-	"oglike_server/internal"
+	"oglike_server/internal/routes"
 	"oglike_server/pkg/arguments"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -59,7 +59,7 @@ func main() {
 
 	// Create the server and set it up.
 	DB := db.NewPool(log)
-	server := internal.NewServer(metadata.Port, DB, log)
+	server := routes.NewServer(metadata.Port, DB, log)
 
 	err := server.Serve()
 	if err != nil {

@@ -1,8 +1,9 @@
-package internal
+package routes
 
 import (
 	"fmt"
 	"net/http"
+	"oglike_server/internal/data"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 	"strconv"
@@ -22,19 +23,24 @@ import (
 // server to accept incoming requests. This is usually specified in
 // the configuration so as not to conflict with any other API.
 //
-// The `dbase` represents a connection to the database containing
-// the data to be served to clients. This is assumed to be a valid
-// item and will be used to issue internal requests when data needs
-// to be fetched.
+// The `universes` represents a proxy object allowing to interact
+// and retrieve properties of universes from the main DB. It is used
+// as a way to hide the complexity of the DB and only use high-level
+// functions that do not rely on the internal schema of the DB to
+// work.
+//
+// The `accounts` fills a similar role to `universes` but is related
+// to accounts information.
 //
 // The `logger` allows to perform most of the logging on any action
 // done by the server such as logging clients' connections, errors
 // and generally some elements useful to track the activity of the
 // server.
 type server struct {
-	port  int
-	dbase *db.DB
-	log   logger.Logger
+	port      int
+	universes data.UniverseProxy
+	accounts  data.AccountProxy
+	log       logger.Logger
 }
 
 // routeVars :
@@ -75,7 +81,12 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 		panic(fmt.Errorf("Cannot create server from empty database"))
 	}
 
-	return server{port, dbase, log}
+	return server{
+		port,
+		data.NewUniverseProxy(dbase, log),
+		data.NewAccountProxy(dbase, log),
+		log,
+	}
 }
 
 // Serve :

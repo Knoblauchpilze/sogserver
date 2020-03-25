@@ -174,6 +174,3 @@ INSERT INTO public.defenses_costs ("defense", "res", "cost")
     (SELECT id FROM resources WHERE name='deuterium'),
     10000
   );
-
-
--- TODO: Perform seeding.

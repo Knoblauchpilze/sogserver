@@ -921,5 +921,3 @@ INSERT INTO public.ships_rapid_fire_defenses ("ship", "target", "rapid_fire")
     (SELECT id FROM defenses WHERE name='gauss cannon'),
     50
   );
-
--- TODO: Perform seeding.

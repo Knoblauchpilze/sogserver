@@ -48,6 +48,19 @@ func NewUniverseProxy(dbase *db.DB, log logger.Logger) UniverseProxy {
 	return UniverseProxy{dbase, log}
 }
 
+// Universes :
+// Allows to fetch the list of universes currently available
+// for a player to create an account. Universes should only
+// be created when needed and are not typically something a
+// player can do.
+//
+// Returns the list of universes along with any errors. Note
+// that in case the error is not `nil` the returned list is
+// to be ignored.
+func (p *UniverseProxy) Universes() ([]Universe, error) {
+	return nil, fmt.Errorf("Not implemented")
+}
+
 // Planets :
 // Return a list of planets associated registered in the
 // universe specified in input. It queries the DB to fetch

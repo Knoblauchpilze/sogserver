@@ -44,6 +44,18 @@ func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
 	return AccountProxy{dbase, log}
 }
 
+// Accounts :
+// Allows to fetch the list of accounts currently registered
+// in the DB. This defines how many unique players already
+// have created at least an account in a universe.
+//
+// Returns the list of accounts along with any errors. Note
+// that in case the error is not `nil` the returned list is
+// to be ignored.
+func (p *AccountProxy) Accounts() ([]Account, error) {
+	return nil, fmt.Errorf("Not implemented")
+}
+
 // Characters :
 // Return the list of universes into which the input user
 // is registered. The input stirng is interpreted as the

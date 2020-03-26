@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"oglike_server/pkg/logger"
@@ -25,7 +26,31 @@ func (s *server) listUniverses() http.HandlerFunc {
 			s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when serving universes", vars.path))
 		}
 
-		s.log.Trace(logger.Warning, fmt.Sprintf("Should serve universes: vars are %v", vars))
+		// Retrieve the universes from the bridge.
+		unis, err := s.universes.Universes()
+		if err != nil {
+			s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching universes (err: %v)", err))
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
+		}
+
+		// Marshal the content of the universes.
+		out, err := json.Marshal(unis)
+		if err != nil {
+			s.log.Trace(logger.Error, fmt.Sprintf("Error while marshalling universes (err: %v)", err))
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
+		}
+
+		// Notify the client.
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(out)
+
+		if err != nil {
+			s.log.Trace(logger.Error, fmt.Sprintf("Error while sending universes to client (err: %v)", err))
+		}
 	}
 }
 

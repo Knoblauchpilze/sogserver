@@ -1,5 +1,23 @@
 package data
 
+// Account :
+// Defines a player's account within the OG context. It is
+// not related to any universe and defines what could be
+// called the root account for each player. It is then used
+// each time the user wants to join a new universe so as to
+// merge all these accounts in a single entity.
+//
+// The `ID` defines the identifier of the player, which is
+// used to uniquely distinguish between two accounts.
+//
+// The `Mail` defines the email address associated to the
+// account. It can be used to make sure that no two accounts
+// share the same address.
+type Account struct {
+	ID   string `json:"id"`
+	Mail string `json:"mail"`
+}
+
 // Player :
 // Define a player which is basically a name in a universe.
 // We also provide both the identifier of this player along

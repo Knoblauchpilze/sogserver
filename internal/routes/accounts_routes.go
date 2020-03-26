@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"oglike_server/pkg/logger"
@@ -26,7 +27,31 @@ func (s *server) listAccounts() http.HandlerFunc {
 			s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when serving accounts", vars.path))
 		}
 
-		s.log.Trace(logger.Warning, fmt.Sprintf("Should serve accounts: vars are %v", vars))
+		// Retrieve the accounts from the bridge.
+		accs, err := s.accounts.Accounts()
+		if err != nil {
+			s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching accounts (err: %v)", err))
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
+		}
+
+		// Marshal the content of the accounts.
+		out, err := json.Marshal(accs)
+		if err != nil {
+			s.log.Trace(logger.Error, fmt.Sprintf("Error while marshalling accounts (err: %v)", err))
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
+		}
+
+		// Notify the client.
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(out)
+
+		if err != nil {
+			s.log.Trace(logger.Error, fmt.Sprintf("Error while sending accounts to client (err: %v)", err))
+		}
 	}
 }
 

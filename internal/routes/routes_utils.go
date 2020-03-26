@@ -6,6 +6,16 @@ import (
 	"strings"
 )
 
+// InternalServerErrorString :
+// Used to provide a unique string that can be used in case an
+// error occurs while serving a client request and we need to
+// provide an answer.
+//
+// Returns a common string to indicate an error.
+func InternalServerErrorString() string {
+	return "Unexpected server error"
+}
+
 // extractRoute :
 // Convenience method allowing to strip the input prefix from the
 // route defined in an input request to keep only the part that is

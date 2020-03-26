@@ -56,7 +56,7 @@ func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
 // Returns the list of players' data registered for this
 // account along with any error. In case the error is not
 // `nil` the value of the array should be ignored.
-func Characters(user string) ([]Player, error) {
+func (p *AccountProxy) Characters(user string) ([]Player, error) {
 	return nil, fmt.Errorf("Not implemented")
 }
 
@@ -74,7 +74,7 @@ func Characters(user string) ([]Player, error) {
 // Returns the list of planets for this account along
 // with any error. In case the error is not `nil` the
 // value of the array should be ignored.
-func Planets(player Player) ([]Planet, error) {
+func (p *AccountProxy) Planets(player Player) ([]Planet, error) {
 	// /accounts/account_id/player_id/planets
 	return nil, fmt.Errorf("Not implemented")
 }
@@ -93,7 +93,7 @@ func Planets(player Player) ([]Planet, error) {
 // Returns the list of researches for this account
 // along with any error. In case the error is not
 // `nil` the value of the array should be ignored.
-func Researches(player Player) ([]Research, error) {
+func (p *AccountProxy) Researches(player Player) ([]Research, error) {
 	// /accounts/account_id/player_id/researches
 	return nil, fmt.Errorf("Not implemented")
 }
@@ -114,7 +114,7 @@ func Researches(player Player) ([]Research, error) {
 // Returns the list of fleets for this account along
 // with any error. In case the error is not `nil` the
 // value of the array should be ignored.
-func Fleets(player Player) ([]Fleet, error) {
+func (p *AccountProxy) Fleets(player Player) ([]Fleet, error) {
 	// /accounts/account_id/player_id/fleets
 	return nil, fmt.Errorf("Not implemented")
 }

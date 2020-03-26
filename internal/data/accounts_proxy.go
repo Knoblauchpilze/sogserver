@@ -58,7 +58,7 @@ func (p *AccountProxy) Accounts() ([]Account, error) {
 
 // Characters :
 // Return the list of universes into which the input user
-// is registered. The input stirng is interpreted as the
+// is registered. The input string is interpreted as the
 // identifier of a player's account and use to query the
 // corresponding information in the database.
 //
@@ -69,6 +69,7 @@ func (p *AccountProxy) Accounts() ([]Account, error) {
 // account along with any error. In case the error is not
 // `nil` the value of the array should be ignored.
 func (p *AccountProxy) Characters(user string) ([]Player, error) {
+	// /accounts/account_id
 	return nil, fmt.Errorf("Not implemented")
 }
 

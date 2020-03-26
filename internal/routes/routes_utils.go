@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -43,4 +44,31 @@ func extractRoute(r *http.Request, prefix string) (string, error) {
 	}
 
 	return strings.TrimPrefix(route, prefix), nil
+}
+
+// marshalAndSend :
+// Used to send the input data after marshalling it to the provided
+// response writer. In case the data cannot be marshalled a `500`
+// error is returned and this is indicated in the return value.
+//
+// The `data` represents the data to send back to the client.
+//
+// The `w` represents the response writer to use to send data back.
+//
+// Returns any error encountered either when marshalling the data
+// or when sending the data.
+func marshalAndSend(data interface{}, w http.ResponseWriter) error {
+	// Marshal the content before sending it back.
+	out, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+		return err
+	}
+
+	// Notify the client.
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(out)
+
+	return err
 }

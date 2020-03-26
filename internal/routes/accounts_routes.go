@@ -1,10 +1,11 @@
 package routes
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
+	"oglike_server/internal/data"
 	"oglike_server/pkg/logger"
+	"strings"
 )
 
 // listAccounts :
@@ -37,18 +38,7 @@ func (s *server) listAccounts() http.HandlerFunc {
 		}
 
 		// Marshal the content of the accounts.
-		out, err := json.Marshal(accs)
-		if err != nil {
-			s.log.Trace(logger.Error, fmt.Sprintf("Error while marshalling accounts (err: %v)", err))
-			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
-
-			return
-		}
-
-		// Notify the client.
-		w.WriteHeader(http.StatusOK)
-		_, err = w.Write(out)
-
+		err = marshalAndSend(accs, w)
 		if err != nil {
 			s.log.Trace(logger.Error, fmt.Sprintf("Error while sending accounts to client (err: %v)", err))
 		}
@@ -71,6 +61,150 @@ func (s *server) listAccount() http.HandlerFunc {
 			panic(fmt.Errorf("Error while serving account (err: %v)", err))
 		}
 
+		// Extract parts of the route: we first need to remove the first
+		// '/' character.
+		purged := vars.path[1:]
+		parts := strings.Split(purged, "/")
+
+		// Depending on the number of parts in the route, we will call
+		// the suited handler.
+		switch len(parts) {
+		case 1:
+			s.listPlayersForAccount(w, parts[0])
+			return
+		case 2:
+			s.listPlayerProps(w, parts, vars.params)
+			return
+		case 0:
+			fallthrough
+		default:
+			// Can't do anything.
+		}
+
 		s.log.Trace(logger.Warning, fmt.Sprintf("Should serve account: vars are %v", vars))
+	}
+}
+
+// listPlayersForAccount :
+// Used to forrmat the list of universes into which the input account
+// is registered into a json structure and send it back to the client
+// through the provided response writer.
+//
+// The `w` argument defines the response writer to send back data to
+// the client.
+//
+// The `account` represents the player's identifier which should be
+// used to fetch the associated accounts.
+func (s *server) listPlayersForAccount(w http.ResponseWriter, account string) {
+	// Fetch accounts.
+	accs, err := s.accounts.Characters(account)
+	if err != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching account \"%s\" (err: %v)", account, err))
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+		return
+	}
+
+	// Marshal and send the content.
+	err = marshalAndSend(accs, w)
+	if err != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while sending data for \"%s\" (err: %v)", account, err))
+	}
+}
+
+// listPlayerProps :
+// Used to retrieve information about a certain player and provide
+// the corresponding info to the client through the response writer
+// given as input.
+//
+// The `w` is the response writer to use to send the response back
+// to the client.
+//
+// The `params` represents the aprameters provided to filter the
+// data to retrieve for this account. The first element of this
+// array is guaranteed to correspond to the identifier of the
+// account for which the data should be retrieved.
+//
+// The `filters` correspond to the query filter that are set as an
+// additional filtering layer to query only specific properties of
+// the account.
+func (s *server) listPlayerProps(w http.ResponseWriter, params []string, filters map[string]string) {
+	//  We know that the first elements of the `params` array should
+	// correspond to the account's identifier (i.e. the root value
+	// which owns all the individual player's in the universes, and
+	// the rest of the values correspond to filtering properties to
+	// query only specific information.
+	// We have the following routes possible:
+	//  - `account_id/player_id` -> query params will be ignored.
+	//  - `account_id/player_id/item` -> only retrieve the info of
+	//    the `item` for the specified player id.
+	user := params[0]
+
+	if len(params) == 1 {
+		s.listPlayersForAccount(w, user)
+		return
+	}
+
+	// We need to feetch the player's data from its identifier.
+	accountID := params[1]
+
+	players, err := s.accounts.Characters(user)
+	if err != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching account \"%s\" (err: %v)", user, err))
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+		return
+	}
+
+	// Scan to find the account corresponding to the specified id.
+	var player data.Player
+	id := 0
+	found := false
+
+	for ; id < len(players) && !found; id++ {
+		player = players[id]
+
+		if player.ID == accountID {
+			found = true
+		}
+	}
+
+	if !found {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unable to find account \"%s\" associated to user \"%s\" (err: %v)", accountID, user, err))
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+		return
+	}
+
+	// Retrieve specific information of the player.
+	var errSend error
+	switch params[1] {
+	case "planets":
+		planets, err := s.accounts.Planets(player)
+		if err == nil {
+			errSend = marshalAndSend(planets, w)
+		}
+	case "researches":
+		researches, err := s.accounts.Researches(player)
+		if err == nil {
+			errSend = marshalAndSend(researches, w)
+		}
+	case "fleets":
+		fleets, err := s.accounts.Fleets(player)
+		if err == nil {
+			errSend = marshalAndSend(fleets, w)
+		}
+	}
+
+	// Notify errors.
+	if err != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unable to fetch data for account \"%s\" (err: %v)", accountID, err))
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+		return
+	}
+
+	if errSend != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while sending data for account \"%s\" (err: %v)", accountID, err))
 	}
 }

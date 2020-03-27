@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
+	"strings"
 )
 
 // AccountProxy :
@@ -53,7 +54,34 @@ func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
 // that in case the error is not `nil` the returned list is
 // to be ignored.
 func (p *AccountProxy) Accounts() ([]Account, error) {
-	return nil, fmt.Errorf("Not implemented")
+	// Create the query and execute it.
+	query := fmt.Sprintf("select id, mail from accounts")
+	rows, err := p.dbase.DBQuery(query)
+
+	// Check for errors.
+	if err != nil {
+		return nil, fmt.Errorf("Could not query DB to fetch accounts (err: %v)", err)
+	}
+
+	// Populate the return value.
+	accounts := make([]Account, 0)
+	var acc Account
+
+	for rows.Next() {
+		err = rows.Scan(
+			&acc.ID,
+			&acc.Mail,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for account (err: %v)", err))
+			continue
+		}
+
+		accounts = append(accounts, acc)
+	}
+
+	return accounts, nil
 }
 
 // Characters :
@@ -69,8 +97,43 @@ func (p *AccountProxy) Accounts() ([]Account, error) {
 // account along with any error. In case the error is not
 // `nil` the value of the array should be ignored.
 func (p *AccountProxy) Characters(user string) ([]Player, error) {
-	// /accounts/account_id
-	return nil, fmt.Errorf("Not implemented")
+	// Create the query and execute it.
+	props := []string{
+		"id",
+		"uni",
+		"player",
+		"name",
+	}
+
+	query := fmt.Sprintf("select %s from players", strings.Join(props, ", "))
+	rows, err := p.dbase.DBQuery(query)
+
+	// Check for errors.
+	if err != nil {
+		return nil, fmt.Errorf("Could not query DB to fetch players (err: %v)", err)
+	}
+
+	// Populate the return value.
+	players := make([]Player, 0)
+	var player Player
+
+	for rows.Next() {
+		err = rows.Scan(
+			&player.ID,
+			&player.UniverseID,
+			&player.AccountID,
+			&player.Name,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for player (err: %v)", err))
+			continue
+		}
+
+		players = append(players, player)
+	}
+
+	return players, nil
 }
 
 // Planets :
@@ -88,8 +151,65 @@ func (p *AccountProxy) Characters(user string) ([]Player, error) {
 // with any error. In case the error is not `nil` the
 // value of the array should be ignored.
 func (p *AccountProxy) Planets(player Player) ([]Planet, error) {
-	// /accounts/account_id/player_id/planets
-	return nil, fmt.Errorf("Not implemented")
+	// Create the query and execute it.
+	props := []string{
+		"id",
+		"player",
+		"name",
+		"fields",
+		"min_temperature",
+		"max_temperature",
+		"diameter",
+		"galaxy",
+		"solar_system",
+		"position",
+	}
+
+	query := fmt.Sprintf("select %s from planets where id='%s'", strings.Join(props, ", "), player.ID)
+	rows, err := p.dbase.DBQuery(query)
+
+	// Check for errors.
+	if err != nil {
+		return nil, fmt.Errorf("Could not query DB to fetch planets for player \"%s\" (err: %v)", player.ID, err)
+	}
+
+	// Populate the return value.
+	planets := make([]Planet, 0)
+	var planet Planet
+
+	galaxy := 0
+	system := 0
+	position := 0
+
+	for rows.Next() {
+		err = rows.Scan(
+			&planet.ID,
+			&planet.PlayerID,
+			&planet.Name,
+			&planet.Fields,
+			&planet.MinTemp,
+			&planet.MaxTemp,
+			&planet.Diameter,
+			&galaxy,
+			&system,
+			&position,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve planet for player \"%s\" (err: %v)", player.ID, err))
+			continue
+		}
+
+		planet.Coords = Coordinate{
+			galaxy,
+			system,
+			position,
+		}
+
+		planets = append(planets, planet)
+	}
+
+	return planets, nil
 }
 
 // Researches :
@@ -107,8 +227,44 @@ func (p *AccountProxy) Planets(player Player) ([]Planet, error) {
 // along with any error. In case the error is not
 // `nil` the value of the array should be ignored.
 func (p *AccountProxy) Researches(player Player) ([]Research, error) {
-	// /accounts/account_id/player_id/researches
-	return nil, fmt.Errorf("Not implemented")
+	// Create the query and execute it.
+	props := []string{
+		"pt.player",
+		"pt.level",
+		"t.name",
+	}
+
+	table := "player_technologies pt inner join technologies t"
+	joinCond := "pt.technology=t.id"
+
+	query := fmt.Sprintf("select %s from %s on %s", strings.Join(props, ", "), table, joinCond)
+	rows, err := p.dbase.DBQuery(query)
+
+	// Check for errors.
+	if err != nil {
+		return nil, fmt.Errorf("Could not query DB to fetch technologies for player \"%s\" (err: %v)", player.ID, err)
+	}
+
+	// Populate the return value.
+	technologies := make([]Research, 0)
+	var tech Research
+
+	for rows.Next() {
+		err = rows.Scan(
+			&tech.ID,
+			&tech.Level,
+			&tech.Name,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve technology for player \"%s\" (err: %v)", player.ID, err))
+			continue
+		}
+
+		technologies = append(technologies, tech)
+	}
+
+	return technologies, nil
 }
 
 // Fleets :

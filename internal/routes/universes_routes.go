@@ -3,7 +3,9 @@ package routes
 import (
 	"fmt"
 	"net/http"
+	"oglike_server/internal/data"
 	"oglike_server/pkg/logger"
+	"strings"
 )
 
 // listUniverses :
@@ -59,6 +61,141 @@ func (s *server) listUniverse() http.HandlerFunc {
 			panic(fmt.Errorf("Error while serving universe (err: %v)", err))
 		}
 
-		s.log.Trace(logger.Warning, fmt.Sprintf("Should serve universe: vars are %v", vars))
+		// Extract parts of the route: we first need to remove the first
+		// '/' character.
+		purged := vars.path[1:]
+		parts := strings.Split(purged, "/")
+
+		// Depending on the number of parts in the route, we will call
+		// the suited handler.
+		switch len(parts) {
+		case 2:
+			// The second argument should be `planets`
+			if parts[1] != "planets" {
+				s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when serving planets for universe \"%s\"", parts[1], parts[0]))
+			}
+			s.listPlanetsForUniverse(w, parts[0])
+			return
+		case 3:
+			s.listPlanetsProps(w, parts, vars.params)
+			return
+		case 1:
+			fallthrough
+		default:
+			// Can't do anything.
+		}
+
+		s.log.Trace(logger.Error, fmt.Sprintf("Unhandled request for universe \"%s\"", purged))
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+	}
+}
+
+// listPlanetsForUniverse :
+// Used to forrmat the list of planets registered in the universe set
+// as input argument. The resulting list is marshalled into a `json`
+// structure and returned to the client through the provided response
+// writer.
+//
+// The `w` argument defines the response writer to send back data to
+// the client.
+//
+// The `universe` represents the identifier of the universe for which
+// planet should be fetched.
+func (s *server) listPlanetsForUniverse(w http.ResponseWriter, universe string) {
+	// Fetch planets.
+	planets, err := s.universes.Planets(universe)
+	if err != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching universe \"%s\" (err: %v)", universe, err))
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+		return
+	}
+
+	// Marshal and send the content.
+	err = marshalAndSend(planets, w)
+	if err != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while sending data for \"%s\" (err: %v)", universe, err))
+	}
+}
+
+// listPlanetsProps :
+// Used to retrieve information about a certain planet and provide
+// the corresponding info to the client through the response writer
+// given as input.
+//
+// The `w` is the response writer to use to send the response back
+// to the client.
+//
+// The `params` represents the aprameters provided to filter the
+// data to retrieve for this planet. The first element of this
+// array is guaranteed to correspond to the identifier of the
+// planet for which the data should be retrieved.
+//
+// The `filters` correspond to the query filter that are set as an
+// additional filtering layer to query only specific properties of
+// the planet.
+func (s *server) listPlanetsProps(w http.ResponseWriter, params []string, filters map[string]string) {
+	//  We know that the first elements of the `params` array should
+	// correspond to the planet's identifier (i.e. the root value
+	// where specific information should be fetched. The rest of the
+	// values correspond to filtering properties to query only some
+	// information.
+	// We only consider routes that try to access specific props of
+	// the planet: the route `universe_id/planet_id` is not valid
+	// and will be served an error.
+	uni := params[0]
+
+	if len(params) == 1 {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unhandled request for universe \"%s\"", uni))
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+		return
+	}
+
+	// We need to feetch the planet's data from its identifier.
+	planetID := params[1]
+
+	planet, err := s.universes.Planet(uni, planetID)
+	if err != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unable to find planet \"%s\" associated to universe \"%s\" (err: %v)", planetID, uni, err))
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+		return
+	}
+
+	// Retrieve specific information of the player.
+	var errSend error
+	var buildings []data.Building
+	var ships []data.Ship
+	var defenses []data.Defense
+
+	switch params[2] {
+	case "buildings":
+		buildings, err = s.universes.Buildings(planet.ID)
+		if err == nil {
+			errSend = marshalAndSend(buildings, w)
+		}
+	case "ships":
+		ships, err = s.universes.Ships(planet.ID)
+		if err == nil {
+			errSend = marshalAndSend(ships, w)
+		}
+	case "defenses":
+		defenses, err = s.universes.Defenses(planet.ID)
+		if err == nil {
+			errSend = marshalAndSend(defenses, w)
+		}
+	}
+
+	// Notify errors.
+	if err != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unable to fetch data for planet \"%s\" (err: %v)", planet.ID, err))
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+		return
+	}
+
+	if errSend != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while sending data for planet \"%s\" (err: %v)", planet.ID, err))
 	}
 }

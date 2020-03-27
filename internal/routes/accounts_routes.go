@@ -69,19 +69,23 @@ func (s *server) listAccount() http.HandlerFunc {
 		// Depending on the number of parts in the route, we will call
 		// the suited handler.
 		switch len(parts) {
-		case 1:
+		case 2:
+			if parts[1] != "players" {
+				s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when serving accounts for player \"%s\"", parts[1], parts[0]))
+			}
 			s.listPlayersForAccount(w, parts[0])
 			return
-		case 2:
+		case 3:
 			s.listPlayerProps(w, parts, vars.params)
 			return
-		case 0:
+		case 1:
 			fallthrough
 		default:
 			// Can't do anything.
 		}
 
-		s.log.Trace(logger.Warning, fmt.Sprintf("Should serve account: vars are %v", vars))
+		s.log.Trace(logger.Error, fmt.Sprintf("Unhandled request for account \"%s\"", purged))
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
 	}
 }
 
@@ -178,19 +182,23 @@ func (s *server) listPlayerProps(w http.ResponseWriter, params []string, filters
 
 	// Retrieve specific information of the player.
 	var errSend error
-	switch params[1] {
+	var planets []data.Planet
+	var researches []data.Research
+	var fleets []data.Fleet
+
+	switch params[2] {
 	case "planets":
-		planets, err := s.accounts.Planets(player)
+		planets, err = s.accounts.Planets(player)
 		if err == nil {
 			errSend = marshalAndSend(planets, w)
 		}
 	case "researches":
-		researches, err := s.accounts.Researches(player)
+		researches, err = s.accounts.Researches(player)
 		if err == nil {
 			errSend = marshalAndSend(researches, w)
 		}
 	case "fleets":
-		fleets, err := s.accounts.Fleets(player)
+		fleets, err = s.accounts.Fleets(player)
 		if err == nil {
 			errSend = marshalAndSend(fleets, w)
 		}

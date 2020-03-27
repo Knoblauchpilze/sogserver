@@ -468,7 +468,7 @@ func (p *UniverseProxy) Create(uni Universe) error {
 		uni.ID = uuid.New().String()
 	}
 
-	// TODO: Handle controls to make sure that the universes is
+	// TODO: Handle controls to make sure that the universes are
 	// not created with invalid value (such as negative galaxies
 	// count, etc.).
 

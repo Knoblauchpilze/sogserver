@@ -10,11 +10,16 @@ package data
 // The `ID` defines the identifier of the player, which is
 // used to uniquely distinguish between two accounts.
 //
+// The `Name` describes the user provided name for this
+// account. It can be duplicated among several accounts
+// as we're using the identifier to guarantee uniqueness.
+//
 // The `Mail` defines the email address associated to the
 // account. It can be used to make sure that no two accounts
 // share the same address.
 type Account struct {
 	ID   string `json:"id"`
+	Name string `json:"name"`
 	Mail string `json:"mail"`
 }
 

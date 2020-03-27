@@ -1,10 +1,13 @@
 package data
 
 import (
+	"encoding/json"
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 // AccountProxy :
@@ -55,7 +58,7 @@ func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
 // to be ignored.
 func (p *AccountProxy) Accounts() ([]Account, error) {
 	// Create the query and execute it.
-	query := fmt.Sprintf("select id, mail from accounts")
+	query := fmt.Sprintf("select id, mail, name from accounts")
 	rows, err := p.dbase.DBQuery(query)
 
 	// Check for errors.
@@ -71,6 +74,7 @@ func (p *AccountProxy) Accounts() ([]Account, error) {
 		err = rows.Scan(
 			&acc.ID,
 			&acc.Mail,
+			&acc.Name,
 		)
 
 		if err != nil {
@@ -286,4 +290,46 @@ func (p *AccountProxy) Researches(player Player) ([]Research, error) {
 func (p *AccountProxy) Fleets(player Player) ([]Fleet, error) {
 	// /accounts/account_id/player_id/fleets
 	return nil, fmt.Errorf("Not implemented")
+}
+
+// Create :
+// Used to perform the creation of the account described
+// by the input data to the DB. In case the creation can
+// not be performed an error is returned.
+//
+// The `acc` describes the element to create in DB.
+//
+// The return status indicates whether the creation could
+// be performed: if this is not the case the error is not
+// `nil`.
+func (p *AccountProxy) Create(acc Account) error {
+	// Assign a valid identifier if this is not already the case.
+	if acc.ID == "" {
+		acc.ID = uuid.New().String()
+	}
+
+	// TODO: Handle controls to make sure that the account is
+	// not created with invalid value (such as empty mail or
+	// name).
+
+	// Marshal the input universe to pass it to the import script.
+	data, err := json.Marshal(acc)
+	if err != nil {
+		return fmt.Errorf("Could not import account \"%s\" (err: %v)", acc.Name, err)
+	}
+	jsonToSend := string(data)
+
+	query := fmt.Sprintf("select * from create_account('%s')", jsonToSend)
+	_, err = p.dbase.DBExecute(query)
+
+	// Check for errors.
+	if err != nil {
+		return fmt.Errorf("Could not import account \"%s\" (err: %v)", acc.Name, err)
+	}
+
+	// Successfully created an account.
+	p.log.Trace(logger.Notice, fmt.Sprintf("Created new account \"%s\" with id \"%s\"", acc.Name, acc.ID))
+
+	// All is well.
+	return nil
 }

@@ -1,10 +1,10 @@
 package routes
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
-	"oglike_server/pkg/handlers"
 	"oglike_server/pkg/logger"
 	"strings"
 )
@@ -98,7 +98,41 @@ func (s *server) listAccount() http.HandlerFunc {
 //
 // Returns the handler to execute to handle accounts' creation.
 func (s *server) createAccount() http.HandlerFunc {
-	return handlers.NotFound(s.log)
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars, err := s.extractRouteVars("/account", r)
+		if err != nil {
+			panic(fmt.Errorf("Error while creating account (err: %v)", err))
+		}
+
+		// The route should not contain anymore data.
+		if vars.path != "" {
+			s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when creating account", vars.path))
+		}
+
+		// Extract the data to use to create the account from the input
+		// request: this can be done conveniently through the server's
+		// base method.
+		var uniData routeData
+		uniData, err = s.extractRouteData(r)
+		if err != nil {
+			panic(fmt.Errorf("Error while fetching data to create account (err: %v)", err))
+		}
+
+		// Unmarshal the content into a valid account.
+		var acc data.Account
+		err = json.Unmarshal([]byte(uniData.value), &acc)
+		if err != nil {
+			panic(fmt.Errorf("Error while parsing data to create account (err: %v)", err))
+		}
+
+		err = s.accounts.Create(acc)
+		if err != nil {
+			s.log.Trace(logger.Error, fmt.Sprintf("Could not create account from name \"%s\" (err: %v)", acc.Name, err))
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
+		}
+	}
 }
 
 // listPlayersForAccount :

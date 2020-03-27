@@ -1,10 +1,13 @@
 package data
 
 import (
+	"encoding/json"
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 // UniverseProxy :
@@ -66,8 +69,8 @@ func (p *UniverseProxy) Universes() ([]Universe, error) {
 		"economic_speed",
 		"fleet_speed",
 		"research_speed",
-		"fleet_to_ruins_ratio",
-		"defense_to_ruins_ratio",
+		"fleets_to_ruins_ratio",
+		"defenses_to_ruins_ratio",
 		"consumption_ratio",
 		"galaxy_count",
 		"solar_system_size",
@@ -92,7 +95,7 @@ func (p *UniverseProxy) Universes() ([]Universe, error) {
 			&uni.EcoSpeed,
 			&uni.FleetSpeed,
 			&uni.ResearchSpeed,
-			&uni.FleetToRuins,
+			&uni.FleetsToRuins,
 			&uni.DefensesToRuins,
 			&uni.FleetConsumption,
 			&uni.GalaxiesCount,
@@ -447,4 +450,46 @@ func (p *UniverseProxy) Ships(planet string) ([]Ship, error) {
 func (p *UniverseProxy) Fleets(planet Planet) ([]Fleet, error) {
 	// /universes/universe_id/planet_id/fleets
 	return nil, fmt.Errorf("Not implemented")
+}
+
+// Create :
+// Used to perform the creation of the universe described
+// by the input data to the DB. In case the creation cannot
+// be performed an error is returned.
+//
+// The `uni` describes the element to create in DB.
+//
+// The return status indicates whether the creation could
+// be performed: if this is not the case the error is not
+// `nil`.
+func (p *UniverseProxy) Create(uni Universe) error {
+	// Assign a valid identifier if this is not already the case.
+	if uni.ID == "" {
+		uni.ID = uuid.New().String()
+	}
+
+	// TODO: Handle controls to make sure that the universes is
+	// not created with invalid value (such as negative galaxies
+	// count, etc.).
+
+	// Marshal the input universe to pass it to the import script.
+	data, err := json.Marshal(uni)
+	if err != nil {
+		return fmt.Errorf("Could not import universe \"%s\" (err: %v)", uni.Name, err)
+	}
+	jsonToSend := string(data)
+
+	query := fmt.Sprintf("select * from create_universe('%s')", jsonToSend)
+	_, err = p.dbase.DBExecute(query)
+
+	// Check for errors.
+	if err != nil {
+		return fmt.Errorf("Could not import universe \"%s\" (err: %v)", uni.Name, err)
+	}
+
+	// Successfully created a universe.
+	p.log.Trace(logger.Notice, fmt.Sprintf("Created new universe \"%s\" with id \"%s\"", uni.Name, uni.ID))
+
+	// All is well.
+	return nil
 }

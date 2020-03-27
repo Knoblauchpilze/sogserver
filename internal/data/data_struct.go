@@ -64,7 +64,7 @@ type Player struct {
 // The `ResearchSpeed` controls how researches are shortened
 // compared to the base value.
 //
-// The `FleetToRuins` defines the percentage of resources
+// The `FleetsToRuins` defines the percentage of resources
 // that go into a debris fields when a ship is destroyed in
 // a battle.
 //
@@ -83,12 +83,12 @@ type Player struct {
 type Universe struct {
 	ID               string  `json:"id"`
 	Name             string  `json:"name"`
-	EcoSpeed         int     `json:"eco_speed"`
+	EcoSpeed         int     `json:"economic_speed"`
 	FleetSpeed       int     `json:"fleet_speed"`
 	ResearchSpeed    int     `json:"research_speed"`
-	FleetToRuins     float32 `json:"fleet_to_ruins"`
-	DefensesToRuins  float32 `json:"defenses_to_ruins"`
-	FleetConsumption float32 `json:"fleet_consumption"`
+	FleetsToRuins    float32 `json:"fleets_to_ruins_ratio"`
+	DefensesToRuins  float32 `json:"defenses_to_ruins_ratio"`
+	FleetConsumption float32 `json:"fleets_consumption_ratio"`
 	GalaxiesCount    int     `json:"galaxies_count"`
 	SolarSystemSize  int     `json:"solar_system_size"`
 }

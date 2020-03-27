@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
@@ -87,6 +88,50 @@ func (s *server) listUniverse() http.HandlerFunc {
 
 		s.log.Trace(logger.Error, fmt.Sprintf("Unhandled request for universe \"%s\"", purged))
 		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+	}
+}
+
+// createUniverse :
+// Produce a handler that can be used to perform the creation of the
+// universe. This operation should only be performed by an admin and
+// is usually not intended to be executed very often.
+//
+// Returns the handler to execute to handle universes' creation.
+func (s *server) createUniverse() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars, err := s.extractRouteVars("/universe", r)
+		if err != nil {
+			panic(fmt.Errorf("Error while creating universe (err: %v)", err))
+		}
+
+		// The route should not contain anymore data.
+		if vars.path != "" {
+			s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when creating universe", vars.path))
+		}
+
+		// Extract the data to use to create the universe from the input
+		// request: this can be done conveniently through the server's
+		// base method.
+		var uniData routeData
+		uniData, err = s.extractRouteData(r)
+		if err != nil {
+			panic(fmt.Errorf("Error while fetching data to create universe (err: %v)", err))
+		}
+
+		// Unmarshal the content into a valid universe.
+		var uni data.Universe
+		err = json.Unmarshal([]byte(uniData.value), &uni)
+		if err != nil {
+			panic(fmt.Errorf("Error while parsing data to create universe (err: %v)", err))
+		}
+
+		err = s.universes.Create(uni)
+		if err != nil {
+			s.log.Trace(logger.Error, fmt.Sprintf("Could not create universe from name \"%s\" (err: %v)", uni.Name, err))
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
+		}
 	}
 }
 

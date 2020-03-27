@@ -41,6 +41,16 @@ func (s *server) routeUniverses() {
 			handlers.WithSafetyNet(s.log, s.listUniverse()),
 		),
 	)
+
+	// Create a new universe.
+	http.HandleFunc(
+		"/universe",
+		handlers.Method(
+			s.log,
+			"POST",
+			handlers.WithSafetyNet(s.log, s.createUniverse()),
+		),
+	)
 }
 
 // routeAccounts :
@@ -65,6 +75,16 @@ func (s *server) routeAccounts() {
 			s.log,
 			"GET",
 			handlers.WithSafetyNet(s.log, s.listAccount()),
+		),
+	)
+
+	// Create a new universe.
+	http.HandleFunc(
+		"/account",
+		handlers.Method(
+			s.log,
+			"POST",
+			handlers.WithSafetyNet(s.log, s.createAccount()),
 		),
 	)
 }

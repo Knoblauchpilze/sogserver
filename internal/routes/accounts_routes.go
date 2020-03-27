@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
+	"oglike_server/pkg/handlers"
 	"oglike_server/pkg/logger"
 	"strings"
 )
@@ -87,6 +88,17 @@ func (s *server) listAccount() http.HandlerFunc {
 		s.log.Trace(logger.Error, fmt.Sprintf("Unhandled request for account \"%s\"", purged))
 		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
 	}
+}
+
+// createAccount :
+// Produce a handler that can be used to perform the creation of the
+// account of players when they register in the system. This is the
+// first action that the user must do before being able to register
+// in a universe.
+//
+// Returns the handler to execute to handle accounts' creation.
+func (s *server) createAccount() http.HandlerFunc {
+	return handlers.NotFound(s.log)
 }
 
 // listPlayersForAccount :

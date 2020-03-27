@@ -63,6 +63,18 @@ type routeVars struct {
 	params map[string]string
 }
 
+// routeData :
+// Used to define the data that can be passed to a route based on
+// its name. It is constructed by appending the "-data" suffix to
+// the route and getting the corresponding value.
+// It is useful to group common behavior of all the interfaces on
+// this server.
+//
+// The `value` represents the data extracted from ``
+type routeData struct {
+	value string
+}
+
 // NewServer :
 // Create a new server with the input elements to use internally to
 // access data and perform logging.
@@ -172,4 +184,44 @@ func (s *server) extractRouteVars(route string, r *http.Request) (routeVars, err
 	}
 
 	return vars, nil
+}
+
+// extractRouteData :
+// Used to extract the values passed to a request assuming its method
+// allows it. We don't enforce very strictly to call this method only
+// if the request can define such values but the result will be empty
+// if this is not the case.
+// The key used to form values from the request is directly built in
+// association with the route's name: basically if the route is set
+// to `/path/to/route` the key will be "route-data" that is the last
+// part of the route where we added a "-data" string.
+//
+// The `r` defines the request from which the route values should be
+// extracted.
+//
+// Returns the route's data along with any errors.
+func (s *server) extractRouteData(r *http.Request) (routeData, error) {
+	data := routeData{
+		"",
+	}
+
+	route := r.URL.String()
+
+	// Keep only the last part of the route (i.e. the data that is
+	// after the last occurrence of the '/' character). We assume
+	// that the data is registered under the route's name unless we
+	// can find some information indicating that it can be refined.
+	cutID := strings.LastIndex(route, "/")
+
+	dataKey := route + "-data"
+	if cutID >= 0 && cutID < len(route)-1 {
+		dataKey = route[cutID+1:] + "-data"
+	}
+
+	fmt.Println(fmt.Sprintf("Route is \"%s\", fetching key \"%s\"", route, dataKey))
+
+	// Fetch the data from the input request.
+	data.value = r.FormValue(dataKey)
+
+	return data, nil
 }

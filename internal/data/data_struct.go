@@ -251,9 +251,6 @@ type Ship struct {
 //
 // The `ID` represents a way to uniquely identify the fleet.
 //
-// The `Name` is the name that was given by the user to the
-// fleet upon its creation. Note that it might be empty.
-//
 // The `Objective` is a string defining the action intended
 // for this fleet. It is a way to determine which purpose the
 // fleet serves.
@@ -263,7 +260,6 @@ type Ship struct {
 // the fleet's objective allows to travel to an empty location.
 type Fleet struct {
 	ID        string     `json:"id"`
-	Name      string     `json:"name"`
 	Objective string     `json:"objective"`
 	Coords    Coordinate `json:"coordinates"`
 }

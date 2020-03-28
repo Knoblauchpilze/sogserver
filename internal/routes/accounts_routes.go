@@ -240,7 +240,7 @@ func (s *server) listPlayerProps(w http.ResponseWriter, params []string, filters
 	}
 
 	if !found {
-		s.log.Trace(logger.Error, fmt.Sprintf("Unable to find account \"%s\" associated to user \"%s\" (err: %v)", accountID, user, err))
+		s.log.Trace(logger.Error, fmt.Sprintf("Unable to find account \"%s\" associated to user \"%s\"", accountID, user))
 		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
 
 		return

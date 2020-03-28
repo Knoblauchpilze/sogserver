@@ -320,9 +320,58 @@ func (p *AccountProxy) Technologies(player Player) ([]Technology, error) {
 // with any error. In case the error is not `nil` the
 // value of the array should be ignored.
 func (p *AccountProxy) Fleets(player Player) ([]Fleet, error) {
-	// /accounts/account_id/player_id/fleets
-	// TODO: Implement fleets retrieval for a player.
-	return nil, fmt.Errorf("Not implemented")
+	// Create the query and execute it.
+	props := []string{
+		"f.id",
+		"fo.name",
+		"f.galaxy",
+		"f.solar_system",
+		"f.position",
+	}
+
+	tables := "fleet_ships fs inner join fleets f on fs.fleet=f.id inner join fleet_objectives fo on f.objective=fo.id"
+	where := fmt.Sprintf("fs.player='%s'", player.ID)
+
+	query := fmt.Sprintf("select %s from %s where %s", strings.Join(props, ", "), tables, where)
+	rows, err := p.dbase.DBQuery(query)
+
+	// Check for errors.
+	if err != nil {
+		return nil, fmt.Errorf("Could not query DB to fetch fleets for player \"%s\" (err: %v)", player.ID, err)
+	}
+
+	// Populate the return value.
+	fleets := make([]Fleet, 0)
+	var fleet Fleet
+
+	galaxy := 0
+	system := 0
+	position := 0
+
+	for rows.Next() {
+		err = rows.Scan(
+			&fleet.ID,
+			&fleet.Objective,
+			&galaxy,
+			&system,
+			&position,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve fleet for player \"%s\" (err: %v)", player.ID, err))
+			continue
+		}
+
+		fleet.Coords = Coordinate{
+			galaxy,
+			system,
+			position,
+		}
+
+		fleets = append(fleets, fleet)
+	}
+
+	return fleets, nil
 }
 
 // Create :

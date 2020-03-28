@@ -6,14 +6,13 @@ import (
 
 	// Note that this link: https://stackoverflow.com/questions/55442878/organize-local-code-in-packages-using-go-modules
 	// proved helpful when trying to determine which syntax to adopt to
-	// use packages define locally.
+	// use packages defined locally.
 	"oglike_server/internal/routes"
 	"oglike_server/pkg/arguments"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 )
 
-// TODO: Get fleets for account.
 // TODO: Construction actions.
 // TODO: Get de/activation status for technologies/buildings/ships.
 // TODO: Create player in universe.

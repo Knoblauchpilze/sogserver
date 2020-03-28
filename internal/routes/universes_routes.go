@@ -75,10 +75,10 @@ func (s *server) listUniverse() http.HandlerFunc {
 			if parts[1] != "planets" {
 				s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when serving planets for universe \"%s\"", parts[1], parts[0]))
 			}
-			s.listPlanetsForUniverse(w, parts[0])
+			s.listPlanetsForUniverse(w, parts[0], vars)
 			return
 		case 3:
-			s.listPlanetsProps(w, parts, vars.params)
+			s.listPlanetsProps(w, parts)
 			return
 		case 1:
 			fallthrough
@@ -146,9 +146,16 @@ func (s *server) createUniverse() http.HandlerFunc {
 //
 // The `universe` represents the identifier of the universe for which
 // planet should be fetched.
-func (s *server) listPlanetsForUniverse(w http.ResponseWriter, universe string) {
+//
+// The `vars` represent the query parameters that were passed to the
+// server with the input request. This is useful to extract filtering
+// options to use when fetching planets.
+func (s *server) listPlanetsForUniverse(w http.ResponseWriter, universe string, vars routeVars) {
+	// Fetch filtering properties to narrow the planets returned.
+	filters := parsePlanetsFilters(vars)
+
 	// Fetch planets.
-	planets, err := s.universes.Planets(universe)
+	planets, err := s.universes.Planets(universe, filters)
 	if err != nil {
 		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching universe \"%s\" (err: %v)", universe, err))
 		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
@@ -175,11 +182,7 @@ func (s *server) listPlanetsForUniverse(w http.ResponseWriter, universe string) 
 // data to retrieve for this planet. The first element of this
 // array is guaranteed to correspond to the identifier of the
 // planet for which the data should be retrieved.
-//
-// The `filters` correspond to the query filter that are set as an
-// additional filtering layer to query only specific properties of
-// the planet.
-func (s *server) listPlanetsProps(w http.ResponseWriter, params []string, filters map[string]string) {
+func (s *server) listPlanetsProps(w http.ResponseWriter, params []string) {
 	//  We know that the first elements of the `params` array should
 	// correspond to the planet's identifier (i.e. the root value
 	// where specific information should be fetched. The rest of the

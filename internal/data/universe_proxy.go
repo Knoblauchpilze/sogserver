@@ -116,8 +116,8 @@ func (p *UniverseProxy) Universes() ([]Universe, error) {
 // Planets :
 // Return a list of planets associated registered in the
 // universe specified in input. It queries the DB to fetch
-// the relevant data. Note that only the created planets
-// will be returned.
+// the relevant data. Note that only the planets matching
+// the filters in input will be returned.
 //
 // The `uni` describes the universe for which planetes
 // should be returned. In case it does not represent a
@@ -125,10 +125,15 @@ func (p *UniverseProxy) Universes() ([]Universe, error) {
 // likely be empty. It is only represented using its
 // identifier.
 //
+// The `filters` define some filtering property that can be
+// applied to the SQL query to only select part of all the
+// accounts available. Each one is appended `as-is` to the
+// query.
+//
 // Returns the list of planets for this universe along
 // with any error. In case the error is not `nil` the
 // value of the array should be ignored.
-func (p *UniverseProxy) Planets(uni string) ([]Planet, error) {
+func (p *UniverseProxy) Planets(uni string, filters []Filter) ([]Planet, error) {
 	// Create the query and execute it.
 	props := []string{
 		"p.id",
@@ -148,6 +153,18 @@ func (p *UniverseProxy) Planets(uni string) ([]Planet, error) {
 	where := fmt.Sprintf("pl.uni='%s'", uni)
 
 	query := fmt.Sprintf("select %s from %s on %s where %s", strings.Join(props, ", "), table, joinCond, where)
+
+	if len(filters) > 0 {
+		query += " where"
+
+		for id, filter := range filters {
+			if id > 0 {
+				query += " and"
+			}
+			query += fmt.Sprintf(" %s", filter)
+		}
+	}
+
 	rows, err := p.dbase.DBQuery(query)
 
 	// Check for errors.

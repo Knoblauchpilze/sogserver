@@ -69,6 +69,11 @@ func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
 // No controls is enforced on the filters so one should make
 // sure that it's consistent with the underlying table.
 //
+// The `filters` define some filtering property that can be
+// applied to the SQL query to only select part of all the
+// accounts available. Each one is appended `as-is` to the
+// query.
+//
 // Returns the list of accounts along with any errors. Note
 // that in case the error is not `nil` the returned list is
 // to be ignored.
@@ -77,7 +82,11 @@ func (p *AccountProxy) Accounts(filters []Filter) ([]Account, error) {
 	query := fmt.Sprintf("select id, mail, name from accounts")
 	if len(filters) > 0 {
 		query += " where"
-		for _, filter := range filters {
+
+		for id, filter := range filters {
+			if id > 0 {
+				query += " and"
+			}
 			query += fmt.Sprintf(" %s", filter)
 		}
 	}

@@ -23,6 +23,7 @@ func (s *server) routes() {
 // to universes.
 func (s *server) routeUniverses() {
 	// List existing universes.
+	// GET, `/universes`
 	http.HandleFunc(
 		"/universes",
 		handlers.Method(
@@ -33,6 +34,12 @@ func (s *server) routeUniverses() {
 	)
 
 	// List properties of a specific universe.
+	// GET, `/universes/universe_id`
+	// GET, `/universes/universe_id/planets`
+
+	// GET, `/universes/universe_id/planet_id/buildings`
+	// GET, `/universes/universe_id/planet_id/defense`
+	// GET, `/universes/universe_id/planet_id/ships`
 	http.HandleFunc(
 		"/universes/",
 		handlers.Method(
@@ -43,6 +50,7 @@ func (s *server) routeUniverses() {
 	)
 
 	// Create a new universe.
+	// POST, `/universe`, `universe-data`
 	http.HandleFunc(
 		"/universe",
 		handlers.Method(
@@ -59,6 +67,12 @@ func (s *server) routeUniverses() {
 // the server.
 func (s *server) routeAccounts() {
 	// List existing accounts.
+	// GET, `/accounts/account_id`
+	// GET, `/accounts/account_id/players`
+
+	// GET, `/accounts/account_id/player_id/planets`
+	// GET, `/accounts/account_id/player_id/technologies`
+	// GET, `/accounts/account_id/player_id/fleets`
 	http.HandleFunc(
 		"/accounts",
 		handlers.Method(
@@ -69,6 +83,7 @@ func (s *server) routeAccounts() {
 	)
 
 	// List properties of a specific account.
+	// GET, `/accounts`
 	http.HandleFunc(
 		"/accounts/",
 		handlers.Method(
@@ -79,6 +94,7 @@ func (s *server) routeAccounts() {
 	)
 
 	// Create a new universe.
+	// POST, `/account`, `account-data`
 	http.HandleFunc(
 		"/account",
 		handlers.Method(

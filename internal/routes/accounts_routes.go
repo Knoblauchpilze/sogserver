@@ -245,7 +245,7 @@ func (s *server) listPlayerProps(w http.ResponseWriter, params []string, filters
 	// Retrieve specific information of the player.
 	var errSend error
 	var planets []data.Planet
-	var researches []data.Research
+	var technologies []data.Technology
 	var fleets []data.Fleet
 
 	switch params[2] {
@@ -254,10 +254,10 @@ func (s *server) listPlayerProps(w http.ResponseWriter, params []string, filters
 		if err == nil {
 			errSend = marshalAndSend(planets, w)
 		}
-	case "researches":
-		researches, err = s.accounts.Researches(player)
+	case "technologies":
+		technologies, err = s.accounts.Technologies(player)
 		if err == nil {
-			errSend = marshalAndSend(researches, w)
+			errSend = marshalAndSend(technologies, w)
 		}
 	case "fleets":
 		fleets, err = s.accounts.Fleets(player)

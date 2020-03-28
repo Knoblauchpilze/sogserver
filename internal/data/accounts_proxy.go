@@ -228,21 +228,21 @@ func (p *AccountProxy) Planets(player string) ([]Planet, error) {
 	return planets, nil
 }
 
-// Researches :
-// Return a list of the current researches developed on
-// the account of the specified player. It queries the
-// DB to fetch the relevant data and return it through
-// an array.
+// Technologies :
+// Return a list of the current technologies developed
+// on the account of the specified player. It queries
+// the DB to fetch the relevant data and return it
+// through an array.
 //
-// The `player` describes the account for which researches
+// The `player` describes the account for which techno
 // should be fetched. We assume that it contains valid
-// data. If this is not the case no researches will likely
-// be retrieved.
+// data. If this is not the case no technologies will
+// likely be retrieved.
 //
-// Returns the list of researches for this account
-// along with any error. In case the error is not
-// `nil` the value of the array should be ignored.
-func (p *AccountProxy) Researches(player Player) ([]Research, error) {
+// Returns the list of technologies for this account
+// along with any error. In case the error is not `nil`
+// the value of the array should be ignored.
+func (p *AccountProxy) Technologies(player Player) ([]Technology, error) {
 	// Create the query and execute it.
 	props := []string{
 		"pt.player",
@@ -262,8 +262,8 @@ func (p *AccountProxy) Researches(player Player) ([]Research, error) {
 	}
 
 	// Populate the return value.
-	technologies := make([]Research, 0)
-	var tech Research
+	technologies := make([]Technology, 0)
+	var tech Technology
 
 	for rows.Next() {
 		err = rows.Scan(

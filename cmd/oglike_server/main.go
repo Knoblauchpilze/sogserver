@@ -17,7 +17,7 @@ import (
 // TODO: Get resources for planet.
 // TODO: Get fleets for account.
 // TODO: Construction actions.
-// TODO: Get de/activation status for researches/buildings/ships.
+// TODO: Get de/activation status for technologies/buildings/ships.
 // TODO: Get solar system planets (from query params in `/planets`).
 // TODO: Create player in universe.
 

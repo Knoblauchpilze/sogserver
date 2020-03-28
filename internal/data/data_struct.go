@@ -160,8 +160,8 @@ type Planet struct {
 	Diameter int        `json:"diameter"`
 }
 
-// Research :
-// Defines a research in the og context. It defines the identifier
+// Technology :
+// Defines a technology in the og context. It defines the identifier
 // of the technology which allows to access the description of the
 // technology and other information.
 //
@@ -169,9 +169,9 @@ type Planet struct {
 //
 // The `Name` of the technology.
 //
-// The `Level` defines the current research level of this technology
+// The `Level` defines the current technology level of this technology
 // on the account of a player.
-type Research struct {
+type Technology struct {
 	ID    string `json:"id"`
 	Name  string `json:"name"`
 	Level int    `json:"level"`

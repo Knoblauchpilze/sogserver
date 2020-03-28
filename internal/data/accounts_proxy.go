@@ -297,12 +297,14 @@ func (p *AccountProxy) Fleets(player Player) ([]Fleet, error) {
 // by the input data to the DB. In case the creation can
 // not be performed an error is returned.
 //
-// The `acc` describes the element to create in DB.
+// The `acc` describes the element to create in DB. This
+// value may be modified by the function mainly to update
+// the identifier of the account if none have been set.
 //
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
 // `nil`.
-func (p *AccountProxy) Create(acc Account) error {
+func (p *AccountProxy) Create(acc *Account) error {
 	// Assign a valid identifier if this is not already the case.
 	if acc.ID == "" {
 		acc.ID = uuid.New().String()

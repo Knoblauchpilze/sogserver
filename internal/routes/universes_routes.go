@@ -125,7 +125,7 @@ func (s *server) createUniverse() http.HandlerFunc {
 			panic(fmt.Errorf("Error while parsing data to create universe (err: %v)", err))
 		}
 
-		err = s.universes.Create(uni)
+		err = s.universes.Create(&uni)
 		if err != nil {
 			s.log.Trace(logger.Error, fmt.Sprintf("Could not create universe from name \"%s\" (err: %v)", uni.Name, err))
 			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)

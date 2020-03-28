@@ -68,7 +68,23 @@ func marshalAndSend(data interface{}, w http.ResponseWriter) error {
 
 	// Notify the client.
 	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
 	_, err = w.Write(out)
 
 	return err
+}
+
+// notifyCreation :
+// Used to setup the input response writer to indicate that the
+// resource defined by the input string has successfully been
+// created and can be accessed through the url.
+//
+// The `resource` represent a path to access the created object.
+//
+// The `w` response writer will be used to indicate the status
+// to the client.
+func notifyCreation(resource string, w http.ResponseWriter) {
+	// Notify the status.
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(resource))
 }

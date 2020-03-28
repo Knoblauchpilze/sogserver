@@ -70,8 +70,12 @@ func (s *server) listAccount() http.HandlerFunc {
 		// Depending on the number of parts in the route, we will call
 		// the suited handler.
 		switch len(parts) {
+		case 1:
+			// Assume that a request on the account itself is equivalent
+			// to requesting the universes into which it is present.
+			fallthrough
 		case 2:
-			if parts[1] != "players" {
+			if len(parts) > 1 && parts[1] != "players" {
 				s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when serving accounts for player \"%s\"", parts[1], parts[0]))
 			}
 			s.listPlayersForAccount(w, parts[0])
@@ -79,8 +83,6 @@ func (s *server) listAccount() http.HandlerFunc {
 		case 3:
 			s.listPlayerProps(w, parts, vars.params)
 			return
-		case 1:
-			fallthrough
 		default:
 			// Can't do anything.
 		}
@@ -125,13 +127,19 @@ func (s *server) createAccount() http.HandlerFunc {
 			panic(fmt.Errorf("Error while parsing data to create account (err: %v)", err))
 		}
 
-		err = s.accounts.Create(acc)
+		err = s.accounts.Create(&acc)
 		if err != nil {
 			s.log.Trace(logger.Error, fmt.Sprintf("Could not create account from name \"%s\" (err: %v)", acc.Name, err))
 			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
 
 			return
 		}
+
+		// We need to return a valid status code and the address of
+		// the created resource, as described in the following post:
+		// https://stackoverflow.com/questions/1829875/is-it-ok-by-rest-to-return-content-after-post
+		resource := fmt.Sprintf("/accounts/%s", acc.ID)
+		notifyCreation(resource, w)
 	}
 }
 

@@ -457,12 +457,14 @@ func (p *UniverseProxy) Fleets(planet Planet) ([]Fleet, error) {
 // by the input data to the DB. In case the creation cannot
 // be performed an error is returned.
 //
-// The `uni` describes the element to create in DB.
+// The `uni` describes the element to create in DB. This
+// value may be modified by the function mainly to update
+// the identifier of the universe if none have been set.
 //
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
 // `nil`.
-func (p *UniverseProxy) Create(uni Universe) error {
+func (p *UniverseProxy) Create(uni *Universe) error {
 	// Assign a valid identifier if this is not already the case.
 	if uni.ID == "" {
 		uni.ID = uuid.New().String()

@@ -310,9 +310,11 @@ func (p *AccountProxy) Create(acc *Account) error {
 		acc.ID = uuid.New().String()
 	}
 
-	// TODO: Handle controls to make sure that the account is
-	// not created with invalid value (such as empty mail or
-	// name).
+	// TODO: Check that no other account with this email exists.
+	// Validate that the input data describe a valid universe.
+	if !acc.valid() {
+		return fmt.Errorf("Could not create account \"%s\", some properties are invalid", acc.Name)
+	}
 
 	// Marshal the input universe to pass it to the import script.
 	data, err := json.Marshal(acc)

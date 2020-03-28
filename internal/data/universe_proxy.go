@@ -470,9 +470,10 @@ func (p *UniverseProxy) Create(uni *Universe) error {
 		uni.ID = uuid.New().String()
 	}
 
-	// TODO: Handle controls to make sure that the universes are
-	// not created with invalid value (such as negative galaxies
-	// count, etc.).
+	// Validate that the input data describe a valid universe.
+	if !uni.valid() {
+		return fmt.Errorf("Could not create universe \"%s\", some properties are invalid", uni.Name)
+	}
 
 	// Marshal the input universe to pass it to the import script.
 	data, err := json.Marshal(uni)

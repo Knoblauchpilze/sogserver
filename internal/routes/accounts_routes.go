@@ -250,7 +250,7 @@ func (s *server) listPlayerProps(w http.ResponseWriter, params []string, filters
 
 	switch params[2] {
 	case "planets":
-		planets, err = s.accounts.Planets(player)
+		planets, err = s.accounts.Planets(player.ID)
 		if err == nil {
 			errSend = marshalAndSend(planets, w)
 		}

@@ -435,23 +435,6 @@ func (p *UniverseProxy) Ships(planet string) ([]Ship, error) {
 	return ships, nil
 }
 
-// Fleets :
-// Similar to the `Ships` method but returns the list of
-// fleets that are directed towards or start from this
-// planet. Note that it accounts both for friendly but
-// also enemy fleets.
-//
-// The `planet` defines the planet for which the list of
-// fleets should be fetched.
-//
-// Returns a list of the fleets currently directed towards
-// the planet or leaving from it no matter their objectives.
-// The list should be ignored if the error is not `nil`.
-func (p *UniverseProxy) Fleets(planet Planet) ([]Fleet, error) {
-	// /universes/universe_id/planet_id/fleets
-	return nil, fmt.Errorf("Not implemented")
-}
-
 // Create :
 // Used to perform the creation of the universe described
 // by the input data to the DB. In case the creation cannot

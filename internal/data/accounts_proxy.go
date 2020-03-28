@@ -158,15 +158,15 @@ func (p *AccountProxy) Characters(user string) ([]Player, error) {
 // to fetch the relevant data and return it through an
 // array of planets.
 //
-// The `player` describes the account for which planets
-// should be fetched. We assume that it contains valid
-// data. If this is not the case no planets will likely
-// be retrieved.
+// The `player` describes the identifier of the account
+// for which planets should be fetched. We assume that
+// it contains valid data. If this is not the case no
+// planets will likely be retrieved.
 //
 // Returns the list of planets for this account along
 // with any error. In case the error is not `nil` the
 // value of the array should be ignored.
-func (p *AccountProxy) Planets(player Player) ([]Planet, error) {
+func (p *AccountProxy) Planets(player string) ([]Planet, error) {
 	// Create the query and execute it.
 	props := []string{
 		"id",
@@ -181,12 +181,12 @@ func (p *AccountProxy) Planets(player Player) ([]Planet, error) {
 		"position",
 	}
 
-	query := fmt.Sprintf("select %s from planets where id='%s'", strings.Join(props, ", "), player.ID)
+	query := fmt.Sprintf("select %s from planets where id='%s'", strings.Join(props, ", "), player)
 	rows, err := p.dbase.DBQuery(query)
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch planets for player \"%s\" (err: %v)", player.ID, err)
+		return nil, fmt.Errorf("Could not query DB to fetch planets for player \"%s\" (err: %v)", player, err)
 	}
 
 	// Populate the return value.
@@ -212,7 +212,7 @@ func (p *AccountProxy) Planets(player Player) ([]Planet, error) {
 		)
 
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve planet for player \"%s\" (err: %v)", player.ID, err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve planet for player \"%s\" (err: %v)", player, err))
 			continue
 		}
 
@@ -301,6 +301,7 @@ func (p *AccountProxy) Researches(player Player) ([]Research, error) {
 // value of the array should be ignored.
 func (p *AccountProxy) Fleets(player Player) ([]Fleet, error) {
 	// /accounts/account_id/player_id/fleets
+	// TODO: Implement fleets retrieval for a player.
 	return nil, fmt.Errorf("Not implemented")
 }
 

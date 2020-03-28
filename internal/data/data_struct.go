@@ -119,6 +119,28 @@ type Coordinate struct {
 	Position int `json:"position"`
 }
 
+// Resource :
+// Defines a substance that can be produced or consumed by
+// any element of the game. It is typically used to build
+// some new elements (buildings, ships, etc.) or consumed
+// to produce some other resource.
+//
+// The `ID` defines the identifier of the resource. This
+// can be used to uniquely refer to the resource and to
+// communicate with the server.
+//
+// The `Amount` defines the quantity of said resources.
+// Depending on the context it can either be a quantity
+// available or needed.
+//
+// The `Name` defines a human-readable string for naming
+// the resource (more explicit than the `ID`).
+type Resource struct {
+	ID     string
+	Amount int
+	Name   string
+}
+
 // Planet :
 // Define a planet which is an object within a certain universe
 // and associated to a certain player. The planet is described

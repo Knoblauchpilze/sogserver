@@ -13,8 +13,6 @@ import (
 	"oglike_server/pkg/logger"
 )
 
-// TODO: Get account from mail.
-// TODO: Get resources for planet.
 // TODO: Get fleets for account.
 // TODO: Construction actions.
 // TODO: Get de/activation status for technologies/buildings/ships.

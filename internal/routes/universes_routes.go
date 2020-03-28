@@ -213,6 +213,7 @@ func (s *server) listPlanetsProps(w http.ResponseWriter, params []string, filter
 	var buildings []data.Building
 	var ships []data.Ship
 	var defenses []data.Defense
+	var resources []data.Resource
 
 	switch params[2] {
 	case "buildings":
@@ -229,6 +230,11 @@ func (s *server) listPlanetsProps(w http.ResponseWriter, params []string, filter
 		defenses, err = s.universes.Defenses(planet.ID)
 		if err == nil {
 			errSend = marshalAndSend(defenses, w)
+		}
+	case "resources":
+		resources, err = s.universes.Resources(planet.ID)
+		if err == nil {
+			errSend = marshalAndSend(resources, w)
 		}
 	}
 

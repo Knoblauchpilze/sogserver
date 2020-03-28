@@ -281,6 +281,60 @@ func (p *UniverseProxy) Planet(uni string, planet string) (Planet, error) {
 	return pl, err
 }
 
+// Resources :
+// Used to retrieve the resource currently present on the
+// planet specified by the identifier of the `planet`. In
+// case the planet cannot be found an empty array is sent
+// back.
+//
+// The `planet` defines the identifier of the planet for
+// which resources should be fetched.
+//
+// Returns an array defining the resources present at the
+// moment of the request on the planet along wich any
+// errors that might have arised while fetching the info.
+func (p *UniverseProxy) Resources(planet string) ([]Resource, error) {
+	// Create the query and execute it.
+	props := []string{
+		"pr.planet",
+		"pr.amount",
+		"r.name",
+	}
+
+	table := "planets_resources pr inner join resources r"
+	joinCond := "pr.res=r.id"
+
+	query := fmt.Sprintf("select %s from %s on %s", strings.Join(props, ", "), table, joinCond)
+	rows, err := p.dbase.DBQuery(query)
+
+	// Check for errors.
+	if err != nil {
+		return nil, fmt.Errorf("Could not query DB to fetch resources (err: %v)", err)
+	}
+
+	// Populate the return content from the result of the
+	// DB query.
+	resources := make([]Resource, 0)
+	var res Resource
+
+	for rows.Next() {
+		err = rows.Scan(
+			&res.ID,
+			&res.Amount,
+			&res.Name,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for resource (err: %v)", err))
+			continue
+		}
+
+		resources = append(resources, res)
+	}
+
+	return resources, nil
+}
+
 // Buildings :
 // Return a list of the buildings currently built on the
 // planet specified as input. This will automatically use

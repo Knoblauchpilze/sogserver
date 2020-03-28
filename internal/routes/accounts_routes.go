@@ -127,6 +127,14 @@ func (s *server) createAccount() http.HandlerFunc {
 			panic(fmt.Errorf("Error while parsing data to create account (err: %v)", err))
 		}
 
+		// Note that we don't actually check that the account is unique
+		// so far in the database. We count on the fact that the mail
+		// must be unique for all the accounts. Typically the client to
+		// allow the user to create an account should fetch the list of
+		// existing mails and prevent the request to be issued with an
+		// invalid mail (or an already existing one).
+		// At this step we consider that preventing the insertion of the
+		// duplicated account is enough.
 		err = s.accounts.Create(&acc)
 		if err != nil {
 			s.log.Trace(logger.Error, fmt.Sprintf("Could not create account from name \"%s\" (err: %v)", acc.Name, err))

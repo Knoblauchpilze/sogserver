@@ -10,6 +10,18 @@ import (
 	"github.com/google/uuid"
 )
 
+// getDuplicatedElementErrorKey :
+// Used to retrieve a string describing part of the error
+// message issued by the database when trying to insert a
+// duplicated element on a unique column. Can be used to
+// standardize the definition of this error.
+//
+// Return part of the error string issued when inserting
+// an already existing key.
+func getDuplicatedElementErrorKey() string {
+	return "SQLSTATE 23505"
+}
+
 // AccountProxy :
 // Intended as a wrapper to access properties of accounts
 // and retrieve data from the database. This helps hiding
@@ -310,7 +322,6 @@ func (p *AccountProxy) Create(acc *Account) error {
 		acc.ID = uuid.New().String()
 	}
 
-	// TODO: Check that no other account with this email exists.
 	// Validate that the input data describe a valid universe.
 	if !acc.valid() {
 		return fmt.Errorf("Could not create account \"%s\", some properties are invalid", acc.Name)
@@ -326,9 +337,20 @@ func (p *AccountProxy) Create(acc *Account) error {
 	query := fmt.Sprintf("select * from create_account('%s')", jsonToSend)
 	_, err = p.dbase.DBExecute(query)
 
-	// Check for errors.
+	// Check for errors. We will refine this process a bit to try
+	// to detect cases where the user tries to insert an account
+	// with an already existing e-mail.
+	// In this case we should get an error indicating a `23505` as
+	// return code. We will refine the error in this case.
 	if err != nil {
-		return fmt.Errorf("Could not import account \"%s\" (err: %v)", acc.Name, err)
+		// Check for duplicated key error.
+		msg := fmt.Sprintf("%v", err)
+
+		if strings.Contains(msg, getDuplicatedElementErrorKey()) {
+			return fmt.Errorf("Could not import account \"%s\", mail \"%s\" already exists (err: %s)", acc.Name, acc.Mail, msg)
+		}
+
+		return fmt.Errorf("Could not import account \"%s\" (err: %s)", acc.Name, msg)
 	}
 
 	// Successfully created an account.

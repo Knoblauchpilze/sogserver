@@ -2,8 +2,8 @@
 -- Create the table defining accounts.
 CREATE TABLE accounts (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
-    name text,
-    mail text,
+    name text NOT NULL,
+    mail text NOT NULL UNIQUE,
     created_at timestamp with time zone default current_timestamp,
     PRIMARY KEY (id)
 );

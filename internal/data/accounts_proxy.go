@@ -323,7 +323,9 @@ func (p *AccountProxy) Fleets(player Player) ([]Fleet, error) {
 	// Create the query and execute it.
 	props := []string{
 		"f.id",
+		"f.name",
 		"fo.name",
+		"f.arrival_time",
 		"f.galaxy",
 		"f.solar_system",
 		"f.position",
@@ -351,7 +353,9 @@ func (p *AccountProxy) Fleets(player Player) ([]Fleet, error) {
 	for rows.Next() {
 		err = rows.Scan(
 			&fleet.ID,
+			&fleet.Name,
 			&fleet.Objective,
+			&fleet.ArrivalTime,
 			&galaxy,
 			&system,
 			&position,

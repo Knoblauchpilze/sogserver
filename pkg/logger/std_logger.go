@@ -81,8 +81,8 @@ type configuration struct {
 //
 // The `name` might be nil and represents a key describing the message. An example
 // can be given as follows:
-//    Name: "Player"
-//    Content "Creation: date"
+//   - Name: "Player"
+//   - Content "Creation: date"
 // It might be used to identify similar logs (for example sample duration) even
 // though it is much easier to compute statistics from events than from simple
 // messages. It might also be empty if the message has no particular title.

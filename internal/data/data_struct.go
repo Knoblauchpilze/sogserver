@@ -1,5 +1,7 @@
 package data
 
+import "time"
+
 // Account :
 // Defines a player's account within the OG context. It is
 // not related to any universe and defines what could be
@@ -251,6 +253,10 @@ type Ship struct {
 //
 // The `ID` represents a way to uniquely identify the fleet.
 //
+// The `Name` defines the name that the user provided when the
+// fleet was created. It might be empty in case no name was
+// provided.
+//
 // The `Objective` is a string defining the action intended
 // for this fleet. It is a way to determine which purpose the
 // fleet serves.
@@ -259,7 +265,34 @@ type Ship struct {
 // of this fleet. Note that it might not be a planet in case
 // the fleet's objective allows to travel to an empty location.
 type Fleet struct {
-	ID        string     `json:"id"`
-	Objective string     `json:"objective"`
-	Coords    Coordinate `json:"coordinates"`
+	ID          string     `json:"id"`
+	Name        string     `json:"name"`
+	Objective   string     `json:"objective"`
+	Coords      Coordinate `json:"coordinates"`
+	ArrivalTime time.Time  `json:"arrival_time"`
+}
+
+// FleetComponent :
+// Defines a single element participating to a fleet. This is
+// the most basic element that can take part into a fleet: it
+// is composed of some ships belonging to a single player. We
+// also provide the information about the starting position
+// of the ships and the player that launched the fleet.
+//
+// The `PlayerID` defines the identifier of the account that
+// launched this fleet component.
+//
+// The `ShipID` defines the identifier of the ships that are
+// composing this fleet element.
+//
+// The `Amount` defines how many ships are registered in this
+// fleet component.
+//
+// The `Coords` defines the starting coordinates of this item
+// of the fleet.
+type FleetComponent struct {
+	PlayerID string     `json:"player_id"`
+	ShipID   string     `json:"ship_id"`
+	Amount   int        `json:"amount"`
+	Coords   Coordinate `json:"coordinates"`
 }

@@ -78,7 +78,11 @@ func (s *server) listUniverse() http.HandlerFunc {
 			s.listPlanetsForUniverse(w, parts[0], vars)
 			return
 		case 3:
-			s.listPlanetsProps(w, parts)
+			if parts[1] == "fleet" {
+				s.listFleet(w, parts)
+			} else {
+				s.listPlanetsProps(w, parts)
+			}
 			return
 		case 1:
 			fallthrough
@@ -178,7 +182,7 @@ func (s *server) listPlanetsForUniverse(w http.ResponseWriter, universe string, 
 // The `w` is the response writer to use to send the response back
 // to the client.
 //
-// The `params` represents the aprameters provided to filter the
+// The `params` represents the parameters provided to filter the
 // data to retrieve for this planet. The first element of this
 // array is guaranteed to correspond to the identifier of the
 // planet for which the data should be retrieved.
@@ -251,5 +255,52 @@ func (s *server) listPlanetsProps(w http.ResponseWriter, params []string) {
 
 	if errSend != nil {
 		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while sending data for planet \"%s\" (err: %v)", planet.ID, err))
+	}
+}
+
+// listFleet :
+// Used to fetch and server the details about a certain fleet to
+// the client. The details about the fleet to fetch are extracted
+// from the `params` argument.
+// The fleet information will include both the general info that
+// define the objective and target of the fleet but also details
+// about the actual composition of the fleet.
+//
+// The `w` is the response writer to use to send the response back
+// to the client.
+//
+// The `params` represents the parameters allowing to extract the
+// data to describe the fleet to fetch (its identifier mainly).
+func (s *server) listFleet(w http.ResponseWriter, params []string) {
+	// The route allowing to call this endpoint is something similar
+	// to the following:
+	// `/universe_id/fleet/fleet_id`.
+	// So we can safely retrieve first the universe and then details
+	// about the fleet. We also now for sure that the `params[1]` is
+	// the string "fleet" so we can skip to the fleet's identifier.
+	uni := params[0]
+	fleetID := params[2]
+
+	// We need to feetch the planet's data from its identifier.
+	fleet, err := s.universes.Fleet(fleetID)
+	if err != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unable to find fleet \"%s\" associated to universe \"%s\" (err: %v)", fleetID, uni, err))
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+		return
+	}
+
+	// Retrieve the components of the fleet.
+	comps, err := s.universes.FleetDetails(fleet)
+	if err != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unable to fetch components for fleet \"%s\" (err: %v)", fleet.ID, err))
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+		return
+	}
+
+	err = marshalAndSend(comps, w)
+	if err != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while sending data for fleet \"%s\" (err: %v)", fleet.ID, err))
 	}
 }

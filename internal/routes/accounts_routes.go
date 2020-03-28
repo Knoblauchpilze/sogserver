@@ -85,7 +85,7 @@ func (s *server) listAccount() http.HandlerFunc {
 			s.listPlayersForAccount(w, parts[0])
 			return
 		case 3:
-			s.listPlayerProps(w, parts, vars.params)
+			s.listPlayerProps(w, parts)
 			return
 		default:
 			// Can't do anything.
@@ -190,16 +190,12 @@ func (s *server) listPlayersForAccount(w http.ResponseWriter, account string) {
 // The `w` is the response writer to use to send the response back
 // to the client.
 //
-// The `params` represents the aprameters provided to filter the
+// The `params` represents the parameters provided to filter the
 // data to retrieve for this account. The first element of this
 // array is guaranteed to correspond to the identifier of the
 // account for which the data should be retrieved.
-//
-// The `filters` correspond to the query filter that are set as an
-// additional filtering layer to query only specific properties of
-// the account.
-func (s *server) listPlayerProps(w http.ResponseWriter, params []string, filters map[string]string) {
-	//  We know that the first elements of the `params` array should
+func (s *server) listPlayerProps(w http.ResponseWriter, params []string) {
+	// We know that the first elements of the `params` array should
 	// correspond to the account's identifier (i.e. the root value
 	// which owns all the individual player's in the universes, and
 	// the rest of the values correspond to filtering properties to

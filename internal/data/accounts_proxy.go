@@ -64,13 +64,24 @@ func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
 // Allows to fetch the list of accounts currently registered
 // in the DB. This defines how many unique players already
 // have created at least an account in a universe.
+// The user can choose to filter parts of the accounts using
+// an array of filters that will be applied to the SQL query.
+// No controls is enforced on the filters so one should make
+// sure that it's consistent with the underlying table.
 //
 // Returns the list of accounts along with any errors. Note
 // that in case the error is not `nil` the returned list is
 // to be ignored.
-func (p *AccountProxy) Accounts() ([]Account, error) {
+func (p *AccountProxy) Accounts(filters []Filter) ([]Account, error) {
 	// Create the query and execute it.
 	query := fmt.Sprintf("select id, mail, name from accounts")
+	if len(filters) > 0 {
+		query += " where"
+		for _, filter := range filters {
+			query += fmt.Sprintf(" %s", filter)
+		}
+	}
+
 	rows, err := p.dbase.DBQuery(query)
 
 	// Check for errors.

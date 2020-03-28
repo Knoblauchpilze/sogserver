@@ -29,8 +29,12 @@ func (s *server) listAccounts() http.HandlerFunc {
 			s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when serving accounts", vars.path))
 		}
 
-		// Retrieve the accounts from the bridge.
-		accs, err := s.accounts.Accounts()
+		// Retrieve the filtering options (to potentially retrieve only
+		// some accounts and not all of them).
+		filters := parseAccountFilters(vars)
+
+		// Retrieve the accounts from the database.
+		accs, err := s.accounts.Accounts(filters)
 		if err != nil {
 			s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching accounts (err: %v)", err))
 			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)

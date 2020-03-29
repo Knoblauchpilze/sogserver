@@ -3,6 +3,7 @@ package routes
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"oglike_server/internal/data"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -181,26 +182,34 @@ func (s *server) extractRouteVars(route string, r *http.Request) (routeVars, err
 	vars.path = extra[:beginQueryParams]
 	queryStr := extra[beginQueryParams+1:]
 
-	// Query parameters should be separated by '&' characters. Each parameter is
-	// separated between a key and a value through the '=' character.
-	params := strings.Split(queryStr, "&")
-	for _, param := range params {
-		// Split the parameter into its key and value component if possible.
-		tokens := strings.Split(param, "=")
+	params, err := url.ParseQuery(queryStr)
+	if err != nil {
+		return vars, fmt.Errorf("Unable to parse query parameters in route \"%s\" (err: %v)", route, err)
+	}
 
-		// Discard invalid tokens.
-		if len(tokens) != 2 {
-			s.log.Trace(logger.Warning, fmt.Sprintf("Unable to parse query parameter \"%s\" in route \"%s\"", param, route))
+	// Analyze the retrieved query parameters.
+	for key, values := range params {
+		// Handle cases where several parameter are provided for the same key:
+		// we will only keep the first one for now. We will also handle cases
+		// where no value is provided for the key.
+		if len(values) == 0 {
+			s.log.Trace(logger.Warning, fmt.Sprintf("Key \"%s\" does not have any value in route \"%s\"", key, route))
 			continue
 		}
 
-		// Detect override.
-		existing, ok := vars.params[tokens[0]]
-		if ok {
-			s.log.Trace(logger.Warning, fmt.Sprintf("Overriding query parameter \"%s\": \"%s\" replaced by \"%s\"", tokens[0], existing, tokens[1]))
+		if len(values) > 1 {
+			s.log.Trace(logger.Warning, fmt.Sprintf("Key \"%s\" defines %d values, keeping olnly the first in route \"%s\"", key, len(values), route))
 		}
 
-		vars.params[tokens[0]] = tokens[1]
+		param := values[0]
+
+		// Detect override.
+		existing, ok := vars.params[param]
+		if ok {
+			s.log.Trace(logger.Warning, fmt.Sprintf("Overriding query parameter \"%s\": \"%s\" replaced by \"%s\"", key, existing, param))
+		}
+
+		vars.params[key] = param
 	}
 
 	return vars, nil

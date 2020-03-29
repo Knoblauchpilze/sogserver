@@ -32,15 +32,31 @@ import (
 // The `accounts` fills a similar role to `universes` but is related
 // to accounts information.
 //
+// The `buildings` represents the proxy to use to perform requests
+// concerning buildings and to access information about this topic.
+//
+// The `technologies` fills a similar purpose as `buildings` but
+// for technologies related requests.
+//
+// The `ships` fills a similar purpose as `buildings` but for ships
+// related requests.
+//
+// The `defenses` fills a similar purpose as `buildings` but for
+// defenses related requests.
+//
 // The `logger` allows to perform most of the logging on any action
 // done by the server such as logging clients' connections, errors
 // and generally some elements useful to track the activity of the
 // server.
 type server struct {
-	port      int
-	universes data.UniverseProxy
-	accounts  data.AccountProxy
-	log       logger.Logger
+	port         int
+	universes    data.UniverseProxy
+	accounts     data.AccountProxy
+	buildings    data.BuildingProxy
+	technologies data.TechnologyProxy
+	ships        data.ShipProxy
+	defenses     data.DefenseProxy
+	log          logger.Logger
 }
 
 // routeVars :
@@ -97,6 +113,10 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 		port,
 		data.NewUniverseProxy(dbase, log),
 		data.NewAccountProxy(dbase, log),
+		data.NewBuildingProxy(dbase, log),
+		data.NewTechnologyProxy(dbase, log),
+		data.NewShipProxy(dbase, log),
+		data.NewDefenseProxy(dbase, log),
 		log,
 	}
 }
@@ -217,8 +237,6 @@ func (s *server) extractRouteData(r *http.Request) (routeData, error) {
 	if cutID >= 0 && cutID < len(route)-1 {
 		dataKey = route[cutID+1:] + "-data"
 	}
-
-	fmt.Println(fmt.Sprintf("Route is \"%s\", fetching key \"%s\"", route, dataKey))
 
 	// Fetch the data from the input request.
 	data.value = r.FormValue(dataKey)

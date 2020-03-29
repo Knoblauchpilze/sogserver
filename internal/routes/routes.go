@@ -13,6 +13,7 @@ func (s *server) routes() {
 	// Handle known routes.
 	s.routeUniverses()
 	s.routeAccounts()
+	s.routeDataModel()
 
 	// Default to `NotFound` in any other case.
 	http.HandleFunc("/", handlers.NotFound(s.log))
@@ -67,12 +68,7 @@ func (s *server) routeUniverses() {
 // the server.
 func (s *server) routeAccounts() {
 	// List existing accounts.
-	// GET, `/accounts/account_id`
-	// GET, `/accounts/account_id/players`
-
-	// GET, `/accounts/account_id/player_id/planets`
-	// GET, `/accounts/account_id/player_id/technologies`
-	// GET, `/accounts/account_id/player_id/fleets`
+	// GET, `/accounts`
 	http.HandleFunc(
 		"/accounts",
 		handlers.Method(
@@ -83,7 +79,12 @@ func (s *server) routeAccounts() {
 	)
 
 	// List properties of a specific account.
-	// GET, `/accounts`
+	// GET, `/accounts/account_id`
+	// GET, `/accounts/account_id/players`
+
+	// GET, `/accounts/account_id/player_id/planets`
+	// GET, `/accounts/account_id/player_id/technologies`
+	// GET, `/accounts/account_id/player_id/fleets`
 	http.HandleFunc(
 		"/accounts/",
 		handlers.Method(
@@ -101,6 +102,56 @@ func (s *server) routeAccounts() {
 			s.log,
 			"POST",
 			handlers.WithSafetyNet(s.log, s.createAccount()),
+		),
+	)
+}
+
+// routeDataModel :
+// Similar to the `routeUniverses` facet but sets up the routes to
+// handle the general definition for ships, technologies and other
+// elements of the game.
+func (s *server) routeDataModel() {
+	// List existing buildings.
+	// GET, `/buildings`
+	http.HandleFunc(
+		"/buildings",
+		handlers.Method(
+			s.log,
+			"GET",
+			handlers.WithSafetyNet(s.log, s.listBuildings()),
+		),
+	)
+
+	// List existing technologies.
+	// GET, `/technologies`
+	http.HandleFunc(
+		"/technologies",
+		handlers.Method(
+			s.log,
+			"GET",
+			handlers.WithSafetyNet(s.log, s.listTechnologies()),
+		),
+	)
+
+	// List existing ships.
+	// GET, `/ships`
+	http.HandleFunc(
+		"/ships",
+		handlers.Method(
+			s.log,
+			"GET",
+			handlers.WithSafetyNet(s.log, s.listShips()),
+		),
+	)
+
+	// List existing ships.
+	// GET, `/defenses`
+	http.HandleFunc(
+		"/defenses",
+		handlers.Method(
+			s.log,
+			"GET",
+			handlers.WithSafetyNet(s.log, s.listDefenses()),
 		),
 	)
 }

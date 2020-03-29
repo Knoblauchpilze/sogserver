@@ -184,21 +184,52 @@ type Planet struct {
 	Diameter int        `json:"diameter"`
 }
 
-// Technology :
-// Defines a technology in the og context. It defines the identifier
-// of the technology which allows to access the description of the
-// technology and other information.
+// TechDependency :
+// Defines a dependency between two elements. We assume that the
+// element for which the dependency is created is linked to this
+// object in another way.
+// A dependency indicates that a piece of the game isn't available
+// until the following criteria is met.
 //
-// The `ID` defines the identifier of the technology.
+// The `ID` defines a unique identifier for which the object is
+// dependent upon. This can be an identifier on any kind of item
+// (technology, building, etc.) and the context allows to choose
+// which kind it is.
 //
-// The `Name` of the technology.
-//
-// The `Level` defines the current technology level of this technology
-// on the account of a player.
-type Technology struct {
+// The `Level` defines the minimum level at which the dependency
+// is met: if the item described by its `ID` does not have at
+// least the following level the dependency is unmet and the item
+// should be made unavailable.
+type TechDependency struct {
 	ID    string `json:"id"`
-	Name  string `json:"name"`
 	Level int    `json:"level"`
+}
+
+// BuildingDesc :
+// Defines the abstract representation of a building with its
+// name and unique identifier. It might also include a short
+// summary of its role retrieved from the database.
+//
+// The `ID` defines the unique identifier for this building.
+//
+// The `Name` defines a human readable name for the building.
+//
+// The `Description` defines a short text describing the role
+// of the building and its purpose.
+//
+// The `BuildingDeps` defines a list of identifiers which
+// represent the buildings (and their associated level) which
+// need to be available for this building to be built. It is
+// some sort of representation of the tech-tree.
+//
+// The `TechnologiesDeps` fills a similar purpose but register
+// dependencies on technologies and not buildings.
+type BuildingDesc struct {
+	ID               string           `json:"id"`
+	Name             string           `json:"name"`
+	Desc             string           `json:"desc"`
+	BuildingsDeps    []TechDependency `json:"buildings_dependencies"`
+	TechnologiesDeps []TechDependency `json:"technologies_dependencies"`
 }
 
 // Building :
@@ -216,19 +247,76 @@ type Building struct {
 	Level int    `json:"level"`
 }
 
-// Defense :
-// Defines a defense system that can be built on a planet. The
-// default count is `0` and the user could fetch more info on
-// this system using the provided unique identifier.
+// TechnologyDesc :
+// Defines the abstract representation of a technology with
+// its name and unique identifier. It might also include a
+// short summary of its purpose retrieved from the database.
 //
-// The `ID` defines the unique identifier for this defense
-// system. It can be used to fetch more info about it.
+// The `ID` defines the unique identifier for this technology.
 //
-// The `Count` defines the number of defense of this type that
-// are currently available on the planet.
-type Defense struct {
+// The `Name` defines a human readable name for the technology.
+//
+// The `Description` defines a short text describing the role
+// of the technology and its applications.
+//
+// The `BuildingDeps` defines a list of identifiers which
+// represent the buildings (and their associated level) which
+// need to be available for this technology to be built. It is
+// some sort of representation of the tech-tree.
+//
+// The `TechnologiesDeps` fills a similar purpose but register
+// dependencies on technologies and not buildings.
+type TechnologyDesc struct {
+	ID               string           `json:"id"`
+	Name             string           `json:"name"`
+	Desc             string           `json:"desc"`
+	BuildingsDeps    []TechDependency `json:"buildings_dependencies"`
+	TechnologiesDeps []TechDependency `json:"technologies_dependencies"`
+}
+
+// Technology :
+// Defines a technology in the og context. It defines the identifier
+// of the technology which allows to access the description of the
+// technology and other information.
+//
+// The `ID` defines the identifier of the technology.
+//
+// The `Name` of the technology.
+//
+// The `Level` defines the current technology level of this technology
+// on the account of a player.
+type Technology struct {
 	ID    string `json:"id"`
-	Count int    `json:"count"`
+	Name  string `json:"name"`
+	Level int    `json:"level"`
+}
+
+// ShipDesc :
+// Defines the abstract representation of a ship with
+// its name and unique identifier. It can also include
+// a short summary of its purpose retrieved from the
+// database.
+//
+// The `ID` defines the unique identifier for this ship.
+//
+// The `Name` defines a human readable name for the ship.
+//
+// The `Description` defines a short text describing the
+// role of the ship and its capabilities.
+//
+// The `BuildingDeps` defines a list of identifiers which
+// represent the buildings (and their associated level)
+// which need to be available for this ship to be built.
+// It is some sort of representation of the tech-tree.
+//
+// The `TechnologiesDeps` fills a similar purpose but
+// register dependencies on technologies and not buildings.
+type ShipDesc struct {
+	ID               string           `json:"id"`
+	Name             string           `json:"name"`
+	Desc             string           `json:"desc"`
+	BuildingsDeps    []TechDependency `json:"buildings_dependencies"`
+	TechnologiesDeps []TechDependency `json:"technologies_dependencies"`
 }
 
 // Ship :
@@ -243,6 +331,53 @@ type Defense struct {
 // The `Count` defines how many ships of this type are currently
 // available on a given planet.
 type Ship struct {
+	ID    string `json:"id"`
+	Count int    `json:"count"`
+}
+
+// DefenseDesc :
+// Defines the abstract representation of a defense
+// with its name and unique identifier. It can also
+// include a short summary of its purpose retrieved
+// from the database.
+//
+// The `ID` defines the unique identifier for this
+// defense.
+//
+// The `Name` defines a human readable name for the
+// defense.
+//
+// The `Description` defines a short text describing
+// the role of the defense and its principle.
+//
+// The `BuildingDeps` defines a list of identifiers
+// which represent the buildings (and their associated
+// level) which need to be available for this defense
+// to be built. It is some sort of representation of
+// the tech-tree.
+//
+// The `TechnologiesDeps` fills a similar purpose but
+// register dependencies on technologies and not on
+// buildings.
+type DefenseDesc struct {
+	ID               string           `json:"id"`
+	Name             string           `json:"name"`
+	Desc             string           `json:"desc"`
+	BuildingsDeps    []TechDependency `json:"buildings_dependencies"`
+	TechnologiesDeps []TechDependency `json:"technologies_dependencies"`
+}
+
+// Defense :
+// Defines a defense system that can be built on a planet. The
+// default count is `0` and the user could fetch more info on
+// this system using the provided unique identifier.
+//
+// The `ID` defines the unique identifier for this defense
+// system. It can be used to fetch more info about it.
+//
+// The `Count` defines the number of defense of this type that
+// are currently available on the planet.
+type Defense struct {
 	ID    string `json:"id"`
 	Count int    `json:"count"`
 }

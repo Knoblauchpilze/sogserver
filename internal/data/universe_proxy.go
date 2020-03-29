@@ -36,8 +36,8 @@ type UniverseProxy struct {
 // component:
 // https://www.reddit.com/r/golang/comments/9i5cpg/good_approach_to_interacting_with_databases/
 //
-// The `dbase` represents the database whose accesses are
-// to be wrapped.
+// The `dbase` represents the database to use to fetch
+// data related to universes.
 //
 // The `log` will be used to notify information so that
 // we can have an idea of the activity of this component.
@@ -335,8 +335,6 @@ func (p *UniverseProxy) Fleet(fleet string) (Fleet, error) {
 
 	query := fmt.Sprintf("select %s from %s on %s where %s", strings.Join(props, ", "), table, joinCond, where)
 	rows, err := p.dbase.DBQuery(query)
-
-	fmt.Println(fmt.Sprintf("Query: \"%s\", err: %v", query, err))
 
 	// Check for errors.
 	if err != nil {

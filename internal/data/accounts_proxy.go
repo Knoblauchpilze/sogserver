@@ -45,7 +45,8 @@ type AccountProxy struct {
 // properties of accounts as registered in the DB.
 // In case the provided DB is `nil` a panic is issued.
 //
-// The `dbase` represents the database whose accesses are
+// The `dbase` represents the database to use to fetch
+// data related to accounts.
 //
 // The `log` will be used to notify information so that
 // we can have an idea of the activity of this component.

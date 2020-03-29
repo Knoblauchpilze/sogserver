@@ -14,7 +14,6 @@ import (
 )
 
 // TODO: Construction actions.
-// TODO: Get de/activation status for technologies/buildings/ships.
 // TODO: Create player in universe.
 
 // usage :

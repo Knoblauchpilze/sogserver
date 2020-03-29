@@ -40,7 +40,7 @@ func parseTechnologiesFilters(vars routeVars) []data.Filter {
 	// to technologies querying.
 	allowed := getTechnologiesFilters()
 
-	for key, value := range vars.params {
+	for key, values := range vars.params {
 		// Check whether this key corresponds to a technology filter. If
 		// this is the case we can register it.
 		filterName, ok := allowed[key]
@@ -51,7 +51,7 @@ func parseTechnologiesFilters(vars routeVars) []data.Filter {
 			// have to be modified.
 			filter := data.Filter{
 				Key:     filterName,
-				Value:   value,
+				Values:  values,
 				Numeric: false,
 			}
 

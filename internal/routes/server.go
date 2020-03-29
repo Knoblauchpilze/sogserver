@@ -60,6 +60,13 @@ type server struct {
 	log          logger.Logger
 }
 
+// Values :
+// A convenience define to allow for easy manipulation of a list
+// of strings as a single element. This is mostly used to be able
+// to interpret multiple values for a single query parameter in
+// an easy way.
+type Values []string
+
 // routeVars :
 // Define common information to be passed in the route to contact
 // the server. We handle extra path that can be added to the route
@@ -77,7 +84,7 @@ type server struct {
 // request. Note that in some case no parameters are provided.
 type routeVars struct {
 	path   string
-	params map[string]string
+	params map[string]Values
 }
 
 // routeData :
@@ -157,7 +164,7 @@ func (s *server) Serve() error {
 func (s *server) extractRouteVars(route string, r *http.Request) (routeVars, error) {
 	vars := routeVars{
 		"",
-		make(map[string]string),
+		make(map[string]Values),
 	}
 
 	// Extract the route from the input request.
@@ -197,19 +204,7 @@ func (s *server) extractRouteVars(route string, r *http.Request) (routeVars, err
 			continue
 		}
 
-		if len(values) > 1 {
-			s.log.Trace(logger.Warning, fmt.Sprintf("Key \"%s\" defines %d values, keeping olnly the first in route \"%s\"", key, len(values), route))
-		}
-
-		param := values[0]
-
-		// Detect override.
-		existing, ok := vars.params[param]
-		if ok {
-			s.log.Trace(logger.Warning, fmt.Sprintf("Overriding query parameter \"%s\": \"%s\" replaced by \"%s\"", key, existing, param))
-		}
-
-		vars.params[key] = param
+		vars.params[key] = values
 	}
 
 	return vars, nil

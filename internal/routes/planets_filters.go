@@ -40,7 +40,7 @@ func parsePlanetsFilters(vars routeVars) []data.Filter {
 	// to planets querying.
 	allowed := getAccountsFilters()
 
-	for key, value := range vars.params {
+	for key, values := range vars.params {
 		// Check whether this key corresponds to a planet filter. If
 		// this is the case we can register it.
 		filterName, ok := allowed[key]
@@ -51,7 +51,7 @@ func parsePlanetsFilters(vars routeVars) []data.Filter {
 			// to be modified.
 			filter := data.Filter{
 				Key:     filterName,
-				Value:   value,
+				Values:  values,
 				Numeric: true,
 			}
 

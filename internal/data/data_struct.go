@@ -45,9 +45,9 @@ type Account struct {
 // The `Name` represents the in-game display for this player.
 // It is distinct from the account's name.
 type Player struct {
-	AccountID  string `json:"account_id"`
-	UniverseID string `json:"universe_id"`
-	ID         string `json:"player_id"`
+	AccountID  string `json:"account"`
+	UniverseID string `json:"uni"`
+	ID         string `json:"id"`
 	Name       string `json:"name"`
 }
 

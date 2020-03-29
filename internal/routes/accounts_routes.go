@@ -118,15 +118,22 @@ func (s *server) createAccount() http.HandlerFunc {
 		// Extract the data to use to create the account from the input
 		// request: this can be done conveniently through the server's
 		// base method.
-		var uniData routeData
-		uniData, err = s.extractRouteData(r)
+		var accData routeData
+		accData, err = s.extractRouteData(r)
 		if err != nil {
 			panic(fmt.Errorf("Error while fetching data to create account (err: %v)", err))
 		}
 
+		if len(accData.value) == 0 {
+			s.log.Trace(logger.Error, "Could not create account, no data provided")
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
+		}
+
 		// Unmarshal the content into a valid account.
 		var acc data.Account
-		err = json.Unmarshal([]byte(uniData.value), &acc)
+		err = json.Unmarshal([]byte(accData.value), &acc)
 		if err != nil {
 			panic(fmt.Errorf("Error while parsing data to create account (err: %v)", err))
 		}
@@ -151,6 +158,124 @@ func (s *server) createAccount() http.HandlerFunc {
 		// the created resource, as described in the following post:
 		// https://stackoverflow.com/questions/1829875/is-it-ok-by-rest-to-return-content-after-post
 		resource := fmt.Sprintf("/accounts/%s", acc.ID)
+		notifyCreation(resource, w)
+	}
+}
+
+// createPlayer :
+// Creates a handler that can be used to perform the creation of a
+// new player in a universe. It associates an entry for the input
+// account to a universe and provides the basic setup to start in
+// the universe (homeworld and starting resources).
+// Detection of multiple registration in a universe from the same
+// account will be prevented.
+//
+// Returns the handler to execute to handle players' creation.
+func (s *server) createPlayer() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars, err := s.extractRouteVars("/account", r)
+		if err != nil {
+			panic(fmt.Errorf("Error while creating account (err: %v)", err))
+		}
+
+		// The endpoint should look something like this:
+		// `/account/account_id/player`.
+		// We need to fetch the account that is associated with the
+		// request and try to create the requested player.
+		purged := vars.path[1:]
+		parts := strings.Split(purged, "/")
+		user := parts[0]
+
+		// Detect invalid path after the account's identifier.
+		if len(parts) < 2 {
+			s.log.Trace(logger.Warning, fmt.Sprintf("Missing additional \"/player\" path after route \"%s\" when creating player", vars.path))
+		}
+		if len(parts) > 2 || (len(parts) >= 2 && parts[1] != "player") {
+			s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when creating player", vars.path))
+		}
+
+		// Extract the data to use to create the player from the input
+		// request: this can be done conveniently through the server's
+		// base method.
+		var plData routeData
+		plData, err = s.extractRouteData(r)
+		if err != nil {
+			panic(fmt.Errorf("Error while fetching data to create player (err: %v)", err))
+		}
+
+		if len(plData.value) == 0 {
+			s.log.Trace(logger.Error, "Could not create player, no data provided")
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
+		}
+
+		// Unmarshal the content into a valid player data structure.
+		var player data.Player
+		err = json.Unmarshal([]byte(plData.value), &player)
+		if err != nil {
+			panic(fmt.Errorf("Error while parsing data to create player (err: %v)", err))
+		}
+
+		// We need to check that the universe and the account associated
+		// to the player actually exist. If this is not the case we won't
+		// allow the creation of the player.
+		uni, err := s.universes.Universes(generateUniverseFilterFromID(player.UniverseID))
+		if err != nil {
+			s.log.Trace(logger.Error, fmt.Sprintf("Cannot create player \"%s\" for \"%s\" in universe \"%s\" (err: %v)", player.Name, player.AccountID, player.UniverseID, err))
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
+		}
+		if len(uni) != 1 {
+			s.log.Trace(logger.Error, fmt.Sprintf("Cannot create player \"%s\" for \"%s\" in universe \"%s\", found %d universes matching", player.Name, player.AccountID, player.UniverseID, len(uni)))
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
+		}
+
+		acc, err := s.accounts.Accounts(generateAccountFilterFromID(player.AccountID))
+		if err != nil {
+			s.log.Trace(logger.Error, fmt.Sprintf("Cannot create player \"%s\" for \"%s\" in universe \"%s\" (err: %v)", player.Name, player.AccountID, player.UniverseID, err))
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
+		}
+		if len(acc) != 1 {
+			s.log.Trace(logger.Error, fmt.Sprintf("Cannot create player \"%s\" for \"%s\" in universe \"%s\", found %d accounts matching", player.Name, player.AccountID, player.UniverseID, len(acc)))
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
+		}
+
+		// Make sure that the player's data is consistent with the
+		// account that should be associated to the data.
+		if user != player.AccountID {
+			s.log.Trace(logger.Error, fmt.Sprintf("Cannot create player for \"%s\" from account \"%s\"", player.AccountID, user))
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
+		}
+
+		// Try to create the player for this account. Note that we don't
+		// enforce a check to make sure that this account is not already
+		// registered on the universe: we rely on the unique constraint
+		// that exists in the database to do so.
+		// This mechanism could better be enforced in the client, where
+		// before allowing this request to be issued one could check if
+		// the account is already registered in the universe. Here we
+		// just consider that preventing duplicated insertions is enough.
+		err = s.accounts.CreatePlayer(&player)
+		if err != nil {
+			s.log.Trace(logger.Error, fmt.Sprintf("Could not create player from name \"%s\" for \"%s\" (err: %v)", player.Name, user, err))
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
+		}
+
+		// Return the created resource's path so that the caller can
+		// access it if needed.
+		resource := fmt.Sprintf("/accounts/%s/players", user)
 		notifyCreation(resource, w)
 	}
 }

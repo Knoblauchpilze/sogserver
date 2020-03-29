@@ -35,7 +35,6 @@ func (s *server) routeUniverses() {
 	)
 
 	// List properties of a specific universe.
-	// GET, `/universes/universe_id`
 	// GET, `/universes/universe_id/planets`
 
 	// GET, `/universes/universe_id/planet_id/buildings`
@@ -94,7 +93,7 @@ func (s *server) routeAccounts() {
 		),
 	)
 
-	// Create a new universe.
+	// Create a new account.
 	// POST, `/account`, `account-data`
 	http.HandleFunc(
 		"/account",
@@ -102,6 +101,17 @@ func (s *server) routeAccounts() {
 			s.log,
 			"POST",
 			handlers.WithSafetyNet(s.log, s.createAccount()),
+		),
+	)
+
+	// Create a new player.
+	// POST, `/account/account_id/player`, `player-data`
+	http.HandleFunc(
+		"/account/",
+		handlers.Method(
+			s.log,
+			"POST",
+			handlers.WithSafetyNet(s.log, s.createPlayer()),
 		),
 	)
 }

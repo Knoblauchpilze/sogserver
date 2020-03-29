@@ -28,8 +28,12 @@ func (s *server) listUniverses() http.HandlerFunc {
 			s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when serving universes", vars.path))
 		}
 
+		// Retrieve the filtering options (to potentially retrieve only
+		// some universes and not all of them).
+		filters := parseUniverseFilters(vars)
+
 		// Retrieve the universes from the bridge.
-		unis, err := s.universes.Universes()
+		unis, err := s.universes.Universes(filters)
 		if err != nil {
 			s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching universes (err: %v)", err))
 			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
@@ -120,6 +124,13 @@ func (s *server) createUniverse() http.HandlerFunc {
 		uniData, err = s.extractRouteData(r)
 		if err != nil {
 			panic(fmt.Errorf("Error while fetching data to create universe (err: %v)", err))
+		}
+
+		if len(uniData.value) == 0 {
+			s.log.Trace(logger.Error, "Could not create universe, no data provided")
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			return
 		}
 
 		// Unmarshal the content into a valid universe.

@@ -15,10 +15,11 @@ CREATE TRIGGER update_account_creation_time BEFORE INSERT ON accounts FOR EACH R
 CREATE TABLE players (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   uni uuid NOT NULL references universes,
-  player uuid NOT NULL references accounts,
+  account uuid NOT NULL references accounts,
   created_at timestamp with time zone default current_timestamp,
   name text NOT NULL,
-  PRIMARY KEY (id)
+  PRIMARY KEY (id),
+  UNIQUE (uni, account)
 );
 
 -- Trigger to update the `created_at` field of the table.

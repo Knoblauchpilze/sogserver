@@ -59,3 +59,33 @@ func (a *Account) valid() bool {
 	// Check common properties.
 	return a.Name != "" && exp.MatchString(a.Mail)
 }
+
+// valid :
+// Used to determine whether the parameters defined for this
+// player are consistent with what is expected. We will only
+// make sure that the identifiers associated to the account
+// and the universe are not blatantly wrong and that the name
+// provided is not empty.
+// Whether the universe and account actually exist is not
+// checked here.
+// Note that it requires that the `ID` is valid as well.
+//
+// Returns `true` if the player is valid (i.e. all values are
+// consistent with the expected ranges).
+func (p *Player) valid() bool {
+	// First check for the identifier.
+	if !validUUID(p.ID) {
+		return false
+	}
+
+	// Then the other identifiers.
+	if !validUUID(p.AccountID) {
+		return false
+	}
+	if !validUUID(p.UniverseID) {
+		return false
+	}
+
+	// Finally a valid name should be provided.
+	return p.Name != ""
+}

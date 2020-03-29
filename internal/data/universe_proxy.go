@@ -57,11 +57,20 @@ func NewUniverseProxy(dbase *db.DB, log logger.Logger) UniverseProxy {
 // for a player to create an account. Universes should only
 // be created when needed and are not typically something a
 // player can do.
+// The user can choose to filter parts of the universes using
+// an array of filters that will be applied to the SQL query.
+// No controls is enforced on the filters so one should make
+// sure that it's consistent with the underlying table.
+//
+// The `filters` define some filtering property that can be
+// applied to the SQL query to only select part of all the
+// universes available. Each one is appended `as-is` to the
+// query.
 //
 // Returns the list of universes along with any errors. Note
 // that in case the error is not `nil` the returned list is
 // to be ignored.
-func (p *UniverseProxy) Universes() ([]Universe, error) {
+func (p *UniverseProxy) Universes(filters []Filter) ([]Universe, error) {
 	// Create the query and execute it.
 	props := []string{
 		"id",
@@ -71,12 +80,23 @@ func (p *UniverseProxy) Universes() ([]Universe, error) {
 		"research_speed",
 		"fleets_to_ruins_ratio",
 		"defenses_to_ruins_ratio",
-		"consumption_ratio",
-		"galaxy_count",
+		"fleets_consumption_ratio",
+		"galaxies_count",
 		"solar_system_size",
 	}
 
 	query := fmt.Sprintf("select %s from universes", strings.Join(props, ", "))
+	if len(filters) > 0 {
+		query += " where"
+
+		for id, filter := range filters {
+			if id > 0 {
+				query += " and"
+			}
+			query += fmt.Sprintf(" %s", filter)
+		}
+	}
+
 	rows, err := p.dbase.DBQuery(query)
 
 	// Check for errors.

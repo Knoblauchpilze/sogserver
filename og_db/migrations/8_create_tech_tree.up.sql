@@ -91,6 +91,20 @@ INSERT INTO public.tech_tree_buildings_dependencies ("building", "requirement", 
     1
   );
 
+INSERT INTO public.tech_tree_buildings_dependencies ("building", "requirement", "level")
+  VALUES(
+    (SELECT id FROM buildings WHERE name='sensor phalanx'),
+    (SELECT id FROM buildings WHERE name='moon base'),
+    1
+  );
+
+INSERT INTO public.tech_tree_buildings_dependencies ("building", "requirement", "level")
+  VALUES(
+    (SELECT id FROM buildings WHERE name='jump gate'),
+    (SELECT id FROM buildings WHERE name='moon base'),
+    1
+  );
+
 -- Seed dependencies between technologies.
 INSERT INTO public.tech_tree_technologies_dependencies ("technology", "requirement", "level")
   VALUES(
@@ -218,6 +232,13 @@ INSERT INTO public.tech_tree_buildings_vs_technologies ("building", "requirement
     (SELECT id FROM buildings WHERE name='terraformer'),
     (SELECT id FROM technologies WHERE name='energy'),
     12
+  );
+
+INSERT INTO public.tech_tree_buildings_vs_technologies ("building", "requirement", "level")
+  VALUES(
+    (SELECT id FROM buildings WHERE name='jump gate'),
+    (SELECT id FROM technologies WHERE name='hyperspace'),
+    7
   );
 
 -- Seed dependencies between technologies and buildings.

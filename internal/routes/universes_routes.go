@@ -22,30 +22,8 @@ func (s *server) listUniverses() http.HandlerFunc {
 			panic(fmt.Errorf("Error while serving universes (err: %v)", err))
 		}
 
-		// We have to assume that no `extra route` is provided on this
-		// endpoint.
-		if vars.path != "" {
-			s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when serving universes", vars.path))
-		}
-
-		// Retrieve the filtering options (to potentially retrieve only
-		// some universes and not all of them).
-		filters := parseUniverseFilters(vars)
-
-		// Retrieve the universes from the bridge.
-		unis, err := s.universes.Universes(filters)
-		if err != nil {
-			s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching universes (err: %v)", err))
-			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
-
-			return
-		}
-
-		// Marshal the content of the universes.
-		err = marshalAndSend(unis, w)
-		if err != nil {
-			s.log.Trace(logger.Error, fmt.Sprintf("Error while sending universes to client (err: %v)", err))
-		}
+		// Use the dedicated handler to perform the request.
+		s.listUniverseProps(w, "", vars)
 	}
 }
 
@@ -89,7 +67,8 @@ func (s *server) listUniverse() http.HandlerFunc {
 			}
 			return
 		case 1:
-			fallthrough
+			s.listUniverseProps(w, parts[0], vars)
+			return
 		default:
 			// Can't do anything.
 		}
@@ -270,7 +249,7 @@ func (s *server) listPlanetsProps(w http.ResponseWriter, params []string) {
 }
 
 // listFleet :
-// Used to fetch and server the details about a certain fleet to
+// Used to fetch and serve the details about a certain fleet to
 // the client. The details about the fleet to fetch are extracted
 // from the `params` argument.
 // The fleet information will include both the general info that
@@ -313,5 +292,60 @@ func (s *server) listFleet(w http.ResponseWriter, params []string) {
 	err = marshalAndSend(comps, w)
 	if err != nil {
 		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while sending data for fleet \"%s\" (err: %v)", fleet.ID, err))
+	}
+}
+
+// listUniverseProps :
+// Used to fetch and server the details about a certain universe
+// to the client. The parameters will be interpreted as additional
+// filters to query only parts of the universe.
+// The properties to filter universes will be retrieved both from
+// the `routeVars` and also from the unique identifier `uni` which
+// can be provided. This is usually parsed from the route.
+//
+// The `w` is the response writer to use send back the response to
+// the client.
+//
+// The `uni` defines a unique identifier that can be used to filter
+// the universes retrieved.
+//
+// The `vars` defines the common route variables to use to serve
+// the request.
+func (s *server) listUniverseProps(w http.ResponseWriter, uni string, vars routeVars) {
+	// Retrieve the filtering options (to potentially retrieve only
+	// some universes and not all of them).
+	filters := parseUniverseFilters(vars)
+
+	// Generate a filter from the `uni` value if it is valid.
+	if uni != "" {
+		name := generateUniverseFilterFromID(uni)
+
+		// Append to the existing list of filters if any.
+		found := false
+		for id := range filters {
+			found = (filters[id].Key == name.Key)
+			if found {
+				filters[id].Values = append(filters[id].Values, name.Values...)
+			}
+		}
+
+		if !found {
+			filters = append(filters, name)
+		}
+	}
+
+	// Retrieve the universes from the bridge.
+	unis, err := s.universes.Universes(filters)
+	if err != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching universes (err: %v)", err))
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+		return
+	}
+
+	// Marshal the content of the universes.
+	err = marshalAndSend(unis, w)
+	if err != nil {
+		s.log.Trace(logger.Error, fmt.Sprintf("Error while sending universes to client (err: %v)", err))
 	}
 }

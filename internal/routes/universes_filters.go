@@ -80,12 +80,10 @@ func parseUniverseFilters(vars routeVars) []data.Filter {
 // filter should be generated.
 //
 // Returns the generated array of filter (for convenience purposes).
-func generateUniverseFilterFromID(uni string) []data.Filter {
-	return []data.Filter{
-		data.Filter{
-			Key:     getUniverseIdentifierDBColumnName(),
-			Values:  []string{uni},
-			Numeric: false,
-		},
+func generateUniverseFilterFromID(uni string) data.Filter {
+	return data.Filter{
+		Key:     getUniverseIdentifierDBColumnName(),
+		Values:  []string{uni},
+		Numeric: false,
 	}
 }

@@ -220,7 +220,7 @@ func (s *server) createPlayer() http.HandlerFunc {
 		// We need to check that the universe and the account associated
 		// to the player actually exist. If this is not the case we won't
 		// allow the creation of the player.
-		uni, err := s.universes.Universes(generateUniverseFilterFromID(player.UniverseID))
+		uni, err := s.universes.Universes([]data.Filter{generateUniverseFilterFromID(player.UniverseID)})
 		if err != nil {
 			s.log.Trace(logger.Error, fmt.Sprintf("Cannot create player \"%s\" for \"%s\" in universe \"%s\" (err: %v)", player.Name, player.AccountID, player.UniverseID, err))
 			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)

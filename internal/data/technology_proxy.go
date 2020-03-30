@@ -45,6 +45,15 @@ func NewTechnologyProxy(dbase *db.DB, log logger.Logger) TechnologyProxy {
 	return TechnologyProxy{dbase, log}
 }
 
+// GetIdentifierDBColumnName :
+// Used to retrieve the string literal defining the name of the
+// identifier column in the `technologies` table in the database.
+//
+// Returns the name of the `identifier` column in the database.
+func (p *TechnologyProxy) GetIdentifierDBColumnName() string {
+	return "id"
+}
+
 // Technologies :
 // Allows to fetch the list of technologies currently available
 // for a player to research. This list normally never changes as
@@ -62,7 +71,7 @@ func NewTechnologyProxy(dbase *db.DB, log logger.Logger) TechnologyProxy {
 // Returns the list of technologies along with any errors. Note
 // that in case the error is not `nil` the returned list is to
 // be ignored.
-func (p *TechnologyProxy) Technologies(filters []Filter) ([]TechnologyDesc, error) {
+func (p *TechnologyProxy) Technologies(filters []DBFilter) ([]TechnologyDesc, error) {
 	// Create the query and execute it.
 	props := []string{
 		"id",

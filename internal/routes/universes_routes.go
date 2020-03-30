@@ -1,351 +1,142 @@
 package routes
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
-	"oglike_server/pkg/logger"
-	"strings"
+	"oglike_server/pkg/handlers"
 )
 
-// listUniverses :
-// Queries the internal database to get a list of the universes and
-// some common properties and serve these values through a `json`
-// syntax to the client.
+// universeAdapter :
+// Implements the interface requested by the general handler in
+// the `handlers` package. The main functions are describing the
+// interface to retrieve information about the universes from a
+// database.
 //
-// Returns the handler that can be executed to serve such requests.
-func (s *server) listUniverses() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		vars, err := s.extractRouteVars("/universes", r)
-		if err != nil {
-			panic(fmt.Errorf("Error while serving universes (err: %v)", err))
-		}
-
-		// Use the dedicated handler to perform the request.
-		s.listUniverseProps(w, "", vars)
-	}
+// The `proxy` defines the proxy to use to interact with the DB
+// when fetching the data.
+type universeAdapter struct {
+	proxy data.UniverseProxy
 }
 
-// listUniverse :
-// Analyze the route provided in input to retrieve the properties of
-// all universes matching the requested information. This is usually
-// used in coordination with the `listUniverses` method where the
-// user will first fetch a list of all universes and then maybe use
-// this list to query specific properties of some universe.
-// The return value includes the list of properties using a `json`
-// format.
+// Route :
+// Implementation of the method to get the route name to access
+// the universes' data.
+// Returns the name of the route.
+func (ua *universeAdapter) Route() string {
+	return "universes"
+}
+
+// ParseFilters :
+// Implementation of the method to get the filters from the route
+// variables. This will allow to fetch universes through a precise
+// identifier.
 //
-// Returns the handler that can be executed to serve such requests.
-func (s *server) listUniverse() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		vars, err := s.extractRouteVars("/universes", r)
-		if err != nil {
-			panic(fmt.Errorf("Error while serving universe (err: %v)", err))
-		}
+// The `vars` are the variables (both route element and the query
+// parameters) retrieved from the input request.
+//
+// Returns the list of filters extracted from the input info.
+func (ua *universeAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter {
+	filters := make([]handlers.Filter, 0)
 
-		// Extract parts of the route: we first need to remove the first
-		// '/' character.
-		purged := vars.path[1:]
-		parts := strings.Split(purged, "/")
+	// Traverse the input parameters and select only the ones relevant
+	// to universes querying.
+	allowed := map[string]string{
+		"universe_id":   ua.proxy.GetIdentifierDBColumnName(),
+		"universe_name": "name",
+	}
 
-		// Depending on the number of parts in the route, we will call
-		// the suited handler.
-		switch len(parts) {
-		case 2:
-			// The second argument should be `planets`
-			if parts[1] != "planets" {
-				s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when serving planets for universe \"%s\"", parts[1], parts[0]))
+	for key, values := range vars.Params {
+		// Check whether this key corresponds to an universe filter. If
+		// this is the case we can register it.
+		filterName, ok := allowed[key]
+
+		if ok && len(values) > 0 {
+			// None of the filters associated to the universe are numeric
+			// for now. If it's the case later on it would have to be
+			// modified.
+			filter := handlers.Filter{
+				Key:     filterName,
+				Options: values,
 			}
-			s.listPlanetsForUniverse(w, parts[0], vars)
-			return
-		case 3:
-			if parts[1] == "fleet" {
-				s.listFleet(w, parts)
-			} else {
-				s.listPlanetsProps(w, parts)
-			}
-			return
-		case 1:
-			s.listUniverseProps(w, parts[0], vars)
-			return
-		default:
-			// Can't do anything.
-		}
 
-		s.log.Trace(logger.Error, fmt.Sprintf("Unhandled request for universe \"%s\"", purged))
-		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
-	}
-}
-
-// createUniverse :
-// Produce a handler that can be used to perform the creation of the
-// universe. This operation should only be performed by an admin and
-// is usually not intended to be executed very often.
-//
-// Returns the handler to execute to handle universes' creation.
-func (s *server) createUniverse() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		vars, err := s.extractRouteVars("/universe", r)
-		if err != nil {
-			panic(fmt.Errorf("Error while creating universe (err: %v)", err))
-		}
-
-		// The route should not contain anymore data.
-		if vars.path != "" {
-			s.log.Trace(logger.Warning, fmt.Sprintf("Detected ignored extra route \"%s\" when creating universe", vars.path))
-		}
-
-		// Extract the data to use to create the universe from the input
-		// request: this can be done conveniently through the server's
-		// base method.
-		var uniData routeData
-		uniData, err = s.extractRouteData(r)
-		if err != nil {
-			panic(fmt.Errorf("Error while fetching data to create universe (err: %v)", err))
-		}
-
-		if len(uniData.value) == 0 {
-			s.log.Trace(logger.Error, "Could not create universe, no data provided")
-			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
-
-			return
-		}
-
-		// Unmarshal the content into a valid universe.
-		var uni data.Universe
-		err = json.Unmarshal([]byte(uniData.value), &uni)
-		if err != nil {
-			panic(fmt.Errorf("Error while parsing data to create universe (err: %v)", err))
-		}
-
-		err = s.universes.Create(&uni)
-		if err != nil {
-			s.log.Trace(logger.Error, fmt.Sprintf("Could not create universe from name \"%s\" (err: %v)", uni.Name, err))
-			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
-
-			return
-		}
-	}
-}
-
-// listPlanetsForUniverse :
-// Used to forrmat the list of planets registered in the universe set
-// as input argument. The resulting list is marshalled into a `json`
-// structure and returned to the client through the provided response
-// writer.
-//
-// The `w` argument defines the response writer to send back data to
-// the client.
-//
-// The `universe` represents the identifier of the universe for which
-// planet should be fetched.
-//
-// The `vars` represent the query parameters that were passed to the
-// server with the input request. This is useful to extract filtering
-// options to use when fetching planets.
-func (s *server) listPlanetsForUniverse(w http.ResponseWriter, universe string, vars routeVars) {
-	// Fetch filtering properties to narrow the planets returned.
-	filters := parsePlanetsFilters(vars)
-
-	// Fetch planets.
-	planets, err := s.universes.Planets(universe, filters)
-	if err != nil {
-		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching universe \"%s\" (err: %v)", universe, err))
-		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
-
-		return
-	}
-
-	// Marshal and send the content.
-	err = marshalAndSend(planets, w)
-	if err != nil {
-		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while sending data for \"%s\" (err: %v)", universe, err))
-	}
-}
-
-// listPlanetsProps :
-// Used to retrieve information about a certain planet and provide
-// the corresponding info to the client through the response writer
-// given as input.
-//
-// The `w` is the response writer to use to send the response back
-// to the client.
-//
-// The `params` represents the parameters provided to filter the
-// data to retrieve for this planet. The first element of this
-// array is guaranteed to correspond to the identifier of the
-// planet for which the data should be retrieved.
-func (s *server) listPlanetsProps(w http.ResponseWriter, params []string) {
-	//  We know that the first elements of the `params` array should
-	// correspond to the planet's identifier (i.e. the root value
-	// where specific information should be fetched. The rest of the
-	// values correspond to filtering properties to query only some
-	// information.
-	// We only consider routes that try to access specific props of
-	// the planet: the route `universe_id/planet_id` is not valid
-	// and will be served an error.
-	uni := params[0]
-
-	if len(params) == 1 {
-		s.log.Trace(logger.Error, fmt.Sprintf("Unhandled request for universe \"%s\"", uni))
-		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
-
-		return
-	}
-
-	// We need to feetch the planet's data from its identifier.
-	planetID := params[1]
-
-	planet, err := s.universes.Planet(uni, planetID)
-	if err != nil {
-		s.log.Trace(logger.Error, fmt.Sprintf("Unable to find planet \"%s\" associated to universe \"%s\" (err: %v)", planetID, uni, err))
-		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
-
-		return
-	}
-
-	// Retrieve specific information of the player.
-	var errSend error
-	var buildings []data.Building
-	var ships []data.Ship
-	var defenses []data.Defense
-	var resources []data.Resource
-
-	switch params[2] {
-	case "buildings":
-		buildings, err = s.universes.Buildings(planet.ID)
-		if err == nil {
-			errSend = marshalAndSend(buildings, w)
-		}
-	case "ships":
-		ships, err = s.universes.Ships(planet.ID)
-		if err == nil {
-			errSend = marshalAndSend(ships, w)
-		}
-	case "defenses":
-		defenses, err = s.universes.Defenses(planet.ID)
-		if err == nil {
-			errSend = marshalAndSend(defenses, w)
-		}
-	case "resources":
-		resources, err = s.universes.Resources(planet.ID)
-		if err == nil {
-			errSend = marshalAndSend(resources, w)
+			filters = append(filters, filter)
 		}
 	}
 
-	// Notify errors.
-	if err != nil {
-		s.log.Trace(logger.Error, fmt.Sprintf("Unable to fetch data for planet \"%s\" (err: %v)", planet.ID, err))
-		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+	// We also need to fetch parts of the route that can be used to
+	// provide a filter on the universe's identifier. More precisely
+	// the route can define something like:
+	// `/universes/uni-id` which we will interpret as a filter on
+	// the universe's identifier.
+	// Note that we assume that if the route contains more than `1`
+	// element it *always* contains an identifier as second token.
+	if len(vars.RouteElems) > 0 {
+		uni := vars.RouteElems[0]
 
-		return
-	}
-
-	if errSend != nil {
-		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while sending data for planet \"%s\" (err: %v)", planet.ID, err))
-	}
-}
-
-// listFleet :
-// Used to fetch and serve the details about a certain fleet to
-// the client. The details about the fleet to fetch are extracted
-// from the `params` argument.
-// The fleet information will include both the general info that
-// define the objective and target of the fleet but also details
-// about the actual composition of the fleet.
-//
-// The `w` is the response writer to use to send the response back
-// to the client.
-//
-// The `params` represents the parameters allowing to extract the
-// data to describe the fleet to fetch (its identifier mainly).
-func (s *server) listFleet(w http.ResponseWriter, params []string) {
-	// The route allowing to call this endpoint is something similar
-	// to the following:
-	// `/universe_id/fleet/fleet_id`.
-	// So we can safely retrieve first the universe and then details
-	// about the fleet. We also now for sure that the `params[1]` is
-	// the string "fleet" so we can skip to the fleet's identifier.
-	uni := params[0]
-	fleetID := params[2]
-
-	// We need to feetch the planet's data from its identifier.
-	fleet, err := s.universes.Fleet(fleetID)
-	if err != nil {
-		s.log.Trace(logger.Error, fmt.Sprintf("Unable to find fleet \"%s\" associated to universe \"%s\" (err: %v)", fleetID, uni, err))
-		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
-
-		return
-	}
-
-	// Retrieve the components of the fleet.
-	comps, err := s.universes.FleetDetails(fleet)
-	if err != nil {
-		s.log.Trace(logger.Error, fmt.Sprintf("Unable to fetch components for fleet \"%s\" (err: %v)", fleet.ID, err))
-		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
-
-		return
-	}
-
-	err = marshalAndSend(comps, w)
-	if err != nil {
-		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while sending data for fleet \"%s\" (err: %v)", fleet.ID, err))
-	}
-}
-
-// listUniverseProps :
-// Used to fetch and server the details about a certain universe
-// to the client. The parameters will be interpreted as additional
-// filters to query only parts of the universe.
-// The properties to filter universes will be retrieved both from
-// the `routeVars` and also from the unique identifier `uni` which
-// can be provided. This is usually parsed from the route.
-//
-// The `w` is the response writer to use send back the response to
-// the client.
-//
-// The `uni` defines a unique identifier that can be used to filter
-// the universes retrieved.
-//
-// The `vars` defines the common route variables to use to serve
-// the request.
-func (s *server) listUniverseProps(w http.ResponseWriter, uni string, vars routeVars) {
-	// Retrieve the filtering options (to potentially retrieve only
-	// some universes and not all of them).
-	filters := parseUniverseFilters(vars)
-
-	// Generate a filter from the `uni` value if it is valid.
-	if uni != "" {
-		name := generateUniverseFilterFromID(uni)
-
-		// Append to the existing list of filters if any.
+		// Append the identifier filter to the existing list.
 		found := false
 		for id := range filters {
-			found = (filters[id].Key == name.Key)
-			if found {
-				filters[id].Values = append(filters[id].Values, name.Values...)
+			if filters[id].Key == ua.proxy.GetIdentifierDBColumnName() {
+				found = true
+				filters[id].Options = append(filters[id].Options, uni)
 			}
 		}
 
 		if !found {
-			filters = append(filters, name)
+			filters = append(
+				filters,
+				handlers.Filter{
+					Key:     ua.proxy.GetIdentifierDBColumnName(),
+					Options: []string{uni},
+				},
+			)
 		}
 	}
 
-	// Retrieve the universes from the bridge.
-	unis, err := s.universes.Universes(filters)
-	if err != nil {
-		s.log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching universes (err: %v)", err))
-		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+	return filters
+}
 
-		return
+// Data :
+// Implementation of the method to get the data related to universes
+// from the internal DB. We will use the internal DB proxy to get the
+// info while still applying the filters.
+//
+// The `filters` represent the filters extracted from the route and
+// as provided by the `ParseFilters` method. We need to convert it
+// into a semantic that can be interpreted by the DB.
+//
+// Returns the data related to the universes along with any errors.
+func (ua *universeAdapter) Data(filters []handlers.Filter) (interface{}, error) {
+	// Convert the input request filters into DB filters. We know that
+	// none of the filters used for universes are numerical.
+	dbFilters := make([]data.DBFilter, 0)
+	for _, filter := range filters {
+		dbFilters = append(
+			dbFilters,
+			data.DBFilter{
+				Key:     filter.Key,
+				Values:  filter.Options,
+				Numeric: false,
+			},
+		)
 	}
 
-	// Marshal the content of the universes.
-	err = marshalAndSend(unis, w)
-	if err != nil {
-		s.log.Trace(logger.Error, fmt.Sprintf("Error while sending universes to client (err: %v)", err))
-	}
+	// Use the DB proxy to fetch the data.
+	return ua.proxy.Universes(dbFilters)
+}
+
+// listUniverses :
+// Creates a handler allowing to serve requests on the universes
+// by interrogating the main DB. We uses the handler structure in
+// the `handlers` package and provide the needed endpoint desc as
+// requested.
+//
+// Returns the handler that can be executed to serve such requests.
+func (s *server) listUniverses() http.HandlerFunc {
+	return handlers.ServeRoute(
+		&universeAdapter{
+			s.universes,
+		},
+		s.log,
+	)
 }

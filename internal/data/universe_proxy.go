@@ -52,6 +52,15 @@ func NewUniverseProxy(dbase *db.DB, log logger.Logger) UniverseProxy {
 	return UniverseProxy{dbase, log}
 }
 
+// GetIdentifierDBColumnName :
+// Used to retrieve the string literal defining the name of the
+// identifier column in the `universes` table in the database.
+//
+// Returns the name of the `identifier` column in the database.
+func (p *UniverseProxy) GetIdentifierDBColumnName() string {
+	return "id"
+}
+
 // Universes :
 // Allows to fetch the list of universes currently available
 // for a player to create an account. Universes should only
@@ -70,7 +79,7 @@ func NewUniverseProxy(dbase *db.DB, log logger.Logger) UniverseProxy {
 // Returns the list of universes along with any errors. Note
 // that in case the error is not `nil` the returned list is
 // to be ignored.
-func (p *UniverseProxy) Universes(filters []Filter) ([]Universe, error) {
+func (p *UniverseProxy) Universes(filters []DBFilter) ([]Universe, error) {
 	// Create the query and execute it.
 	props := []string{
 		"id",
@@ -153,7 +162,7 @@ func (p *UniverseProxy) Universes(filters []Filter) ([]Universe, error) {
 // Returns the list of planets for this universe along
 // with any error. In case the error is not `nil` the
 // value of the array should be ignored.
-func (p *UniverseProxy) Planets(uni string, filters []Filter) ([]Planet, error) {
+func (p *UniverseProxy) Planets(uni string, filters []DBFilter) ([]Planet, error) {
 	// Create the query and execute it.
 	props := []string{
 		"p.id",

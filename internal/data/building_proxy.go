@@ -46,6 +46,15 @@ func NewBuildingProxy(dbase *db.DB, log logger.Logger) BuildingProxy {
 	return BuildingProxy{dbase, log}
 }
 
+// GetIdentifierDBColumnName :
+// Used to retrieve the string literal defining the name of the
+// identifier column in the `buildings` table in the database.
+//
+// Returns the name of the `identifier` column in the database.
+func (p *BuildingProxy) GetIdentifierDBColumnName() string {
+	return "id"
+}
+
 // Buildings :
 // Allows to fetch the list of buildings currently available
 // for a player to build. This list normally never changes as
@@ -63,7 +72,7 @@ func NewBuildingProxy(dbase *db.DB, log logger.Logger) BuildingProxy {
 // Returns the list of buildings along with any errors. Note
 // that in case the error is not `nil` the returned list is
 // to be ignored.
-func (p *BuildingProxy) Buildings(filters []Filter) ([]BuildingDesc, error) {
+func (p *BuildingProxy) Buildings(filters []DBFilter) ([]BuildingDesc, error) {
 	// Create the query and execute it.
 	props := []string{
 		"id",

@@ -61,6 +61,15 @@ func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
 	return AccountProxy{dbase, log}
 }
 
+// GetIdentifierDBColumnName :
+// Used to retrieve the string literal defining the name of the
+// identifier column in the `accounts` table in the database.
+//
+// Returns the name of the `identifier` column in the database.
+func (p *AccountProxy) GetIdentifierDBColumnName() string {
+	return "id"
+}
+
 // Accounts :
 // Allows to fetch the list of accounts currently registered
 // in the DB. This defines how many unique players already
@@ -78,7 +87,7 @@ func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
 // Returns the list of accounts along with any errors. Note
 // that in case the error is not `nil` the returned list is
 // to be ignored.
-func (p *AccountProxy) Accounts(filters []Filter) ([]Account, error) {
+func (p *AccountProxy) Accounts(filters []DBFilter) ([]Account, error) {
 	// Create the query and execute it.
 	query := fmt.Sprintf("select id, mail, name from accounts")
 	if len(filters) > 0 {
@@ -470,8 +479,6 @@ func (p *AccountProxy) CreatePlayer(player *Player) error {
 	}
 	jsonToSend := string(data)
 
-	fmt.Println(fmt.Sprintf("Player: %v, marshal: \"%s\"", player, jsonToSend))
-
 	query := fmt.Sprintf("select * from create_player('%s')", jsonToSend)
 	affected, err := p.dbase.DBExecute(query)
 
@@ -500,7 +507,6 @@ func (p *AccountProxy) CreatePlayer(player *Player) error {
 	// the number of rows that were affected by the operation.
 	// In the case of a player's creation it should always be
 	// `1` because we're creating a single row.
-	fmt.Println(fmt.Sprintf("Affected: %d", affected.RowsAffected()))
 	if affected.RowsAffected() != 1 {
 		return fmt.Errorf("Could not import player \"%s\" for \"%s\" in universe \"%s\", universe probably does not exist", player.Name, player.AccountID, player.UniverseID)
 	}

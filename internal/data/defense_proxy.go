@@ -46,6 +46,15 @@ func NewDefenseProxy(dbase *db.DB, log logger.Logger) DefenseProxy {
 	return DefenseProxy{dbase, log}
 }
 
+// GetIdentifierDBColumnName :
+// Used to retrieve the string literal defining the name of the
+// identifier column in the `defenses` table in the database.
+//
+// Returns the name of the `identifier` column in the database.
+func (p *DefenseProxy) GetIdentifierDBColumnName() string {
+	return "id"
+}
+
 // Defenses :
 // Allows to fetch the list of defenses currently available for
 // a player to build on a planet. This list is normally never
@@ -63,7 +72,7 @@ func NewDefenseProxy(dbase *db.DB, log logger.Logger) DefenseProxy {
 // Returns the list of defenses along with any errors. Note
 // that in case the error is not `nil` the returned list is to
 // be ignored.
-func (p *DefenseProxy) Defenses(filters []Filter) ([]DefenseDesc, error) {
+func (p *DefenseProxy) Defenses(filters []DBFilter) ([]DefenseDesc, error) {
 	// Create the query and execute it.
 	props := []string{
 		"id",

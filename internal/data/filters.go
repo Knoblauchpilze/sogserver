@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Filter :
+// DBFilter :
 // Generic filter that can be used to restrain the number
 // of results returned by a query. This allows to narrow
 // a search and keep only relevant information.
@@ -33,7 +33,7 @@ import (
 // The `Numeric` boolean allows to determine whether the
 // filter is applied on a numeric column or not. It will
 // change slightly the syntax used in the SQL query.
-type Filter struct {
+type DBFilter struct {
 	Key     string
 	Values  []string
 	Numeric bool
@@ -45,7 +45,7 @@ type Filter struct {
 // use in a SQL query.
 //
 // Returns the equivalent string for this filter.
-func (f Filter) String() string {
+func (f DBFilter) String() string {
 	if f.Numeric {
 		return fmt.Sprintf("%s in (%s)", f.Key, strings.Join(f.Values, ","))
 	}

@@ -13,52 +13,48 @@ func (s *server) routes() {
 	// Handle known routes.
 	s.routeUniverses()
 	s.routeAccounts()
-	s.routeDataModel()
+	s.routeBuildings()
+	s.routeTechnologies()
+	s.routeShips()
+	s.routeDefenses()
+	s.routePlanets()
 
 	// Default to `NotFound` in any other case.
 	http.HandleFunc("/", handlers.NotFound(s.log))
+}
+
+// route :
+// Used to perform the necessary wrapping around the specified
+// handler provided that it should be binded to the input route
+// and only respond to said method.
+//
+// The `name` of the route define the binding that should be
+// performed for the input handler.
+//
+// The `method` indicates the method for which the handler is
+// sensible.
+//
+// The `handler` defines the element that will serve input req
+// and which should be wrapped to provide more security.
+func (s *server) route(name string, method string, handler http.HandlerFunc) {
+	http.HandleFunc(
+		name,
+		handlers.Method(
+			s.log,
+			method,
+			handlers.WithSafetyNet(s.log, handler),
+		),
+	)
 }
 
 // routeUniverses :
 // Used to set up the routes needed to offer the features related
 // to universes.
 func (s *server) routeUniverses() {
-	// List existing universes.
-	// GET, `/universes`
-	http.HandleFunc(
-		"/universes",
-		handlers.Method(
-			s.log,
-			"GET",
-			handlers.WithSafetyNet(s.log, s.listUniverses()),
-		),
-	)
+	s.route("/universes", "GET", s.listUniverses())
+	s.route("/universes/", "GET", s.listUniverses())
 
-	// List properties of a specific universe.
-	// GET, `/universes/universe_id/planets`
-
-	// GET, `/universes/universe_id/planet_id/buildings`
-	// GET, `/universes/universe_id/planet_id/defense`
-	// GET, `/universes/universe_id/planet_id/ships`
-	http.HandleFunc(
-		"/universes/",
-		handlers.Method(
-			s.log,
-			"GET",
-			handlers.WithSafetyNet(s.log, s.listUniverse()),
-		),
-	)
-
-	// Create a new universe.
-	// POST, `/universe`, `universe-data`
-	http.HandleFunc(
-		"/universe",
-		handlers.Method(
-			s.log,
-			"POST",
-			handlers.WithSafetyNet(s.log, s.createUniverse()),
-		),
-	)
+	// s.route("/universe", "POST", s.createUniverse())
 }
 
 // routeAccounts :
@@ -66,102 +62,54 @@ func (s *server) routeUniverses() {
 // serve the functionalities related to the accounts registered in
 // the server.
 func (s *server) routeAccounts() {
-	// List existing accounts.
-	// GET, `/accounts`
-	http.HandleFunc(
-		"/accounts",
-		handlers.Method(
-			s.log,
-			"GET",
-			handlers.WithSafetyNet(s.log, s.listAccounts()),
-		),
-	)
+	s.route("/accounts", "GET", s.listAccounts())
+	s.route("/accounts/", "GET", s.listAccounts())
 
-	// List properties of a specific account.
-	// GET, `/accounts/account_id`
-	// GET, `/accounts/account_id/players`
-
-	// GET, `/accounts/account_id/player_id/planets`
-	// GET, `/accounts/account_id/player_id/technologies`
-	// GET, `/accounts/account_id/player_id/fleets`
-	http.HandleFunc(
-		"/accounts/",
-		handlers.Method(
-			s.log,
-			"GET",
-			handlers.WithSafetyNet(s.log, s.listAccount()),
-		),
-	)
-
-	// Create a new account.
-	// POST, `/account`, `account-data`
-	http.HandleFunc(
-		"/account",
-		handlers.Method(
-			s.log,
-			"POST",
-			handlers.WithSafetyNet(s.log, s.createAccount()),
-		),
-	)
-
-	// Create a new player.
-	// POST, `/account/account_id/player`, `player-data`
-	http.HandleFunc(
-		"/account/",
-		handlers.Method(
-			s.log,
-			"POST",
-			handlers.WithSafetyNet(s.log, s.createPlayer()),
-		),
-	)
+	// s.route("/account", "POST", s.createAccount())
+	// s.route("/account/", "POST", s.createPlayer())
 }
 
-// routeDataModel :
+// routeBuildings :
 // Similar to the `routeUniverses` facet but sets up the routes to
-// handle the general definition for ships, technologies and other
-// elements of the game.
-func (s *server) routeDataModel() {
-	// List existing buildings.
-	// GET, `/buildings`
-	http.HandleFunc(
-		"/buildings",
-		handlers.Method(
-			s.log,
-			"GET",
-			handlers.WithSafetyNet(s.log, s.listBuildings()),
-		),
-	)
+// serve the functionalities related to the buildings registered in
+// the server.
+func (s *server) routeBuildings() {
+	s.route("/buildings", "GET", s.listBuildings())
+	s.route("/buildings/", "GET", s.listBuildings())
+}
 
-	// List existing technologies.
-	// GET, `/technologies`
-	http.HandleFunc(
-		"/technologies",
-		handlers.Method(
-			s.log,
-			"GET",
-			handlers.WithSafetyNet(s.log, s.listTechnologies()),
-		),
-	)
+// routeTechnologies :
+// Similar to the `routeUniverses` facet but sets up the routes to
+// serve the functionalities related to the technologies registered
+// in the server.
+func (s *server) routeTechnologies() {
+	s.route("/technologies", "GET", s.listTechnologies())
+	s.route("/technologies/", "GET", s.listTechnologies())
+}
 
-	// List existing ships.
-	// GET, `/ships`
-	http.HandleFunc(
-		"/ships",
-		handlers.Method(
-			s.log,
-			"GET",
-			handlers.WithSafetyNet(s.log, s.listShips()),
-		),
-	)
+// routeShips :
+// Similar to the `routeUniverses` facet but sets up the routes to
+// serve the functionalities related to the ships registered in the
+// server.
+func (s *server) routeShips() {
+	s.route("/ships", "GET", s.listShips())
+	s.route("/ships/", "GET", s.listShips())
+}
 
-	// List existing ships.
-	// GET, `/defenses`
-	http.HandleFunc(
-		"/defenses",
-		handlers.Method(
-			s.log,
-			"GET",
-			handlers.WithSafetyNet(s.log, s.listDefenses()),
-		),
-	)
+// routeDefenses :
+// Similar to the `routeUniverses` facet but sets up the routes to
+// serve the functionalities related to the defenses registered in
+// the server.
+func (s *server) routeDefenses() {
+	s.route("/defenses", "GET", s.listDefenses())
+	s.route("/defenses/", "GET", s.listDefenses())
+}
+
+// routePlanets :
+// Similar to the `routeUniverses` facet but sets up the routes to
+// serve the functionalities related to the planets registered in
+// the server.
+func (s *server) routePlanets() {
+	s.route("/planets", "GET", s.listPlanets())
+	s.route("/planets/", "GET", s.listPlanets())
 }

@@ -46,6 +46,15 @@ func NewShipProxy(dbase *db.DB, log logger.Logger) ShipProxy {
 	return ShipProxy{dbase, log}
 }
 
+// GetIdentifierDBColumnName :
+// Used to retrieve the string literal defining the name of the
+// identifier column in the `ships` table in the database.
+//
+// Returns the name of the `identifier` column in the database.
+func (p *ShipProxy) GetIdentifierDBColumnName() string {
+	return "id"
+}
+
 // Ships :
 // Allows to fetch the list of ships currently available for a
 // player to build. This list normally never changes as it's
@@ -62,7 +71,7 @@ func NewShipProxy(dbase *db.DB, log logger.Logger) ShipProxy {
 // Returns the list of ships along with any errors. Note that
 // in case the error is not `nil` the returned list is to be
 // ignored.
-func (p *ShipProxy) Ships(filters []Filter) ([]ShipDesc, error) {
+func (p *ShipProxy) Ships(filters []DBFilter) ([]ShipDesc, error) {
 	// Create the query and execute it.
 	props := []string{
 		"id",

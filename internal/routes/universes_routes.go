@@ -107,16 +107,14 @@ func (ua *universeAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filt
 //
 // Returns the data related to the universes along with any errors.
 func (ua *universeAdapter) Data(filters []handlers.Filter) (interface{}, error) {
-	// Convert the input request filters into DB filters. We know that
-	// none of the filters used for universes are numerical.
+	// Convert the input request filters into DB filters.
 	dbFilters := make([]data.DBFilter, 0)
 	for _, filter := range filters {
 		dbFilters = append(
 			dbFilters,
 			data.DBFilter{
-				Key:     filter.Key,
-				Values:  filter.Options,
-				Numeric: false,
+				Key:    filter.Key,
+				Values: filter.Options,
 			},
 		)
 	}

@@ -112,16 +112,14 @@ func (pa *planetAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter
 //
 // Returns the data related to the planets along with any errors.
 func (pa *planetAdapter) Data(filters []handlers.Filter) (interface{}, error) {
-	// Convert the input request filters into DB filters. We know that
-	// none of the filters used for planets are numerical.
+	// Convert the input request filters into DB filters.
 	dbFilters := make([]data.DBFilter, 0)
 	for _, filter := range filters {
 		dbFilters = append(
 			dbFilters,
 			data.DBFilter{
-				Key:     filter.Key,
-				Values:  filter.Options,
-				Numeric: false,
+				Key:    filter.Key,
+				Values: filter.Options,
 			},
 		)
 	}

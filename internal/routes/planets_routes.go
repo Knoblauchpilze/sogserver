@@ -46,6 +46,8 @@ func (pa *planetAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter
 		"galaxy":       "p.galaxy",
 		"solar_system": "p.solar_system",
 		"universe":     "pl.uni",
+		"player_id":    "p.player",
+		"account_id":   "pl.account",
 	}
 
 	for key, values := range vars.Params {

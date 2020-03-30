@@ -143,8 +143,134 @@ func (p *PlanetProxy) Planets(filters []DBFilter) ([]Planet, error) {
 			position,
 		}
 
+		// Fetch buildings, ships and defenses for this planet.
+		err = p.fetchPlanetData(&planet)
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch data for planet \"%s\" (err: %v)", planet.ID, err))
+			continue
+		}
+
 		planets = append(planets, planet)
 	}
 
 	return planets, nil
+}
+
+// fetchPlanetData :
+// Used to fetch data built on the planet provided in input.
+// This typically include the buildings, the ships deployed
+// and the defenses installed.
+//
+// The `planet` references the planet for which data should
+// be fetched. We assume that the internal fields (and more
+// specifically the identifier) are already populated.
+//
+// Returns any error.
+func (p *PlanetProxy) fetchPlanetData(planet *Planet) error {
+	// Check whether the planet has an identifier assigned.
+	if planet.ID == "" {
+		return fmt.Errorf("Unable to fetch data from planet with invalid identifier")
+	}
+
+	// Fetch resources.
+	query := fmt.Sprintf("select res, amount from planets_resources where planet='%s'", planet.ID)
+	rows, err := p.dbase.DBQuery(query)
+
+	if err != nil {
+		return fmt.Errorf("Could not fetch resources for planet \"%s\" (err: %v)", planet.ID, err)
+	}
+
+	planet.Resources = make([]Resource, 0)
+	var resource Resource
+
+	for rows.Next() {
+		err = rows.Scan(
+			&resource.ID,
+			&resource.Amount,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve resource for planet \"%s\" (err: %v)", planet.ID, err))
+			continue
+		}
+
+		planet.Resources = append(planet.Resources, resource)
+	}
+
+	// Fetch buildings.
+	query = fmt.Sprintf("select building, level from planets_buildings where planet='%s'", planet.ID)
+	rows, err = p.dbase.DBQuery(query)
+
+	if err != nil {
+		return fmt.Errorf("Could not fetch buildings for planet \"%s\" (err: %v)", planet.ID, err)
+	}
+
+	planet.Buildings = make([]Building, 0)
+	var building Building
+
+	for rows.Next() {
+		err = rows.Scan(
+			&building.ID,
+			&building.Level,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve building for planet \"%s\" (err: %v)", planet.ID, err))
+			continue
+		}
+
+		planet.Buildings = append(planet.Buildings, building)
+	}
+
+	// Fetch ships.
+	query = fmt.Sprintf("select ship, count from planets_ships where planet='%s'", planet.ID)
+	rows, err = p.dbase.DBQuery(query)
+
+	if err != nil {
+		return fmt.Errorf("Could not fetch ships for planet \"%s\" (err: %v)", planet.ID, err)
+	}
+
+	planet.Ships = make([]Ship, 0)
+	var ship Ship
+
+	for rows.Next() {
+		err = rows.Scan(
+			&ship.ID,
+			&ship.Count,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve ship for planet \"%s\" (err: %v)", planet.ID, err))
+			continue
+		}
+
+		planet.Ships = append(planet.Ships, ship)
+	}
+
+	// Fetch defenses.
+	query = fmt.Sprintf("select defense, count from planets_defenses where planet='%s'", planet.ID)
+	rows, err = p.dbase.DBQuery(query)
+
+	if err != nil {
+		return fmt.Errorf("Could not fetch defenses for planet \"%s\" (err: %v)", planet.ID, err)
+	}
+
+	planet.Defenses = make([]Defense, 0)
+	var defense Defense
+
+	for rows.Next() {
+		err = rows.Scan(
+			&defense.ID,
+			&defense.Count,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve defense for planet \"%s\" (err: %v)", planet.ID, err))
+			continue
+		}
+
+		planet.Defenses = append(planet.Defenses, defense)
+	}
+
+	return nil
 }

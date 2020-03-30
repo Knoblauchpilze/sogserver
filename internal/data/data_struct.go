@@ -143,47 +143,6 @@ type Resource struct {
 	Name   string
 }
 
-// Planet :
-// Define a planet which is an object within a certain universe
-// and associated to a certain player. The planet is described
-// only has its structure and not its exact content (like ships,
-// defenses, etc.).
-//
-// The `PlayerID` defines the identifier of the player which owns
-// this planet. It is relative to an account and a universe.
-//
-// The `ID` defines the identifier of the planet within all the
-// planets registered in og.
-//
-// The `Coords` defines the coordinate of the planet within its
-// parent universe. The coordinates should be consistent with
-// the limits defined for the universe.
-//
-// The `Name` of the planet as defined by the user.
-//
-// The `Fields` define the number of available fields in the
-// planet. The number of used fields is computed from the
-// infrastructure built on the planet but is not returned here.
-//
-// The `MinTemp` defines the minimum temperature of the planet
-// in degrees.
-//
-// The `MaxTemp` defines the maximum temperatue of the planet
-// in degrees.
-//
-// The `Diameter` defines the diameter of the planet expressed
-// in kilometers.
-type Planet struct {
-	PlayerID string     `json:"player_id"`
-	ID       string     `json:"id"`
-	Coords   Coordinate `json:"coordinates"`
-	Name     string     `json:"name"`
-	Fields   int        `json:"fields"`
-	MinTemp  float32    `json:"min_temperature"`
-	MaxTemp  float32    `json:"max_temperature"`
-	Diameter int        `json:"diameter"`
-}
-
 // TechDependency :
 // Defines a dependency between two elements. We assume that the
 // element for which the dependency is created is linked to this
@@ -380,6 +339,66 @@ type DefenseDesc struct {
 type Defense struct {
 	ID    string `json:"id"`
 	Count int    `json:"count"`
+}
+
+// Planet :
+// Define a planet which is an object within a certain universe
+// and associated to a certain player. The planet is described
+// only has its structure and not its exact content (like ships,
+// defenses, etc.).
+//
+// The `PlayerID` defines the identifier of the player which owns
+// this planet. It is relative to an account and a universe.
+//
+// The `ID` defines the identifier of the planet within all the
+// planets registered in og.
+//
+// The `Coords` defines the coordinate of the planet within its
+// parent universe. The coordinates should be consistent with
+// the limits defined for the universe.
+//
+// The `Name` of the planet as defined by the user.
+//
+// The `Fields` define the number of available fields in the
+// planet. The number of used fields is computed from the
+// infrastructure built on the planet but is not returned here.
+//
+// The `MinTemp` defines the minimum temperature of the planet
+// in degrees.
+//
+// The `MaxTemp` defines the maximum temperatue of the planet
+// in degrees.
+//
+// The `Diameter` defines the diameter of the planet expressed
+// in kilometers.
+//
+// The `Resources` define the resources currently stored on the
+// planet. This is basically the quantity available to produce
+// some buildings, ships, etc.
+//
+// The `Buildings` defines the list of buildings currently built
+// on the planet. Note that it does not provide information on
+// buildings *being* built.
+//
+// The `Ships` defines the list of ships currently deployed on
+// this planet. It does not include ships currently moving from
+// or towards the planet.
+//
+// The `Defense` defines the list of defenses currently built
+// on the planet. This does not include defenses *being* built.
+type Planet struct {
+	PlayerID  string     `json:"player_id"`
+	ID        string     `json:"id"`
+	Coords    Coordinate `json:"coordinates"`
+	Name      string     `json:"name"`
+	Fields    int        `json:"fields"`
+	MinTemp   float32    `json:"min_temperature"`
+	MaxTemp   float32    `json:"max_temperature"`
+	Diameter  int        `json:"diameter"`
+	Resources []Resource `json:"resources"`
+	Buildings []Building `json:"buildings"`
+	Ships     []Ship     `json:"ships"`
+	Defenses  []Defense  `json:"defenses"`
 }
 
 // Fleet :

@@ -18,13 +18,6 @@ CREATE TABLE planets (
 -- Trigger to update the `created_at` field of the table.
 CREATE TRIGGER update_planet_creation_time BEFORE INSERT ON planets FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();
 
--- Create the buildings per planet table.
-CREATE TABLE planets_buildings (
-  planet uuid NOT NULL references planets,
-  building uuid NOT NULL references buildings,
-  level integer NOT NULL default 0
-);
-
 -- Create the table referencing resources on each planet.
 CREATE TABLE planets_resources (
   planet uuid NOT NULL references planets,
@@ -32,16 +25,23 @@ CREATE TABLE planets_resources (
   amount numeric(15, 5)
 );
 
--- Create the table containing the defenses on each planet.
-CREATE TABLE planets_defenses (
-  planet uuid NOT NULL  references planets,
-  defense uuid NOT NULL references defenses,
-  count integer NOT NULL
+-- Create the buildings per planet table.
+CREATE TABLE planets_buildings (
+  planet uuid NOT NULL references planets,
+  building uuid NOT NULL references buildings,
+  level integer NOT NULL default 0
 );
 
 -- Create the table containing the ships on each planet.
 CREATE TABLE planets_ships (
   planet uuid NOT NULL references planets,
   ship uuid NOT NULL references ships,
+  count integer NOT NULL
+);
+
+-- Create the table containing the defenses on each planet.
+CREATE TABLE planets_defenses (
+  planet uuid NOT NULL  references planets,
+  defense uuid NOT NULL references defenses,
   count integer NOT NULL
 );

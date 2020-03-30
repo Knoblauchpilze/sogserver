@@ -7,6 +7,16 @@ import (
 	"strings"
 )
 
+// InternalServerErrorString :
+// Used to provide a unique string that can be used in case an
+// error occurs while serving a client request and we need to
+// provide an answer.
+//
+// Returns a common string to indicate an error.
+func InternalServerErrorString() string {
+	return "Unexpected server error"
+}
+
 // sanitizeRoute :
 // Used to remove any '/' characters leading or trailing the
 // input route string.*
@@ -150,4 +160,45 @@ func extractRouteVars(route string, r *http.Request) (RouteVars, error) {
 	}
 
 	return vars, nil
+}
+
+// extractRouteData :
+// Used to extract the values passed to a request assuming its method
+// allows it. We don't enforce very strictly to call this method only
+// if the request can define such values but the result will be empty
+// if this is not the case.
+//
+// The `dataKey` is used to form values from the request. The input
+// request may define several data which might be parsed by different
+// parts of the server. This method only extracts the ones that are
+// relevant relatively to the provided key.
+// It also fetches *all* the instances of the values matching the key.
+//
+// The `r` defines the request from which the route values should be
+// extracted.
+//
+// Returns the route's data along with any errors.
+func extractRouteData(dataKey string, r *http.Request) (RouteData, error) {
+	elems := RouteData{
+		make([]string, 0),
+	}
+
+	route := r.URL.String()
+
+	// Fetch the data from the input request: as we want to allow
+	// for multiple instances of the same key we need to call the
+	// `ParseForm` method (as described in the documentation of
+	// the `FormValue` method).
+	err := r.ParseForm()
+	if err != nil {
+		return elems, fmt.Errorf("Could not parse data for key \"%s\" from route (err: %v)", route, err)
+	}
+
+	// Search for the relevant key.
+	value, ok := r.Form[dataKey]
+	if ok {
+		elems.Data = append(elems.Data, value...)
+	}
+
+	return elems, nil
 }

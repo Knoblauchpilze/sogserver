@@ -58,16 +58,6 @@ type EndpointDesc interface {
 	Data(filters []Filter) (interface{}, error)
 }
 
-// InternalServerErrorString :
-// Used to provide a unique string that can be used in case an
-// error occurs while serving a client request and we need to
-// provide an answer.
-//
-// Returns a common string to indicate an error.
-func InternalServerErrorString() string {
-	return "Unexpected server error"
-}
-
 // marshalAndSend :
 // Used to send the input data after marshalling it to the provided
 // response writer. In case the data cannot be marshalled a `500`

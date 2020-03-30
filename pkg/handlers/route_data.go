@@ -31,3 +31,18 @@ type RouteVars struct {
 	RouteElems []string
 	Params     map[string]Values
 }
+
+// RouteData :
+// Used to define the data that can be passed to a route based on
+// its name. It is constructed by appending the "-data" suffix to
+// the route and getting the corresponding value.
+// It is useful to group common behavior of all the interfaces on
+// this server.
+//
+// The `Data` represents the data extracted from the route itself.
+// It is represented as an array of raw strings which are usually
+// unmarshalled into meaningful structures by the data creation
+// process.
+type RouteData struct {
+	Data Values
+}

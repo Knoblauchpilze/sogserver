@@ -62,18 +62,6 @@ type server struct {
 	log          logger.Logger
 }
 
-// routeData :
-// Used to define the data that can be passed to a route based on
-// its name. It is constructed by appending the "-data" suffix to
-// the route and getting the corresponding value.
-// It is useful to group common behavior of all the interfaces on
-// this server.
-//
-// The `value` represents the data extracted from ``
-type routeData struct {
-	value string
-}
-
 // NewServer :
 // Create a new server with the input elements to use internally to
 // access data and perform logging.

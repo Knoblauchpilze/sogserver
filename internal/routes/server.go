@@ -43,8 +43,11 @@ import (
 // The `defenses` fills a similar purpose as `buildings` but for
 // defenses related requests.
 //
-// The planets` fills a similar purpose to `universes` but for the
+// The `planets` fills a similar purpose to `universes` but for the
 // planets registered in the game.
+//
+// The `players` fills a similar purpose to `accounts` but for the
+// players registered in each universe.
 //
 // The `logger` allows to perform most of the logging on any action
 // done by the server such as logging clients' connections, errors
@@ -59,6 +62,7 @@ type server struct {
 	ships        data.ShipProxy
 	defenses     data.DefenseProxy
 	planets      data.PlanetProxy
+	players      data.PlayerProxy
 	log          logger.Logger
 }
 
@@ -89,6 +93,7 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 		data.NewShipProxy(dbase, log),
 		data.NewDefenseProxy(dbase, log),
 		data.NewPlanetProxy(dbase, log),
+		data.NewPlayerProxy(dbase, log),
 		log,
 	}
 }

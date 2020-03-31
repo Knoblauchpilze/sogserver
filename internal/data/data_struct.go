@@ -25,32 +25,6 @@ type Account struct {
 	Mail string `json:"mail"`
 }
 
-// Player :
-// Define a player which is basically a name in a universe.
-// We also provide both the identifier of this player along
-// with its account index.
-//
-// The `AccountID` represents the identifier of the accounts
-// associated with this player. An account can be registered
-// on any number of universes (with a limit of `1` pseudo
-// per universe).
-//
-// The `UniverseID` is the identifier of the universe in which
-// this player is registered. This determines where it can
-// perform actions.
-//
-// The `ID` represents the identifier of the player's current
-// instance in this universe.
-//
-// The `Name` represents the in-game display for this player.
-// It is distinct from the account's name.
-type Player struct {
-	AccountID  string `json:"account"`
-	UniverseID string `json:"uni"`
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-}
-
 // Universe :
 // Define a universe in terms of OG semantic. This is a set
 // of planets gathered in a certain number of galaxies and
@@ -234,19 +208,16 @@ type TechnologyDesc struct {
 }
 
 // Technology :
-// Defines a technology in the og context. It defines the identifier
-// of the technology which allows to access the description of the
-// technology and other information.
+// Defines a technology in the og context. It defines the
+// identifier of the technology which allows to access the
+// description of the technology and other information.
 //
 // The `ID` defines the identifier of the technology.
 //
-// The `Name` of the technology.
-//
-// The `Level` defines the current technology level of this technology
-// on the account of a player.
+// The `Level` defines the current technology level of this
+// technology on the account of a player.
 type Technology struct {
 	ID    string `json:"id"`
-	Name  string `json:"name"`
 	Level int    `json:"level"`
 }
 
@@ -399,6 +370,37 @@ type Planet struct {
 	Buildings []Building `json:"buildings"`
 	Ships     []Ship     `json:"ships"`
 	Defenses  []Defense  `json:"defenses"`
+}
+
+// Player :
+// Define a player which is basically a name in a universe.
+// We also provide both the identifier of this player along
+// with its account index.
+//
+// The `AccountID` represents the identifier of the accounts
+// associated with this player. An account can be registered
+// on any number of universes (with a limit of `1` pseudo
+// per universe).
+//
+// The `UniverseID` is the identifier of the universe in which
+// this player is registered. This determines where it can
+// perform actions.
+//
+// The `ID` represents the identifier of the player's current
+// instance in this universe.
+//
+// The `Name` represents the in-game display for this player.
+// It is distinct from the account's name.
+//
+// The `Technologies` defines the level of each in-game tech
+// already researched by the player. Note that technologies
+// with a level of `0` are not included in the output list.
+type Player struct {
+	AccountID    string       `json:"account"`
+	UniverseID   string       `json:"uni"`
+	ID           string       `json:"id"`
+	Name         string       `json:"name"`
+	Technologies []Technology `json:"technologies"`
 }
 
 // Fleet :

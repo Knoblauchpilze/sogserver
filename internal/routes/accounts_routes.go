@@ -1,10 +1,12 @@
 package routes
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
 	"oglike_server/pkg/handlers"
+	"oglike_server/pkg/logger"
 )
 
 // accountAdapter :
@@ -133,8 +135,12 @@ func (aa *accountAdapter) Data(filters []handlers.Filter) (interface{}, error) {
 //
 // The `proxy` defines the proxy to use to interact with the DB
 // when fetching the data.
+//
+// The `log` allows to notify problems and information during a
+// universe's creation.
 type accountCreator struct {
 	proxy data.AccountProxy
+	log   logger.Logger
 }
 
 // Route :
@@ -166,13 +172,43 @@ func (ac *accountCreator) DataKey() string {
 // related to the new accounts. We will use the internal proxy to
 // request the DB to create a new account.
 //
-// The `data` represent the data fetched from the input request and
+// The `input` represent the data fetched from the input request and
 // should contain the properties of the accounts to create.
 //
 // Return the targets of the created resources along with any error.
-func (ac *accountCreator) Create(data handlers.RouteData) ([]string, error) {
-	// TODO: Implement this.
-	return []string{}, fmt.Errorf("Not implemented")
+func (ac *accountCreator) Create(input handlers.RouteData) ([]string, error) {
+	// We need to iterate over the data retrieved from the route and
+	// create accounts from it.
+	var acc data.Account
+	resources := make([]string, 0)
+
+	// Prevent request with no data.
+	if len(input.Data) == 0 {
+		return resources, fmt.Errorf("Could not perform creation of account with no data")
+	}
+
+	for _, rawData := range input.Data {
+		// Try to unmarshal the data into a valid `Account` struct.
+		err := json.Unmarshal([]byte(rawData), &acc)
+		if err != nil {
+			ac.log.Trace(logger.Error, fmt.Sprintf("Could not create account from data \"%s\" (err: %v)", rawData, err))
+			continue
+		}
+
+		// Create the account.
+		err = ac.proxy.Create(&acc)
+		if err != nil {
+			ac.log.Trace(logger.Error, fmt.Sprintf("Could not register account from data \"%s\" (err: %v)", rawData, err))
+			continue
+		}
+
+		// Successfully created an account.
+		ac.log.Trace(logger.Notice, fmt.Sprintf("Created new account \"%s\" with id \"%s\"", acc.Name, acc.ID))
+		resources = append(resources, acc.ID)
+	}
+
+	// Return the path to the resources created during the process.
+	return resources, nil
 }
 
 // listAccounts :
@@ -204,6 +240,7 @@ func (s *server) createAccount() http.HandlerFunc {
 	return handlers.ServeCreationRoute(
 		&accountCreator{
 			s.accounts,
+			s.log,
 		},
 		s.log,
 	)

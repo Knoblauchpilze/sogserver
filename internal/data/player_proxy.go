@@ -109,8 +109,59 @@ func (p *PlayerProxy) Players(filters []DBFilter) ([]Player, error) {
 			continue
 		}
 
+		// Populate the technologies researched by this player.
+		err = p.fetchPlayerData(&player)
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch data for player \"%s\" (err: %v)", player.ID, err))
+			continue
+		}
+
 		players = append(players, player)
 	}
 
 	return players, nil
+}
+
+// fetchPlayerData :
+// Used to fetch data related to the player in argument. It
+// mainly consists in the list of technologies researched by
+// the player.
+//
+// The `player` references the player for which data should
+// be fetched. We assume that the internal fields (and more
+// specifically the identifier) are already populated.
+//
+// Returns any error.
+func (p *PlayerProxy) fetchPlayerData(player *Player) error {
+	// Check whether the player has an identifier assigned.
+	if player.ID == "" {
+		return fmt.Errorf("Unable to fetch data from player with invalid identifier")
+	}
+
+	// Fetch technologies.
+	query := fmt.Sprintf("select technology, level from player_technologies where player='%s'", player.ID)
+	rows, err := p.dbase.DBQuery(query)
+
+	if err != nil {
+		return fmt.Errorf("Could not fetch technologies for player \"%s\" (err: %v)", player.ID, err)
+	}
+
+	player.Technologies = make([]Technology, 0)
+	var tech Technology
+
+	for rows.Next() {
+		err = rows.Scan(
+			&tech.ID,
+			&tech.Level,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve technology for player \"%s\" (err: %v)", player.ID, err))
+			continue
+		}
+
+		player.Technologies = append(player.Technologies, tech)
+	}
+
+	return nil
 }

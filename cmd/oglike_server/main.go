@@ -15,7 +15,6 @@ import (
 
 // TODO: Construction actions.
 // TODO: Create player in universe.
-// TODO: We should populate the `Technologies` of a `Player` account and return them through a `players` endpoint.
 // TODO: We should also create a `fleets` endpoint.
 
 // usage :

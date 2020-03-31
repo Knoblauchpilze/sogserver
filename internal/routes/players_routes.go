@@ -1,10 +1,12 @@
 package routes
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
 	"oglike_server/pkg/handlers"
+	"oglike_server/pkg/logger"
 )
 
 // playerAdapter :
@@ -134,8 +136,12 @@ func (pa *playerAdapter) Data(filters []handlers.Filter) (interface{}, error) {
 //
 // The `proxy` defines the proxy to use to interact with the DB
 // when fetching the data.
+//
+// The `log` allows to notify problems and information during a
+// universe's creation.
 type playerCreator struct {
 	proxy data.PlayersProxy
+	log   logger.Logger
 }
 
 // Route :
@@ -167,13 +173,43 @@ func (pc *playerCreator) DataKey() string {
 // related to the new players. We will use the internal proxy to
 // request the DB to create a new player.
 //
-// The `data` represent the data fetched from the input request and
+// The `input` represent the data fetched from the input request and
 // should contain the properties of the players to create.
 //
 // Return the targets of the created resources along with any error.
-func (pc *playerCreator) Create(data handlers.RouteData) ([]string, error) {
-	// TODO: Implement this.
-	return []string{}, fmt.Errorf("Not implemented")
+func (pc *playerCreator) Create(input handlers.RouteData) ([]string, error) {
+	// We need to iterate over the data retrieved from the route and
+	// create players from it.
+	var player data.Player
+	resources := make([]string, 0)
+
+	// Prevent request with no data.
+	if len(input.Data) == 0 {
+		return resources, fmt.Errorf("Could not perform creation of player with no data")
+	}
+
+	for _, rawData := range input.Data {
+		// Try to unmarshal the data into a valid `Player` struct.
+		err := json.Unmarshal([]byte(rawData), &player)
+		if err != nil {
+			pc.log.Trace(logger.Error, fmt.Sprintf("Could not create player from data \"%s\" (err: %v)", rawData, err))
+			continue
+		}
+
+		// Create the player.
+		err = pc.proxy.Create(&player)
+		if err != nil {
+			pc.log.Trace(logger.Error, fmt.Sprintf("Could not register player from data \"%s\" (err: %v)", rawData, err))
+			continue
+		}
+
+		// Successfully created an player.
+		pc.log.Trace(logger.Notice, fmt.Sprintf("Created new player \"%s\" with id \"%s\"", player.Name, player.ID))
+		resources = append(resources, player.ID)
+	}
+
+	// Return the path to the resources created during the process.
+	return resources, nil
 }
 
 // listPlayers :
@@ -205,6 +241,7 @@ func (s *server) createPlayer() http.HandlerFunc {
 	return handlers.ServeCreationRoute(
 		&playerCreator{
 			s.players,
+			s.log,
 		},
 		s.log,
 	)

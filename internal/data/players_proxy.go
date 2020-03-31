@@ -170,7 +170,7 @@ func (p *PlayersProxy) fetchPlayerData(player *Player) error {
 	return nil
 }
 
-// CreatePlayer :
+// Create :
 // Used to perform the creation of the player described
 // by the input structure in the DB. The player is both
 // associated to an account and a universe. The database
@@ -187,7 +187,7 @@ func (p *PlayersProxy) fetchPlayerData(player *Player) error {
 // The return status indicates whether the player could
 // be created or not (in which case an error describes
 // the failure reason).
-func (p *PlayersProxy) CreatePlayer(player *Player) error {
+func (p *PlayersProxy) Create(player *Player) error {
 	// Assign a valid identifier if this is not already the case.
 	if player.ID == "" {
 		player.ID = uuid.New().String()
@@ -206,7 +206,7 @@ func (p *PlayersProxy) CreatePlayer(player *Player) error {
 	jsonToSend := string(data)
 
 	query := fmt.Sprintf("select * from create_player('%s')", jsonToSend)
-	affected, err := p.dbase.DBExecute(query)
+	_, err = p.dbase.DBExecute(query)
 
 	// Check for errors. We will refine this process a bit to try
 	// to detect cases where the user tries to create a player and
@@ -224,18 +224,9 @@ func (p *PlayersProxy) CreatePlayer(player *Player) error {
 		return fmt.Errorf("Could not import player \"%s\" for \"%s\" (err: %s)", player.Name, player.AccountID, msg)
 	}
 
-	// Check that we could insert the player: indeed in case for
-	// example the universe's identifier is not valid the query
-	// is not performed (meaning the player is not created) but
-	// there are no errors returned (because it's how the query
-	// is designed).
-	// We can still rely on the `affected rows count` which is
-	// the number of rows that were affected by the operation.
-	// In the case of a player's creation it should always be
-	// `1` because we're creating a single row.
-	if affected.RowsAffected() != 1 {
-		return fmt.Errorf("Could not import player \"%s\" for \"%s\" in universe \"%s\", universe probably does not exist", player.Name, player.AccountID, player.UniverseID)
-	}
+	// TODO: Check that we could insert the player. We need to be
+	// sure that both the player and the universe identifiers are
+	// consistent with what we expect.
 
 	// Successfully created the player.
 	p.log.Trace(logger.Notice, fmt.Sprintf("Created new player \"%s\" for \"%s\" in universe \"%s\" with id \"%s\"", player.Name, player.AccountID, player.UniverseID, player.ID))

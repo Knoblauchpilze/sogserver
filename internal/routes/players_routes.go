@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
 	"oglike_server/pkg/handlers"
@@ -15,7 +16,7 @@ import (
 // The `proxy` defines the proxy to use to interact with the DB
 // when fetching the data.
 type playerAdapter struct {
-	proxy data.PlayerProxy
+	proxy data.PlayersProxy
 }
 
 // Route :
@@ -125,6 +126,48 @@ func (pa *playerAdapter) Data(filters []handlers.Filter) (interface{}, error) {
 	return pa.proxy.Players(dbFilters)
 }
 
+// playerCreator :
+// Implements the interface requested by the creation handler in
+// the `handlers` package. The main functions are describing the
+// interface to retrieve information about the players from a
+// database.
+//
+// The `proxy` defines the proxy to use to interact with the DB
+// when fetching the data.
+type playerCreator struct {
+	proxy data.PlayersProxy
+}
+
+// Route :
+// Implementation of the method to get the route name to create some
+// new players.
+// Returns the name of the route.
+func (pc *playerCreator) Route() string {
+	return "player"
+}
+
+// DataKey :
+// Implementation of the method to get the name of the key used to
+// pass data to the server.
+// Returns the name of the key.
+func (pc *playerCreator) DataKey() string {
+	return "player-data"
+}
+
+// Create :
+// Implementation of the method to perform the creation of the data
+// related to the new players. We will use the internal proxy to
+// request the DB to create a new player.
+//
+// The `data` represent the data fetched from the input request and
+// should contain the properties of the players to create.
+//
+// Return the targets of the created resources along with any error.
+func (pc *playerCreator) Create(data handlers.RouteData) (string, error) {
+	// TODO: Implement this.
+	return "", fmt.Errorf("Not implemented")
+}
+
 // listPlayers :
 // Creates a handler allowing to serve requests on the players
 // by interrogating the main DB. We uses the handler structure in
@@ -135,6 +178,24 @@ func (pa *playerAdapter) Data(filters []handlers.Filter) (interface{}, error) {
 func (s *server) listPlayers() http.HandlerFunc {
 	return handlers.ServeRoute(
 		&playerAdapter{
+			s.players,
+		},
+		s.log,
+	)
+}
+
+// createPlayer :
+// Creates a handler allowing to server requests to create new
+// players in the main DB. This rely on the handler structure
+// provided by the `handlers` package which allows to mutualize
+// the extraction of the data from the input request and the
+// general flow to perform the creation.
+//
+// Returns the handler which can be executed to perform such
+// requests.
+func (s *server) createPlayer() http.HandlerFunc {
+	return handlers.ServeCreationRoute(
+		&playerCreator{
 			s.players,
 		},
 		s.log,

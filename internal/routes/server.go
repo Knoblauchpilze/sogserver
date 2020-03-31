@@ -62,7 +62,7 @@ type server struct {
 	ships        data.ShipProxy
 	defenses     data.DefenseProxy
 	planets      data.PlanetProxy
-	players      data.PlayerProxy
+	players      data.PlayersProxy
 	log          logger.Logger
 }
 
@@ -93,7 +93,7 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 		data.NewShipProxy(dbase, log),
 		data.NewDefenseProxy(dbase, log),
 		data.NewPlanetProxy(dbase, log),
-		data.NewPlayerProxy(dbase, log),
+		data.NewPlayersProxy(dbase, log),
 		log,
 	}
 }

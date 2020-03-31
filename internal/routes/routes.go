@@ -55,7 +55,7 @@ func (s *server) routeUniverses() {
 	s.route("/universes", "GET", s.listUniverses())
 	s.route("/universes/", "GET", s.listUniverses())
 
-	// s.route("/universe", "POST", s.createUniverse())
+	s.route("/universe", "POST", s.createUniverse())
 }
 
 // routeAccounts :
@@ -66,8 +66,7 @@ func (s *server) routeAccounts() {
 	s.route("/accounts", "GET", s.listAccounts())
 	s.route("/accounts/", "GET", s.listAccounts())
 
-	// s.route("/account", "POST", s.createAccount())
-	// s.route("/account/", "POST", s.createPlayer())
+	s.route("/account", "POST", s.createAccount())
 }
 
 // routeBuildings :
@@ -122,4 +121,6 @@ func (s *server) routePlanets() {
 func (s *server) routePlayers() {
 	s.route("/players", "GET", s.listPlayers())
 	s.route("/players/", "GET", s.listPlayers())
+
+	s.route("/player/", "POST", s.createPlayer())
 }

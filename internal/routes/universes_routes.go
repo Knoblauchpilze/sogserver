@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
 	"oglike_server/pkg/handlers"
@@ -123,6 +124,48 @@ func (ua *universeAdapter) Data(filters []handlers.Filter) (interface{}, error) 
 	return ua.proxy.Universes(dbFilters)
 }
 
+// universeCreator :
+// Implements the interface requested by the creation handler in
+// the `handlers` package. The main functions are describing the
+// interface to perform the creation of a new universe into the
+// DB.
+//
+// The `proxy` defines the proxy to use to interact with the DB
+// when creating data.
+type universeCreator struct {
+	proxy data.UniverseProxy
+}
+
+// Route :
+// Implementation of the method to get the route name to create some
+// new universes.
+// Returns the name of the route.
+func (uc *universeCreator) Route() string {
+	return "universe"
+}
+
+// DataKey :
+// Implementation of the method to get the name of the key used to
+// pass data to the server.
+// Returns the name of the key.
+func (uc *universeCreator) DataKey() string {
+	return "universe-data"
+}
+
+// Create :
+// Implementation of the method to perform the creation of the data
+// related to the new universes. We will use the internal proxy to
+// request the DB to create a new universe.
+//
+// The `data` represent the data fetched from the input request and
+// should contain the properties of the universes to create.
+//
+// Return the targets of the created resources along with any error.
+func (uc *universeCreator) Create(data handlers.RouteData) (string, error) {
+	// TODO: Implement this.
+	return "", fmt.Errorf("Not implemented")
+}
+
 // listUniverses :
 // Creates a handler allowing to serve requests on the universes
 // by interrogating the main DB. We uses the handler structure in
@@ -133,6 +176,24 @@ func (ua *universeAdapter) Data(filters []handlers.Filter) (interface{}, error) 
 func (s *server) listUniverses() http.HandlerFunc {
 	return handlers.ServeRoute(
 		&universeAdapter{
+			s.universes,
+		},
+		s.log,
+	)
+}
+
+// createUniverse :
+// Creates a handler allowing to server requests to create new
+// universes in the main DB. This rely on the handler structure
+// provided by the `handlers` package which allows to mutualize
+// the extraction of the data from the input request and the
+// general flow to perform the creation.
+//
+// Returns the handler which can be executed to perform such
+// requests.
+func (s *server) createUniverse() http.HandlerFunc {
+	return handlers.ServeCreationRoute(
+		&universeCreator{
 			s.universes,
 		},
 		s.log,

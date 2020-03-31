@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
 	"oglike_server/pkg/handlers"
@@ -124,6 +125,48 @@ func (aa *accountAdapter) Data(filters []handlers.Filter) (interface{}, error) {
 	return aa.proxy.Accounts(dbFilters)
 }
 
+// accountCreator :
+// Implements the interface requested by the creation handler in
+// the `handlers` package. The main functions are describing the
+// interface to retrieve information about the accounts from a
+// database.
+//
+// The `proxy` defines the proxy to use to interact with the DB
+// when fetching the data.
+type accountCreator struct {
+	proxy data.AccountProxy
+}
+
+// Route :
+// Implementation of the method to get the route name to create some
+// new accounts.
+// Returns the name of the route.
+func (ac *accountCreator) Route() string {
+	return "account"
+}
+
+// DataKey :
+// Implementation of the method to get the name of the key used to
+// pass data to the server.
+// Returns the name of the key.
+func (ac *accountCreator) DataKey() string {
+	return "account-data"
+}
+
+// Create :
+// Implementation of the method to perform the creation of the data
+// related to the new accounts. We will use the internal proxy to
+// request the DB to create a new account.
+//
+// The `data` represent the data fetched from the input request and
+// should contain the properties of the accounts to create.
+//
+// Return the targets of the created resources along with any error.
+func (ac *accountCreator) Create(data handlers.RouteData) (string, error) {
+	// TODO: Implement this.
+	return "", fmt.Errorf("Not implemented")
+}
+
 // listAccounts :
 // Creates a handler allowing to serve requests on the accounts
 // by interrogating the main DB. We uses the handler structure in
@@ -134,6 +177,24 @@ func (aa *accountAdapter) Data(filters []handlers.Filter) (interface{}, error) {
 func (s *server) listAccounts() http.HandlerFunc {
 	return handlers.ServeRoute(
 		&accountAdapter{
+			s.accounts,
+		},
+		s.log,
+	)
+}
+
+// createAccount :
+// Creates a handler allowing to server requests to create new
+// accounts in the main DB. This rely on the handler structure
+// provided by the `handlers` package which allows to mutualize
+// the extraction of the data from the input request and the
+// general flow to perform the creation.
+//
+// Returns the handler which can be executed to perform such
+// requests.
+func (s *server) createAccount() http.HandlerFunc {
+	return handlers.ServeCreationRoute(
+		&accountCreator{
 			s.accounts,
 		},
 		s.log,

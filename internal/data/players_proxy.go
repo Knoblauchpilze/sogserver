@@ -1,12 +1,16 @@
 package data
 
 import (
+	"encoding/json"
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
+	"strings"
+
+	"github.com/google/uuid"
 )
 
-// PlayerProxy :
+// PlayersProxy :
 // Intended as a wrapper to access properties of players
 // and retrieve data from the database. This helps hiding
 // the complexity of how the data is laid out in the `DB`
@@ -19,12 +23,12 @@ import (
 // The `log` allows to perform display to the user so as
 // to inform of potential issues and debug information to
 // the outside world.
-type PlayerProxy struct {
+type PlayersProxy struct {
 	dbase *db.DB
 	log   logger.Logger
 }
 
-// NewPlayerProxy :
+// NewPlayersProxy :
 // Create a new proxy on the input `dbase` to access the
 // properties of players as registered in the DB.
 // In case the provided DB is `nil` a panic is issued.
@@ -37,12 +41,12 @@ type PlayerProxy struct {
 // One possible example is for timing the requests.
 //
 // Returns the created proxy.
-func NewPlayerProxy(dbase *db.DB, log logger.Logger) PlayerProxy {
+func NewPlayersProxy(dbase *db.DB, log logger.Logger) PlayersProxy {
 	if dbase == nil {
 		panic(fmt.Errorf("Cannot create players proxy from invalid DB"))
 	}
 
-	return PlayerProxy{dbase, log}
+	return PlayersProxy{dbase, log}
 }
 
 // GetIdentifierDBColumnName :
@@ -50,7 +54,7 @@ func NewPlayerProxy(dbase *db.DB, log logger.Logger) PlayerProxy {
 // identifier column in the `players` table in the database.
 //
 // Returns the name of the `identifier` column in the database.
-func (p *PlayerProxy) GetIdentifierDBColumnName() string {
+func (p *PlayersProxy) GetIdentifierDBColumnName() string {
 	return "id"
 }
 
@@ -71,7 +75,7 @@ func (p *PlayerProxy) GetIdentifierDBColumnName() string {
 // Returns the list of players along with any errors. Note
 // that in case the error is not `nil` the returned list is
 // to be ignored.
-func (p *PlayerProxy) Players(filters []DBFilter) ([]Player, error) {
+func (p *PlayersProxy) Players(filters []DBFilter) ([]Player, error) {
 	// Create the query and execute it.
 	query := fmt.Sprintf("select id, uni, account, name from players")
 	if len(filters) > 0 {
@@ -132,7 +136,7 @@ func (p *PlayerProxy) Players(filters []DBFilter) ([]Player, error) {
 // specifically the identifier) are already populated.
 //
 // Returns any error.
-func (p *PlayerProxy) fetchPlayerData(player *Player) error {
+func (p *PlayersProxy) fetchPlayerData(player *Player) error {
 	// Check whether the player has an identifier assigned.
 	if player.ID == "" {
 		return fmt.Errorf("Unable to fetch data from player with invalid identifier")
@@ -163,5 +167,79 @@ func (p *PlayerProxy) fetchPlayerData(player *Player) error {
 		player.Technologies = append(player.Technologies, tech)
 	}
 
+	return nil
+}
+
+// CreatePlayer :
+// Used to perform the creation of the player described
+// by the input structure in the DB. The player is both
+// associated to an account and a universe. The database
+// guarantees that no two players can exist in the same
+// universe belonging to the same account.
+// This method also handles the creation of the needed
+// data for a player to truly be ready to start in a new
+// universe (which means creating a homeworld).
+//
+// The `player` describes the element to create in `DB`.
+// This value may be modified by the function in case it
+// does not define a valid identifier.
+//
+// The return status indicates whether the player could
+// be created or not (in which case an error describes
+// the failure reason).
+func (p *PlayersProxy) CreatePlayer(player *Player) error {
+	// Assign a valid identifier if this is not already the case.
+	if player.ID == "" {
+		player.ID = uuid.New().String()
+	}
+
+	// Validate that the input data describe a valid player.
+	if !player.valid() {
+		return fmt.Errorf("Could not create player \"%s\", some properties are invalid", player.Name)
+	}
+
+	// Marshal the input player to pass it to the import script.
+	data, err := json.Marshal(player)
+	if err != nil {
+		return fmt.Errorf("Could not import player \"%s\" for \"%s\" (err: %v)", player.Name, player.AccountID, err)
+	}
+	jsonToSend := string(data)
+
+	query := fmt.Sprintf("select * from create_player('%s')", jsonToSend)
+	affected, err := p.dbase.DBExecute(query)
+
+	// Check for errors. We will refine this process a bit to try
+	// to detect cases where the user tries to create a player and
+	// there's already an entry for this account in the same uni.
+	// In this case we should get an error indicating a `23505` as
+	// return code. We will refine the error in this case.
+	if err != nil {
+		// Check for duplicated key error.
+		msg := fmt.Sprintf("%v", err)
+
+		if strings.Contains(msg, getDuplicatedElementErrorKey()) {
+			return fmt.Errorf("Could not import player \"%s\", account \"%s\" already exists in universe \"%s\" (err: %s)", player.Name, player.AccountID, player.UniverseID, msg)
+		}
+
+		return fmt.Errorf("Could not import player \"%s\" for \"%s\" (err: %s)", player.Name, player.AccountID, msg)
+	}
+
+	// Check that we could insert the player: indeed in case for
+	// example the universe's identifier is not valid the query
+	// is not performed (meaning the player is not created) but
+	// there are no errors returned (because it's how the query
+	// is designed).
+	// We can still rely on the `affected rows count` which is
+	// the number of rows that were affected by the operation.
+	// In the case of a player's creation it should always be
+	// `1` because we're creating a single row.
+	if affected.RowsAffected() != 1 {
+		return fmt.Errorf("Could not import player \"%s\" for \"%s\" in universe \"%s\", universe probably does not exist", player.Name, player.AccountID, player.UniverseID)
+	}
+
+	// Successfully created the player.
+	p.log.Trace(logger.Notice, fmt.Sprintf("Created new player \"%s\" for \"%s\" in universe \"%s\" with id \"%s\"", player.Name, player.AccountID, player.UniverseID, player.ID))
+
+	// All is well.
 	return nil
 }

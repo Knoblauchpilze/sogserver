@@ -14,7 +14,6 @@ import (
 
 // TODO: Construction actions.
 // TODO: Create player in universe.
-// TODO: We should also create a `fleets` endpoint.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

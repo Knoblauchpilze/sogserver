@@ -98,6 +98,8 @@ func (p *FleetProxy) Fleets(filters []DBFilter) ([]Fleet, error) {
 		}
 	}
 
+	fmt.Println(fmt.Sprintf("Query: \"%s\"", query))
+
 	rows, err := p.dbase.DBQuery(query)
 
 	// Check for errors.

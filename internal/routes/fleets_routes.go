@@ -40,9 +40,11 @@ func (fa *fleetAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter 
 	// Traverse the input parameters and select only the ones relevant
 	// to fleets querying.
 	allowed := map[string]string{
-		"fleet_id":   fa.proxy.GetIdentifierDBColumnName(),
-		"fleet_name": "name",
-		"player_id":  "player",
+		"fleet_id":     fa.proxy.GetIdentifierDBColumnName(),
+		"fleet_name":   "name",
+		"galaxy":       "galaxy",
+		"solar_system": "solar_system",
+		"position":     "position",
 	}
 
 	for key, values := range vars.Params {

@@ -145,6 +145,14 @@ func (ac *accountCreator) Route() string {
 	return "account"
 }
 
+// AccessRoute :
+// Implementation of the method to get the route name to access to
+// the data created by this handler. This is basically the `accounts`
+// route.
+func (ac *accountCreator) AccessRoute() string {
+	return "accounts"
+}
+
 // DataKey :
 // Implementation of the method to get the name of the key used to
 // pass data to the server.
@@ -162,9 +170,9 @@ func (ac *accountCreator) DataKey() string {
 // should contain the properties of the accounts to create.
 //
 // Return the targets of the created resources along with any error.
-func (ac *accountCreator) Create(data handlers.RouteData) (string, error) {
+func (ac *accountCreator) Create(data handlers.RouteData) ([]string, error) {
 	// TODO: Implement this.
-	return "", fmt.Errorf("Not implemented")
+	return []string{}, fmt.Errorf("Not implemented")
 }
 
 // listAccounts :

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"oglike_server/pkg/logger"
@@ -17,7 +18,11 @@ import (
 // The `Route` method defines the raw string that should be served
 // by the handler. It does not have to start by a '/' character
 // (it will be stripped if this is the case) and will be the main
-// entry point to serve.
+// entry point to serve.`
+//
+// The `AccessRoute` defines the route to use to access to the
+// resources created by this handler. Indeed the route might be
+// different from the one used to create the resources.
 //
 // The `DataKey` allows to determine which key should be scanned
 // to retrieve the data to use for the creation of the resource.
@@ -31,8 +36,9 @@ import (
 // to the REST API architecture.
 type CreationEndpointDesc interface {
 	Route() string
+	AccessRoute() string
 	DataKey() string
-	Create(data RouteData) (string, error)
+	Create(data RouteData) ([]string, error)
 }
 
 // notifyCreation :
@@ -75,7 +81,7 @@ func ServeCreationRoute(endpoint CreationEndpointDesc, log logger.Logger) http.H
 			panic(fmt.Errorf("Could not fetch data from request for route \"%s\" (err: %v)", routeName, err))
 		}
 
-		resName, err := endpoint.Create(data)
+		resNames, err := endpoint.Create(data)
 		if err != nil {
 			log.Trace(logger.Error, fmt.Sprintf("Could not create resource from route \"%s\" (err: %v)", routeName, err))
 			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
@@ -86,7 +92,21 @@ func ServeCreationRoute(endpoint CreationEndpointDesc, log logger.Logger) http.H
 		// We need to return a valid status code and the address of
 		// the created resource, as described in the following post:
 		// https://stackoverflow.com/questions/1829875/is-it-ok-by-rest-to-return-content-after-post
-		resource := fmt.Sprintf("/%s/%s", routeName, resName)
-		notifyCreation(resource, w)
+		// To do so we will transform the resources to include the
+		// name of the route and then marshal everything in an array
+		// that will be returned to the client.
+		accessRoute := endpoint.AccessRoute()
+		resources := make([]string, len(resNames))
+
+		for id, resource := range resNames {
+			resources[id] = fmt.Sprintf("/%s/%s", accessRoute, resource)
+		}
+
+		bts, err := json.Marshal(&resources)
+		if err != nil {
+			panic(fmt.Errorf("Could not marshal %d resource(s) returned from creation (err: %v)", len(resNames), err))
+		}
+
+		notifyCreation(string(bts), w)
 	}
 }

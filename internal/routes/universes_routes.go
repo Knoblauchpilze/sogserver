@@ -1,10 +1,12 @@
 package routes
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
 	"oglike_server/pkg/handlers"
+	"oglike_server/pkg/logger"
 )
 
 // universeAdapter :
@@ -132,8 +134,12 @@ func (ua *universeAdapter) Data(filters []handlers.Filter) (interface{}, error) 
 //
 // The `proxy` defines the proxy to use to interact with the DB
 // when creating data.
+//
+// The `log` allows to notify problems and information during a
+// universe's creation.
 type universeCreator struct {
 	proxy data.UniverseProxy
+	log   logger.Logger
 }
 
 // Route :
@@ -142,6 +148,14 @@ type universeCreator struct {
 // Returns the name of the route.
 func (uc *universeCreator) Route() string {
 	return "universe"
+}
+
+// AccessRoute :
+// Implementation of the method to get the route name to access to
+// the data created by this handler. This is basically the `players`
+// route.
+func (uc *universeCreator) AccessRoute() string {
+	return "universes"
 }
 
 // DataKey :
@@ -157,13 +171,43 @@ func (uc *universeCreator) DataKey() string {
 // related to the new universes. We will use the internal proxy to
 // request the DB to create a new universe.
 //
-// The `data` represent the data fetched from the input request and
+// The `input` represent the data fetched from the input request and
 // should contain the properties of the universes to create.
 //
 // Return the targets of the created resources along with any error.
-func (uc *universeCreator) Create(data handlers.RouteData) (string, error) {
-	// TODO: Implement this.
-	return "", fmt.Errorf("Not implemented")
+func (uc *universeCreator) Create(input handlers.RouteData) ([]string, error) {
+	// We need to iterate over the data retrieved from the route and
+	// create universes from it.
+	var uni data.Universe
+	resources := make([]string, 0)
+
+	// Prevent request with no data.
+	if len(input.Data) == 0 {
+		return resources, fmt.Errorf("Could not perform creation of universe with no data")
+	}
+
+	for _, rawData := range input.Data {
+		// Try to unmarshal the data into a valid `Universe` struct.
+		err := json.Unmarshal([]byte(rawData), &uni)
+		if err != nil {
+			uc.log.Trace(logger.Error, fmt.Sprintf("Could not create universe from data \"%s\" (err: %v)", rawData, err))
+			continue
+		}
+
+		// Create the universe.
+		err = uc.proxy.Create(&uni)
+		if err != nil {
+			uc.log.Trace(logger.Error, fmt.Sprintf("Could not register universe from data \"%s\" (err: %v)", rawData, err))
+			continue
+		}
+
+		// Successfully created a universe.
+		uc.log.Trace(logger.Notice, fmt.Sprintf("Created new universe \"%s\" with id \"%s\"", uni.Name, uni.ID))
+		resources = append(resources, uni.ID)
+	}
+
+	// Return the path to the resources created during the process.
+	return resources, nil
 }
 
 // listUniverses :
@@ -195,6 +239,7 @@ func (s *server) createUniverse() http.HandlerFunc {
 	return handlers.ServeCreationRoute(
 		&universeCreator{
 			s.universes,
+			s.log,
 		},
 		s.log,
 	)

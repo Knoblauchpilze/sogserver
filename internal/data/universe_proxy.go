@@ -180,9 +180,6 @@ func (p *UniverseProxy) Create(uni *Universe) error {
 		return fmt.Errorf("Could not import universe \"%s\" (err: %v)", uni.Name, err)
 	}
 
-	// Successfully created a universe.
-	p.log.Trace(logger.Notice, fmt.Sprintf("Created new universe \"%s\" with id \"%s\"", uni.Name, uni.ID))
-
 	// All is well.
 	return nil
 }

@@ -122,5 +122,5 @@ func (s *server) routePlayers() {
 	s.route("/players", "GET", s.listPlayers())
 	s.route("/players/", "GET", s.listPlayers())
 
-	s.route("/player/", "POST", s.createPlayer())
+	s.route("/player", "POST", s.createPlayer())
 }

@@ -403,31 +403,6 @@ type Player struct {
 	Technologies []Technology `json:"technologies"`
 }
 
-// Fleet :
-// Defines a fleet with its objective and coordinates. It also
-// defines the posible name of the fleet.
-//
-// The `ID` represents a way to uniquely identify the fleet.
-//
-// The `Name` defines the name that the user provided when the
-// fleet was created. It might be empty in case no name was
-// provided.
-//
-// The `Objective` is a string defining the action intended
-// for this fleet. It is a way to determine which purpose the
-// fleet serves.
-//
-// The `Coords` define the coordinates of the target planet
-// of this fleet. Note that it might not be a planet in case
-// the fleet's objective allows to travel to an empty location.
-type Fleet struct {
-	ID          string     `json:"id"`
-	Name        string     `json:"name"`
-	Objective   string     `json:"objective"`
-	Coords      Coordinate `json:"coordinates"`
-	ArrivalTime time.Time  `json:"arrival_time"`
-}
-
 // FleetComponent :
 // Defines a single element participating to a fleet. This is
 // the most basic element that can take part into a fleet: it
@@ -451,4 +426,38 @@ type FleetComponent struct {
 	ShipID   string     `json:"ship_id"`
 	Amount   int        `json:"amount"`
 	Coords   Coordinate `json:"coordinates"`
+}
+
+// Fleet :
+// Defines a fleet with its objective and coordinates. It also
+// defines the posible name of the fleet.
+//
+// The `ID` represents a way to uniquely identify the fleet.
+//
+// The `Name` defines the name that the user provided when the
+// fleet was created. It might be empty in case no name was
+// provided.
+//
+// The `Objective` is a string defining the action intended
+// for this fleet. It is a way to determine which purpose the
+// fleet serves.
+//
+// The `Coords` define the coordinates of the target planet
+// of this fleet. Note that it might not be a planet in case
+// the fleet's objective allows to travel to an empty location.
+//
+// The `ArrivalTime` describes the time at which the fleet is
+// meant to reach its destination without taking into account
+// the potential delays.
+//
+// The `Components` define the individual components of the
+// fleet, gathering the different group of ships and all the
+// players that joined the fleet.
+type Fleet struct {
+	ID          string           `json:"id"`
+	Name        string           `json:"name"`
+	Objective   string           `json:"objective_id"`
+	Coords      Coordinate       `json:"coordinates"`
+	ArrivalTime time.Time        `json:"arrival_time"`
+	Components  []FleetComponent `json:"components"`
 }

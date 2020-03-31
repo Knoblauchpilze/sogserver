@@ -2,138 +2,195 @@ package data
 
 import (
 	"fmt"
+	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 	"strings"
 )
 
-// Fleet :
-// Used to retrieve the fleet described by the identifier
-// in input. Only general information about the fleet is
-// returned (i.e. no details composition).
+// FleetProxy :
+// Intended as a wrapper to access properties of fleets and
+// retrieve data from the database. This helps hiding the
+// complexity of how the data is laid out in the `DB` and
+// the precise name of tables from the exterior world.
 //
-// The `fleet` describes the identifier of the fleet for
-// which data should be fetched.
+// The `dbase` is the database that is wrapped by this
+// object. It is checked for consistency upon creating the
+// wrapper.
 //
-// Returns the corresponding fleet or an error in case a
-// fleet with said identifier cannot be found.
-func (p *UniverseProxy) Fleet(fleet string) (Fleet, error) {
-	// Create the query and execute it.
-	props := []string{
-		"f.id",
-		"f.name",
-		"fo.name",
-		"f.arrival_time",
-		"f.galaxy",
-		"f.solar_system",
-		"f.position",
+// The `log` allows to perform display to the user so as
+// to inform of potential issues and debug information to
+// the outside world.
+type FleetProxy struct {
+	dbase *db.DB
+	log   logger.Logger
+}
+
+// NewFleetProxy :
+// Create a new proxy on the input `dbase` to access the
+// properties of fleets as registered in the DB.
+// In case the provided DB is `nil` a panic is issued.
+//
+// The `dbase` represents the database to use to fetch
+// data related to fleets.
+//
+// The `log` will be used to notify information so that
+// we can have an idea of the activity of this component.
+// One possible example is for timing the requests.
+//
+// Returns the created proxy.
+func NewFleetProxy(dbase *db.DB, log logger.Logger) FleetProxy {
+	if dbase == nil {
+		panic(fmt.Errorf("Cannot create fleets proxy from invalid DB"))
 	}
 
-	table := "fleets f inner join fleet_objectives fo"
-	joinCond := "f.objective=fo.id"
-	where := fmt.Sprintf("f.id='%s'", fleet)
+	return FleetProxy{dbase, log}
+}
 
-	query := fmt.Sprintf("select %s from %s on %s where %s", strings.Join(props, ", "), table, joinCond, where)
+// GetIdentifierDBColumnName :
+// Used to retrieve the string literal defining the name of the
+// identifier column in the `fleets` table in the database.
+//
+// Returns the name of the `identifier` column in the database.
+func (p *FleetProxy) GetIdentifierDBColumnName() string {
+	return "id"
+}
+
+// Fleets :
+// Allows to fetch the list of fleets currently registered in
+// the server
+// The user can choose to filter parts of the fleets using an
+// array of filters that will be applied to the SQL query.
+// No controls is enforced on the filters so one should make
+// sure that it's consistent with the underlying table.
+//
+// The `filters` define some filtering property that can be
+// applied to the SQL query to only select part of all the
+// fleets available. Each one is appended `as-is` to the SQL
+// query.
+//
+// Returns the list of fleets along with any errors. Note that
+// in case the error is not `nil` the returned list is to be
+// ignored.
+func (p *FleetProxy) Fleets(filters []DBFilter) ([]Fleet, error) {
+	// Create the query and execute it.
+	props := []string{
+		"id",
+		"name",
+		"objective",
+		"arrival_time",
+		"galaxy",
+		"solar_system",
+		"position",
+	}
+
+	table := "fleets"
+
+	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
+
+	if len(filters) > 0 {
+		query += " where"
+
+		for id, filter := range filters {
+			if id > 0 {
+				query += " and"
+			}
+			query += fmt.Sprintf(" %s", filter)
+		}
+	}
+
 	rows, err := p.dbase.DBQuery(query)
 
 	// Check for errors.
 	if err != nil {
-		return Fleet{}, fmt.Errorf("Could not query DB to fetch fleet \"%s\" (err: %v)", fleet, err)
+		return nil, fmt.Errorf("Could not query DB to fetch fleets (err: %v)", err)
 	}
 
 	// Populate the return value: we should obtain a single
 	// result, otherwise it's an issue.
-	var fl Fleet
+	fleets := make([]Fleet, 0)
+	var fleet Fleet
 
 	galaxy := 0
 	system := 0
 	position := 0
 
-	rows.Next()
-
-	// Scan the first row.
-	func() {
-		defer func() {
-			errScan := recover()
-			if errScan != nil {
-				err = fmt.Errorf("Could not perform scanning (err: %v)", errScan)
-			}
-		}()
-
+	for rows.Next() {
 		err = rows.Scan(
-			&fl.ID,
-			&fl.Name,
-			&fl.Objective,
+			&fleet.ID,
+			&fleet.Name,
+			&fleet.Objective,
 			// TODO: This may fail, see when we have a real fleet.
-			&fl.ArrivalTime,
+			&fleet.ArrivalTime,
 			&galaxy,
 			&system,
 			&position,
 		)
-	}()
 
-	// Check for errors.
-	if err != nil {
-		return fl, fmt.Errorf("Could not retrieve info for fleet \"%s\" (err: %v)", fleet, err)
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for fleet (err: %v)", err))
+			continue
+		}
+
+		fleet.Coords = Coordinate{
+			galaxy,
+			system,
+			position,
+		}
+
+		// Fetch individual components of the fleet.
+		err = p.fetchFleetData(&fleet)
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch data for fleet \"%s\" (err: %v)", fleet.ID, err))
+			continue
+		}
+
+		fleets = append(fleets, fleet)
 	}
 
-	fl.Coords = Coordinate{
-		galaxy,
-		system,
-		position,
-	}
-
-	// Skip remaining values (if any), and indicate the problem
-	// if there are more.
-	count := 0
-	for rows.Next() {
-		count++
-	}
-	if count > 0 {
-		err = fmt.Errorf("Found %d values for fleet \"%s\"", count, fleet)
-	}
-
-	return fl, err
+	return fleets, nil
 }
 
-// FleetDetails :
-// Used to retrieve the components of the fleet described
-// as input parameter. This will list all the ships and
-// potential players participating in the fleet.
-// If the fleet is not valid the most liekely result is
-// that no components will be found. If this is the case
-// an error will be raised.
+// fetchFleetData :
+// Used to fetch data related to a fleet: this includes the
+// individual components of the fleet (which is mostly used
+// in the case of group attacks).
 //
-// The `fleet` describe the fleet for which components are
-// to be retrieved.
+// The `fleet` references the fleet for which the data should
+// be fetched. We assume that the internal fields (and more
+// specifically the identifier) are already populated.
 //
-// Returns the list of individual components for the fleet
-// along with any errors.
-func (p *UniverseProxy) FleetDetails(fleet Fleet) ([]FleetComponent, error) {
-	// Create the query and execute it.
-	props := []string{
-		"s.player",
-		"fs.ship",
-		"fs.amount",
-		"fs.start_galaxy",
-		"fs.start_solar_system",
-		"fs.start_position",
+// Returns any error.
+func (p *FleetProxy) fetchFleetData(fleet *Fleet) error {
+	// Check whether the fleet has an identifier assigned.
+	if fleet.ID == "" {
+		return fmt.Errorf("Unable to fetch data from fleet with invalid identifier")
 	}
 
-	table := "fleet_ships fs inner join fleets f"
-	joinCond := "fs.fleet=f.id"
-	where := fmt.Sprintf("f.id='%s'", fleet.ID)
+	// Create the query to fetch individual components of the
+	// fleet and execute it.
+	props := []string{
+		"player",
+		"ship",
+		"amount",
+		"start_galaxy",
+		"start_solar_system",
+		"start_position",
+	}
 
-	query := fmt.Sprintf("select %s from %s on %s where %s", strings.Join(props, ", "), table, joinCond, where)
+	table := "fleet_ships"
+	where := fmt.Sprintf("fleet='%s'", fleet.ID)
+
+	query := fmt.Sprintf("select %s from %s where %s", strings.Join(props, ", "), table, where)
 	rows, err := p.dbase.DBQuery(query)
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch fleet \"%s\" details (err: %v)", fleet.ID, err)
+		return fmt.Errorf("Could not query DB to fetch fleet \"%s\" details (err: %v)", fleet.ID, err)
 	}
 
 	// Populate the return content from the result of the
 	// DB query.
-	components := make([]FleetComponent, 0)
+	fleet.Components = make([]FleetComponent, 0)
 	var comp FleetComponent
 
 	galaxy := 0
@@ -161,8 +218,8 @@ func (p *UniverseProxy) FleetDetails(fleet Fleet) ([]FleetComponent, error) {
 			position,
 		}
 
-		components = append(components, comp)
+		fleet.Components = append(fleet.Components, comp)
 	}
 
-	return components, nil
+	return nil
 }

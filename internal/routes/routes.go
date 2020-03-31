@@ -19,6 +19,7 @@ func (s *server) routes() {
 	s.routeDefenses()
 	s.routePlanets()
 	s.routePlayers()
+	s.routeFleets()
 
 	// Default to `NotFound` in any other case.
 	http.HandleFunc("/", handlers.NotFound(s.log))
@@ -123,4 +124,13 @@ func (s *server) routePlayers() {
 	s.route("/players/", "GET", s.listPlayers())
 
 	s.route("/player", "POST", s.createPlayer())
+}
+
+// routeFleets :
+// Similar to the `routeUniverses` facet but sets up the routes to
+// serve functionalities related to the fleets registered in each
+// universe.
+func (s *server) routeFleets() {
+	s.route("/fleets", "GET", s.listFleets())
+	s.route("/fleets/", "GET", s.listFleets())
 }

@@ -8,23 +8,28 @@ CREATE TABLE buildings (
 
 -- Create the table defining the cost of a building.
 CREATE TABLE buildings_costs (
-  building uuid NOT NULL references buildings,
-  res uuid NOT NULL references resources,
-  cost integer NOT NULL
+  building uuid NOT NULL,
+  res uuid NOT NULL,
+  cost integer NOT NULL,
+  FOREIGN KEY (building) REFERENCES buildings(id),
+  FOREIGN KEY (res) REFERENCES resources(id)
 );
 
 -- Create the table defining the law of progression of cost of a building.
 CREATE TABLE buildings_costs_progress (
-  building uuid NOT NULL references buildings,
-  progress numeric(15, 5) NOT NULL
+  building uuid NOT NULL,
+  progress numeric(15, 5) NOT NULL,
+  FOREIGN KEY (building) REFERENCES buildings(id)
 );
 
 -- Create the table defining the law of progression of gains of a building.
 CREATE TABLE buildings_gains_progress (
-  building uuid NOT NULL references buildings,
-  res uuid NOT NULL references resources,
+  building uuid NOT NULL,
+  res uuid NOT NULL,
   base integer NOT NULL,
-  progress numeric(15, 5) NOT NULL
+  progress numeric(15, 5) NOT NULL,
+  FOREIGN KEY (building) REFERENCES buildings(id),
+  FOREIGN KEY (res) REFERENCES resources(id)
 );
 
 -- Seed the available buildings.

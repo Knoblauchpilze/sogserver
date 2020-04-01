@@ -10,9 +10,11 @@ CREATE TABLE defenses (
 
 -- Create the table defining the cost of a defense.
 CREATE TABLE defenses_costs (
-  defense uuid NOT NULL references defenses,
-  res uuid NOT NULL references resources,
-  cost integer NOT NULL
+  defense uuid NOT NULL,
+  res uuid NOT NULL,
+  cost integer NOT NULL,
+  FOREIGN KEY (defense) REFERENCES defenses(id),
+  FOREIGN KEY (res) REFERENCES resources(id)
 );
 
 -- Seed the available defenses.

@@ -14,7 +14,6 @@ import (
 
 // TODO: Construction actions.
 // TODO: Create player in universe.
-// TODO: Update foreign key throughout the `DB`.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

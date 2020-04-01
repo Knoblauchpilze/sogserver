@@ -10,13 +10,14 @@ CREATE TABLE fleet_objectives (
 CREATE TABLE fleets (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
     name text,
-    objective uuid NOT NULL references fleet_objectives,
+    objective uuid NOT NULL,
     galaxy integer NOT NULL,
     solar_system integer NOT NULL,
     position integer NOT NULL,
     created_at timestamp with time zone default current_timestamp,
     arrival_time timestamp with time zone default current_timestamp,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    FOREIGN KEY (objective) REFERENCES fleet_objectives(id)
 );
 
 -- Trigger to update the `created_at` field of the table.
@@ -24,15 +25,18 @@ CREATE TRIGGER update_fleet_creation_time BEFORE INSERT ON fleets FOR EACH ROW E
 
 -- Create the table for vessels belonging to a fleet.
 CREATE TABLE fleet_ships (
-  fleet uuid NOT NULL references fleets,
-  ship uuid NOT NULL references ships,
-  player uuid NOT NULL references players,
+  fleet uuid NOT NULL,
+  ship uuid NOT NULL,
+  player uuid NOT NULL,
   amount integer NOT NULL default 0,
   start_galaxy integer NOT NULL,
   start_solar_system integer NOT NULL,
   start_position integer NOT NULL,
   speed numeric(3, 2) NOT NULL,
-  joined_at timestamp with time zone default current_timestamp
+  joined_at timestamp with time zone default current_timestamp,
+  FOREIGN KEY (fleet) REFERENCES fleets(id),
+  FOREIGN KEY (ship) REFERENCES ships(id),
+  FOREIGN KEY (player) REFERENCES players(id)
 );
 
 -- Trigger to update the `joined_at` field of the table.

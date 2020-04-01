@@ -1,58 +1,74 @@
 
 -- Create the table defining dependencies between buildings.
 CREATE TABLE tech_tree_buildings_dependencies (
-  building uuid NOT NULL references buildings,
-  requirement uuid NOT NULL references buildings,
-  level integer NOT NULL
+  building uuid NOT NULL,
+  requirement uuid NOT NULL,
+  level integer NOT NULL,
+  FOREIGN KEY (building) REFERENCES buildings(id),
+  FOREIGN KEY (requirement) REFERENCES buildings(id)
 );
 
 -- Create the table defining dependencies between technologies.
 CREATE TABLE tech_tree_technologies_dependencies (
-  technology uuid NOT NULL references technologies,
-  requirement uuid NOT NULL references technologies,
-  level integer NOT NULL
+  technology uuid NOT NULL,
+  requirement uuid NOT NULL,
+  level integer NOT NULL,
+  FOREIGN KEY (technology) REFERENCES technologies(id),
+  FOREIGN KEY (requirement) REFERENCES technologies(id)
 );
 
 -- Create the table defining dependencies between buildings and technologies.
 CREATE TABLE tech_tree_buildings_vs_technologies (
-  building uuid NOT NULL references buildings,
-  requirement uuid NOT NULL references technologies,
-  level integer NOT NULL
+  building uuid NOT NULL,
+  requirement uuid NOT NULL,
+  level integer NOT NULL,
+  FOREIGN KEY (building) REFERENCES buildings(id),
+  FOREIGN KEY (requirement) REFERENCES technologies(id)
 );
 
 -- Create the table defining dependencies between technologies and buildings.
 CREATE TABLE tech_tree_technologies_vs_buildings (
-  technology uuid NOT NULL references technologies,
-  requirement uuid NOT NULL references buildings,
-  level integer NOT NULL
+  technology uuid NOT NULL,
+  requirement uuid NOT NULL,
+  level integer NOT NULL,
+  FOREIGN KEY (technology) REFERENCES technologies(id),
+  FOREIGN KEY (requirement) REFERENCES buildings(id)
 );
 
 -- Create the table defining dependencies between ships and buildings.
 CREATE TABLE tech_tree_ships_vs_buildings (
-  ship uuid NOT NULL references ships,
-  requirement uuid NOT NULL references buildings,
-  level integer NOT NULL
+  ship uuid NOT NULL,
+  requirement uuid NOT NULL,
+  level integer NOT NULL,
+  FOREIGN KEY (ship) REFERENCES ships(id),
+  FOREIGN KEY (requirement) REFERENCES buildings(id)
 );
 
 -- Create the table defining dependencies between ships and technologies.
 CREATE TABLE tech_tree_ships_vs_technologies (
-  ship uuid NOT NULL references ships,
-  requirement uuid NOT NULL references technologies,
-  level integer NOT NULL
+  ship uuid NOT NULL,
+  requirement uuid NOT NULL,
+  level integer NOT NULL,
+  FOREIGN KEY (ship) REFERENCES ships(id),
+  FOREIGN KEY (requirement) REFERENCES technologies(id)
 );
 
 -- Create the table defining dependencies between defenses and buildings.
 CREATE TABLE tech_tree_defenses_vs_buildings (
-  defense uuid NOT NULL references defenses,
-  requirement uuid NOT NULL references buildings,
-  level integer NOT NULL
+  defense uuid NOT NULL,
+  requirement uuid NOT NULL,
+  level integer NOT NULL,
+  FOREIGN KEY (defense) REFERENCES defenses(id),
+  FOREIGN KEY (requirement) REFERENCES buildings(id)
 );
 
 -- Create the table defining dependencies between defenses and technologies.
 CREATE TABLE tech_tree_defenses_vs_technologies (
-  defense uuid NOT NULL references defenses,
-  requirement uuid NOT NULL references technologies,
-  level integer NOT NULL
+  defense uuid NOT NULL,
+  requirement uuid NOT NULL,
+  level integer NOT NULL,
+  FOREIGN KEY (defense) REFERENCES defenses(id),
+  FOREIGN KEY (requirement) REFERENCES technologies(id)
 );
 
 -- Seed dependencies between buildings.

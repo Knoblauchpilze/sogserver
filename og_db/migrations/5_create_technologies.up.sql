@@ -8,15 +8,18 @@ CREATE TABLE technologies (
 
 -- Create the table defining the cost of a technology.
 CREATE TABLE technologies_costs (
-  technology uuid NOT NULL references technologies,
-  res uuid NOT NULL references resources,
-  cost integer NOT NULL
+  technology uuid NOT NULL,
+  res uuid NOT NULL,
+  cost integer NOT NULL,
+  FOREIGN KEY (technology) REFERENCES technologies(id),
+  FOREIGN KEY (res) REFERENCES resources(id)
 );
 
 -- Create the table defining the law of progression of cost of a technology.
 CREATE TABLE technologies_costs_progress (
-  technology uuid NOT NULL references technologies,
-  progress numeric(15, 5) NOT NULL
+  technology uuid NOT NULL,
+  progress numeric(15, 5) NOT NULL,
+  FOREIGN KEY (technology) REFERENCES technologies(id)
 );
 
 -- Seed the available technologies.

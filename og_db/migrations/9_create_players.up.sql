@@ -29,7 +29,9 @@ CREATE TRIGGER update_player_creation_time BEFORE INSERT ON players FOR EACH ROW
 
 -- Create a table representing the technologies for a given player.
 CREATE TABLE player_technologies (
-  player uuid NOT NULL references players,
-  technology uuid NOT NULL references technologies,
-  level integer NOT NULL default 0
+  player uuid NOT NULL,
+  technology uuid NOT NULL,
+  level integer NOT NULL default 0,
+  FOREIGN KEY (player) REFERENCES players(id),
+  FOREIGN KEY (technology) REFERENCES technologies(id)
 );

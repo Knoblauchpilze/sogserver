@@ -80,6 +80,10 @@ func NewPlanetProxy(dbase *db.DB, log logger.Logger) PlanetProxy {
 		panic(fmt.Errorf("Cannot create planets proxy from invalid DB"))
 	}
 
+	// TODO: Include init in here ? This could be done for
+	// all proxys and thus allow to fetch information as
+	// needed for each one of them.
+
 	return PlanetProxy{
 		dbase,
 		log,

@@ -2,10 +2,44 @@ package data
 
 import (
 	"fmt"
+	"math"
+	"math/rand"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 	"strings"
+
+	"github.com/google/uuid"
 )
+
+// getDefaultPlanetName :
+// Used to retrieve a default name for a planet. The
+// generated name will be different based on whether
+// the planet is a homeworld or no.
+//
+// The `isHomeworld` is `true` if we should generate
+// a name for the homeworld and `false` otherwise.
+//
+// Returns a string corresponding to the name of the
+// planet.
+func getDefaultPlanetName(isHomeWorld bool) string {
+	if isHomeWorld {
+		return "homeworld"
+	}
+
+	return "planet"
+}
+
+// getPlanetTemperatureAmplitude :
+// Used to retrieve the default planet temperature's
+// amplitude. Basically the interval between the min
+// and max temperature will always be equal to this
+// value.
+//
+// Returns the default temperature amplitude for the
+// planets.
+func getPlanetTemperatureAmplitude() int {
+	return 50
+}
 
 // PlanetProxy :
 // Intended as a wrapper to access properties of planets
@@ -301,6 +335,355 @@ func (p *PlanetProxy) fetchPlanetData(planet *Planet) error {
 //
 // Returns any error arised during the creation process.
 func (p *PlanetProxy) CreateFor(player Player, coord *Coordinate) error {
-	// TODO: Handle this.
-	return fmt.Errorf("Not implemented")
+	// Check consistency.
+	if player.ID == "" {
+		return fmt.Errorf("Cannot create planet for invalid player")
+	}
+	if player.UniverseID == "" {
+		return fmt.Errorf("Cannot create planet for player \"%s\" in invalid universe", player.ID)
+	}
+
+	// First we need to fetch the universe related to the
+	// planet to create.
+	// TODO: Fetch universe from player's data.
+	var uni Universe
+
+	// Create the planet from the available data.
+	planet, err := p.generatePlanet(player.ID, coord, uni)
+	if err != nil {
+		return fmt.Errorf("Could not create planet for \"%s\" (err: %v)", player.ID, err)
+	}
+
+	// We will now try to insert the planet into the DB if
+	// we have valid coordinates.
+	availableCoords := make([]Coordinate, 0)
+	if coord != nil {
+		availableCoords = append(availableCoords, *coord)
+	} else {
+		// TODO: Generate list of available coordinates from the DB.
+	}
+
+	// Try to insert the planet in the DB while we have some
+	// untested coordinates and we didn't suceed in inserting
+	// it.
+	inserted := false
+	trials := 0
+	for !inserted && len(availableCoords) > 0 {
+		// Pick a random coordinate from the list and use it to
+		// try to insert the planet in the DB. We also need to
+		// remove it from the available coordinates list so as
+		// not to pick it again.
+		size := len(availableCoords)
+
+		coordID := rand.Int() % size
+		coord := availableCoords[coordID]
+
+		if size == 1 {
+			availableCoords = nil
+		} else {
+			availableCoords[size-1], availableCoords[coordID] = availableCoords[coordID], availableCoords[size-1]
+			availableCoords = availableCoords[:size-1]
+		}
+
+		// Try to create the planet at the specified coordinates.
+		// TODO: Handle this.
+		fmt.Println(fmt.Sprintf("Trying to insert planet \"%s\" for \"%s\" at %s", planet.ID, player.ID, coord))
+
+		trials++
+	}
+
+	// Check whether we could insert the element in the DB: if
+	// this is not the case we couldn't create the planet.
+	if !inserted {
+		return fmt.Errorf("Could not insert planet for player \"%s\" in DB after %d trial(s)", player.ID, trials)
+	}
+
+	return nil
+}
+
+// generatePlanet :
+// Used to perform the generation of the properties of a planet
+// based on the input player and coordinates. All the info to
+// actually define the planet will be generated including the
+// resources.
+// The universe in which the planet should be provided in case
+// the coordinates are to be determined by this function. As we
+// will need information as to the positions that are possible
+// for a planet in this case.
+//
+// The `player` defines the identifier of the player to which
+// the planet belongs.
+//
+// The `coord` defines the coordinates of the planet to create.
+// If the value is `nil` no data is generated.
+//
+// The `uni` argument defines the universe in which the planet
+// is to be created. This helps with defining valid coordinates
+// in case none are provided.
+//
+// Returns the created planet.
+func (p *PlanetProxy) generatePlanet(player string, coord *Coordinate, uni Universe) (Planet, error) {
+	trueCoords := Coordinate{0, 0, 0}
+	if coord != nil {
+		trueCoords = *coord
+	}
+
+	// Create the planet and generate base information.
+	planet := Planet{
+		player,
+		uuid.New().String(),
+		trueCoords,
+		getDefaultPlanetName(coord == nil),
+		0,
+		0,
+		0,
+		0,
+		make([]Resource, 0),
+		make([]Building, 0),
+		make([]Ship, 0),
+		make([]Defense, 0),
+	}
+
+	p.generateResources(&planet)
+
+	return planet, nil
+}
+
+// generatePlanetSize :
+// Used to generate the size associated to a planet. The size
+// is a general notion including both its actual diameter and
+// also the temperature on the surface of the planet. Both
+// values depend on the actual position of the planet in the
+// parent solar system.
+// We consider that if the planet has a solar system of `0`
+// nothing will be generated.
+//
+// The `planet` defines the planet for which the size should
+// be generated.
+func (p *PlanetProxy) generatePlanetSize(planet *Planet) {
+	// Check whether the planet and its coordinates are valid.
+	if planet == nil || planet.Coords.Position == 0 {
+		return
+	}
+
+	// Create a random source to be used for the generation of
+	// the planet's properties. We will use a procedural algo
+	// which will be based on the position of the planet in its
+	// parent universe.
+	source := rand.NewSource(int64(planet.Coords.generateSeed()))
+	rng := rand.New(source)
+
+	// The table of the dimensions of the planet are inspired
+	// from this link:
+	// https://ogame.fandom.com/wiki/Colonizing_in_Redesigned_Universes
+	var min int
+	var max int
+	var stdDev int
+
+	switch planet.Coords.Position {
+	case 1:
+		// Range [96; 172], average 134.
+		min = 96
+		max = 172
+		stdDev = max - min
+	case 2:
+		// Range [104; 176], average 140.
+		min = 104
+		max = 176
+		stdDev = max - min
+	case 3:
+		// Range [112; 182], average 147.
+		min = 112
+		max = 182
+		stdDev = max - min
+	case 4:
+		// Range [118; 208], average 163.
+		min = 118
+		max = 208
+		stdDev = max - min
+	case 5:
+		// Range [133; 232], average 182.
+		min = 133
+		max = 232
+		stdDev = max - min
+	case 6:
+		// Range [152; 248], average 200.
+		min = 152
+		max = 248
+		stdDev = max - min
+	case 7:
+		// Range [156; 262], average 204.
+		min = 156
+		max = 262
+		stdDev = max - min
+	case 8:
+		// Range [150; 246], average 198.
+		min = 150
+		max = 246
+		stdDev = max - min
+	case 9:
+		// Range [142; 232], average 187.
+		min = 142
+		max = 232
+		stdDev = max - min
+	case 10:
+		// Range [136; 210], average 173.
+		min = 136
+		max = 210
+		stdDev = max - min
+	case 11:
+		// Range [125; 186], average 156.
+		min = 125
+		max = 186
+		stdDev = max - min
+	case 12:
+		// Range [114; 172], average 143.
+		min = 114
+		max = 172
+		stdDev = max - min
+	case 13:
+		// Range [100; 168], average 134.
+		min = 100
+		max = 168
+		stdDev = max - min
+	case 14:
+		// Range [90; 164], average 127.
+		min = 96
+		max = 164
+		stdDev = max - min
+	case 15:
+		fallthrough
+	default:
+		// Assume default case if the `15th` position
+		// Range [90; 164], average 134.
+		min = 90
+		max = 164
+		stdDev = max - min
+	}
+
+	mean := (max + min) / 2
+	planet.Fields = mean + int(math.Round(rng.NormFloat64()*float64(stdDev)))
+
+	// The temperatures are described in the following link:
+	// https://ogame.fandom.com/wiki/Temperature
+
+	switch planet.Coords.Position {
+	case 1:
+		// Range [220; 260], average 240.
+		min = 220
+		max = 260
+		stdDev = max - min
+	case 2:
+		// Range [170; 210], average 190.
+		min = 170
+		max = 210
+		stdDev = max - min
+	case 3:
+		// Range [120; 160], average 140.
+		min = 120
+		max = 160
+		stdDev = max - min
+	case 4:
+		// Range [70; 110], average 90.
+		min = 70
+		max = 110
+		stdDev = max - min
+	case 5:
+		// Range [60; 100], average 80.
+		min = 60
+		max = 100
+		stdDev = max - min
+	case 6:
+		// Range [50; 90], average 70.
+		min = 50
+		max = 90
+		stdDev = max - min
+	case 7:
+		// Range [40; 80], average 60.
+		min = 40
+		max = 80
+		stdDev = max - min
+	case 8:
+		// Range [30; 70], average 50.
+		min = 30
+		max = 70
+		stdDev = max - min
+	case 9:
+		// Range [20; 60], average 40.
+		min = 20
+		max = 60
+		stdDev = max - min
+	case 10:
+		// Range [10; 50], average 30.
+		min = 10
+		max = 50
+		stdDev = max - min
+	case 11:
+		// Range [0; 40], average 20.
+		min = 0
+		max = 40
+		stdDev = max - min
+	case 12:
+		// Range [-10; 30], average 10.
+		min = -10
+		max = 30
+		stdDev = max - min
+	case 13:
+		// Range [-50; -10], average -30.
+		min = -50
+		max = -10
+		stdDev = max - min
+	case 14:
+		// Range [-90; -50], average -70.
+		min = -90
+		max = -50
+		stdDev = max - min
+	case 15:
+		fallthrough
+	default:
+		// Assume default case if the `15th` position
+		// Range [-130; -90], average -110.
+		min = -130
+		max = -90
+		stdDev = max - min
+	}
+
+	mean = (max + min) / 2
+	planet.MaxTemp = mean + int(math.Round(rng.NormFloat64()*float64(stdDev)))
+	planet.MinTemp = planet.MaxTemp - getPlanetTemperatureAmplitude()
+}
+
+// generateResources :
+// Used to perform the creation of the default resources for
+// a planet when it's being created. This translate the fact
+// that a planet is never really `empty` in the game.
+// This function will create all the necessary entries in the
+// planet input object but does not create anything in the DB.
+//
+// The `planet` defines the planet for which resources should
+// be generated.
+func (p *PlanetProxy) generateResources(planet *Planet) {
+	// Discard empty planets.
+	if planet == nil {
+		return
+	}
+
+	// TODO: To handle this we should have some sort of `init`
+	// mechanism which would retrieve the base properties of
+	// the DB such as the universes, the name of the resources,
+	// technologies and ships (maybe ?) so that it's readily
+	// available for computations like this one.
+	// Indeed it's very rare that we will add a resource and
+	// it's a good approximation to not have to query the DB
+	// each time we need it.
+	// We could also include the rapid fire tables, etc. We
+	// could also include the table defining the planets'
+	// sizes and temperature in a table and retrieve this
+	// as well. This seems like a more powerful solution as
+	// it combines the robustness of having it in the DB so
+	// it's persisted and the flexibility of being able to
+	// use it directly in the code.
+	// The generation of resources would then just rely on
+	// the identifier of the resources fetched from this
+	// model and then populate the fields in the planet.
 }

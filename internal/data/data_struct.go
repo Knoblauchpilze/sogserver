@@ -367,8 +367,8 @@ type Planet struct {
 	Coords    Coordinate `json:"coordinates"`
 	Name      string     `json:"name"`
 	Fields    int        `json:"fields"`
-	MinTemp   float32    `json:"min_temperature"`
-	MaxTemp   float32    `json:"max_temperature"`
+	MinTemp   int        `json:"min_temperature"`
+	MaxTemp   int        `json:"max_temperature"`
 	Diameter  int        `json:"diameter"`
 	Resources []Resource `json:"resources"`
 	Buildings []Building `json:"buildings"`

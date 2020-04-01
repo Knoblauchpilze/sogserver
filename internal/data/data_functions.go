@@ -1,6 +1,7 @@
 package data
 
 import (
+	"fmt"
 	"math"
 	"regexp"
 	"strconv"
@@ -92,6 +93,16 @@ func (p *Player) valid() bool {
 	return p.Name != ""
 }
 
+// String :
+// Implementation of the stringer interface for a coord.
+// Helps printing this data structure to a stream or to
+// visually see it in the logs.
+//
+// Returns the string representing the coordinates.
+func (c Coordinate) String() string {
+	return fmt.Sprintf("[G: %d, S: %d, P: %d]", c.Galaxy, c.System, c.Position)
+}
+
 // Linearize :
 // Used as a simple way to extract a single integer from a
 // coordinates object. We use the input universe to create
@@ -113,4 +124,21 @@ func (c Coordinate) Linearize(uni Universe) int {
 	pOffset := int(math.Pow10(pDigits))
 
 	return c.Position + c.System*pOffset + c.Galaxy*pOffset*sOffset
+}
+
+// generateSeed :
+// Used to generate a valid seed from the coordinates defined
+// by this object. We use this as a semi-procedural way to use
+// information about the position to compute a single integer
+// value. This is similar to the linearization except we don't
+// need to preserve the readability of any of the individual
+// components of the coordinate.
+//
+// Returns the generated seed.
+func (c Coordinate) generateSeed() int {
+	// We will use the Cantor's pairing function as defined in
+	// the following article twice in a row:
+	// https://en.wikipedia.org/wiki/Pairing_function
+	k1 := (c.Position+c.System)*(c.Position+c.System+1)/2 + c.System
+	return (k1+c.Galaxy)*(k1+c.Galaxy+1)/2 + c.Galaxy
 }

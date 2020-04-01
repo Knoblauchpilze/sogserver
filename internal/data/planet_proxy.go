@@ -46,7 +46,10 @@ func NewPlanetProxy(dbase *db.DB, log logger.Logger) PlanetProxy {
 		panic(fmt.Errorf("Cannot create planets proxy from invalid DB"))
 	}
 
-	return PlanetProxy{dbase, log}
+	return PlanetProxy{
+		dbase,
+		log,
+	}
 }
 
 // GetIdentifierDBColumnName :
@@ -273,4 +276,31 @@ func (p *PlanetProxy) fetchPlanetData(planet *Planet) error {
 	}
 
 	return nil
+}
+
+// CreateFor :
+// Used to handle the creation of a planet for the specified
+// player at the input coordinate. In case the coordinates are
+// `nil` we will assume that we are creating the homeworld for
+// the player and thus we can choose the coordinates randomly.
+// Otherwise we will try to create the planet at the specified
+// coordinates and fail if the coordinates are not available.
+// The universe to create the planet in is described by the
+// `UniverseID` of the player.
+//
+// The `player` represents the account for which the planet is
+// to be created. We assume that the universe and the player's
+// identifiers are valid (otherwise we won't be able to attach
+// the planet to a valid account).
+//
+// The `coord` represents the desired coordinates where the
+// planet should be created. In case this value is `nil` we
+// assume that the homeworld of the player should be created
+// and thus we will choose randomly some coordinates among
+// the available locations.
+//
+// Returns any error arised during the creation process.
+func (p *PlanetProxy) CreateFor(player Player, coord *Coordinate) error {
+	// TODO: Handle this.
+	return fmt.Errorf("Not implemented")
 }

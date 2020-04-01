@@ -1,7 +1,9 @@
 package data
 
 import (
+	"math"
 	"regexp"
+	"strconv"
 
 	"github.com/google/uuid"
 )
@@ -88,4 +90,27 @@ func (p *Player) valid() bool {
 
 	// Finally a valid name should be provided.
 	return p.Name != ""
+}
+
+// Linearize :
+// Used as a simple way to extract a single integer from a
+// coordinates object. We use the input universe to create
+// an integer which regroup the galaxy, solar system and
+// position of the planet into a single integer.
+//
+// The `uni` defines the universe to which the coordinates
+// belong which is used to linearize it.
+//
+// Return an integer representing the coordinates within
+// the provided universe.
+func (c Coordinate) Linearize(uni Universe) int {
+	// Compute the number of digits needed to express each
+	// part of the coordinate.
+	sDigits := len(strconv.Itoa(uni.GalaxySize))
+	pDigits := len(strconv.Itoa(uni.SolarSystemSize))
+
+	sOffset := int(math.Pow10(sDigits))
+	pOffset := int(math.Pow10(pDigits))
+
+	return c.Position + c.System*pOffset + c.Galaxy*pOffset*sOffset
 }

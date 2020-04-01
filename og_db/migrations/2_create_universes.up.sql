@@ -11,6 +11,7 @@ CREATE TABLE universes (
     defenses_to_ruins_ratio numeric(4,2) NOT NULL default 0,
     fleets_consumption_ratio numeric(3, 2),
     galaxies_count integer NOT NULL,
+    galaxy_size integer NOT NULL,
     solar_system_size integer NOT NULL,
     PRIMARY KEY (id)
 );

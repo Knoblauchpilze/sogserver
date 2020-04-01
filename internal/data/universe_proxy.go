@@ -91,6 +91,7 @@ func (p *UniverseProxy) Universes(filters []DBFilter) ([]Universe, error) {
 		"defenses_to_ruins_ratio",
 		"fleets_consumption_ratio",
 		"galaxies_count",
+		"galaxy_size",
 		"solar_system_size",
 	}
 
@@ -128,6 +129,7 @@ func (p *UniverseProxy) Universes(filters []DBFilter) ([]Universe, error) {
 			&uni.DefensesToRuins,
 			&uni.FleetConsumption,
 			&uni.GalaxiesCount,
+			&uni.GalaxySize,
 			&uni.SolarSystemSize,
 		)
 

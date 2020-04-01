@@ -59,6 +59,9 @@ type Account struct {
 // The `GalaxiesCount` defines the number of galaxies in
 // the universe.
 //
+// The `GalaxySize` defines the number of solar systems
+// in a single galaxy.
+//
 // The `SolarSystemSize` defines the number of planets in
 // each solar system of each galaxy.
 type Universe struct {
@@ -71,6 +74,7 @@ type Universe struct {
 	DefensesToRuins  float32 `json:"defenses_to_ruins_ratio"`
 	FleetConsumption float32 `json:"fleets_consumption_ratio"`
 	GalaxiesCount    int     `json:"galaxies_count"`
+	GalaxySize       int     `json:"galaxy_size"`
 	SolarSystemSize  int     `json:"solar_system_size"`
 }
 

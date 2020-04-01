@@ -134,14 +134,18 @@ func (pa *playerAdapter) Data(filters []handlers.Filter) (interface{}, error) {
 // interface to retrieve information about the players from a
 // database.
 //
-// The `proxy` defines the proxy to use to interact with the DB
-// when fetching the data.
+// The `playerProxy` defines the proxy to use to interact with
+// the DB when creating the player's entry in the table.
+//
+// The `planetProxy` defines the proxy to use to interact with
+// the DB when creating a planet for a new player.
 //
 // The `log` allows to notify problems and information during a
 // universe's creation.
 type playerCreator struct {
-	proxy data.PlayersProxy
-	log   logger.Logger
+	playerProxy data.PlayersProxy
+	planetProxy data.PlanetProxy
+	log         logger.Logger
 }
 
 // Route :
@@ -197,10 +201,24 @@ func (pc *playerCreator) Create(input handlers.RouteData) ([]string, error) {
 		}
 
 		// Create the player.
-		err = pc.proxy.Create(&player)
+		err = pc.playerProxy.Create(&player)
 		if err != nil {
 			pc.log.Trace(logger.Error, fmt.Sprintf("Could not register player from data \"%s\" (err: %v)", rawData, err))
 			continue
+		}
+
+		// Choose a homeworld for this account and create it.
+		err = pc.planetProxy.CreateFor(player, nil)
+		if err != nil {
+			// Indicate that we could not create the planet for the playe. It
+			// is not ideal because we should probably delete the player entry
+			// (because there's no associated homeworld anyway so the player
+			// will not be able to play correctly). For now though we consider
+			// that it's rare enough to not handle it.
+			// If it's a problem we can still handle it later. For example by
+			// creating a `deletePlayer` method which will be needed anyways
+			// at some point.
+			pc.log.Trace(logger.Error, fmt.Sprintf("Could not create homeworld for player \"%s\" (err: %v)", player.ID, err))
 		}
 
 		// Successfully created an player.
@@ -241,6 +259,7 @@ func (s *server) createPlayer() http.HandlerFunc {
 	return handlers.ServeCreationRoute(
 		&playerCreator{
 			s.players,
+			s.planets,
 			s.log,
 		},
 		s.log,

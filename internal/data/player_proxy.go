@@ -205,6 +205,8 @@ func (p *PlayersProxy) Create(player *Player) error {
 	}
 	jsonToSend := string(data)
 
+	fmt.Println(fmt.Sprintf("Trying to insert \"%v\"", *player))
+
 	query := fmt.Sprintf("select * from create_player('%s')", jsonToSend)
 	_, err = p.dbase.DBExecute(query)
 
@@ -221,15 +223,13 @@ func (p *PlayersProxy) Create(player *Player) error {
 			return fmt.Errorf("Could not import player \"%s\", account \"%s\" already exists in universe \"%s\" (err: %s)", player.Name, player.AccountID, player.UniverseID, msg)
 		}
 
+		// Check for foreign key violation error.
+		if strings.Contains(msg, getForeignKeyViolationErrorKey()) {
+			return fmt.Errorf("Could not import player \"%s\", account \"%s\" or universe \"%s\" does not exist (err: %s)", player.Name, player.AccountID, player.UniverseID, msg)
+		}
+
 		return fmt.Errorf("Could not import player \"%s\" for \"%s\" (err: %s)", player.Name, player.AccountID, msg)
 	}
-
-	// TODO: Check that we could insert the player. We need to be
-	// sure that both the player and the universe identifiers are
-	// consistent with what we expect.
-
-	// Successfully created the player.
-	p.log.Trace(logger.Notice, fmt.Sprintf("Created new player \"%s\" for \"%s\" in universe \"%s\" with id \"%s\"", player.Name, player.AccountID, player.UniverseID, player.ID))
 
 	// All is well.
 	return nil

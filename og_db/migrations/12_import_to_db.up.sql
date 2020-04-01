@@ -16,21 +16,6 @@ $$ LANGUAGE plpgsql;
 -- Create players from the account and universe data.
 CREATE OR REPLACE FUNCTION create_player(inputs json) RETURNS VOID AS $$
 BEGIN
-  INSERT INTO players
-  SELECT *
-  FROM json_populate_record(null::players, inputs)
-  -- Only insert elements which have a corresponding element in the universes
-  -- and in the accounts tables. This guarantee that we're not creating players
-  -- in unknown universes or attached to unknown accounts.
-  WHERE EXISTS (
-          SELECT u.id
-          FROM universes u
-          WHERE u.id = uni
-        )
-        and EXISTS (
-          SELECT a.id
-          FROM accounts a
-          WHERE a.id = account
-        );
+  INSERT INTO players SELECT * FROM json_populate_record(null::players, inputs);
 END
 $$ LANGUAGE plpgsql;

@@ -10,18 +10,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// getDuplicatedElementErrorKey :
-// Used to retrieve a string describing part of the error
-// message issued by the database when trying to insert a
-// duplicated element on a unique column. Can be used to
-// standardize the definition of this error.
-//
-// Return part of the error string issued when inserting
-// an already existing key.
-func getDuplicatedElementErrorKey() string {
-	return "SQLSTATE 23505"
-}
-
 // AccountProxy :
 // Intended as a wrapper to access properties of accounts
 // and retrieve data from the database. This helps hiding
@@ -178,9 +166,6 @@ func (p *AccountProxy) Create(acc *Account) error {
 
 		return fmt.Errorf("Could not import account \"%s\" (err: %s)", acc.Name, msg)
 	}
-
-	// Successfully created an account.
-	p.log.Trace(logger.Notice, fmt.Sprintf("Created new account \"%s\" with id \"%s\"", acc.Name, acc.ID))
 
 	// All is well.
 	return nil

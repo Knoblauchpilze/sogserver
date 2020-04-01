@@ -14,11 +14,13 @@ CREATE TRIGGER update_account_creation_time BEFORE INSERT ON accounts FOR EACH R
 -- Create the table defining players' accounts in various universes.
 CREATE TABLE players (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  uni uuid NOT NULL references universes,
-  account uuid NOT NULL references accounts,
+  uni uuid NOT NULL,
+  account uuid NOT NULL,
   created_at timestamp with time zone default current_timestamp,
   name text NOT NULL,
   PRIMARY KEY (id),
+  FOREIGN KEY (account) REFERENCES accounts(id),
+  FOREIGN KEY (uni) REFERENCES universes(id),
   UNIQUE (uni, account)
 );
 

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
@@ -41,6 +42,63 @@ func getPlanetTemperatureAmplitude() int {
 	return 50
 }
 
+// initFromDB :
+// Used to query information from the DB and fetch
+// the resources identifiers in order to speed up
+// the planets' creation.
+// In case the DB cannot be contacted an error is
+// returned but a valid map is still returned (it
+// is empty though).
+//
+// The `dbase` represents the DB from which info
+// about resources should be fetched.
+//
+// The `log` allows to notify errors and info to
+// the user in case of any failure.
+//
+// Returns a map representing for each resource
+// its associated DB identifier along with any
+// error.
+func initFromDB(dbase *db.DB, log logger.Logger) (map[string]string, error) {
+	resources := make(map[string]string)
+
+	if dbase == nil {
+		return resources, fmt.Errorf("Could not initialize resources from DB, no DB provided")
+	}
+
+	// Prepare the query to execute on the DB.
+	query := "select id, name from resources"
+
+	rows, err := dbase.DBQuery(query)
+	if err != nil {
+		return resources, fmt.Errorf("Could not initialize resources from DB (err: %v)", err)
+	}
+
+	// Traverse the rows and store each resource in
+	// the output map.
+	var res Resource
+
+	for rows.Next() {
+		err = rows.Scan(
+			&res.ID,
+			&res.Name,
+		)
+
+		if err != nil {
+			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for resource (err: %v)", err))
+			continue
+		}
+
+		if existing, ok := resources[res.Name]; ok {
+			log.Trace(logger.Warning, fmt.Sprintf("Overriding resource \"%s\" with id \"%s\" (existing \"%s\")", res.Name, res.ID, existing))
+		}
+
+		resources[res.Name] = res.ID
+	}
+
+	return resources, nil
+}
+
 // PlanetProxy :
 // Intended as a wrapper to access properties of planets
 // and retrieve data from the database. This helps hiding
@@ -54,9 +112,17 @@ func getPlanetTemperatureAmplitude() int {
 // The `log` allows to perform display to the user so as
 // to inform of potential issues and debug information to
 // the outside world.
+//
+// The `resources` is a map populated from the DB which
+// keeps track of the identifier in the DB for each of
+// the resources used by the game. It allows to be much
+// more efficient in the event of a creation of a planet
+// as we only need to query the local information about
+// resources rather than contacting the DB each time.
 type PlanetProxy struct {
-	dbase *db.DB
-	log   logger.Logger
+	dbase     *db.DB
+	log       logger.Logger
+	resources map[string]string
 }
 
 // NewPlanetProxy :
@@ -80,13 +146,19 @@ func NewPlanetProxy(dbase *db.DB, log logger.Logger) PlanetProxy {
 		panic(fmt.Errorf("Cannot create planets proxy from invalid DB"))
 	}
 
-	// TODO: Include init in here ? This could be done for
-	// all proxys and thus allow to fetch information as
-	// needed for each one of them.
+	// Fetch resources from the DB to populate the internal
+	// map. We will use the dedicated handler which is used
+	// to actually fetch the data and always return a valid
+	// value.
+	resources, err := initFromDB(dbase, log)
+	if err != nil {
+		log.Trace(logger.Error, fmt.Sprintf("Could not fetch resources' identifiers from DB (err: %v)", err))
+	}
 
 	return PlanetProxy{
 		dbase,
 		log,
+		resources,
 	}
 }
 
@@ -155,10 +227,6 @@ func (p *PlanetProxy) Planets(filters []DBFilter) ([]Planet, error) {
 	planets := make([]Planet, 0)
 	var planet Planet
 
-	galaxy := 0
-	system := 0
-	position := 0
-
 	for rows.Next() {
 		err = rows.Scan(
 			&planet.ID,
@@ -168,20 +236,14 @@ func (p *PlanetProxy) Planets(filters []DBFilter) ([]Planet, error) {
 			&planet.MinTemp,
 			&planet.MaxTemp,
 			&planet.Diameter,
-			&galaxy,
-			&system,
-			&position,
+			&planet.Galaxy,
+			&planet.System,
+			&planet.Position,
 		)
 
 		if err != nil {
 			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for planet (err: %v)", err))
 			continue
-		}
-
-		planet.Coords = Coordinate{
-			galaxy,
-			system,
-			position,
 		}
 
 		// Fetch buildings, ships and defenses for this planet.
@@ -390,8 +452,23 @@ func (p *PlanetProxy) CreateFor(player Player, coord *Coordinate) error {
 		}
 
 		// Try to create the planet at the specified coordinates.
-		// TODO: Handle this.
+		data, err := json.Marshal(planet)
+		if err != nil {
+			return fmt.Errorf("Could not import planet \"%s\" for \"%s\" (err: %v)", planet.Name, player.ID, err)
+		}
+		jsonToSend := string(data)
+
+		query := fmt.Sprintf("select * from create_player('%s')", jsonToSend)
+		_, err = p.dbase.DBExecute(query)
+
 		fmt.Println(fmt.Sprintf("Trying to insert planet \"%s\" for \"%s\" at %s", planet.ID, player.ID, coord))
+
+		// Check for errors.
+		if err != nil {
+			p.log.Trace(logger.Warning, fmt.Sprintf("Could not import planet \"%s\" for \"%s\" (err: %v)", planet.Name, player.ID, err))
+		} else {
+			inserted = true
+		}
 
 		trials++
 	}
@@ -436,7 +513,9 @@ func (p *PlanetProxy) generatePlanet(player string, coord *Coordinate, uni Unive
 	planet := Planet{
 		player,
 		uuid.New().String(),
-		trueCoords,
+		trueCoords.Galaxy,
+		trueCoords.System,
+		trueCoords.Position,
 		getDefaultPlanetName(coord == nil),
 		0,
 		0,
@@ -466,7 +545,7 @@ func (p *PlanetProxy) generatePlanet(player string, coord *Coordinate, uni Unive
 // be generated.
 func (p *PlanetProxy) generatePlanetSize(planet *Planet) {
 	// Check whether the planet and its coordinates are valid.
-	if planet == nil || planet.Coords.Position == 0 {
+	if planet == nil || planet.Position == 0 {
 		return
 	}
 
@@ -474,7 +553,15 @@ func (p *PlanetProxy) generatePlanetSize(planet *Planet) {
 	// the planet's properties. We will use a procedural algo
 	// which will be based on the position of the planet in its
 	// parent universe.
-	source := rand.NewSource(int64(planet.Coords.generateSeed()))
+	source := rand.NewSource(
+		int64(
+			NewCoordinate(
+				planet.Galaxy,
+				planet.System,
+				planet.Position,
+			).generateSeed(),
+		),
+	)
 	rng := rand.New(source)
 
 	// The table of the dimensions of the planet are inspired
@@ -484,7 +571,7 @@ func (p *PlanetProxy) generatePlanetSize(planet *Planet) {
 	var max int
 	var stdDev int
 
-	switch planet.Coords.Position {
+	switch planet.Position {
 	case 1:
 		// Range [96; 172], average 134.
 		min = 96
@@ -568,10 +655,12 @@ func (p *PlanetProxy) generatePlanetSize(planet *Planet) {
 	mean := (max + min) / 2
 	planet.Fields = mean + int(math.Round(rng.NormFloat64()*float64(stdDev)))
 
+	// The diameter is derived from the fields count with a random part.
+	planet.Diameter = 100*planet.Fields + int(math.Round(float64(100.0*rand.Float32())))
+
 	// The temperatures are described in the following link:
 	// https://ogame.fandom.com/wiki/Temperature
-
-	switch planet.Coords.Position {
+	switch planet.Position {
 	case 1:
 		// Range [220; 260], average 240.
 		min = 220
@@ -672,22 +761,27 @@ func (p *PlanetProxy) generateResources(planet *Planet) {
 		return
 	}
 
-	// TODO: To handle this we should have some sort of `init`
-	// mechanism which would retrieve the base properties of
-	// the DB such as the universes, the name of the resources,
-	// technologies and ships (maybe ?) so that it's readily
-	// available for computations like this one.
-	// Indeed it's very rare that we will add a resource and
-	// it's a good approximation to not have to query the DB
-	// each time we need it.
-	// We could also include the rapid fire tables, etc. We
-	// could also include the table defining the planets'
-	// sizes and temperature in a table and retrieve this
-	// as well. This seems like a more powerful solution as
-	// it combines the robustness of having it in the DB so
-	// it's persisted and the flexibility of being able to
-	// use it directly in the code.
-	// The generation of resources would then just rely on
-	// the identifier of the resources fetched from this
-	// model and then populate the fields in the planet.
+	// We will consider that we have a certain number of each
+	// resources readily available on each planet upon its
+	// creation. The values are hard-coded there and we use
+	// the identifier of the resources retrieved from the DB
+	// to populate the planet.
+	if planet.Resources == nil {
+		planet.Resources = make([]Resource, 0)
+	}
+
+	planet.Resources = append(
+		planet.Resources,
+		Resource{
+			ID:     p.resources["metal"],
+			Amount: 500,
+		},
+	)
+	planet.Resources = append(
+		planet.Resources,
+		Resource{
+			ID:     p.resources["crystal"],
+			Amount: 500,
+		},
+	)
 }

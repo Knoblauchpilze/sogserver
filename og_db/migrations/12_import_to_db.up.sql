@@ -19,3 +19,10 @@ BEGIN
   INSERT INTO players SELECT * FROM json_populate_record(null::players, inputs);
 END
 $$ LANGUAGE plpgsql;
+
+-- Import planet into the correspoding table.
+CREATE OR REPLACE FUNCTION create_planet(inputs json) RETURNS VOID AS $$
+BEGIN
+  INSERT INTO planets SELECT * FROM json_populate_record(null::planets, inputs);
+END
+$$ LANGUAGE plpgsql;

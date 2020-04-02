@@ -328,9 +328,16 @@ type Defense struct {
 // The `ID` defines the identifier of the planet within all the
 // planets registered in og.
 //
-// The `Coords` defines the coordinate of the planet within its
-// parent universe. The coordinates should be consistent with
-// the limits defined for the universe.
+// The `Galaxy` defines the parent galaxy of the planet. It is
+// used as a simple way to marshal the planet and be able to
+// import this structure directly into the DB rather than using
+// the `Coordinate` type.
+//
+// The `System` completes the `Galaxy` in the determination of
+// the coordinates of the planet.
+//
+// The `Position` defines the position of the planet within
+// its parent solar system.
 //
 // The `Name` of the planet as defined by the user.
 //
@@ -362,9 +369,11 @@ type Defense struct {
 // The `Defense` defines the list of defenses currently built
 // on the planet. This does not include defenses *being* built.
 type Planet struct {
-	PlayerID  string     `json:"player_id"`
+	PlayerID  string     `json:"player"`
 	ID        string     `json:"id"`
-	Coords    Coordinate `json:"coordinates"`
+	Galaxy    int        `json:"galaxy"`
+	System    int        `json:"system"`
+	Position  int        `json:"position"`
 	Name      string     `json:"name"`
 	Fields    int        `json:"fields"`
 	MinTemp   int        `json:"min_temperature"`

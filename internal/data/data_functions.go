@@ -93,6 +93,27 @@ func (p *Player) valid() bool {
 	return p.Name != ""
 }
 
+// NewCoordinate :
+// Used to create a new coordinate object from the input data.
+// No controls are performed to verify that the input coords
+// are actually consistent with anything.
+//
+// The `galaxy` represents the index of the galaxy of the coords.
+//
+// The `system` represents the solar system index.
+//
+// The `position` defines the position of the planet within its
+// parent solar system.
+//
+// Returns the created coordinate object.
+func NewCoordinate(galaxy int, system int, position int) Coordinate {
+	return Coordinate{
+		galaxy,
+		system,
+		position,
+	}
+}
+
 // String :
 // Implementation of the stringer interface for a coord.
 // Helps printing this data structure to a stream or to

@@ -41,7 +41,7 @@ func (ba *buildingAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filt
 	// Traverse the input parameters and select only the ones relevant
 	// to buildings querying.
 	allowed := map[string]string{
-		"building_id":   ba.proxy.GetIdentifierDBColumnName(),
+		"building_id":   "id",
 		"building_name": "name",
 	}
 
@@ -76,7 +76,7 @@ func (ba *buildingAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filt
 		// Append the identifier filter to the existing list.
 		found := false
 		for id := range filters {
-			if filters[id].Key == ba.proxy.GetIdentifierDBColumnName() {
+			if filters[id].Key == "id" {
 				found = true
 				filters[id].Options = append(filters[id].Options, building)
 			}
@@ -86,7 +86,7 @@ func (ba *buildingAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filt
 			filters = append(
 				filters,
 				handlers.Filter{
-					Key:     ba.proxy.GetIdentifierDBColumnName(),
+					Key:     "id",
 					Options: []string{building},
 				},
 			)

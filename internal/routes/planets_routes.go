@@ -41,7 +41,7 @@ func (pa *planetAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter
 	// Traverse the input parameters and select only the ones relevant
 	// to planets querying.
 	allowed := map[string]string{
-		"planet_id":    pa.proxy.GetIdentifierDBColumnName(),
+		"planet_id":    "p.id",
 		"planet_name":  "p.name",
 		"galaxy":       "p.galaxy",
 		"solar_system": "p.solar_system",
@@ -81,7 +81,7 @@ func (pa *planetAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter
 		// Append the identifier filter to the existing list.
 		found := false
 		for id := range filters {
-			if filters[id].Key == pa.proxy.GetIdentifierDBColumnName() {
+			if filters[id].Key == "p.id" {
 				found = true
 				filters[id].Options = append(filters[id].Options, pla)
 			}
@@ -91,7 +91,7 @@ func (pa *planetAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter
 			filters = append(
 				filters,
 				handlers.Filter{
-					Key:     pa.proxy.GetIdentifierDBColumnName(),
+					Key:     "p.id",
 					Options: []string{pla},
 				},
 			)

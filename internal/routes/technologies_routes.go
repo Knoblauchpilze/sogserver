@@ -41,7 +41,7 @@ func (ta *technologyAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Fi
 	// Traverse the input parameters and select only the ones relevant
 	// to technologies querying.
 	allowed := map[string]string{
-		"technology_id":   ta.proxy.GetIdentifierDBColumnName(),
+		"technology_id":   "id",
 		"technology_name": "name",
 	}
 
@@ -78,7 +78,7 @@ func (ta *technologyAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Fi
 		// Append the identifier filter to the existing list.
 		found := false
 		for id := range filters {
-			if filters[id].Key == ta.proxy.GetIdentifierDBColumnName() {
+			if filters[id].Key == "id" {
 				found = true
 				filters[id].Options = append(filters[id].Options, tech)
 			}
@@ -88,7 +88,7 @@ func (ta *technologyAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Fi
 			filters = append(
 				filters,
 				handlers.Filter{
-					Key:     ta.proxy.GetIdentifierDBColumnName(),
+					Key:     "id",
 					Options: []string{tech},
 				},
 			)

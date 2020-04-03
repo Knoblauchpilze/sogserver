@@ -52,15 +52,6 @@ func NewUniverseProxy(dbase *db.DB, log logger.Logger) UniverseProxy {
 	return UniverseProxy{dbase, log}
 }
 
-// GetIdentifierDBColumnName :
-// Used to retrieve the string literal defining the name of the
-// identifier column in the `universes` table in the database.
-//
-// Returns the name of the `identifier` column in the database.
-func (p *UniverseProxy) GetIdentifierDBColumnName() string {
-	return "id"
-}
-
 // Universes :
 // Allows to fetch the list of universes currently available
 // for a player to create an account. Universes should only

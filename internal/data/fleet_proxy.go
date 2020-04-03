@@ -46,15 +46,6 @@ func NewFleetProxy(dbase *db.DB, log logger.Logger) FleetProxy {
 	return FleetProxy{dbase, log}
 }
 
-// GetIdentifierDBColumnName :
-// Used to retrieve the string literal defining the name of the
-// identifier column in the `fleets` table in the database.
-//
-// Returns the name of the `identifier` column in the database.
-func (p *FleetProxy) GetIdentifierDBColumnName() string {
-	return "id"
-}
-
 // Fleets :
 // Allows to fetch the list of fleets currently registered in
 // the server

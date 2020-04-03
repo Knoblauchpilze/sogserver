@@ -44,7 +44,7 @@ func (ua *universeAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filt
 	// Traverse the input parameters and select only the ones relevant
 	// to universes querying.
 	allowed := map[string]string{
-		"universe_id":   ua.proxy.GetIdentifierDBColumnName(),
+		"universe_id":   "id",
 		"universe_name": "name",
 	}
 
@@ -79,7 +79,7 @@ func (ua *universeAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filt
 		// Append the identifier filter to the existing list.
 		found := false
 		for id := range filters {
-			if filters[id].Key == ua.proxy.GetIdentifierDBColumnName() {
+			if filters[id].Key == "id" {
 				found = true
 				filters[id].Options = append(filters[id].Options, uni)
 			}
@@ -89,7 +89,7 @@ func (ua *universeAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filt
 			filters = append(
 				filters,
 				handlers.Filter{
-					Key:     ua.proxy.GetIdentifierDBColumnName(),
+					Key:     "id",
 					Options: []string{uni},
 				},
 			)

@@ -44,7 +44,7 @@ func (pa *playerAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter
 	// Traverse the input parameters and select only the ones relevant
 	// to players querying.
 	allowed := map[string]string{
-		"player_id":   pa.proxy.GetIdentifierDBColumnName(),
+		"player_id":   "id",
 		"account_id":  "account",
 		"universe_id": "uni",
 		"player_name": "name",
@@ -81,7 +81,7 @@ func (pa *playerAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter
 		// Append the identifier filter to the existing list.
 		found := false
 		for id := range filters {
-			if filters[id].Key == pa.proxy.GetIdentifierDBColumnName() {
+			if filters[id].Key == "id" {
 				found = true
 				filters[id].Options = append(filters[id].Options, uni)
 			}
@@ -91,7 +91,7 @@ func (pa *playerAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter
 			filters = append(
 				filters,
 				handlers.Filter{
-					Key:     pa.proxy.GetIdentifierDBColumnName(),
+					Key:     "id",
 					Options: []string{uni},
 				},
 			)

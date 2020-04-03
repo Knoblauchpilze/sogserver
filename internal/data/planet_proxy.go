@@ -104,6 +104,10 @@ func initFromDB(dbase *db.DB, log logger.Logger) (map[string]string, error) {
 // and retrieve data from the database. This helps hiding
 // the complexity of how the data is laid out in the `DB`
 // and the precise name of tables from the exterior world.
+// Note that as this proxy uses some functionalities to
+// fetch universes information we figured that it would
+// be more interesting to factorize the behavior and reuse
+// the functions through composition.
 //
 // The `dbase` is the database that is wrapped by this
 // object. It is checked for consistency upon building the
@@ -119,10 +123,16 @@ func initFromDB(dbase *db.DB, log logger.Logger) (map[string]string, error) {
 // more efficient in the event of a creation of a planet
 // as we only need to query the local information about
 // resources rather than contacting the DB each time.
+//
+// The `uniProxy` defines a proxy allowing to access a
+// part of the behavior related to universes typically
+// when fetching a universe into which a planet should
+// be created.
 type PlanetProxy struct {
 	dbase     *db.DB
 	log       logger.Logger
 	resources map[string]string
+	uniProxy  UniverseProxy
 }
 
 // NewPlanetProxy :
@@ -140,8 +150,12 @@ type PlanetProxy struct {
 // we can have an idea of the activity of this component.
 // One possible example is for timing the requests.
 //
+// The `uniProxy` defines a proxy that can be used to
+// fetch information about the universes when creating
+// planets.
+//
 // Returns the created proxy.
-func NewPlanetProxy(dbase *db.DB, log logger.Logger) PlanetProxy {
+func NewPlanetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) PlanetProxy {
 	if dbase == nil {
 		panic(fmt.Errorf("Cannot create planets proxy from invalid DB"))
 	}
@@ -159,16 +173,8 @@ func NewPlanetProxy(dbase *db.DB, log logger.Logger) PlanetProxy {
 		dbase,
 		log,
 		resources,
+		unis,
 	}
-}
-
-// GetIdentifierDBColumnName :
-// Used to retrieve the string literal defining the name of the
-// identifier column in the `planets` table in the database.
-//
-// Returns the name of the `identifier` column in the database.
-func (p *PlanetProxy) GetIdentifierDBColumnName() string {
-	return "p.id"
 }
 
 // Planets :
@@ -411,8 +417,10 @@ func (p *PlanetProxy) CreateFor(player Player, coord *Coordinate) error {
 
 	// First we need to fetch the universe related to the
 	// planet to create.
-	// TODO: Fetch universe from player's data.
-	var uni Universe
+	uni, err := p.fetchUniverse(player.UniverseID)
+	if err != nil {
+		return fmt.Errorf("Could not create planet for \"%s\" (err: %v)", player.ID, err)
+	}
 
 	// Create the planet from the available data.
 	planet, err := p.generatePlanet(player.ID, coord, uni)
@@ -421,47 +429,51 @@ func (p *PlanetProxy) CreateFor(player Player, coord *Coordinate) error {
 	}
 
 	// We will now try to insert the planet into the DB if
-	// we have valid coordinates.
-	availableCoords := make([]Coordinate, 0)
+	// we have valid coordinates. Note that the process is
+	// quite different depending on whether we have a list
+	// of coordinates to pick from or a single one. List
+	// can occurs when we want to create the homeworld for
+	// a player, in which case we want to select a random
+	// location to insert it whereas when the coordinate
+	// is provided by the user we want to create a planet
+	// at *this* location and no where else.
 	if coord != nil {
-		availableCoords = append(availableCoords, *coord)
-	} else {
-		// TODO: Generate list of available coordinates from the DB.
+		return p.createPlanet(planet)
 	}
+
+	// Retrieve the list of coordinates that are already
+	// used in the universe the player's in.
+	usedCoords := make([]Coordinate, 0)
+	usedCoords, err = p.generateUsedCoords(uni)
 
 	// Try to insert the planet in the DB while we have some
 	// untested coordinates and we didn't suceed in inserting
 	// it.
 	inserted := false
 	trials := 0
-	for !inserted && len(availableCoords) > 0 {
-		// Pick a random coordinate from the list and use it to
-		// try to insert the planet in the DB. We also need to
-		// remove it from the available coordinates list so as
-		// not to pick it again.
-		size := len(availableCoords)
-
-		coordID := rand.Int() % size
-		coord := availableCoords[coordID]
-
-		if size == 1 {
-			availableCoords = nil
-		} else {
-			availableCoords[size-1], availableCoords[coordID] = availableCoords[coordID], availableCoords[size-1]
-			availableCoords = availableCoords[:size-1]
+	for !inserted && len(usedCoords) > 0 {
+		// Pick a random coordinate and check whether it belongs
+		// to the already used coordinates. If this is the case
+		// we will try to pick a new one. Otherwise we will try
+		// to perform the insertion of the planet in the DB.
+		// In case the insertion fails we will add the selected
+		// coordinates to the list of used one so as not to try
+		// to use it again.
+		coord := Coordinate{
+			rand.Int() % uni.GalaxiesCount,
+			rand.Int() % uni.GalaxySize,
+			rand.Int() % uni.SolarSystemSize,
 		}
+
+		// TODO: Check whether this coordinate belongs to the
+		// used list, if this is the case we should select a
+		// new coordinate.
+		planet.Galaxy = coord.Galaxy
+		planet.System = coord.System
+		planet.Position = coord.Position
 
 		// Try to create the planet at the specified coordinates.
-		data, err := json.Marshal(planet)
-		if err != nil {
-			return fmt.Errorf("Could not import planet \"%s\" for \"%s\" (err: %v)", planet.Name, player.ID, err)
-		}
-		jsonToSend := string(data)
-
-		query := fmt.Sprintf("select * from create_player('%s')", jsonToSend)
-		_, err = p.dbase.DBExecute(query)
-
-		fmt.Println(fmt.Sprintf("Trying to insert planet \"%s\" for \"%s\" at %s", planet.ID, player.ID, coord))
+		err = p.createPlanet(planet)
 
 		// Check for errors.
 		if err != nil {
@@ -480,6 +492,124 @@ func (p *PlanetProxy) CreateFor(player Player, coord *Coordinate) error {
 	}
 
 	return nil
+}
+
+// fetchUniverse :
+// Used to fetch the universe from the DB with an identifier
+// matching the input one. If no such universe can be fetched
+// an error is returned.
+//
+// The `id` defines the index of the universe to fetch.
+//
+// Returns the universe corresponding to the input identifier
+// along with any errors.
+func (p *PlanetProxy) fetchUniverse(id string) (Universe, error) {
+	// Create the db filters from the input identifier.
+	filters := make([]DBFilter, 1)
+
+	unis, err := p.uniProxy.Universes(filters)
+
+	// Check for errors and cases where we retrieve several
+	// universes.
+	if err != nil {
+		return Universe{}, err
+	}
+	if len(unis) > 1 {
+		err = fmt.Errorf("Retrieved %d universes for id \"%s\"", len(unis), id)
+	}
+
+	return unis[0], err
+}
+
+// generateUsedCoords :
+// Used to find and generate a list of the used coordinates
+// in the corresponding universe. Note that the list is only
+// some snapshot of the state of the coordinates which can
+// evolve through time. Typically if some pending requests to
+// insert a planet are pending or some actions require some
+// action to create/destroy a planet this list will be changed
+// and might not be accurate.
+// We figure it's not really a problem to insert elements in
+// the DB as it's unlikely to ever failed a lot of times in
+// a row. What can maybe happen is that the first try fails
+// to insert a planet but the second one with a different set
+// of coordinates it will most likely succeed.
+//
+// The `uni` defines the universe for which available coords
+// should be fetched. This will be fetched from the DB.
+//
+// The return value includes all the user coordinates in the
+// universe along with any errors.
+func (p *PlanetProxy) generateUsedCoords(uni Universe) ([]Coordinate, error) {
+	// Create the query allowing to fetch all the planets of
+	// a specific universe. This will consistute the list of
+	// used planets for this universe.
+	props := []string{
+		"p.galaxy",
+		"p.solar_system",
+		"p.position",
+	}
+
+	table := "planets p inner join players pl"
+	joinCond := "p.player=pl.id"
+	where := fmt.Sprintf("pl.uni='%s'", uni.ID)
+
+	query := fmt.Sprintf("select %s from %s on %s where %s", strings.Join(props, ", "), table, joinCond, where)
+
+	// Execute the query and check for errors.
+	rows, err := p.dbase.DBQuery(query)
+	if err != nil {
+		return nil, fmt.Errorf("Could not fetch used coordinates for universe \"%s\" (err: %v)", uni.ID, err)
+	}
+
+	// Traverse all the coordinates and populate the list.
+	coords := make([]Coordinate, 0)
+	var coord Coordinate
+
+	for rows.Next() {
+		err = rows.Scan(
+			&coord.Galaxy,
+			&coord.System,
+			&coord.Position,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for coordinate in universe \"%s\" (err: %v)", uni.ID, err))
+			continue
+		}
+
+		coords = append(coords, coord)
+	}
+
+	return coords, nil
+}
+
+// createPlanet :
+// Used to attempt to create the planet with the specified
+// data. We only try to perform the insertion of the input
+// data into the DB and report in error if it cannot be
+// performed for some reasons.
+//
+// The `planet` defines the data to insert in the DB.
+//
+// Returns an error in case the planet could not be used
+// in the DB (for example because the coordinates already
+// are used).
+func (p *PlanetProxy) createPlanet(planet Planet) error {
+	data, err := json.Marshal(planet)
+	if err != nil {
+		return fmt.Errorf("Could not import planet \"%s\" in DB (err: %v)", planet.Name, err)
+	}
+	jsonToSend := string(data)
+
+	coord := Coordinate{planet.Galaxy, planet.System, planet.Position}
+	fmt.Println(fmt.Sprintf("Trying to insert planet \"%s\" at %s", planet.ID, coord))
+
+	query := fmt.Sprintf("select * from create_player('%s')", jsonToSend)
+	_, err = p.dbase.DBExecute(query)
+
+	// Check for errors.
+	return fmt.Errorf(fmt.Sprintf("Could not import planet \"%s\" (err: %v)", planet.Name, err))
 }
 
 // generatePlanet :

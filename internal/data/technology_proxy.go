@@ -45,15 +45,6 @@ func NewTechnologyProxy(dbase *db.DB, log logger.Logger) TechnologyProxy {
 	return TechnologyProxy{dbase, log}
 }
 
-// GetIdentifierDBColumnName :
-// Used to retrieve the string literal defining the name of the
-// identifier column in the `technologies` table in the database.
-//
-// Returns the name of the `identifier` column in the database.
-func (p *TechnologyProxy) GetIdentifierDBColumnName() string {
-	return "id"
-}
-
 // Technologies :
 // Allows to fetch the list of technologies currently available
 // for a player to research. This list normally never changes as

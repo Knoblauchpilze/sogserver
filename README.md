@@ -108,7 +108,7 @@ Similar to the rest, the endpoint is `/defenses` and the properties are `defense
 The planets endpoint allows to query planets on a variety of criteria. The main endpoint is accessible through the `/planets` route and serves all the planets registered in the server no matter the universe (thus it's not very helpful). The user can query a particular planet by providing its identifier in the route (e.g. `/planets/planet_id`).
 
 The user also has access to some query parameters:
- * planet_id":    pa.proxy.GetIdentifierDBColumnName(),
+ * `planet_id`: defines a filter on the player owning the planet.
  * `planet_name`: defines a filter on the name of the planet.
  * `galaxy` : defines a filter on the galaxy of the planet.
  * `solar_system` : defines a filter on the solar system of the planet.

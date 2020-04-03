@@ -41,7 +41,7 @@ func (da *defenseAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filte
 	// Traverse the input parameters and select only the ones relevant
 	// to defenses querying.
 	allowed := map[string]string{
-		"defense_id":   da.proxy.GetIdentifierDBColumnName(),
+		"defense_id":   "id",
 		"defense_name": "name",
 	}
 
@@ -76,7 +76,7 @@ func (da *defenseAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filte
 		// Append the identifier filter to the existing list.
 		found := false
 		for id := range filters {
-			if filters[id].Key == da.proxy.GetIdentifierDBColumnName() {
+			if filters[id].Key == "id" {
 				found = true
 				filters[id].Options = append(filters[id].Options, def)
 			}
@@ -86,7 +86,7 @@ func (da *defenseAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filte
 			filters = append(
 				filters,
 				handlers.Filter{
-					Key:     da.proxy.GetIdentifierDBColumnName(),
+					Key:     "id",
 					Options: []string{def},
 				},
 			)

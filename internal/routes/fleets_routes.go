@@ -40,7 +40,7 @@ func (fa *fleetAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter 
 	// Traverse the input parameters and select only the ones relevant
 	// to fleets querying.
 	allowed := map[string]string{
-		"fleet_id":     fa.proxy.GetIdentifierDBColumnName(),
+		"fleet_id":     "id",
 		"fleet_name":   "name",
 		"galaxy":       "galaxy",
 		"solar_system": "solar_system",
@@ -78,7 +78,7 @@ func (fa *fleetAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter 
 		// Append the identifier filter to the existing list.
 		found := false
 		for id := range filters {
-			if filters[id].Key == fa.proxy.GetIdentifierDBColumnName() {
+			if filters[id].Key == "id" {
 				found = true
 				filters[id].Options = append(filters[id].Options, def)
 			}
@@ -88,7 +88,7 @@ func (fa *fleetAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter 
 			filters = append(
 				filters,
 				handlers.Filter{
-					Key:     fa.proxy.GetIdentifierDBColumnName(),
+					Key:     "id",
 					Options: []string{def},
 				},
 			)

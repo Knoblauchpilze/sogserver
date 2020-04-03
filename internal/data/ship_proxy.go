@@ -46,15 +46,6 @@ func NewShipProxy(dbase *db.DB, log logger.Logger) ShipProxy {
 	return ShipProxy{dbase, log}
 }
 
-// GetIdentifierDBColumnName :
-// Used to retrieve the string literal defining the name of the
-// identifier column in the `ships` table in the database.
-//
-// Returns the name of the `identifier` column in the database.
-func (p *ShipProxy) GetIdentifierDBColumnName() string {
-	return "id"
-}
-
 // Ships :
 // Allows to fetch the list of ships currently available for a
 // player to build. This list normally never changes as it's

@@ -39,7 +39,7 @@ func (sa *shipAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter {
 	// Traverse the input parameters and select only the ones relevant
 	// to ships querying.
 	allowed := map[string]string{
-		"ship_id":   sa.proxy.GetIdentifierDBColumnName(),
+		"ship_id":   "id",
 		"ship_name": "name",
 	}
 
@@ -74,7 +74,7 @@ func (sa *shipAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter {
 		// Append the identifier filter to the existing list.
 		found := false
 		for id := range filters {
-			if filters[id].Key == sa.proxy.GetIdentifierDBColumnName() {
+			if filters[id].Key == "id" {
 				found = true
 				filters[id].Options = append(filters[id].Options, ship)
 			}
@@ -84,7 +84,7 @@ func (sa *shipAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter {
 			filters = append(
 				filters,
 				handlers.Filter{
-					Key:     sa.proxy.GetIdentifierDBColumnName(),
+					Key:     "id",
 					Options: []string{ship},
 				},
 			)

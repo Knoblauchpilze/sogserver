@@ -44,7 +44,7 @@ func (aa *accountAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filte
 	// Traverse the input parameters and select only the ones relevant
 	// to accounts querying.
 	allowed := map[string]string{
-		"account_id":   aa.proxy.GetIdentifierDBColumnName(),
+		"account_id":   "id",
 		"account_name": "name",
 		"account_mail": "mail",
 	}
@@ -80,7 +80,7 @@ func (aa *accountAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filte
 		// Append the identifier filter to the existing list.
 		found := false
 		for id := range filters {
-			if filters[id].Key == aa.proxy.GetIdentifierDBColumnName() {
+			if filters[id].Key == "id" {
 				found = true
 				filters[id].Options = append(filters[id].Options, uni)
 			}
@@ -90,7 +90,7 @@ func (aa *accountAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filte
 			filters = append(
 				filters,
 				handlers.Filter{
-					Key:     aa.proxy.GetIdentifierDBColumnName(),
+					Key:     "id",
 					Options: []string{uni},
 				},
 			)

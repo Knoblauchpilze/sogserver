@@ -88,15 +88,17 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 		panic(fmt.Errorf("Cannot create server from empty database"))
 	}
 
+	uniProxy := data.NewUniverseProxy(dbase, log)
+
 	return server{
 		port,
-		data.NewUniverseProxy(dbase, log),
+		uniProxy,
 		data.NewAccountProxy(dbase, log),
 		data.NewBuildingProxy(dbase, log),
 		data.NewTechnologyProxy(dbase, log),
 		data.NewShipProxy(dbase, log),
 		data.NewDefenseProxy(dbase, log),
-		data.NewPlanetProxy(dbase, log),
+		data.NewPlanetProxy(dbase, log, uniProxy),
 		data.NewPlayersProxy(dbase, log),
 		data.NewFleetProxy(dbase, log),
 		log,

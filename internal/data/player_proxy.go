@@ -49,15 +49,6 @@ func NewPlayersProxy(dbase *db.DB, log logger.Logger) PlayersProxy {
 	return PlayersProxy{dbase, log}
 }
 
-// GetIdentifierDBColumnName :
-// Used to retrieve the string literal defining the name of the
-// identifier column in the `players` table in the database.
-//
-// Returns the name of the `identifier` column in the database.
-func (p *PlayersProxy) GetIdentifierDBColumnName() string {
-	return "id"
-}
-
 // Players :
 // Allows to fetch the list of players currently registered
 // in the DB. This defines how many unique players already

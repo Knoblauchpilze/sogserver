@@ -46,15 +46,6 @@ func NewBuildingProxy(dbase *db.DB, log logger.Logger) BuildingProxy {
 	return BuildingProxy{dbase, log}
 }
 
-// GetIdentifierDBColumnName :
-// Used to retrieve the string literal defining the name of the
-// identifier column in the `buildings` table in the database.
-//
-// Returns the name of the `identifier` column in the database.
-func (p *BuildingProxy) GetIdentifierDBColumnName() string {
-	return "id"
-}
-
 // Buildings :
 // Allows to fetch the list of buildings currently available
 // for a player to build. This list normally never changes as

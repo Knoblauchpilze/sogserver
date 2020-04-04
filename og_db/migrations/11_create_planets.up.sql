@@ -11,7 +11,7 @@ CREATE TABLE planets (
     solar_system integer NOT NULL,
     position integer NOT NULL,
     diameter integer NOT NULL,
-    created_at timestamp with time zone DEFAULT current_timestamp,
+    created_at timestamp WITH TIME ZONE DEFAULT current_timestamp,
     PRIMARY KEY (id),
     FOREIGN KEY (player) REFERENCES players(id)
 );

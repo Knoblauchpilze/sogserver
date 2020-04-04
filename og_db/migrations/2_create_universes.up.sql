@@ -3,7 +3,7 @@
 CREATE TABLE universes (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
     name text NOT NULL,
-    created_at timestamp with time zone DEFAULT current_timestamp,
+    created_at timestamp WITH TIME ZONE DEFAULT current_timestamp,
     economic_speed integer NOT NULL,
     fleet_speed integer NOT NULL,
     research_speed integer NOT NULL,

@@ -13,7 +13,6 @@ import (
 )
 
 // TODO: Construction actions.
-// TODO: Create player in universe.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

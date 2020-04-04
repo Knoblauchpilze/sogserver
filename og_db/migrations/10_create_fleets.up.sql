@@ -14,8 +14,8 @@ CREATE TABLE fleets (
     galaxy integer NOT NULL,
     solar_system integer NOT NULL,
     position integer NOT NULL,
-    created_at timestamp with time zone DEFAULT current_timestamp,
-    arrival_time timestamp with time zone DEFAULT current_timestamp,
+    created_at timestamp WITH TIME ZONE DEFAULT current_timestamp,
+    arrival_time timestamp WITH TIME ZONE DEFAULT current_timestamp,
     PRIMARY KEY (id),
     FOREIGN KEY (objective) REFERENCES fleet_objectives(id)
 );
@@ -33,7 +33,7 @@ CREATE TABLE fleet_ships (
   start_solar_system integer NOT NULL,
   start_position integer NOT NULL,
   speed numeric(3, 2) NOT NULL,
-  joined_at timestamp with time zone DEFAULT current_timestamp,
+  joined_at timestamp WITH TIME ZONE DEFAULT current_timestamp,
   FOREIGN KEY (fleet) REFERENCES fleets(id),
   FOREIGN KEY (ship) REFERENCES ships(id),
   FOREIGN KEY (player) REFERENCES players(id)

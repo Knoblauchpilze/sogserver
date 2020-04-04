@@ -164,3 +164,101 @@ func (c Coordinate) generateSeed() int {
 	k1 := (c.Position+c.System)*(c.Position+c.System+1)/2 + c.System
 	return (k1+c.Galaxy)*(k1+c.Galaxy+1)/2 + c.Galaxy
 }
+
+// valid :
+// Determines whether the input action is valid or not based
+// on the values of internal fields. We don't actually check
+// the data against what's in the DB but check internally if
+// all fields have plausible values.
+//
+// Returns `true` if the action is not obviously invalid.
+func (a BuildingUpgradeAction) valid() bool {
+	return validUUID(a.ID) &&
+		validUUID(a.PlanetID) &&
+		validUUID(a.BuildingID) &&
+		a.Level > 0
+}
+
+// String :
+// Implementation of the `Stringer` interface which allows
+// to make easier the display of such an object.
+//
+// Returns a string description of the building upgrade
+// action. This is mainly composed by the planet's ID as
+// we want to group such failure for analysis purposes.
+func (a BuildingUpgradeAction) String() string {
+	return fmt.Sprintf("\"%s\"", a.PlanetID)
+}
+
+// valid :
+// Determines whether the input action is valid or not based
+// on the values of internal fields. We don't actually check
+// the data against what's in the DB but check internally if
+// all fields have plausible values.
+//
+// Returns `true` if the action is not obviously invalid.
+func (a TechnologyUpgradeAction) valid() bool {
+	return validUUID(a.ID) &&
+		validUUID(a.PlayerID) &&
+		validUUID(a.TechnologyID) &&
+		a.Level > 0
+}
+
+// String :
+// Implementation of the `Stringer` interface which allows
+// to make easier the display of such an object.
+//
+// Returns a string description of the technology upgrade
+// action. This is mainly composed by the player's ID as
+// we want to group such failure for analysis purposes.
+func (a TechnologyUpgradeAction) String() string {
+	return fmt.Sprintf("\"%s\"", a.PlayerID)
+}
+
+// valid :
+// Determines whether the input action is valid or not based
+// on the values of internal fields. We don't actually check
+// the data against what's in the DB but check internally if
+// all fields have plausible values.
+//
+// Returns `true` if the action is not obviously invalid.
+func (a ShipUpgradeAction) valid() bool {
+	return validUUID(a.ID) &&
+		validUUID(a.PlanetID) &&
+		validUUID(a.ShipID)
+}
+
+// String :
+// Implementation of the `Stringer` interface which allows
+// to make easier the display of such an object.
+//
+// Returns a string description of the ship upgrade action.
+// This is mainly composed by the planet's ID as we want to
+// group such failure for analysis purposes.
+func (a ShipUpgradeAction) String() string {
+	return fmt.Sprintf("\"%s\"", a.PlanetID)
+}
+
+// valid :
+// Determines whether the input action is valid or not based
+// on the values of internal fields. We don't actually check
+// the data against what's in the DB but check internally if
+// all fields have plausible values.
+//
+// Returns `true` if the action is not obviously invalid.
+func (a DefenseUpgradeAction) valid() bool {
+	return validUUID(a.ID) &&
+		validUUID(a.PlanetID) &&
+		validUUID(a.DefenseID)
+}
+
+// String :
+// Implementation of the `Stringer` interface which allows
+// to make easier the display of such an object.
+//
+// Returns a string description of the defense upgrade
+// action. This is mainly composed by the planet's ID as
+// we want to group such failure for analysis purposes.
+func (a DefenseUpgradeAction) String() string {
+	return fmt.Sprintf("\"%s\"", a.PlanetID)
+}

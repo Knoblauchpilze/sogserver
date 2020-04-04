@@ -130,11 +130,11 @@ func (aa *accountAdapter) Data(filters []handlers.Filter) (interface{}, error) {
 // accountCreator :
 // Implements the interface requested by the creation handler in
 // the `handlers` package. The main functions are describing the
-// interface to retrieve information about the accounts from a
-// database.
+// interface to create a new account from the data fetched from
+// the input request.
 //
 // The `proxy` defines the proxy to use to interact with the DB
-// when fetching the data.
+// when creating the data.
 //
 // The `log` allows to notify problems and information during a
 // universe's creation.

@@ -492,3 +492,126 @@ type Fleet struct {
 	ArrivalTime time.Time        `json:"arrival_time"`
 	Components  []FleetComponent `json:"components"`
 }
+
+// UpgradeAction :
+// General interface for an upgrade action that can be
+// applied to buildings, technologies, ships and also
+// defenses.
+// Such an interface allows to easily mutualize the
+// insertion process of such actions in the DB.
+type UpgradeAction interface {
+	valid() bool
+	String() string
+}
+
+// BuildingUpgradeAction :
+// Defines the upgrade action associated to a building. It
+// describes the building to which it is associated along
+// with the planet where the building is built.
+// Indication about the duration of the action and a level
+// that will be reached by the building is provided.
+//
+// The `ID` defines the identifier of this building upgrade
+// action as registered in the DB. It allows to uniquely
+// identify it if needed (for example to fetch it later).
+//
+// The `PlanetID` defines an identifier of the planet where
+// the building is built.
+//
+// The `BuildingID` defines the identifier of the building
+// to which this action is related.
+//
+// The `Level` defines the desired level for the building.
+//
+// The `CompletionTime` defines the time at which this
+// action will be completed.
+type BuildingUpgradeAction struct {
+	ID             string    `json:"id"`
+	PlanetID       string    `json:"planet"`
+	BuildingID     string    `json:"building"`
+	Level          int       `json:"level"`
+	CompletionTime time.Time `json:"completion_time"`
+}
+
+// TechnologyUpgradeAction :
+// Defines the upgrade action associated to a technology.
+// It describes the technology to which it is associated
+// along with the player who is researching it. It also
+// indicates the duration of the action and a level that
+// will be reached by the technology at the end of the
+// action.
+//
+// The `ID` defines the identifier of this technology
+// upgrade action as registered in the DB. It allows to
+// uniquely identify it if needed (for example to fetch
+// it later).
+//
+// The `PlayerID` defines an identifier of the player who
+// is researching the technology.
+//
+// The `TechnologyID` defines the identifier of the tech
+// that is being researched.
+//
+// The `Level` defines the desired level for the tech.
+//
+// The `CompletionTime` defines the time at which this
+// action will be completed.
+type TechnologyUpgradeAction struct {
+	ID             string    `json:"id"`
+	PlayerID       string    `json:"player"`
+	TechnologyID   string    `json:"technology"`
+	Level          int       `json:"level"`
+	CompletionTime time.Time `json:"completion_time"`
+}
+
+// ShipUpgradeAction :
+// Defines the upgrade action associated to a ship. It is
+// used to start the construction of a new ship on one of
+// the planet of a player and describes the ship that is
+// to be built and the planet onto which the building is
+// performed.
+//
+// The `ID` defines the identifier of this ship upgrade
+// action as registered in the DB. It allows to uniquely
+// identify it if needed (for example to fetch it later).
+//
+// The `PlanetID` defines an identifier of the planet on
+// which the ship is built.
+//
+// The `ShipID` defines the identifier of the ship that
+// is being built.
+//
+// The `CompletionTime` defines the time at which this
+// action will be completed.
+type ShipUpgradeAction struct {
+	ID             string    `json:"id"`
+	PlanetID       string    `json:"planet"`
+	ShipID         string    `json:"ship"`
+	CompletionTime time.Time `json:"completion_time"`
+}
+
+// DefenseUpgradeAction :
+// Defines the upgrade action associated to a defense. It
+// is used to start the construction of a new defense onto
+// one of the planet of a player and describes the defense
+// that is to be built and the planet onto which the
+// construction should take place.
+//
+// The `ID` defines the identifier of this defense upgrade
+// action as registered in the DB. It allows to uniquely
+// identify it if needed (for example to fetch it later).
+//
+// The `PlanetID` defines an identifier of the planet on
+// which the ship is built.
+//
+// The `DefenseID` defines the identifier of the defense
+// that is being built.
+//
+// The `CompletionTime` defines the time at which this
+// action will be completed.
+type DefenseUpgradeAction struct {
+	ID             string    `json:"id"`
+	PlanetID       string    `json:"planet"`
+	DefenseID      string    `json:"defense"`
+	CompletionTime time.Time `json:"completion_time"`
+}

@@ -1,6 +1,7 @@
 
 -- Create the table defining building construction actions.
 CREATE TABLE construction_actions_buildings (
+    id uuid NOT NULL DEFAULT uuid_generate_v4(),
     planet uuid NOT NULL,
     building uuid NOT NULL,
     level integer NOT NULL,
@@ -15,6 +16,7 @@ CREATE TRIGGER update_building_action_creation_time BEFORE INSERT ON constructio
 
 -- Create the table defining technologies research actions.
 CREATE TABLE construction_actions_technologies (
+    id uuid NOT NULL DEFAULT uuid_generate_v4(),
     player uuid NOT NULL,
     technology uuid NOT NULL,
     level integer NOT NULL,
@@ -29,6 +31,7 @@ CREATE TRIGGER update_technology_action_creation_time BEFORE INSERT ON construct
 
 -- Create the table defining ships construction actions.
 CREATE TABLE construction_actions_ships (
+    id uuid NOT NULL DEFAULT uuid_generate_v4(),
     planet uuid NOT NULL,
     ship uuid NOT NULL,
     completion_time timestamp WITH TIME ZONE DEFAULT current_timestamp,
@@ -42,6 +45,7 @@ CREATE TRIGGER update_ship_action_creation_time BEFORE INSERT ON construction_ac
 
 -- Create the table defining defenses construction actions.
 CREATE TABLE construction_actions_defenses (
+    id uuid NOT NULL DEFAULT uuid_generate_v4(),
     planet uuid NOT NULL,
     defense uuid NOT NULL,
     completion_time timestamp WITH TIME ZONE DEFAULT current_timestamp,

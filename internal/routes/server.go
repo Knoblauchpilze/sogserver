@@ -52,22 +52,27 @@ import (
 // The `fleets` filles a similar purpose to `planets` but for the
 // fleets registered in the game.
 //
+// The `upgradeAction` defines a proxy that can be used to serve
+// the various upgrade actions handled by the game. It handles
+// both the creation of the actions and their fetching.
+//
 // The `logger` allows to perform most of the logging on any action
 // done by the server such as logging clients' connections, errors
 // and generally some elements useful to track the activity of the
 // server.
 type server struct {
-	port         int
-	universes    data.UniverseProxy
-	accounts     data.AccountProxy
-	buildings    data.BuildingProxy
-	technologies data.TechnologyProxy
-	ships        data.ShipProxy
-	defenses     data.DefenseProxy
-	planets      data.PlanetProxy
-	players      data.PlayersProxy
-	fleets       data.FleetProxy
-	log          logger.Logger
+	port          int
+	universes     data.UniverseProxy
+	accounts      data.AccountProxy
+	buildings     data.BuildingProxy
+	technologies  data.TechnologyProxy
+	ships         data.ShipProxy
+	defenses      data.DefenseProxy
+	planets       data.PlanetProxy
+	players       data.PlayersProxy
+	fleets        data.FleetProxy
+	upgradeAction data.ActionProxy
+	log           logger.Logger
 }
 
 // NewServer :
@@ -101,6 +106,7 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 		data.NewPlanetProxy(dbase, log, uniProxy),
 		data.NewPlayersProxy(dbase, log),
 		data.NewFleetProxy(dbase, log),
+		data.NewActionProxy(dbase, log),
 		log,
 	}
 }

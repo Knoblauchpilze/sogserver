@@ -131,8 +131,8 @@ func (pa *playerAdapter) Data(filters []handlers.Filter) (interface{}, error) {
 // playerCreator :
 // Implements the interface requested by the creation handler in
 // the `handlers` package. The main functions are describing the
-// interface to retrieve information about the players from a
-// database.
+// interface to create a new player from the data fetched from
+// the input request.
 //
 // The `playerProxy` defines the proxy to use to interact with
 // the DB when creating the player's entry in the table.

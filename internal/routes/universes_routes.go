@@ -129,8 +129,8 @@ func (ua *universeAdapter) Data(filters []handlers.Filter) (interface{}, error) 
 // universeCreator :
 // Implements the interface requested by the creation handler in
 // the `handlers` package. The main functions are describing the
-// interface to perform the creation of a new universe into the
-// DB.
+// interface to create a new universe from the data fetched from
+// the input request.
 //
 // The `proxy` defines the proxy to use to interact with the DB
 // when creating data.

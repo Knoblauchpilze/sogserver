@@ -11,7 +11,7 @@ CREATE TABLE planets (
     solar_system integer NOT NULL,
     position integer NOT NULL,
     diameter integer NOT NULL,
-    created_at timestamp with time zone default current_timestamp,
+    created_at timestamp with time zone DEFAULT current_timestamp,
     PRIMARY KEY (id),
     FOREIGN KEY (player) REFERENCES players(id)
 );
@@ -23,7 +23,7 @@ CREATE TRIGGER update_planet_creation_time BEFORE INSERT ON planets FOR EACH ROW
 CREATE TABLE planets_resources (
   planet uuid NOT NULL,
   res uuid NOT NULL,
-  amount numeric(15, 5),
+  amount numeric(15, 5) DEFAULT 1.0,
   FOREIGN KEY (planet) REFERENCES planets(id),
   FOREIGN KEY (res) REFERENCES resources(id)
 );
@@ -32,7 +32,7 @@ CREATE TABLE planets_resources (
 CREATE TABLE planets_buildings (
   planet uuid NOT NULL,
   building uuid NOT NULL,
-  level integer NOT NULL default 0,
+  level integer NOT NULL DEFAULT 0,
   FOREIGN KEY (planet) REFERENCES planets(id),
   FOREIGN KEY (building) REFERENCES buildings(id)
 );

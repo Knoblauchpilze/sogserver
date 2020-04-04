@@ -4,7 +4,7 @@ CREATE TABLE accounts (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
     name text NOT NULL,
     mail text NOT NULL UNIQUE,
-    created_at timestamp with time zone default current_timestamp,
+    created_at timestamp with time zone DEFAULT current_timestamp,
     PRIMARY KEY (id)
 );
 
@@ -16,7 +16,7 @@ CREATE TABLE players (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   uni uuid NOT NULL,
   account uuid NOT NULL,
-  created_at timestamp with time zone default current_timestamp,
+  created_at timestamp with time zone DEFAULT current_timestamp,
   name text NOT NULL,
   PRIMARY KEY (id),
   FOREIGN KEY (account) REFERENCES accounts(id),
@@ -31,7 +31,7 @@ CREATE TRIGGER update_player_creation_time BEFORE INSERT ON players FOR EACH ROW
 CREATE TABLE player_technologies (
   player uuid NOT NULL,
   technology uuid NOT NULL,
-  level integer NOT NULL default 0,
+  level integer NOT NULL DEFAULT 0,
   FOREIGN KEY (player) REFERENCES players(id),
   FOREIGN KEY (technology) REFERENCES technologies(id)
 );

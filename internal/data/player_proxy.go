@@ -196,8 +196,6 @@ func (p *PlayersProxy) Create(player *Player) error {
 	}
 	jsonToSend := string(data)
 
-	fmt.Println(fmt.Sprintf("Trying to insert \"%v\"", *player))
-
 	query := fmt.Sprintf("select * from create_player('%s')", jsonToSend)
 	_, err = p.dbase.DBExecute(query)
 

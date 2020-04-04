@@ -99,26 +99,44 @@ type Coordinate struct {
 	Position int `json:"position"`
 }
 
+// ResourceDesc :
+// Defines the abstract representation of a resource which
+// is bascially an identifier and the actual name of the
+// resource.
+//
+// The `ID` defines the identifier of the resource in the
+// table gathering all the in-game resources. This is used
+// in most of the other operations referencing resources.
+//
+// The `Name` defines the human-readable name of the res
+// as displayed to the user.
+type ResourceDesc struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 // Resource :
 // Defines a substance that can be produced or consumed by
 // any element of the game. It is typically used to build
 // some new elements (buildings, ships, etc.) or consumed
-// to produce some other resource.
+// to produce some other resource. A resource is always
+// linked to a planet where it is actually held (waiting
+// to be used).
 //
 // The `ID` defines the identifier of the resource. This
 // can be used to uniquely refer to the resource and to
 // communicate with the server.
 //
+// The `Planet` defines the identifier of the planet on
+// which the resources are currently held.
+//
 // The `Amount` defines the quantity of said resources.
 // Depending on the context it can either be a quantity
 // available or needed.
-//
-// The `Name` defines a human-readable string for naming
-// the resource (more explicit than the `ID`).
 type Resource struct {
-	ID     string
-	Amount int
-	Name   string
+	ID     string `json:"res"`
+	Planet string `json:"planet"`
+	Amount int    `json:"amount"`
 }
 
 // TechDependency :
@@ -372,7 +390,7 @@ type Planet struct {
 	PlayerID  string     `json:"player"`
 	ID        string     `json:"id"`
 	Galaxy    int        `json:"galaxy"`
-	System    int        `json:"system"`
+	System    int        `json:"solar_system"`
 	Position  int        `json:"position"`
 	Name      string     `json:"name"`
 	Fields    int        `json:"fields"`

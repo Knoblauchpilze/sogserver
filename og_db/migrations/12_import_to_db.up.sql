@@ -21,8 +21,12 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Import planet into the correspoding table.
-CREATE OR REPLACE FUNCTION create_planet(inputs json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_planet(planet json, resources json) RETURNS VOID AS $$
 BEGIN
-  INSERT INTO planets SELECT * FROM json_populate_record(null::planets, inputs);
+  -- Insert the planet in the planets table.
+  INSERT INTO planets SELECT * FROM json_populate_record(null::planets, planet);
+
+  -- Insert the base resources of the planet.
+  INSERT INTO planets_resources select * FROM json_populate_recordset(null::planets_resources, resources);
 END
 $$ LANGUAGE plpgsql;

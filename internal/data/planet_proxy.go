@@ -76,7 +76,7 @@ func initFromDB(dbase *db.DB, log logger.Logger) (map[string]string, error) {
 
 	// Traverse the rows and store each resource in
 	// the output map.
-	var res Resource
+	var res ResourceDesc
 
 	for rows.Next() {
 		err = rows.Scan(
@@ -443,15 +443,16 @@ func (p *PlanetProxy) CreateFor(player Player, coord *Coordinate) error {
 
 	// Retrieve the list of coordinates that are already
 	// used in the universe the player's in.
-	usedCoords := make([]Coordinate, 0)
-	usedCoords, err = p.generateUsedCoords(uni)
+	usedCoords, err := p.generateUsedCoords(uni)
+	totalPlanets := uni.GalaxiesCount * uni.GalaxySize * uni.SolarSystemSize
 
 	// Try to insert the planet in the DB while we have some
 	// untested coordinates and we didn't suceed in inserting
 	// it.
 	inserted := false
 	trials := 0
-	for !inserted && len(usedCoords) > 0 {
+
+	for !inserted && len(usedCoords) < totalPlanets && trials < 10 {
 		// Pick a random coordinate and check whether it belongs
 		// to the already used coordinates. If this is the case
 		// we will try to pick a new one. Otherwise we will try
@@ -465,21 +466,44 @@ func (p *PlanetProxy) CreateFor(player Player, coord *Coordinate) error {
 			rand.Int() % uni.SolarSystemSize,
 		}
 
-		// TODO: Check whether this coordinate belongs to the
-		// used list, if this is the case we should select a
-		// new coordinate.
+		exists := true
+		for exists {
+			key := coord.Linearize(uni)
+
+			if _, ok := usedCoords[key]; !ok {
+				// We found a not yet used coordinate.
+				exists = false
+			} else {
+				// Pick some new coordinates.
+				coord = Coordinate{
+					rand.Int() % uni.GalaxiesCount,
+					rand.Int() % uni.GalaxySize,
+					rand.Int() % uni.SolarSystemSize,
+				}
+			}
+		}
+
 		planet.Galaxy = coord.Galaxy
 		planet.System = coord.System
 		planet.Position = coord.Position
+
+		// Whenever we update the coordinates of the planet we
+		// need to generate new temperature and size.
+		p.generatePlanetSize(&planet)
 
 		// Try to create the planet at the specified coordinates.
 		err = p.createPlanet(planet)
 
 		// Check for errors.
-		if err != nil {
-			p.log.Trace(logger.Warning, fmt.Sprintf("Could not import planet \"%s\" for \"%s\" (err: %v)", planet.Name, player.ID, err))
-		} else {
+		if err == nil {
+			p.log.Trace(logger.Notice, fmt.Sprintf("Created planet at %v for \"%s\" in \"%s\" with %d field(s)", coord, player.ID, player.UniverseID, planet.Fields))
 			inserted = true
+		} else {
+			p.log.Trace(logger.Warning, fmt.Sprintf("Could not import planet \"%s\" for \"%s\" (err: %v)", planet.Name, player.ID, err))
+
+			// Register this coordinate as being used as we can't
+			// successfully use it to create the planet anyways.
+			usedCoords[coord.Linearize(uni)] = coord
 		}
 
 		trials++
@@ -506,6 +530,11 @@ func (p *PlanetProxy) CreateFor(player Player, coord *Coordinate) error {
 func (p *PlanetProxy) fetchUniverse(id string) (Universe, error) {
 	// Create the db filters from the input identifier.
 	filters := make([]DBFilter, 1)
+
+	filters[0] = DBFilter{
+		"id",
+		[]string{id},
+	}
 
 	unis, err := p.uniProxy.Universes(filters)
 
@@ -540,7 +569,7 @@ func (p *PlanetProxy) fetchUniverse(id string) (Universe, error) {
 //
 // The return value includes all the user coordinates in the
 // universe along with any errors.
-func (p *PlanetProxy) generateUsedCoords(uni Universe) ([]Coordinate, error) {
+func (p *PlanetProxy) generateUsedCoords(uni Universe) (map[int]Coordinate, error) {
 	// Create the query allowing to fetch all the planets of
 	// a specific universe. This will consistute the list of
 	// used planets for this universe.
@@ -563,7 +592,7 @@ func (p *PlanetProxy) generateUsedCoords(uni Universe) ([]Coordinate, error) {
 	}
 
 	// Traverse all the coordinates and populate the list.
-	coords := make([]Coordinate, 0)
+	coords := make(map[int]Coordinate)
 	var coord Coordinate
 
 	for rows.Next() {
@@ -578,7 +607,15 @@ func (p *PlanetProxy) generateUsedCoords(uni Universe) ([]Coordinate, error) {
 			continue
 		}
 
-		coords = append(coords, coord)
+		key := coord.Linearize(uni)
+
+		// Check whether it's the first time we encounter
+		// this used location.
+		if _, ok := coords[key]; ok {
+			p.log.Trace(logger.Error, fmt.Sprintf("Overriding used coordinate %v in universe \"%s\"", coord, uni.ID))
+		}
+
+		coords[key] = coord
 	}
 
 	return coords, nil
@@ -596,20 +633,29 @@ func (p *PlanetProxy) generateUsedCoords(uni Universe) ([]Coordinate, error) {
 // in the DB (for example because the coordinates already
 // are used).
 func (p *PlanetProxy) createPlanet(planet Planet) error {
+	// Marshal the planet.
 	data, err := json.Marshal(planet)
 	if err != nil {
-		return fmt.Errorf("Could not import planet \"%s\" in DB (err: %v)", planet.Name, err)
+		return fmt.Errorf("Could not import planet \"%s\" for \"%s\" in DB (err: %v)", planet.Name, planet.PlayerID, err)
 	}
-	jsonToSend := string(data)
+	jsonForPlanet := string(data)
 
-	coord := Coordinate{planet.Galaxy, planet.System, planet.Position}
-	fmt.Println(fmt.Sprintf("Trying to insert planet \"%s\" at %s", planet.ID, coord))
+	// Marshal the resources for this planet.
+	data, err = json.Marshal(planet.Resources)
+	if err != nil {
+		return fmt.Errorf("Could not import planet \"%s\" for \"%s\" in DB (err: %v)", planet.Name, planet.PlayerID, err)
+	}
+	jsonForResources := string(data)
 
-	query := fmt.Sprintf("select * from create_player('%s')", jsonToSend)
+	query := fmt.Sprintf("select * from create_planet('%s', '%s')", jsonForPlanet, jsonForResources)
 	_, err = p.dbase.DBExecute(query)
 
 	// Check for errors.
-	return fmt.Errorf(fmt.Sprintf("Could not import planet \"%s\" (err: %v)", planet.Name, err))
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("Could not import planet \"%s\" (err: %v)", planet.Name, err))
+	}
+
+	return nil
 }
 
 // generatePlanet :
@@ -668,14 +714,12 @@ func (p *PlanetProxy) generatePlanet(player string, coord *Coordinate, uni Unive
 // also the temperature on the surface of the planet. Both
 // values depend on the actual position of the planet in the
 // parent solar system.
-// We consider that if the planet has a solar system of `0`
-// nothing will be generated.
 //
 // The `planet` defines the planet for which the size should
 // be generated.
 func (p *PlanetProxy) generatePlanetSize(planet *Planet) {
 	// Check whether the planet and its coordinates are valid.
-	if planet == nil || planet.Position == 0 {
+	if planet == nil {
 		return
 	}
 
@@ -702,77 +746,77 @@ func (p *PlanetProxy) generatePlanetSize(planet *Planet) {
 	var stdDev int
 
 	switch planet.Position {
-	case 1:
+	case 0:
 		// Range [96; 172], average 134.
 		min = 96
 		max = 172
 		stdDev = max - min
-	case 2:
+	case 1:
 		// Range [104; 176], average 140.
 		min = 104
 		max = 176
 		stdDev = max - min
-	case 3:
+	case 2:
 		// Range [112; 182], average 147.
 		min = 112
 		max = 182
 		stdDev = max - min
-	case 4:
+	case 3:
 		// Range [118; 208], average 163.
 		min = 118
 		max = 208
 		stdDev = max - min
-	case 5:
+	case 4:
 		// Range [133; 232], average 182.
 		min = 133
 		max = 232
 		stdDev = max - min
-	case 6:
+	case 5:
 		// Range [152; 248], average 200.
 		min = 152
 		max = 248
 		stdDev = max - min
-	case 7:
+	case 6:
 		// Range [156; 262], average 204.
 		min = 156
 		max = 262
 		stdDev = max - min
-	case 8:
+	case 7:
 		// Range [150; 246], average 198.
 		min = 150
 		max = 246
 		stdDev = max - min
-	case 9:
+	case 8:
 		// Range [142; 232], average 187.
 		min = 142
 		max = 232
 		stdDev = max - min
-	case 10:
+	case 9:
 		// Range [136; 210], average 173.
 		min = 136
 		max = 210
 		stdDev = max - min
-	case 11:
+	case 10:
 		// Range [125; 186], average 156.
 		min = 125
 		max = 186
 		stdDev = max - min
-	case 12:
+	case 11:
 		// Range [114; 172], average 143.
 		min = 114
 		max = 172
 		stdDev = max - min
-	case 13:
+	case 12:
 		// Range [100; 168], average 134.
 		min = 100
 		max = 168
 		stdDev = max - min
-	case 14:
+	case 13:
 		// Range [90; 164], average 127.
 		min = 96
 		max = 164
 		stdDev = max - min
-	case 15:
+	case 14:
 		fallthrough
 	default:
 		// Assume default case if the `15th` position
@@ -791,77 +835,77 @@ func (p *PlanetProxy) generatePlanetSize(planet *Planet) {
 	// The temperatures are described in the following link:
 	// https://ogame.fandom.com/wiki/Temperature
 	switch planet.Position {
-	case 1:
+	case 0:
 		// Range [220; 260], average 240.
 		min = 220
 		max = 260
 		stdDev = max - min
-	case 2:
+	case 1:
 		// Range [170; 210], average 190.
 		min = 170
 		max = 210
 		stdDev = max - min
-	case 3:
+	case 2:
 		// Range [120; 160], average 140.
 		min = 120
 		max = 160
 		stdDev = max - min
-	case 4:
+	case 3:
 		// Range [70; 110], average 90.
 		min = 70
 		max = 110
 		stdDev = max - min
-	case 5:
+	case 4:
 		// Range [60; 100], average 80.
 		min = 60
 		max = 100
 		stdDev = max - min
-	case 6:
+	case 5:
 		// Range [50; 90], average 70.
 		min = 50
 		max = 90
 		stdDev = max - min
-	case 7:
+	case 6:
 		// Range [40; 80], average 60.
 		min = 40
 		max = 80
 		stdDev = max - min
-	case 8:
+	case 7:
 		// Range [30; 70], average 50.
 		min = 30
 		max = 70
 		stdDev = max - min
-	case 9:
+	case 8:
 		// Range [20; 60], average 40.
 		min = 20
 		max = 60
 		stdDev = max - min
-	case 10:
+	case 9:
 		// Range [10; 50], average 30.
 		min = 10
 		max = 50
 		stdDev = max - min
-	case 11:
+	case 10:
 		// Range [0; 40], average 20.
 		min = 0
 		max = 40
 		stdDev = max - min
-	case 12:
+	case 11:
 		// Range [-10; 30], average 10.
 		min = -10
 		max = 30
 		stdDev = max - min
-	case 13:
+	case 12:
 		// Range [-50; -10], average -30.
 		min = -50
 		max = -10
 		stdDev = max - min
-	case 14:
+	case 13:
 		// Range [-90; -50], average -70.
 		min = -90
 		max = -50
 		stdDev = max - min
-	case 15:
+	case 14:
 		fallthrough
 	default:
 		// Assume default case if the `15th` position
@@ -904,6 +948,7 @@ func (p *PlanetProxy) generateResources(planet *Planet) {
 		planet.Resources,
 		Resource{
 			ID:     p.resources["metal"],
+			Planet: planet.ID,
 			Amount: 500,
 		},
 	)
@@ -911,6 +956,7 @@ func (p *PlanetProxy) generateResources(planet *Planet) {
 		planet.Resources,
 		Resource{
 			ID:     p.resources["crystal"],
+			Planet: planet.ID,
 			Amount: 500,
 		},
 	)

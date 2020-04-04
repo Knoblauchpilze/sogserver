@@ -1,6 +1,6 @@
 
 -- Drop the planet's creation script.
-DROP FUNCTION create_planet(inputs json);
+DROP FUNCTION create_planet(planet json, resources json);
 
 -- Drop the player's creation script.
 DROP FUNCTION create_player(inputs json);

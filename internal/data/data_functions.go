@@ -41,6 +41,7 @@ func (u *Universe) valid() bool {
 		u.DefensesToRuins >= 0.0 && u.DefensesToRuins <= 1.0 &&
 		u.FleetConsumption >= 0.0 && u.FleetConsumption <= 1.0 &&
 		u.GalaxiesCount > 0 &&
+		u.GalaxySize > 0 &&
 		u.SolarSystemSize > 0
 }
 

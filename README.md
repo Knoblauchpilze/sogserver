@@ -78,6 +78,19 @@ All the endpoints can be accessed through standard `HTTP` request at the port sp
 
 Provides information related to the universes under the `/universes` route. This will query a list of all the created universes. One can request the information of a specific universe using the `/universes/uni-id` syntax or through query parameters using `/universes?universe_id=id` or `/universes?universe_name=name` or both. This will fetch only universes matching the filters.
 
+The user can also request the creation of a universe through the `/universe` endpoint. It requires to provide some data about the properties actually defining the universe under the `universe-data` key where the user needs to specify the following properties:
+ * `id`: defines the identifier of the universe (will be auto-generated if left empty).
+ * `name`: the display name for this universe.
+ * `economic_speed`: an integer representing the multiplier against the canonical times related to economy (should be greater than `0`).
+ * `fleet_speed`: similar to the `economic_speed` but defines the fleets travel speed.
+ * `research_speed`: similar to `economic_speed` but defines a multiplier applied on research times.
+ * `fleets_to_ruins_ratio`: a value in the range `[0; 1]` defining how much of the construction resources of a fleet end up in a ruins fields after a ship is destroyed.
+ * `defenses_to_ruins_ratio`: a value similar to `fleets_to_ruins_ratio` but defining how much of the defenses resources go in the ruins.
+ * `fleets_consumption_ratio`: a value in the range `[0; 1]` defining a multiplier on the canonical consumption of each ship.
+ * `galaxies_count`: an integer larger than `0` defining how many galaxies are defined in the universe.
+ * `galaxy_size`: an integer larger than `0` defining how many solar systems are defined in each galaxy.
+ * `solar_system_size`: an integer larger than `0` defining how many planets exist in a single solar system.
+
 ## Accounts
 
 Very similar to the `/universes` endpoint but allows to query information about the accounts. The routes are described below:
@@ -86,6 +99,11 @@ Very similar to the `/universes` endpoint but allows to query information about 
  * `/accounts?account_id=id`: queries information about a specific account (similarly to the above).
  * `/accounts?account_name=name`: queries information about accounts matching the specified name.
  * `/accounts?account_mail=mail`: queries information about accounts matching the specified e-mail.
+
+The main purpose of an account is to actually represent the instance of a user in the game. One can create a new account through the `/account` endpoint and by providing data under the `account-data` key. The following properties should be defined to be able to successfully create the account:
+ * `id`: defines the identifier of the account. Should be unique and will be auto-generated if left empty.
+ * `name`: a display name for the account. Does not need to be unique but should not be empty.
+ * `mail`: the e-mail address associated to the account. Should be unique among all accounts.
 
 ## Buildings
 
@@ -128,6 +146,12 @@ Here are the available query parameters:
  * `universe_id` : defines a filter on the universe the player belongs to.
  * `player_name` : defines a filter on the name of the player.
 
+It is possible to create a new player, which represents the instance of an account in a universe. This can be done through the `/player` endpoint and by specifying the data under the `player-data` key. The following properties can be specified:
+ * `account`: the identifier of the account linked to this player. Should be matching an existing account.
+ * `uni`: the identifier of the universe into which the player should be created. No other `player` linked to the same account should exist in this universe.
+ * `id`: an identifier representing this player. It will be auto-generated if left empty.
+ * `name`: the display name of the player in the universe. Should be unique but does not need to be (maybe we should modify that at some point).
+
 ## Fleets
 
 The `/fleets` endpoint allows to fetch information on the fleet currently moving through the server. There is no real way to distinguish between fleets of different universes but we instead rely on providing the coordinates of the destination of the fleet and thus access the fleet through its target planet. The available query parameters are:
@@ -140,3 +164,7 @@ The `/fleets` endpoint allows to fetch information on the fleet currently moving
 For each query the detailed information of the fleet are retrieved which describe the number of ships and the composition of the successive waves of the fleet (players involved, starting position of each one, etc.).
 
 For now there are some missing possibilities but it will be added on the go.
+
+## Construction actions
+
+TODO: Should implement this.

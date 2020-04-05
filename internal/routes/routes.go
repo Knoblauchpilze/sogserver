@@ -135,6 +135,8 @@ func (s *server) routeFleets() {
 	s.route("/fleets", "GET", s.listFleets())
 	s.route("/fleets/", "GET", s.listFleets())
 
+	// TODO: We should create a new post route to add components to
+	// an existing fleet.
 	s.route("/fleet", "POST", s.createFleet())
 }
 

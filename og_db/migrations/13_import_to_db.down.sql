@@ -1,4 +1,18 @@
 
+
+
+-- Drop the defense upgrade insertion script.
+DROP FUNCTION create_defense_upgrade_action(upgrade json);
+
+-- Drop the ship upgrade insertion script.
+DROP FUNCTION create_ship_upgrade_action(upgrade json);
+
+-- Drop the technology upgrade insertion script.
+DROP FUNCTION create_technology_upgrade_action(upgrade json);
+
+-- Drop the building upgrade insertion script.
+DROP FUNCTION create_building_upgrade_action(upgrade json);
+
 -- Drop the planet's creation script.
 DROP FUNCTION create_planet(planet json, resources json);
 

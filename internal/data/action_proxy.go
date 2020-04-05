@@ -197,7 +197,6 @@ func (p *ActionProxy) CreateDefenseAction(action *DefenseUpgradeAction) error {
 		action.ID = uuid.New().String()
 	}
 
-	// TODO: Actually create the scripts.
 	err := p.createAction(action, "create_defense_upgrade_action")
 
 	if err == nil {

@@ -20,7 +20,7 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
--- Import planet into the correspoding table.
+-- Import planet into the corresponding table.
 CREATE OR REPLACE FUNCTION create_planet(planet json, resources json) RETURNS VOID AS $$
 BEGIN
   -- Insert the planet in the planets table.
@@ -28,5 +28,33 @@ BEGIN
 
   -- Insert the base resources of the planet.
   INSERT INTO planets_resources select * FROM json_populate_recordset(null::planets_resources, resources);
+END
+$$ LANGUAGE plpgsql;
+
+-- Import building upgrade action in the dedicated table.
+CREATE OR REPLACE FUNCTION create_building_upgrade_action(upgrade json) RETURNS VOID AS $$
+BEGIN
+  INSERT INTO construction_actions_buildings SELECT * FROM json_populate_record(null::construction_actions_buildings, upgrade);
+END
+$$ LANGUAGE plpgsql;
+
+-- Import technology upgrade action in the dedicated table.
+CREATE OR REPLACE FUNCTION create_technology_upgrade_action(upgrade json) RETURNS VOID AS $$
+BEGIN
+  INSERT INTO construction_actions_technologies SELECT * FROM json_populate_record(null::construction_actions_technologies, upgrade);
+END
+$$ LANGUAGE plpgsql;
+
+-- Import ship upgrade action in the dedicated table.
+CREATE OR REPLACE FUNCTION create_ship_upgrade_action(upgrade json) RETURNS VOID AS $$
+BEGIN
+  INSERT INTO construction_actions_ships SELECT * FROM json_populate_record(null::construction_actions_ships, upgrade);
+END
+$$ LANGUAGE plpgsql;
+
+-- Import defense upgrade action in the dedicated table.
+CREATE OR REPLACE FUNCTION create_defense_upgrade_action(upgrade json) RETURNS VOID AS $$
+BEGIN
+  INSERT INTO construction_actions_defenses SELECT * FROM json_populate_record(null::construction_actions_defenses, upgrade);
 END
 $$ LANGUAGE plpgsql;

@@ -141,7 +141,7 @@ func (pa *playerAdapter) Data(filters []handlers.Filter) (interface{}, error) {
 // the DB when creating a planet for a new player.
 //
 // The `log` allows to notify problems and information during a
-// universe's creation.
+// player's creation.
 type playerCreator struct {
 	playerProxy data.PlayersProxy
 	planetProxy data.PlanetProxy

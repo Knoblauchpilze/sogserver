@@ -10,13 +10,15 @@ CREATE TABLE fleet_objectives (
 CREATE TABLE fleets (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
     name text,
+    uni uuid NOT NULL,
     objective uuid NOT NULL,
     target_galaxy integer NOT NULL,
-    targe_solar_system integer NOT NULL,
+    target_solar_system integer NOT NULL,
     target_position integer NOT NULL,
     created_at timestamp WITH TIME ZONE DEFAULT current_timestamp,
     arrival_time timestamp WITH TIME ZONE NOT NULL,
     PRIMARY KEY (id),
+    FOREIGN KEY (uni) REFERENCES universes(id),
     FOREIGN KEY (objective) REFERENCES fleet_objectives(id)
 );
 

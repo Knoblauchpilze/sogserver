@@ -1,10 +1,13 @@
 package data
 
 import (
+	"encoding/json"
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 // FleetProxy :
@@ -20,9 +23,15 @@ import (
 // The `log` allows to perform display to the user so as
 // to inform of potential issues and debug information to
 // the outside world.
+//
+// The `uniProxy` defines a proxy allowing to access a
+// part of the behavior related to universes typically
+// when fetching a universe into which a fleet should
+// be created.
 type FleetProxy struct {
-	dbase *db.DB
-	log   logger.Logger
+	dbase    *db.DB
+	log      logger.Logger
+	uniProxy UniverseProxy
 }
 
 // NewFleetProxy :
@@ -37,13 +46,21 @@ type FleetProxy struct {
 // we can have an idea of the activity of this component.
 // One possible example is for timing the requests.
 //
+// The `uniProxy` defines a proxy that can be used to
+// fetch information about the universes when creating
+// fleets.
+//
 // Returns the created proxy.
-func NewFleetProxy(dbase *db.DB, log logger.Logger) FleetProxy {
+func NewFleetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) FleetProxy {
 	if dbase == nil {
 		panic(fmt.Errorf("Cannot create fleets proxy from invalid DB"))
 	}
 
-	return FleetProxy{dbase, log}
+	return FleetProxy{
+		dbase,
+		log,
+		unis,
+	}
 }
 
 // Fleets :
@@ -67,6 +84,7 @@ func (p *FleetProxy) Fleets(filters []DBFilter) ([]Fleet, error) {
 	props := []string{
 		"id",
 		"name",
+		"uni",
 		"objective",
 		"arrival_time",
 		"target_galaxy",
@@ -106,6 +124,7 @@ func (p *FleetProxy) Fleets(filters []DBFilter) ([]Fleet, error) {
 		err = rows.Scan(
 			&fleet.ID,
 			&fleet.Name,
+			&fleet.UniverseID,
 			&fleet.Objective,
 			// TODO: This may fail, see when we have a real fleet.
 			&fleet.ArrivalTime,
@@ -119,34 +138,40 @@ func (p *FleetProxy) Fleets(filters []DBFilter) ([]Fleet, error) {
 			continue
 		}
 
-		// Fetch individual components of the fleet.
-		err = p.fetchFleetData(&fleet)
-		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch data for fleet \"%s\" (err: %v)", fleet.ID, err))
-			continue
-		}
-
 		fleets = append(fleets, fleet)
 	}
 
 	return fleets, nil
 }
 
-// fetchFleetData :
+// FleetComponents :
 // Used to fetch data related to a fleet: this includes the
 // individual components of the fleet (which is mostly used
 // in the case of group attacks).
 //
-// The `fleet` references the fleet for which the data should
-// be fetched. We assume that the internal fields (and more
-// specifically the identifier) are already populated.
+// The `filters` define some properties that are used when
+// fetching the parent fleet for which components should be
+// retrieved. It is assumed that these filteres allow to
+// fetch a single fleet. If this is not the case an error
+// is returned.
 //
-// Returns any error.
-func (p *FleetProxy) fetchFleetData(fleet *Fleet) error {
-	// Check whether the fleet has an identifier assigned.
-	if fleet.ID == "" {
-		return fmt.Errorf("Unable to fetch data from fleet with invalid identifier")
+// Returns the components associated to the fleet along with
+// any error.
+func (p *FleetProxy) FleetComponents(filters []DBFilter) ([]FleetComponent, error) {
+	// Fetch the fleet from the filters.
+	fleets, err := p.Fleets(filters)
+	if err != nil {
+		return nil, fmt.Errorf("Could not fetch component for fleet (err: %v)", err)
 	}
+
+	// Check that we only found a single fleet matching the
+	// input filters: this will be the fleet for which the
+	// components should be retrieved.
+	if len(fleets) != 1 {
+		return nil, fmt.Errorf("Found %d fleet(s) matching filters, cannot fetch components", len(fleets))
+	}
+
+	fleet := fleets[0]
 
 	// Create the query to fetch individual components of the
 	// fleet and execute it.
@@ -168,12 +193,12 @@ func (p *FleetProxy) fetchFleetData(fleet *Fleet) error {
 
 	// Check for errors.
 	if err != nil {
-		return fmt.Errorf("Could not query DB to fetch fleet \"%s\" details (err: %v)", fleet.ID, err)
+		return nil, fmt.Errorf("Could not query DB to fetch fleet \"%s\" details (err: %v)", fleet.ID, err)
 	}
 
 	// Populate the return content from the result of the
 	// DB query.
-	fleet.Components = make([]FleetComponent, 0)
+	components := make([]FleetComponent, 0)
 	comp := FleetComponent{
 		FleetID: fleet.ID,
 	}
@@ -200,10 +225,10 @@ func (p *FleetProxy) fetchFleetData(fleet *Fleet) error {
 			continue
 		}
 
-		fleet.Components = append(fleet.Components, comp)
+		components = append(components, comp)
 	}
 
-	return nil
+	return components, nil
 }
 
 // fetchFleetComponentData :
@@ -262,4 +287,127 @@ func (p *FleetProxy) fetchFleetComponentData(comp *FleetComponent) error {
 	}
 
 	return nil
+}
+
+// Create :
+// Used to perform the creation of the fleet described
+// by the input data to the DB. In case the creation can
+// not be performed an error is returned.
+//
+// The `fleet` describes the element to create in DB. Its
+// value may be modified by the function mainly to update
+// the identifier of the fleet if none have been set.
+//
+// The return status indicates whether the creation could
+// be performed: if this is not the case the error is not
+// `nil`.
+func (p *FleetProxy) Create(fleet *Fleet) error {
+	// Assign a valid identifier if this is not already the case.
+	if fleet.ID == "" {
+		fleet.ID = uuid.New().String()
+	}
+
+	// Fetchthe universe related to the fleet to create.
+	uni, err := p.fetchUniverse(fleet.ID)
+	if err != nil {
+		return fmt.Errorf("Could not create fleet \"%s\", unable to fetch universe (err: %v)", fleet.ID, err)
+	}
+
+	// Validate that the input data describe a valid fleet.
+	if !fleet.valid(uni) {
+		return fmt.Errorf("Could not create fleet \"%s\", some properties are invalid", fleet.ID)
+	}
+
+	// Marshal the input fleet to pass it to the import script.
+	data, err := json.Marshal(fleet)
+	if err != nil {
+		return fmt.Errorf("Could not import fleet \"%s\" (err: %v)", fleet.ID, err)
+	}
+	jsonToSend := string(data)
+
+	query := fmt.Sprintf("select * from create_fleet('%s')", jsonToSend)
+	_, err = p.dbase.DBExecute(query)
+
+	// Check for errors.
+	if err != nil {
+		return fmt.Errorf("Could not import fleet \"%s\" (err: %s)", fleet.ID, err)
+	}
+
+	// All is well.
+	return nil
+}
+
+// fetchUniverse :
+// Used to fetch the universe from the DB. The input identifier
+// is meant to represent a fleet in a universe. We will have to
+// handle the fact that it is not directly possible to fetch a
+// universe from a fleet in order to retrieve the universe that
+// is linked to it.
+// In case no universe can be found an error is returned.
+//
+// The `fleet` defines the index of the fleet for which parent
+// universe should be fetched.
+//
+// Returns the universe corresponding to the input identifier
+// along with any errors.
+func (p *FleetProxy) fetchUniverse(fleet string) (Universe, error) {
+	// Create the query to fetch the universe from the fleet's
+	// identifier.
+	props := "uni"
+	table := "fleets"
+	where := fmt.Sprintf("id='%s'", fleet)
+
+	query := fmt.Sprintf("select %s from %s where %s", props, table, where)
+
+	fmt.Println(fmt.Sprintf("Query: \"%s\"", query))
+
+	rows, err := p.dbase.DBQuery(query)
+
+	// Check for errors.
+	if err != nil {
+		return Universe{}, fmt.Errorf("Could not query DB to fetch fleet \"%s\" details (err: %v)", fleet, err)
+	}
+
+	// Retrieve the universes.
+	unisIDs := make([]string, 0)
+	var uniID string
+
+	for rows.Next() {
+		err = rows.Scan(
+			&uniID,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for universe (err: %v)", err))
+			continue
+		}
+
+		unisIDs = append(unisIDs, uniID)
+	}
+
+	// Theoretically we should obtain a single universe.
+	if len(unisIDs) != 1 {
+		return Universe{}, fmt.Errorf("Fetched %d universe(s) related to fleet \"%s\", expected a single one", len(unisIDs), fleet)
+	}
+
+	// We can now fetch the universe from the DB.
+	filters := make([]DBFilter, 1)
+
+	filters[0] = DBFilter{
+		"id",
+		[]string{unisIDs[0]},
+	}
+
+	unis, err := p.uniProxy.Universes(filters)
+
+	// Check for errors and cases where we retrieve several
+	// universes.
+	if err != nil {
+		return Universe{}, err
+	}
+	if len(unis) > 1 {
+		err = fmt.Errorf("Retrieved %d universes for id \"%s\"", len(unis), unisIDs[0])
+	}
+
+	return unis[0], err
 }

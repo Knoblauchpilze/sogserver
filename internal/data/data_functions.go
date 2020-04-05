@@ -94,6 +94,62 @@ func (p *Player) valid() bool {
 	return p.Name != ""
 }
 
+// valid :
+// Used to determine whether the parameters defined for this
+// fleet component are not obviously wrong. This method checks
+// that the identifier provided for individual ships aren't
+// empty or ill-formed and that the amount of each one is at
+// least structly positivie.
+func (fc *FleetComponent) valid() bool {
+	// Check own identifier.
+	if !validUUID(fc.ID) {
+		return false
+	}
+
+	// Check the identifier of the player and parent fleet.
+	if !validUUID(fc.FleetID) {
+		return false
+	}
+	if !validUUID(fc.PlayerID) {
+		return false
+	}
+
+	// Now check individual ships.
+	if len(fc.Ships) == 0 {
+		return false
+	}
+
+	for _, ship := range fc.Ships {
+		if !validUUID(ship.ShipID) || ship.Amount <= 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+// valid :
+func (f *Fleet) valid(uni Universe) bool {
+	// Check own identifier.
+	if !validUUID(f.ID) {
+		return false
+	}
+
+	// Check that the target is valid given the universe
+	// into which the fleet is supposed to reside.
+	if f.Galaxy < 0 || f.Galaxy >= uni.GalaxiesCount {
+		return false
+	}
+	if f.System < 0 || f.System >= uni.GalaxySize {
+		return false
+	}
+	if f.Position < 0 || f.Position >= uni.SolarSystemSize {
+		return false
+	}
+
+	return true
+}
+
 // NewCoordinate :
 // Used to create a new coordinate object from the input data.
 // No controls are performed to verify that the input coords

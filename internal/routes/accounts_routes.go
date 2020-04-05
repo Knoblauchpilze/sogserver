@@ -136,8 +136,8 @@ func (aa *accountAdapter) Data(filters []handlers.Filter) (interface{}, error) {
 // The `proxy` defines the proxy to use to interact with the DB
 // when creating the data.
 //
-// The `log` allows to notify problems and information during a
-// universe's creation.
+// The `log` allows to notify problems and information during an
+// account's creation.
 type accountCreator struct {
 	proxy data.AccountProxy
 	log   logger.Logger

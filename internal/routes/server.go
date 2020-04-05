@@ -105,7 +105,7 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 		data.NewDefenseProxy(dbase, log),
 		data.NewPlanetProxy(dbase, log, uniProxy),
 		data.NewPlayersProxy(dbase, log),
-		data.NewFleetProxy(dbase, log),
+		data.NewFleetProxy(dbase, log, uniProxy),
 		data.NewActionProxy(dbase, log),
 		log,
 	}

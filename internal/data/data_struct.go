@@ -500,13 +500,19 @@ type FleetComponent struct {
 
 // Fleet :
 // Defines a fleet with its objective and coordinates. It also
-// defines the posible name of the fleet.
+// defines the possible name of the fleet.
 //
 // The `ID` represents a way to uniquely identify the fleet.
 //
 // The `Name` defines the name that the user provided when the
 // fleet was created. It might be empty in case no name was
 // provided.
+//
+// The `UniverseID` defines the identifier of the universe
+// this fleet belongs to. Indeed a fleet is linked to some
+// coordinates which are linked to a universe. It also is
+// used to make sure that only players of this universe can
+// participate in the fleet.
 //
 // The `Objective` is a string defining the action intended
 // for this fleet. It is a way to determine which purpose the
@@ -527,19 +533,15 @@ type FleetComponent struct {
 // The `ArrivalTime` describes the time at which the fleet
 // is meant to reach its destination without taking into
 // account the potential delays.
-//
-// The `Components` define the individual components of the
-// fleet, gathering the different group of ships and all the
-// players that joined the fleet.
 type Fleet struct {
-	ID          string           `json:"id"`
-	Name        string           `json:"name"`
-	Objective   string           `json:"objective"`
-	Galaxy      int              `json:"target_galaxy"`
-	System      int              `json:"target_solar_system"`
-	Position    int              `json:"target_position"`
-	ArrivalTime time.Time        `json:"arrival_time"`
-	Components  []FleetComponent `json:"components"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	UniverseID  string    `json:"uni"`
+	Objective   string    `json:"objective"`
+	Galaxy      int       `json:"target_galaxy"`
+	System      int       `json:"target_solar_system"`
+	Position    int       `json:"target_position"`
+	ArrivalTime time.Time `json:"arrival_time"`
 }
 
 // UpgradeAction :

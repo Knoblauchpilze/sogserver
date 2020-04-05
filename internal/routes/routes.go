@@ -134,6 +134,8 @@ func (s *server) routePlayers() {
 func (s *server) routeFleets() {
 	s.route("/fleets", "GET", s.listFleets())
 	s.route("/fleets/", "GET", s.listFleets())
+
+	s.route("/fleet", "POST", s.createFleet())
 }
 
 // routeActions :

@@ -45,8 +45,8 @@ type creatorFunc func(rawAction []byte) (string, error)
 // possible the common process and provide ways to configure
 // the specific part.
 //
-// The `log` allows to notify problems and information during a
-// universe's creation.
+// The `log` allows to notify problems and information during
+// an action's creation.
 type actionCreator struct {
 	route       string
 	accessRoute string

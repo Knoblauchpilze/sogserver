@@ -16,9 +16,6 @@ CREATE TABLE planets (
     FOREIGN KEY (player) REFERENCES players(id)
 );
 
--- Trigger to update the `created_at` field of the table.
-CREATE TRIGGER update_planet_creation_time BEFORE INSERT ON planets FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();
-
 -- Create the table referencing resources on each planet.
 CREATE TABLE planets_resources (
   planet uuid NOT NULL,

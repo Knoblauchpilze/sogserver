@@ -8,9 +8,6 @@ CREATE TABLE accounts (
     PRIMARY KEY (id)
 );
 
--- Trigger to update the `created_at` field of the table.
-CREATE TRIGGER update_account_creation_time BEFORE INSERT ON accounts FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();
-
 -- Create the table defining players' accounts in various universes.
 CREATE TABLE players (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -23,9 +20,6 @@ CREATE TABLE players (
   FOREIGN KEY (uni) REFERENCES universes(id),
   UNIQUE (uni, account)
 );
-
--- Trigger to update the `created_at` field of the table.
-CREATE TRIGGER update_player_creation_time BEFORE INSERT ON players FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();
 
 -- Create a table representing the technologies for a given player.
 CREATE TABLE player_technologies (

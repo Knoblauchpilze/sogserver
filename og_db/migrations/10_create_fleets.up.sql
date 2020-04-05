@@ -11,36 +11,38 @@ CREATE TABLE fleets (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
     name text,
     objective uuid NOT NULL,
-    galaxy integer NOT NULL,
-    solar_system integer NOT NULL,
-    position integer NOT NULL,
+    target_galaxy integer NOT NULL,
+    targe_solar_system integer NOT NULL,
+    target_position integer NOT NULL,
     created_at timestamp WITH TIME ZONE DEFAULT current_timestamp,
-    arrival_time timestamp WITH TIME ZONE DEFAULT current_timestamp,
+    arrival_time timestamp WITH TIME ZONE NOT NULL,
     PRIMARY KEY (id),
     FOREIGN KEY (objective) REFERENCES fleet_objectives(id)
 );
 
--- Trigger to update the `created_at` field of the table.
-CREATE TRIGGER update_fleet_creation_time BEFORE INSERT ON fleets FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();
-
--- Create the table for vessels belonging to a fleet.
-CREATE TABLE fleet_ships (
+-- Create the table grouping fleet elements with each other.
+CREATE TABLE fleet_elements (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
   fleet uuid NOT NULL,
-  ship uuid NOT NULL,
   player uuid NOT NULL,
-  amount integer NOT NULL DEFAULT 0,
   start_galaxy integer NOT NULL,
   start_solar_system integer NOT NULL,
   start_position integer NOT NULL,
   speed numeric(3, 2) NOT NULL,
   joined_at timestamp WITH TIME ZONE DEFAULT current_timestamp,
-  FOREIGN KEY (fleet) REFERENCES fleets(id),
-  FOREIGN KEY (ship) REFERENCES ships(id),
-  FOREIGN KEY (player) REFERENCES players(id)
+  PRIMARY KEY (id),
+  FOREIGN KEY (fleet) REFERENCES fleets(id)
 );
 
--- Trigger to update the `joined_at` field of the table.
-CREATE TRIGGER update_ships_joined_at_time BEFORE INSERT ON fleet_ships FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();
+-- Create the table for vessels belonging to a fleet.
+CREATE TABLE fleet_ships (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  fleet_element uuid NOT NULL,
+  ship uuid NOT NULL,
+  amount integer NOT NULL DEFAULT 0,
+  FOREIGN KEY (fleet_element) REFERENCES fleet_elements(id),
+  FOREIGN KEY (ship) REFERENCES ships(id)
+);
 
 -- Seed the fleet objectives.
 INSERT INTO public.fleet_objectives ("name") VALUES('attacking');

@@ -1,10 +1,11 @@
 
 -- Drop the ships belonging to fleets table.
-DROP TRIGGER update_ships_joined_at_time ON fleet_ships;
 DROP TABLE fleet_ships;
 
+-- Drop the table regrouping the participants to a fleet.
+DROP TABLE fleet_elements;
+
 -- Drop the fleets table.
-DROP TRIGGER update_fleet_creation_time ON fleets;
 DROP TABLE fleets;
 
 -- Drop the table referencing fleet objectives.

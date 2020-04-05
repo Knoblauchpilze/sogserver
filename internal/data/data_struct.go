@@ -434,6 +434,21 @@ type Player struct {
 	Technologies []Technology `json:"technologies"`
 }
 
+// ShipInFleet :
+// Defines a single ship involved in a fleet component which
+// is an identifier referencing the ship and the amount that
+// is directly included in the fleet component.
+//
+// The `ShipID` defines the identifier of the ship that is
+// involved in the fleet component.
+//
+// The `Amount` defines how many ships of the specified type
+// are involved.
+type ShipInFleet struct {
+	ShipID string `json:"ship"`
+	Amount int    `json:"amount"`
+}
+
 // FleetComponent :
 // Defines a single element participating to a fleet. This is
 // the most basic element that can take part into a fleet: it
@@ -441,22 +456,46 @@ type Player struct {
 // also provide the information about the starting position
 // of the ships and the player that launched the fleet.
 //
+// The `ID` represents the identifier of the fleet component
+// as defined in the DB. It allows to uniquely identify it.
+//
+// The `FleetID` defines the identifier of the parent fleet
+// this component is attached to.
+//
 // The `PlayerID` defines the identifier of the account that
 // launched this fleet component.
 //
-// The `ShipID` defines the identifier of the ships that are
-// composing this fleet element.
+// The `Galaxy` defines the start coordinate of this fleet
+// component. This *must* refer to an actual planet or moon
+// and is kept as a single value in order to allow easy
+// integration with the DB.
 //
-// The `Amount` defines how many ships are registered in this
+// The `System` refines the starting coordinates of the fleet
+// component.
+//
+// The `Position` defines the position within the parent
+// system this fleet componentn started from.
+//
+// The `Speed` defines the travel speed of this fleet
+// component. It is used to precisely determine how much
+// this component impacts the final arrival time of the
+// fleet and also for the consumption of fuel.
+//
+// The `JoinedAt` defines the time at which this player has
+// joined the main fleet and created this fleet component.
+//
+// The `Ships` define the actual ships involved in this
 // fleet component.
-//
-// The `Coords` defines the starting coordinates of this item
-// of the fleet.
 type FleetComponent struct {
-	PlayerID string     `json:"player_id"`
-	ShipID   string     `json:"ship_id"`
-	Amount   int        `json:"amount"`
-	Coords   Coordinate `json:"coordinates"`
+	ID       string        `json:"id"`
+	FleetID  string        `json:"fleet"`
+	PlayerID string        `json:"player"`
+	Galaxy   int           `json:"start_galaxy"`
+	System   int           `json:"start_solar_system"`
+	Position int           `json:"start_position"`
+	Speed    float32       `json:"speed"`
+	JoinedAt time.Time     `json:"joined_at"`
+	Ships    []ShipInFleet `json:"ships"`
 }
 
 // Fleet :
@@ -473,13 +512,21 @@ type FleetComponent struct {
 // for this fleet. It is a way to determine which purpose the
 // fleet serves.
 //
-// The `Coords` define the coordinates of the target planet
-// of this fleet. Note that it might not be a planet in case
-// the fleet's objective allows to travel to an empty location.
+// The `Gakaxy` defines the galaxy of the target this fleet
+// is directed towards. It is kept as a single element and
+// not transformed into a `Coordinate` object in order to
+// allow easy integration with the DB.
+// Note that this does not necessarily reference a planet.
 //
-// The `ArrivalTime` describes the time at which the fleet is
-// meant to reach its destination without taking into account
-// the potential delays.
+// The `System` completes the information of the `Galaxy`
+// to refine the destination of the fleet.
+//
+// The `Position` defines the position in the destination
+// solar system this fleet is directed towards.
+//
+// The `ArrivalTime` describes the time at which the fleet
+// is meant to reach its destination without taking into
+// account the potential delays.
 //
 // The `Components` define the individual components of the
 // fleet, gathering the different group of ships and all the
@@ -487,8 +534,10 @@ type FleetComponent struct {
 type Fleet struct {
 	ID          string           `json:"id"`
 	Name        string           `json:"name"`
-	Objective   string           `json:"objective_id"`
-	Coords      Coordinate       `json:"coordinates"`
+	Objective   string           `json:"objective"`
+	Galaxy      int              `json:"target_galaxy"`
+	System      int              `json:"target_solar_system"`
+	Position    int              `json:"target_position"`
 	ArrivalTime time.Time        `json:"arrival_time"`
 	Components  []FleetComponent `json:"components"`
 }

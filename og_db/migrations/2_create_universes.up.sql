@@ -15,6 +15,3 @@ CREATE TABLE universes (
     solar_system_size integer NOT NULL,
     PRIMARY KEY (id)
 );
-
--- Trigger to update the `created_at` field of the table.
-CREATE TRIGGER update_universe_creation_time BEFORE INSERT ON universes FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();

@@ -69,9 +69,10 @@ func (p *FleetProxy) Fleets(filters []DBFilter) ([]Fleet, error) {
 		"name",
 		"objective",
 		"arrival_time",
-		"galaxy",
-		"solar_system",
-		"position",
+		"target_galaxy",
+		"target_solar_system",
+		"target_position",
+		"arrival_time",
 	}
 
 	table := "fleets"
@@ -101,10 +102,6 @@ func (p *FleetProxy) Fleets(filters []DBFilter) ([]Fleet, error) {
 	fleets := make([]Fleet, 0)
 	var fleet Fleet
 
-	galaxy := 0
-	system := 0
-	position := 0
-
 	for rows.Next() {
 		err = rows.Scan(
 			&fleet.ID,
@@ -112,20 +109,14 @@ func (p *FleetProxy) Fleets(filters []DBFilter) ([]Fleet, error) {
 			&fleet.Objective,
 			// TODO: This may fail, see when we have a real fleet.
 			&fleet.ArrivalTime,
-			&galaxy,
-			&system,
-			&position,
+			&fleet.Galaxy,
+			&fleet.System,
+			&fleet.Position,
 		)
 
 		if err != nil {
 			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for fleet (err: %v)", err))
 			continue
-		}
-
-		fleet.Coords = Coordinate{
-			galaxy,
-			system,
-			position,
 		}
 
 		// Fetch individual components of the fleet.
@@ -160,15 +151,16 @@ func (p *FleetProxy) fetchFleetData(fleet *Fleet) error {
 	// Create the query to fetch individual components of the
 	// fleet and execute it.
 	props := []string{
+		"id",
 		"player",
-		"ship",
-		"amount",
 		"start_galaxy",
 		"start_solar_system",
 		"start_position",
+		"speed",
+		"joined_at",
 	}
 
-	table := "fleet_ships"
+	table := "fleet_elements"
 	where := fmt.Sprintf("fleet='%s'", fleet.ID)
 
 	query := fmt.Sprintf("select %s from %s where %s", strings.Join(props, ", "), table, where)
@@ -182,20 +174,19 @@ func (p *FleetProxy) fetchFleetData(fleet *Fleet) error {
 	// Populate the return content from the result of the
 	// DB query.
 	fleet.Components = make([]FleetComponent, 0)
-	var comp FleetComponent
-
-	galaxy := 0
-	system := 0
-	position := 0
+	comp := FleetComponent{
+		FleetID: fleet.ID,
+	}
 
 	for rows.Next() {
 		err = rows.Scan(
+			&comp.ID,
 			&comp.PlayerID,
-			&comp.ShipID,
-			&comp.Amount,
-			&galaxy,
-			&system,
-			&position,
+			&comp.Galaxy,
+			&comp.System,
+			&comp.Position,
+			&comp.Speed,
+			&comp.JoinedAt,
 		)
 
 		if err != nil {
@@ -203,13 +194,71 @@ func (p *FleetProxy) fetchFleetData(fleet *Fleet) error {
 			continue
 		}
 
-		comp.Coords = Coordinate{
-			galaxy,
-			system,
-			position,
+		err = p.fetchFleetComponentData(&comp)
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch data for fleet \"%s\" (component \"%s\" failed, err: %v)", fleet.ID, comp.PlayerID, err))
+			continue
 		}
 
 		fleet.Components = append(fleet.Components, comp)
+	}
+
+	return nil
+}
+
+// fetchFleetComponentData :
+// Used to fetch data related to a fleet component. It includes
+// the actual ship involved in the component and their actual
+// amount.
+// individual components of the fleet (which is mostly used
+// in the case of group attacks).
+//
+// The `com` references the fleet component for which the data
+// should be fetched. We assume that the internal fields (and
+// more specifically the identifier) are already populated.
+//
+// Returns any error.
+func (p *FleetProxy) fetchFleetComponentData(comp *FleetComponent) error {
+	// Check whether the fleet component has an identifier assigned.
+	if comp.ID == "" {
+		return fmt.Errorf("Unable to fetch data from fleet component with invalid identifier")
+	}
+
+	// Create the query to fetch individual components of the
+	// fleet and execute it.
+	props := []string{
+		"ship",
+		"amount",
+	}
+
+	table := "fleet_ships"
+	where := fmt.Sprintf("fleet_element='%s'", comp.ID)
+
+	query := fmt.Sprintf("select %s from %s where %s", strings.Join(props, ", "), table, where)
+	rows, err := p.dbase.DBQuery(query)
+
+	// Check for errors.
+	if err != nil {
+		return fmt.Errorf("Could not query DB to fetch fleet component \"%s\" details (err: %v)", comp.ID, err)
+	}
+
+	// Populate the return content from the result of the
+	// DB query.
+	comp.Ships = make([]ShipInFleet, 0)
+	var ship ShipInFleet
+
+	for rows.Next() {
+		err = rows.Scan(
+			&ship.ShipID,
+			&ship.Amount,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for fleet component \"%s\" (err: %v)", comp.ID, err))
+			continue
+		}
+
+		comp.Ships = append(comp.Ships, ship)
 	}
 
 	return nil

@@ -42,9 +42,9 @@ func (fa *fleetAdapter) ParseFilters(vars handlers.RouteVars) []handlers.Filter 
 	allowed := map[string]string{
 		"fleet_id":     "id",
 		"fleet_name":   "name",
-		"galaxy":       "galaxy",
-		"solar_system": "solar_system",
-		"position":     "position",
+		"galaxy":       "target_galaxy",
+		"solar_system": "target_solar_system",
+		"position":     "target_position",
 	}
 
 	for key, values := range vars.Params {

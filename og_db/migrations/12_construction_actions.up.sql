@@ -11,9 +11,6 @@ CREATE TABLE construction_actions_buildings (
     FOREIGN KEY (building) REFERENCES buildings(id)
 );
 
--- Trigger to update the `created_at` field of the table.
-CREATE TRIGGER update_building_action_creation_time BEFORE INSERT ON construction_actions_buildings FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();
-
 -- Create the table defining technologies research actions.
 CREATE TABLE construction_actions_technologies (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -26,9 +23,6 @@ CREATE TABLE construction_actions_technologies (
     FOREIGN KEY (technology) REFERENCES technologies(id)
 );
 
--- Trigger to update the `created_at` field of the table.
-CREATE TRIGGER update_technology_action_creation_time BEFORE INSERT ON construction_actions_technologies FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();
-
 -- Create the table defining ships construction actions.
 CREATE TABLE construction_actions_ships (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -40,9 +34,6 @@ CREATE TABLE construction_actions_ships (
     FOREIGN KEY (ship) REFERENCES ships(id)
 );
 
--- Trigger to update the `created_at` field of the table.
-CREATE TRIGGER update_ship_action_creation_time BEFORE INSERT ON construction_actions_ships FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();
-
 -- Create the table defining defenses construction actions.
 CREATE TABLE construction_actions_defenses (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -53,6 +44,3 @@ CREATE TABLE construction_actions_defenses (
     FOREIGN KEY (planet) REFERENCES planets(id),
     FOREIGN KEY (defense) REFERENCES defenses(id)
 );
-
--- Trigger to update the `created_at` field of the table.
-CREATE TRIGGER update_defense_action_creation_time BEFORE INSERT ON construction_actions_defenses FOR EACH ROW EXECUTE PROCEDURE update_created_at_column();

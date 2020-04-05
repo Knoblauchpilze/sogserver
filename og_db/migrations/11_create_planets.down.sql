@@ -11,6 +11,5 @@ DROP TABLE planets_buildings;
 -- Drop the resources per planet table.
 DROP TABLE planets_resources;
 
--- Drop the planets table and its associated trigger.
-DROP TRIGGER update_planet_creation_time ON planets;
+-- Drop the planets table.
 DROP TABLE planets;

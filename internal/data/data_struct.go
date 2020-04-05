@@ -500,6 +500,7 @@ type Fleet struct {
 // Such an interface allows to easily mutualize the
 // insertion process of such actions in the DB.
 type UpgradeAction interface {
+	GetID() string
 	valid() bool
 	String() string
 }

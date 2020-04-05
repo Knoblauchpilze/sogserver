@@ -165,6 +165,16 @@ func (c Coordinate) generateSeed() int {
 	return (k1+c.Galaxy)*(k1+c.Galaxy+1)/2 + c.Galaxy
 }
 
+// GetID :
+// Used to retrieve identifier of the building upgrade action.
+// This basically returns the corresponding internal field.
+//
+// Returns a string corresponding to the identifier of this
+// upgrade action.
+func (a BuildingUpgradeAction) GetID() string {
+	return a.ID
+}
+
 // valid :
 // Determines whether the input action is valid or not based
 // on the values of internal fields. We don't actually check
@@ -188,6 +198,16 @@ func (a BuildingUpgradeAction) valid() bool {
 // we want to group such failure for analysis purposes.
 func (a BuildingUpgradeAction) String() string {
 	return fmt.Sprintf("\"%s\"", a.PlanetID)
+}
+
+// GetID :
+// Used to retrieve identifier of the technology upgrade
+// action. This returns the corresponding internal field.
+//
+// Returns a string corresponding to the identifier of this
+// upgrade action.
+func (a TechnologyUpgradeAction) GetID() string {
+	return a.ID
 }
 
 // valid :
@@ -215,6 +235,16 @@ func (a TechnologyUpgradeAction) String() string {
 	return fmt.Sprintf("\"%s\"", a.PlayerID)
 }
 
+// GetID :
+// Used to retrieve identifier of the ship upgrade action.
+// This basically returns the corresponding internal field.
+//
+// Returns a string corresponding to the identifier of this
+// upgrade action.
+func (a ShipUpgradeAction) GetID() string {
+	return a.ID
+}
+
 // valid :
 // Determines whether the input action is valid or not based
 // on the values of internal fields. We don't actually check
@@ -237,6 +267,16 @@ func (a ShipUpgradeAction) valid() bool {
 // group such failure for analysis purposes.
 func (a ShipUpgradeAction) String() string {
 	return fmt.Sprintf("\"%s\"", a.PlanetID)
+}
+
+// GetID :
+// Used to retrieve identifier of the defense upgrade action.
+// This basically returns the corresponding internal field.
+//
+// Returns a string corresponding to the identifier of this
+// upgrade action.
+func (a DefenseUpgradeAction) GetID() string {
+	return a.ID
 }
 
 // valid :

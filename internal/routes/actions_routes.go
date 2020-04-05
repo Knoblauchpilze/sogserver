@@ -9,6 +9,16 @@ import (
 	"oglike_server/pkg/logger"
 )
 
+// creatorFunc :
+// Convenience define which allows to refer to the creation
+// process in an abstract way. Indeed we can mutualize lots
+// of the creation process except for the actual call to the
+// DB where the data is created.
+// Using this type allows to provide a function that handles
+// the conversion of the input `data` to a valid type and
+// calls the adequate handler in the DB.
+type creatorFunc func(rawAction []byte) (string, error)
+
 // actionCreator :
 // Implements the interface requested by the creation handler in
 // the `handlers` package. The main functions are describing the
@@ -17,7 +27,8 @@ import (
 // As the upgrade action are all very similar in behavior this
 // component can be parameterized in order to define the type of
 // actions that it can handled. That's why some additional props
-// are defined such as the route to serve.
+// are defined such as the route to serve or the actual data to
+// try to insert in the DB.
 //
 // The `route` defines the route that should be served by this
 // handler. It should reference to one of the known upgrade
@@ -26,15 +37,20 @@ import (
 // The `accessRoute` defines the access route to access facets
 // to fetch the action that are produced by this element.
 //
-// The `proxy` defines the proxy to use to interact with the DB
-// when creating the data.
+// The `creator` represents the function that is called when
+// handling the creation of the `data` in the DB. Indeed all
+// the upgrade actions only differ by the fact that they use
+// a different method of the `ActionProxy` provided for this
+// creator so it makes sense to try to mutualize as much as
+// possible the common process and provide ways to configure
+// the specific part.
 //
 // The `log` allows to notify problems and information during a
 // universe's creation.
 type actionCreator struct {
 	route       string
 	accessRoute string
-	proxy       data.ActionProxy
+	creator     creatorFunc
 	log         logger.Logger
 }
 
@@ -74,33 +90,26 @@ func (ac *actionCreator) DataKey() string {
 func (ac *actionCreator) Create(input handlers.RouteData) ([]string, error) {
 	// We need to iterate over the data retrieved from the route and
 	// create actions from it.
-	// TODO: Should try to unmarshal in the correct format based on the route.
-	var action data.BuildingUpgradeAction
 	resources := make([]string, 0)
 
 	// Prevent request with no data.
 	if len(input.Data) == 0 {
-		return resources, fmt.Errorf("Could not perform creation of building upgrade action with no data")
+		return resources, fmt.Errorf("Could not perform creation of upgrade action with no data")
 	}
 
 	for _, rawData := range input.Data {
-		// Try to unmarshal the data into a valid `BuildingUpgradeAction` struct.
-		err := json.Unmarshal([]byte(rawData), &action)
+		// Try to unmarshal the data into a valid struct as needed by the
+		// upgrade action and then perform the insertion in the DB. We do
+		// request an error indicating if the insertion was successful and
+		// the string representing the inserted resource.
+		resource, err := ac.creator([]byte(rawData))
 		if err != nil {
-			ac.log.Trace(logger.Error, fmt.Sprintf("Could not create building upgrade action from data \"%s\" (err: %v)", rawData, err))
-			continue
-		}
-
-		// Create the building action.
-		err = ac.proxy.CreateBuildingAction(&action)
-		if err != nil {
-			ac.log.Trace(logger.Error, fmt.Sprintf("Could not register building upgrade action from data \"%s\" (err: %v)", rawData, err))
+			ac.log.Trace(logger.Error, fmt.Sprintf("Could not register upgrade action from data \"%s\" (err: %v)", rawData, err))
 			continue
 		}
 
 		// Successfully created the action.
-		ac.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d on \"%s\"", action.BuildingID, action.Level, action.PlanetID))
-		resources = append(resources, action.ID)
+		resources = append(resources, resource)
 	}
 
 	// Return the path to the resources created during the process.
@@ -122,7 +131,25 @@ func (s *server) registerBuildingAction() http.HandlerFunc {
 		&actionCreator{
 			"action/building",
 			"actions/buildings",
-			s.upgradeAction,
+			func(rawAction []byte) (string, error) {
+				// First unmarshal the input data into a valid struct
+				// that can be used to register a building upgrade.
+				var ua data.BuildingUpgradeAction
+
+				err := json.Unmarshal([]byte(rawAction), &ua)
+				if err != nil {
+					return "", fmt.Errorf("Could not create building upgrade action from data \"%s\" (err: %v)", rawAction, err)
+				}
+
+				// Create the upgrade action.
+				err = s.upgradeAction.CreateBuildingAction(&ua)
+
+				if err != nil {
+					return "", fmt.Errorf("Could not register building upgrade action from data \"%v\" (err: %v)", ua, err)
+				}
+
+				return ua.ID, nil
+			},
 			s.log,
 		},
 		s.log,
@@ -144,7 +171,25 @@ func (s *server) registerTechnologyAction() http.HandlerFunc {
 		&actionCreator{
 			"action/technology",
 			"actions/technologies",
-			s.upgradeAction,
+			func(rawAction []byte) (string, error) {
+				// First unmarshal the input data into a valid struct
+				// that can be used to register a technology upgrade.
+				var ua data.TechnologyUpgradeAction
+
+				err := json.Unmarshal([]byte(rawAction), &ua)
+				if err != nil {
+					return "", fmt.Errorf("Could not create technology upgrade action from data \"%s\" (err: %v)", rawAction, err)
+				}
+
+				// Create the upgrade action.
+				err = s.upgradeAction.CreateTechnologyAction(&ua)
+
+				if err != nil {
+					return "", fmt.Errorf("Could not register technology upgrade action from data \"%v\" (err: %v)", ua, err)
+				}
+
+				return ua.ID, nil
+			},
 			s.log,
 		},
 		s.log,
@@ -167,7 +212,25 @@ func (s *server) registerShipAction() http.HandlerFunc {
 		&actionCreator{
 			"action/ship",
 			"actions/ships",
-			s.upgradeAction,
+			func(rawAction []byte) (string, error) {
+				// First unmarshal the input data into a valid struct
+				// that can be used to register a ship upgrade.
+				var ua data.ShipUpgradeAction
+
+				err := json.Unmarshal([]byte(rawAction), &ua)
+				if err != nil {
+					return "", fmt.Errorf("Could not create ship upgrade action from data \"%s\" (err: %v)", rawAction, err)
+				}
+
+				// Create the upgrade action.
+				err = s.upgradeAction.CreateShipAction(&ua)
+
+				if err != nil {
+					return "", fmt.Errorf("Could not register ship upgrade action from data \"%v\" (err: %v)", ua, err)
+				}
+
+				return ua.ID, nil
+			},
 			s.log,
 		},
 		s.log,
@@ -190,7 +253,25 @@ func (s *server) registerDefenseAction() http.HandlerFunc {
 		&actionCreator{
 			"action/defense",
 			"actions/defenses",
-			s.upgradeAction,
+			func(rawAction []byte) (string, error) {
+				// First unmarshal the input data into a valid struct
+				// that can be used to register a defense upgrade.
+				var ua data.DefenseUpgradeAction
+
+				err := json.Unmarshal([]byte(rawAction), &ua)
+				if err != nil {
+					return "", fmt.Errorf("Could not create defense upgrade action from data \"%s\" (err: %v)", rawAction, err)
+				}
+
+				// Create the upgrade action.
+				err = s.upgradeAction.CreateDefenseAction(&ua)
+
+				if err != nil {
+					return "", fmt.Errorf("Could not register defense upgrade action from data \"%v\" (err: %v)", ua, err)
+				}
+
+				return ua.ID, nil
+			},
 			s.log,
 		},
 		s.log,

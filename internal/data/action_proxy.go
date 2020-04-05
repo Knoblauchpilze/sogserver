@@ -113,7 +113,13 @@ func (p *ActionProxy) CreateBuildingAction(action *BuildingUpgradeAction) error 
 		action.ID = uuid.New().String()
 	}
 
-	return p.createAction(action, "create_building_upgrade_action")
+	err := p.createAction(action, "create_building_upgrade_action")
+
+	if err == nil {
+		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d on \"%s\"", action.BuildingID, action.Level, action.PlanetID))
+	}
+
+	return err
 }
 
 // CreateTechnologyAction :
@@ -135,7 +141,13 @@ func (p *ActionProxy) CreateTechnologyAction(action *TechnologyUpgradeAction) er
 		action.ID = uuid.New().String()
 	}
 
-	return p.createAction(action, "create_technology_upgrade_action")
+	err := p.createAction(action, "create_technology_upgrade_action")
+
+	if err == nil {
+		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d for \"%s\"", action.TechnologyID, action.Level, action.PlayerID))
+	}
+
+	return err
 }
 
 // CreateShipAction :
@@ -157,7 +169,13 @@ func (p *ActionProxy) CreateShipAction(action *ShipUpgradeAction) error {
 		action.ID = uuid.New().String()
 	}
 
-	return p.createAction(action, "create_ship_upgrade_action")
+	err := p.createAction(action, "create_ship_upgrade_action")
+
+	if err == nil {
+		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to build \"%s\" on \"%s\"", action.ShipID, action.PlanetID))
+	}
+
+	return err
 }
 
 // CreateDefenseAction :
@@ -179,5 +197,12 @@ func (p *ActionProxy) CreateDefenseAction(action *DefenseUpgradeAction) error {
 		action.ID = uuid.New().String()
 	}
 
-	return p.createAction(action, "create_defense_upgrade_action")
+	// TODO: Actually create the scripts.
+	err := p.createAction(action, "create_defense_upgrade_action")
+
+	if err == nil {
+		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to build \"%s\" on \"%s\"", action.DefenseID, action.PlanetID))
+	}
+
+	return err
 }

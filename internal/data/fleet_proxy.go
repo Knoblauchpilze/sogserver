@@ -308,7 +308,7 @@ func (p *FleetProxy) Create(fleet *Fleet) error {
 	}
 
 	// Fetchthe universe related to the fleet to create.
-	uni, err := p.fetchUniverse(fleet.ID)
+	uni, err := p.fetchUniverse(fleet.UniverseID)
 	if err != nil {
 		return fmt.Errorf("Could not create fleet \"%s\", unable to fetch universe (err: %v)", fleet.ID, err)
 	}
@@ -339,63 +339,22 @@ func (p *FleetProxy) Create(fleet *Fleet) error {
 
 // fetchUniverse :
 // Used to fetch the universe from the DB. The input identifier
-// is meant to represent a fleet in a universe. We will have to
-// handle the fact that it is not directly possible to fetch a
-// universe from a fleet in order to retrieve the universe that
-// is linked to it.
+// is meant to represent a universe registered in the DB. We
+// will make sure that it can be fetched and that a single item
+// is matching in the DB.
 // In case no universe can be found an error is returned.
 //
-// The `fleet` defines the index of the fleet for which parent
-// universe should be fetched.
+// The `id` defines the index of the universe to fetch.
 //
 // Returns the universe corresponding to the input identifier
 // along with any errors.
-func (p *FleetProxy) fetchUniverse(fleet string) (Universe, error) {
-	// Create the query to fetch the universe from the fleet's
-	// identifier.
-	props := "uni"
-	table := "fleets"
-	where := fmt.Sprintf("id='%s'", fleet)
-
-	query := fmt.Sprintf("select %s from %s where %s", props, table, where)
-
-	fmt.Println(fmt.Sprintf("Query: \"%s\"", query))
-
-	rows, err := p.dbase.DBQuery(query)
-
-	// Check for errors.
-	if err != nil {
-		return Universe{}, fmt.Errorf("Could not query DB to fetch fleet \"%s\" details (err: %v)", fleet, err)
-	}
-
-	// Retrieve the universes.
-	unisIDs := make([]string, 0)
-	var uniID string
-
-	for rows.Next() {
-		err = rows.Scan(
-			&uniID,
-		)
-
-		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for universe (err: %v)", err))
-			continue
-		}
-
-		unisIDs = append(unisIDs, uniID)
-	}
-
-	// Theoretically we should obtain a single universe.
-	if len(unisIDs) != 1 {
-		return Universe{}, fmt.Errorf("Fetched %d universe(s) related to fleet \"%s\", expected a single one", len(unisIDs), fleet)
-	}
-
-	// We can now fetch the universe from the DB.
+func (p *FleetProxy) fetchUniverse(id string) (Universe, error) {
+	// Create the db filters from the input identifier.
 	filters := make([]DBFilter, 1)
 
 	filters[0] = DBFilter{
 		"id",
-		[]string{unisIDs[0]},
+		[]string{id},
 	}
 
 	unis, err := p.uniProxy.Universes(filters)
@@ -405,9 +364,9 @@ func (p *FleetProxy) fetchUniverse(fleet string) (Universe, error) {
 	if err != nil {
 		return Universe{}, err
 	}
-	if len(unis) > 1 {
-		err = fmt.Errorf("Retrieved %d universes for id \"%s\"", len(unis), unisIDs[0])
+	if len(unis) != 1 {
+		return Universe{}, fmt.Errorf("Retrieved %d universes for id \"%s\" (expected 1)", len(unis), id)
 	}
 
-	return unis[0], err
+	return unis[0], nil
 }

@@ -703,9 +703,9 @@ func (p *PlanetProxy) generatePlanet(player string, coord *Coordinate, uni Unive
 		make([]Defense, 0),
 	}
 
-	p.generateResources(&planet)
+	err := p.generateResources(&planet)
 
-	return planet, nil
+	return planet, err
 }
 
 // generatePlanetSize :
@@ -929,10 +929,27 @@ func (p *PlanetProxy) generatePlanetSize(planet *Planet) {
 //
 // The `planet` defines the planet for which resources should
 // be generated.
-func (p *PlanetProxy) generateResources(planet *Planet) {
+//
+// Returns any error.
+func (p *PlanetProxy) generateResources(planet *Planet) error {
 	// Discard empty planets.
 	if planet == nil {
-		return
+		return fmt.Errorf("Unable to generate resources for invalid planet")
+	}
+
+	// Prevent creation of planets in case no resources are
+	// available (because none have been retrieved from the
+	// DB).
+	// If this is the case we will first attempt to fetch
+	// the resources from the DB and return an error is it
+	// fails.
+	if len(p.resources) == 0 {
+		resources, err := initFromDB(p.dbase, p.log)
+		if err != nil {
+			return fmt.Errorf("Unable to generate resources for planet, none defined")
+		}
+
+		p.resources = resources
 	}
 
 	// We will consider that we have a certain number of each
@@ -960,4 +977,6 @@ func (p *PlanetProxy) generateResources(planet *Planet) {
 			Amount: 500,
 		},
 	)
+
+	return nil
 }

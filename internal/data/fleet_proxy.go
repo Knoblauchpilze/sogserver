@@ -10,6 +10,24 @@ import (
 	"github.com/google/uuid"
 )
 
+// shipInFleetForDB :
+// Specialization of the `ShipInFleet` data structure which
+// allows to append the missing info to be easily inserted
+// into the DB.
+// We basically add an identifier for the fleet component
+// of this ship and an identifier.
+//
+// The `ID` defines the identifier of this fleet component
+// ship.
+//
+// The `FleetCompID` defines the identifier of the fleet
+// component describing this ship.
+type shipInFleetForDB struct {
+	ID          string `json:"id"`
+	FleetCompID string `json:"fleet_element"`
+	ShipInFleet
+}
+
 // FleetProxy :
 // Intended as a wrapper to access properties of fleets and
 // retrieve data from the database. This helps hiding the
@@ -101,7 +119,6 @@ func (p *FleetProxy) Fleets(filters []DBFilter) ([]Fleet, error) {
 		"target_galaxy",
 		"target_solar_system",
 		"target_position",
-		"arrival_time",
 	}
 
 	table := "fleets"
@@ -137,7 +154,6 @@ func (p *FleetProxy) Fleets(filters []DBFilter) ([]Fleet, error) {
 			&fleet.Name,
 			&fleet.UniverseID,
 			&fleet.Objective,
-			// TODO: This may fail, see when we have a real fleet.
 			&fleet.ArrivalTime,
 			&fleet.Galaxy,
 			&fleet.System,
@@ -430,11 +446,6 @@ func (p *FleetProxy) CreateComponent(comp *FleetComponent) error {
 		return fmt.Errorf("Could not create fleet component for fleet \"%s\", player belongs to \"%s\" but fleet is in \"%s\"", comp.FleetID, player.UniverseID, uni.ID)
 	}
 
-	// Validate that the input data describe a valid fleet.
-	if !fleet.valid(uni) {
-		return fmt.Errorf("Could not create fleet component for fleet \"%s\", some properties are invalid", comp.FleetID)
-	}
-
 	// Marshal the input fleet component to pass it to the import
 	// scripts. We need to separate the fleet from the ships that
 	// compose it.
@@ -444,13 +455,25 @@ func (p *FleetProxy) CreateComponent(comp *FleetComponent) error {
 	}
 	jsonForComp := string(data)
 
-	data, err = json.Marshal(comp.Ships)
+	// Convert the input ships to something that can be directly
+	// inserted into the DB. We need to manually create the ID
+	// and assign the identifier of the parent fleet component.
+	shipsForDB := make([]shipInFleetForDB, len(comp.Ships))
+
+	for id, ship := range comp.Ships {
+		shipsForDB[id] = shipInFleetForDB{
+			ID:          uuid.New().String(),
+			FleetCompID: comp.ID,
+			ShipInFleet: ship,
+		}
+	}
+
+	data, err = json.Marshal(shipsForDB)
 	if err != nil {
 		return fmt.Errorf("Could not create fleet component for fleet \"%s\" (err: %v)", comp.FleetID, err)
 	}
 	jsonForShips := string(data)
 
-	// TODO: Create this script.
 	query := fmt.Sprintf("select * from create_fleet_component('%s', '%s')", jsonForComp, jsonForShips)
 	_, err = p.dbase.DBExecute(query)
 

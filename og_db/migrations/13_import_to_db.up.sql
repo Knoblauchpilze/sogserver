@@ -58,3 +58,21 @@ BEGIN
   INSERT INTO construction_actions_defenses SELECT * FROM json_populate_record(null::construction_actions_defenses, upgrade);
 END
 $$ LANGUAGE plpgsql;
+
+-- Import fleets in the relevant table.
+CREATE OR REPLACE FUNCTION create_fleet(inputs json) RETURNS VOID AS $$
+BEGIN
+  INSERT INTO fleets SELECT * FROM json_populate_record(null::fleets, inputs);
+END
+$$ LANGUAGE plpgsql;
+
+-- Import fleet components in the relevant table.
+CREATE OR REPLACE FUNCTION create_fleet_component(component json, ships json) RETURNS VOID AS $$
+BEGIN
+  -- Insert the fleet element.
+  INSERT INTO fleet_elements SELECT * FROM json_populate_record(null::fleet_elements, component);
+
+  -- Insert the ships for this fleet element.
+  INSERT INTO fleet_ships SELECT * FROM json_populate_recordset(null::fleet_ships, ships);
+END
+$$ LANGUAGE plpgsql;

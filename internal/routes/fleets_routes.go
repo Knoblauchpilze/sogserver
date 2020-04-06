@@ -244,14 +244,20 @@ func (fc *fleetCreator) createFleet(raw string) (string, error) {
 // rather than a complete fleet. The component should refer to an
 // existing fleet which will be verified before inserting the input
 // data into the DB.
+// The user should provide the fleet identifier linked to this comp
+// so as to force it in the input data.
 //
 // The `raw` represents the data assumed to be a fleet component. We
 // will try to unmarshal it into the relevant structure and perform
 // the insertion in the DB.
 //
+// The `fleetID` defines the identifier of the fleet for which this
+// component should be created. This will be forced in the data to
+// retrieve from the route.
+//
 // Returns the identifier of the fleet component that was created
 // along with any errors.
-func (fc *fleetCreator) createFleetComponent(raw string) (string, error) {
+func (fc *fleetCreator) createFleetComponent(raw string, fleetID string) (string, error) {
 	// Try to unmarshal the data into a valid `FleetComponent` struct.
 	var comp data.FleetComponent
 
@@ -259,6 +265,9 @@ func (fc *fleetCreator) createFleetComponent(raw string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Could not create fleet component from data \"%s\" (err: %v)", raw, err)
 	}
+
+	// Force the fleet's identifier.
+	comp.FleetID = fleetID
 
 	// Create the fleet component.
 	err = fc.proxy.CreateComponent(&comp)
@@ -294,9 +303,15 @@ func (fc *fleetCreator) Create(input handlers.RouteData) ([]string, error) {
 	// will include the identifier of the fleet to which the component
 	// should be added.
 	creationMode := fleetMode
+	var fleetID string
 
 	if len(input.RouteElems) == 2 && input.RouteElems[1] == "component" {
+		// Update the fleet creation mode and update the identifier of
+		// the fleet to make sure that we're creating the component for
+		// the right fleet.
 		creationMode = fleetComponentMode
+
+		fleetID = input.RouteElems[0]
 	}
 
 	var res string
@@ -309,7 +324,7 @@ func (fc *fleetCreator) Create(input handlers.RouteData) ([]string, error) {
 		case fleetMode:
 			res, err = fc.createFleet(rawData)
 		case fleetComponentMode:
-			res, err = fc.createFleetComponent(rawData)
+			res, err = fc.createFleetComponent(rawData, fleetID)
 		}
 
 		if err != nil {

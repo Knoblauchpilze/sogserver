@@ -1,5 +1,9 @@
 
+-- Drop the fleet components import function.
+DROP FUNCTION create_fleet_component(component json, ships json);
 
+-- Drop the fleet import function.
+DROP FUNCTION create_fleet(inputs json);
 
 -- Drop the defense upgrade insertion script.
 DROP FUNCTION create_defense_upgrade_action(upgrade json);

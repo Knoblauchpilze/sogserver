@@ -28,10 +28,16 @@ import (
 // part of the behavior related to universes typically
 // when fetching a universe into which a fleet should
 // be created.
+//
+// The `playerProxy` defines a proxy allowing to access
+// a part of the behavior related to universes typically
+// when fetching a player for which a fleet component
+// should be created.
 type FleetProxy struct {
-	dbase    *db.DB
-	log      logger.Logger
-	uniProxy UniverseProxy
+	dbase       *db.DB
+	log         logger.Logger
+	uniProxy    UniverseProxy
+	playerProxy PlayerProxy
 }
 
 // NewFleetProxy :
@@ -46,12 +52,16 @@ type FleetProxy struct {
 // we can have an idea of the activity of this component.
 // One possible example is for timing the requests.
 //
-// The `uniProxy` defines a proxy that can be used to
+// The `unis` defines a proxy that can be used to
 // fetch information about the universes when creating
 // fleets.
 //
+// The `players` defines a proxy that can be used to fetch
+// information about the players when creating the fleet
+// components.
+//
 // Returns the created proxy.
-func NewFleetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) FleetProxy {
+func NewFleetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy, players PlayerProxy) FleetProxy {
 	if dbase == nil {
 		panic(fmt.Errorf("Cannot create fleets proxy from invalid DB"))
 	}
@@ -60,6 +70,7 @@ func NewFleetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) FleetPro
 		dbase,
 		log,
 		unis,
+		players,
 	}
 }
 
@@ -307,7 +318,7 @@ func (p *FleetProxy) Create(fleet *Fleet) error {
 		fleet.ID = uuid.New().String()
 	}
 
-	// Fetchthe universe related to the fleet to create.
+	// Fetch the universe related to the fleet to create.
 	uni, err := p.fetchUniverse(fleet.UniverseID)
 	if err != nil {
 		return fmt.Errorf("Could not create fleet \"%s\", unable to fetch universe (err: %v)", fleet.ID, err)
@@ -385,6 +396,134 @@ func (p *FleetProxy) fetchUniverse(id string) (Universe, error) {
 // Returns any error in case the component cannot be added to
 // the fleet for some reasons.
 func (p *FleetProxy) CreateComponent(comp *FleetComponent) error {
-	// TODO: Handle this.
-	return fmt.Errorf("Not implemented")
+	// Assign a valid identifier if this is not already the case.
+	if comp.ID == "" {
+		comp.ID = uuid.New().String()
+	}
+
+	// Fetch the fleet related to this component.
+	fleet, err := p.fetchFleet(comp.FleetID)
+	if err != nil {
+		return fmt.Errorf("Could not create fleet component for fleet \"%s\" (err: %v)", comp.FleetID, err)
+	}
+
+	// Fetch the player related to the fleet component.
+	player, err := p.fetchPlayer(comp.PlayerID)
+	if err != nil {
+		return fmt.Errorf("Could not create fleet component for fleet \"%s\" (err: %v)", comp.FleetID, err)
+	}
+
+	// Fetch the universe related to the fleet to create.
+	uni, err := p.fetchUniverse(fleet.UniverseID)
+	if err != nil {
+		return fmt.Errorf("Could not create fleet component for fleet \"%s\" (err: %v)", comp.ID, err)
+	}
+
+	// Check validity of the input fleet component.
+	if !comp.valid(uni) {
+		return fmt.Errorf("Could not create fleet component for fleet \"%s\", some properties are invalid", comp.FleetID)
+	}
+
+	// In case the player does not belong to the same universe
+	// as the fleet, this is a problem.
+	if uni.ID != player.UniverseID {
+		return fmt.Errorf("Could not create fleet component for fleet \"%s\", player belongs to \"%s\" but fleet is in \"%s\"", comp.FleetID, player.UniverseID, uni.ID)
+	}
+
+	// Validate that the input data describe a valid fleet.
+	if !fleet.valid(uni) {
+		return fmt.Errorf("Could not create fleet component for fleet \"%s\", some properties are invalid", comp.FleetID)
+	}
+
+	// Marshal the input fleet component to pass it to the import
+	// scripts. We need to separate the fleet from the ships that
+	// compose it.
+	data, err := json.Marshal(comp)
+	if err != nil {
+		return fmt.Errorf("Could not create fleet component for fleet \"%s\" (err: %v)", comp.FleetID, err)
+	}
+	jsonForComp := string(data)
+
+	data, err = json.Marshal(comp.Ships)
+	if err != nil {
+		return fmt.Errorf("Could not create fleet component for fleet \"%s\" (err: %v)", comp.FleetID, err)
+	}
+	jsonForShips := string(data)
+
+	// TODO: Create this script.
+	query := fmt.Sprintf("select * from create_fleet_component('%s', '%s')", jsonForComp, jsonForShips)
+	_, err = p.dbase.DBExecute(query)
+
+	// Check for errors.
+	if err != nil {
+		return fmt.Errorf("Could not import fleet component for fleet \"%s\" (err: %s)", comp.FleetID, err)
+	}
+
+	// All is well.
+	return nil
+}
+
+// fetchFleet :
+// Used to fetch the fleet described by the input identifier in
+// the DB. It is used when a fleet component should be added to
+// an existing fleet. We will check that there is one and only
+// one fleet matching the input identifier to return it.
+//
+// The `id` defines the identifier of the fleet to fetch.
+//
+// Returns the fleet corresponding to the identifier along with
+// any error.
+func (p *FleetProxy) fetchFleet(id string) (Fleet, error) {
+	// Create the db filters from the input identifier.
+	filters := make([]DBFilter, 1)
+
+	filters[0] = DBFilter{
+		"id",
+		[]string{id},
+	}
+
+	fleets, err := p.Fleets(filters)
+
+	// Check for errors and cases where we retrieve several
+	// fleets.
+	if err != nil {
+		return Fleet{}, err
+	}
+	if len(fleets) != 1 {
+		return Fleet{}, fmt.Errorf("Retrieved %d fleets for id \"%s\" (expected 1)", len(fleets), id)
+	}
+
+	return fleets[0], nil
+}
+
+// fetchPlayer :
+// Used to fetch the player described by the input identifier in
+// the internal DB. It is mostly used to check consistency when
+// performing the creation of a new fleet component for a fleet.
+//
+// The `id` defines the identifier of the player to fetch.
+//
+// Returns the player corresponding to the identifier along with
+// any error.
+func (p *FleetProxy) fetchPlayer(id string) (Player, error) {
+	// Create the db filters from the input identifier.
+	filters := make([]DBFilter, 1)
+
+	filters[0] = DBFilter{
+		"id",
+		[]string{id},
+	}
+
+	players, err := p.playerProxy.Players(filters)
+
+	// Check for errors and cases where we retrieve several
+	// players.
+	if err != nil {
+		return Player{}, err
+	}
+	if len(players) != 1 {
+		return Player{}, fmt.Errorf("Retrieved %d players for id \"%s\" (expected 1)", len(players), id)
+	}
+
+	return players[0], nil
 }

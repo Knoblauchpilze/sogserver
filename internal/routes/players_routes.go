@@ -18,7 +18,7 @@ import (
 // The `proxy` defines the proxy to use to interact with the DB
 // when fetching the data.
 type playerAdapter struct {
-	proxy data.PlayersProxy
+	proxy data.PlayerProxy
 }
 
 // Route :
@@ -143,7 +143,7 @@ func (pa *playerAdapter) Data(filters []handlers.Filter) (interface{}, error) {
 // The `log` allows to notify problems and information during a
 // player's creation.
 type playerCreator struct {
-	playerProxy data.PlayersProxy
+	playerProxy data.PlayerProxy
 	planetProxy data.PlanetProxy
 	log         logger.Logger
 }

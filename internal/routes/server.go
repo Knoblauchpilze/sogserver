@@ -69,7 +69,7 @@ type server struct {
 	ships         data.ShipProxy
 	defenses      data.DefenseProxy
 	planets       data.PlanetProxy
-	players       data.PlayersProxy
+	players       data.PlayerProxy
 	fleets        data.FleetProxy
 	upgradeAction data.ActionProxy
 	log           logger.Logger
@@ -94,6 +94,7 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 	}
 
 	uniProxy := data.NewUniverseProxy(dbase, log)
+	playerProxy := data.NewPlayerProxy(dbase, log)
 
 	return server{
 		port,
@@ -104,8 +105,8 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 		data.NewShipProxy(dbase, log),
 		data.NewDefenseProxy(dbase, log),
 		data.NewPlanetProxy(dbase, log, uniProxy),
-		data.NewPlayersProxy(dbase, log),
-		data.NewFleetProxy(dbase, log, uniProxy),
+		playerProxy,
+		data.NewFleetProxy(dbase, log, uniProxy, playerProxy),
 		data.NewActionProxy(dbase, log),
 		log,
 	}

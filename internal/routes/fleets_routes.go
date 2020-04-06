@@ -9,6 +9,16 @@ import (
 	"oglike_server/pkg/logger"
 )
 
+// mode:
+// Describes the possible fleet creation modes. We either
+// want to create a fleet or a fleet component.
+type mode string
+
+const (
+	fleetMode          mode = "fleet"
+	fleetComponentMode mode = "fleet component"
+)
+
 // fleetAdapter :
 // Implements the interface requested by the general handler in
 // the `handlers` package. The main functions are describing the
@@ -197,6 +207,68 @@ func (fc *fleetCreator) DataKey() string {
 	return "fleet-data"
 }
 
+// createFleet :
+// Used to perform the creation of a fleet from the data described
+// in input. We will unmarshal the input data into a fleet and then
+// call the dedicated handler on the `fleetProxy` to perform the
+// creation of the fleet.
+// In case the creation cannot be performed an empty string is used
+// as return value.
+//
+// The `raw` represents the data assumed to be a fleet. We will try
+// to unmarshal it into a `Fleet` structure and perform the insertion
+// in the DB.
+//
+// Returns the identifier of the fleet that was created along with
+// any errors.
+func (fc *fleetCreator) createFleet(raw string) (string, error) {
+	// Try to unmarshal the data into a valid `Fleet` struct.
+	var fleet data.Fleet
+
+	err := json.Unmarshal([]byte(raw), &fleet)
+	if err != nil {
+		return "", fmt.Errorf("Could not create fleet from data \"%s\" (err: %v)", raw, err)
+	}
+
+	// Create the fleet.
+	err = fc.proxy.Create(&fleet)
+	if err != nil {
+		return "", fmt.Errorf("Could not register fleet from data \"%s\" (err: %v)", raw, err)
+	}
+
+	return fleet.ID, nil
+}
+
+// createFleetComponent :
+// Similar to the `createFleet` but used to create a fleet component
+// rather than a complete fleet. The component should refer to an
+// existing fleet which will be verified before inserting the input
+// data into the DB.
+//
+// The `raw` represents the data assumed to be a fleet component. We
+// will try to unmarshal it into the relevant structure and perform
+// the insertion in the DB.
+//
+// Returns the identifier of the fleet component that was created
+// along with any errors.
+func (fc *fleetCreator) createFleetComponent(raw string) (string, error) {
+	// Try to unmarshal the data into a valid `FleetComponent` struct.
+	var comp data.FleetComponent
+
+	err := json.Unmarshal([]byte(raw), &comp)
+	if err != nil {
+		return "", fmt.Errorf("Could not create fleet component from data \"%s\" (err: %v)", raw, err)
+	}
+
+	// Create the fleet component.
+	err = fc.proxy.CreateComponent(&comp)
+	if err != nil {
+		return "", fmt.Errorf("Could not register fleet component from data \"%s\" (err: %v)", raw, err)
+	}
+
+	return comp.ID, nil
+}
+
 // Create :
 // Implementation of the method to perform the creation of the data
 // related to the new fleets. We will use the internal proxy to
@@ -209,8 +281,6 @@ func (fc *fleetCreator) DataKey() string {
 func (fc *fleetCreator) Create(input handlers.RouteData) ([]string, error) {
 	// We need to iterate over the data retrieved from the route and
 	// create fleets from it.
-	var fleet data.Fleet
-	// var comp data.FleetComponent
 	resources := make([]string, 0)
 
 	// Prevent request with no data.
@@ -223,29 +293,33 @@ func (fc *fleetCreator) Create(input handlers.RouteData) ([]string, error) {
 	// fleet. The second case is specified by the fact that the route
 	// will include the identifier of the fleet to which the component
 	// should be added.
+	creationMode := fleetMode
+
 	if len(input.RouteElems) == 2 && input.RouteElems[1] == "component" {
-		// TODO: Should trigger the component creation behavior
-		fmt.Println(fmt.Sprintf("Coucou: %v", input))
+		creationMode = fleetComponentMode
 	}
 
+	var res string
+	var err error
+
 	for _, rawData := range input.Data {
-		// Try to unmarshal the data into a valid `Fleet` struct.
-		err := json.Unmarshal([]byte(rawData), &fleet)
-		if err != nil {
-			fc.log.Trace(logger.Error, fmt.Sprintf("Could not create fleet from data \"%s\" (err: %v)", rawData, err))
-			continue
+		// Perform the creation of either the fleet or the fleet comp
+		// depending on what is requested from the input route.
+		switch creationMode {
+		case fleetMode:
+			res, err = fc.createFleet(rawData)
+		case fleetComponentMode:
+			res, err = fc.createFleetComponent(rawData)
 		}
 
-		// Create the fleet.
-		err = fc.proxy.Create(&fleet)
 		if err != nil {
-			fc.log.Trace(logger.Error, fmt.Sprintf("Could not register fleet from data \"%s\" (err: %v)", rawData, err))
+			fc.log.Trace(logger.Error, fmt.Sprintf("Caught error while creating %s (err: %v)", creationMode, err))
 			continue
 		}
 
 		// Successfully created an fleet.
-		fc.log.Trace(logger.Notice, fmt.Sprintf("Created new fleet \"%s\" with name \"%s\"", fleet.ID, fleet.Name))
-		resources = append(resources, fleet.ID)
+		fc.log.Trace(logger.Notice, fmt.Sprintf("Created new %s \"%s\"", creationMode, res))
+		resources = append(resources, res)
 	}
 
 	// Return the path to the resources created during the process.

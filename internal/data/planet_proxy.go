@@ -150,9 +150,8 @@ type PlanetProxy struct {
 // we can have an idea of the activity of this component.
 // One possible example is for timing the requests.
 //
-// The `uniProxy` defines a proxy that can be used to
-// fetch information about the universes when creating
-// planets.
+// The `unis` defines a proxy that can be used to fetch
+// information about the universes when creating planets.
 //
 // Returns the created proxy.
 func NewPlanetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) PlanetProxy {

@@ -99,8 +99,15 @@ func (p *Player) valid() bool {
 // fleet component are not obviously wrong. This method checks
 // that the identifier provided for individual ships aren't
 // empty or ill-formed and that the amount of each one is at
-// least structly positivie.
-func (fc *FleetComponent) valid() bool {
+// least strictly positive.
+//
+// The `uni` represents the universe which should be attached
+// to the fleet and will be used to verify that the starting
+// position of the fleet component is consistent with possible
+// coordinates in the universe.
+//
+// Returns `true` if the fleet component is valid.
+func (fc *FleetComponent) valid(uni Universe) bool {
 	// Check own identifier.
 	if !validUUID(fc.ID) {
 		return false
@@ -111,6 +118,17 @@ func (fc *FleetComponent) valid() bool {
 		return false
 	}
 	if !validUUID(fc.PlayerID) {
+		return false
+	}
+
+	// Check the coordinates against the universe.
+	if fc.Galaxy < 0 || fc.Galaxy >= uni.GalaxiesCount {
+		return false
+	}
+	if fc.System < 0 || fc.System >= uni.GalaxySize {
+		return false
+	}
+	if fc.Position < 0 || fc.Position >= uni.SolarSystemSize {
 		return false
 	}
 

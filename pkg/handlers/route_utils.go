@@ -96,6 +96,31 @@ func extractRoute(r *http.Request, prefix string) (string, error) {
 	return strings.TrimPrefix(route, prefix), nil
 }
 
+// tokenizeRoute :
+// Used to extract the meaningful components of the route provided
+// in input and separate them on the '/' character. We will also
+// ignore the query parameters that might be existing at the end of
+// the route.
+// The second string corresponds to the query parameters stripped
+// from their '?' leading character if any.
+//
+// The `route` defines a string that might contain query parameters
+// and '/' characters which will be used to tokenize it.
+//
+// Returns the list of tokens extracted from the route.
+func tokenizeRoute(route string) ([]string, string) {
+	// The extra path for the route is specified until we reach a '?' character.
+	// After that come the query parameters.
+	beginQueryParams := strings.Index(route, "?")
+	if beginQueryParams < 0 {
+		// No query parameters found for this request: the `route` path defines
+		// the extra route path.
+		return splitRouteElements(route), ""
+	}
+
+	return splitRouteElements(route[:beginQueryParams]), route[beginQueryParams+1:]
+}
+
 // extractRouteVars :
 // This facet of the server allows to conveniently extract the information
 // available in the route used to contact the server. Using the input route
@@ -130,20 +155,16 @@ func extractRouteVars(route string, r *http.Request) (RouteVars, error) {
 
 	// The extra path for the route is specified until we reach a '?' character.
 	// After that come the query parameters.
-	beginQueryParams := strings.Index(extra, "?")
-	if beginQueryParams < 0 {
+	var queryStr string
+	vars.RouteElems, queryStr = tokenizeRoute(extra)
+
+	if len(queryStr) == 0 {
 		// No query parameters found for this request: the `extra` path defines
 		// the extra route path.
-		vars.RouteElems = splitRouteElements(extra)
-
 		return vars, nil
 	}
 
-	// Extract query parameters and the route (which is basically the part of
-	// the string before the beginning of the query params).
-	vars.RouteElems = splitRouteElements(extra[:beginQueryParams])
-	queryStr := extra[beginQueryParams+1:]
-
+	// Some query parameters are provided in the input route: analyze them.
 	params, err := url.ParseQuery(queryStr)
 	if err != nil {
 		return vars, fmt.Errorf("Unable to parse query parameters in route \"%s\" (err: %v)", route, err)
@@ -168,6 +189,10 @@ func extractRouteVars(route string, r *http.Request) (RouteVars, error) {
 // if the request can define such values but the result will be empty
 // if this is not the case.
 //
+// The `route` represents the common route prefix that should be ignored
+// to extract parameters. We will try to match this pattern in the route
+// and then extract information after that.
+//
 // The `dataKey` is used to form values from the request. The input
 // request may define several data which might be parsed by different
 // parts of the server. This method only extracts the ones that are
@@ -178,18 +203,25 @@ func extractRouteVars(route string, r *http.Request) (RouteVars, error) {
 // extracted.
 //
 // Returns the route's data along with any errors.
-func extractRouteData(dataKey string, r *http.Request) (RouteData, error) {
+func extractRouteData(route string, dataKey string, r *http.Request) (RouteData, error) {
 	elems := RouteData{
+		make([]string, 0),
 		make([]string, 0),
 	}
 
-	route := r.URL.String()
+	// Extract the route from the input request.
+	extra, err := extractRoute(r, route)
+	if err != nil {
+		return elems, fmt.Errorf("Could not extract vars from route \"%s\" (err: %v)", route, err)
+	}
+
+	elems.RouteElems, _ = tokenizeRoute(extra)
 
 	// Fetch the data from the input request: as we want to allow
 	// for multiple instances of the same key we need to call the
 	// `ParseForm` method (as described in the documentation of
 	// the `FormValue` method).
-	err := r.ParseForm()
+	err = r.ParseForm()
 	if err != nil {
 		return elems, fmt.Errorf("Could not parse data for key \"%s\" from route (err: %v)", route, err)
 	}

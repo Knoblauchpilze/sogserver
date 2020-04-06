@@ -72,11 +72,12 @@ func notifyCreation(resource string, w http.ResponseWriter) {
 func ServeCreationRoute(endpoint CreationEndpointDesc, log logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		routeName := sanitizeRoute(endpoint.Route())
+		route := fmt.Sprintf("/%s", routeName)
 
 		// We want to allow queries where the data is provided with a key
 		// provided by the endpoint itself. Perform the extraction of the
 		// data from the request.
-		data, err := extractRouteData(endpoint.DataKey(), r)
+		data, err := extractRouteData(route, endpoint.DataKey(), r)
 		if err != nil {
 			panic(fmt.Errorf("Could not fetch data from request for route \"%s\" (err: %v)", routeName, err))
 		}

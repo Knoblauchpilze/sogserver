@@ -210,11 +210,22 @@ func (fc *fleetCreator) Create(input handlers.RouteData) ([]string, error) {
 	// We need to iterate over the data retrieved from the route and
 	// create fleets from it.
 	var fleet data.Fleet
+	// var comp data.FleetComponent
 	resources := make([]string, 0)
 
 	// Prevent request with no data.
 	if len(input.Data) == 0 {
 		return resources, fmt.Errorf("Could not perform creation of fleet with no data")
+	}
+
+	// We can have two main scenarios: either the input request asks
+	// to create a new fleet or to add a component to an existing
+	// fleet. The second case is specified by the fact that the route
+	// will include the identifier of the fleet to which the component
+	// should be added.
+	if len(input.RouteElems) == 2 && input.RouteElems[1] == "component" {
+		// TODO: Should trigger the component creation behavior
+		fmt.Println(fmt.Sprintf("Coucou: %v", input))
 	}
 
 	for _, rawData := range input.Data {

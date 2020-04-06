@@ -23,7 +23,7 @@ type Values []string
 // as it was provided to target the server. Typically if the server
 // receives a request on `/universes`, the `RouteElems` will be set
 // to the empty slice. On the other hand `/universes/oberon` will
-// yield a single element `oberon` in the `RouteElems` slice..
+// yield a single element `oberon` in the `RouteElems` slice.
 //
 // The `Params` define the query parameters associated to the input
 // request. Note that in some case no parameters are provided.
@@ -39,10 +39,17 @@ type RouteVars struct {
 // It is useful to group common behavior of all the interfaces on
 // this server.
 //
+// The `RouteElems` represents the extra path added to the route
+// as it was provided to target the server. Typically if the server
+// receives a request on `/universe`, the `RouteElems` will be set
+// to the empty slice. On the other hand `/universe/oberon` will
+// yield a single element `oberon` in the `RouteElems` slice.
+//
 // The `Data` represents the data extracted from the route itself.
 // It is represented as an array of raw strings which are usually
 // unmarshalled into meaningful structures by the data creation
 // process.
 type RouteData struct {
-	Data Values
+	RouteElems []string
+	Data       Values
 }

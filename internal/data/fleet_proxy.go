@@ -370,3 +370,21 @@ func (p *FleetProxy) fetchUniverse(id string) (Universe, error) {
 
 	return unis[0], nil
 }
+
+// CreateComponent :
+// Used to perform the creation of a new component for a fleet.
+// The component should describe the player willing to join the
+// fleet along with some information about the starting position
+// and the ships involved.
+// We will make sure that the player belongs to the rigth uni,
+// that the starting position is valid compared to the actual
+// dimensions of the universe and that the fleet exists.
+//
+// The `comp` defines the fleet component to create.
+//
+// Returns any error in case the component cannot be added to
+// the fleet for some reasons.
+func (p *FleetProxy) CreateComponent(comp *FleetComponent) error {
+	// TODO: Handle this.
+	return fmt.Errorf("Not implemented")
+}

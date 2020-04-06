@@ -15,12 +15,15 @@ CREATE TABLE fleets (
     target_galaxy integer NOT NULL,
     target_solar_system integer NOT NULL,
     target_position integer NOT NULL,
-    created_at timestamp WITH TIME ZONE DEFAULT current_timestamp,
-    arrival_time timestamp WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    arrival_time TIMESTAMP WITH TIME ZONE NOT NULL,
     PRIMARY KEY (id),
     FOREIGN KEY (uni) REFERENCES universes(id),
     FOREIGN KEY (objective) REFERENCES fleet_objectives(id)
 );
+
+-- Create the trigger on the table to update the `created_at` field.
+CREATE TRIGGER update_fleets_creation BEFORE INSERT ON fleets FOR EACH ROW EXECUTE PROCEDURE update_created_at();
 
 -- Create the table grouping fleet elements with each other.
 CREATE TABLE fleet_elements (
@@ -31,10 +34,13 @@ CREATE TABLE fleet_elements (
   start_solar_system integer NOT NULL,
   start_position integer NOT NULL,
   speed numeric(3, 2) NOT NULL,
-  joined_at timestamp WITH TIME ZONE DEFAULT current_timestamp,
+  joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   FOREIGN KEY (fleet) REFERENCES fleets(id)
 );
+
+-- Create the trigger on the table to update the `joined_at` field.
+CREATE TRIGGER update_fleets_elements_creation BEFORE INSERT ON fleet_elements FOR EACH ROW EXECUTE PROCEDURE update_joined_at();
 
 -- Create the table for vessels belonging to a fleet.
 CREATE TABLE fleet_ships (

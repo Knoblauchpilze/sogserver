@@ -11,10 +11,13 @@ CREATE TABLE planets (
     solar_system integer NOT NULL,
     position integer NOT NULL,
     diameter integer NOT NULL,
-    created_at timestamp WITH TIME ZONE DEFAULT current_timestamp,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     FOREIGN KEY (player) REFERENCES players(id)
 );
+
+-- Create the trigger on the table to update the `created_at` field.
+CREATE TRIGGER update_planets_creation BEFORE INSERT ON planets FOR EACH ROW EXECUTE PROCEDURE update_created_at();
 
 -- Create the table referencing resources on each planet.
 CREATE TABLE planets_resources (

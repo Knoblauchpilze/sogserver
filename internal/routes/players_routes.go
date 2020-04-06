@@ -210,7 +210,7 @@ func (pc *playerCreator) Create(input handlers.RouteData) ([]string, error) {
 		// Choose a homeworld for this account and create it.
 		err = pc.planetProxy.CreateFor(player, nil)
 		if err != nil {
-			// Indicate that we could not create the planet for the playe. It
+			// Indicate that we could not create the planet for the player. It
 			// is not ideal because we should probably delete the player entry
 			// (because there's no associated homeworld anyway so the player
 			// will not be able to play correctly). For now though we consider
@@ -219,11 +219,11 @@ func (pc *playerCreator) Create(input handlers.RouteData) ([]string, error) {
 			// creating a `deletePlayer` method which will be needed anyways
 			// at some point.
 			pc.log.Trace(logger.Error, fmt.Sprintf("Could not create homeworld for player \"%s\" (err: %v)", player.ID, err))
+		} else {
+			// Successfully created an player.
+			pc.log.Trace(logger.Notice, fmt.Sprintf("Created new player \"%s\" with id \"%s\"", player.Name, player.ID))
+			resources = append(resources, player.ID)
 		}
-
-		// Successfully created an player.
-		pc.log.Trace(logger.Notice, fmt.Sprintf("Created new player \"%s\" with id \"%s\"", player.Name, player.ID))
-		resources = append(resources, player.ID)
 	}
 
 	// Return the path to the resources created during the process.

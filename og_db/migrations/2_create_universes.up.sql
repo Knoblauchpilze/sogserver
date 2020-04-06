@@ -3,7 +3,7 @@
 CREATE TABLE universes (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
     name text NOT NULL,
-    created_at timestamp WITH TIME ZONE DEFAULT current_timestamp,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     economic_speed integer NOT NULL,
     fleet_speed integer NOT NULL,
     research_speed integer NOT NULL,
@@ -15,3 +15,6 @@ CREATE TABLE universes (
     solar_system_size integer NOT NULL,
     PRIMARY KEY (id)
 );
+
+-- Create the trigger on the table to update the `created_at` field.
+CREATE TRIGGER update_universes_creation BEFORE INSERT ON universes FOR EACH ROW EXECUTE PROCEDURE update_created_at();

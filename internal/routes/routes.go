@@ -112,6 +112,8 @@ func (s *server) routeDefenses() {
 // serve the functionalities related to the planets registered in
 // the server.
 func (s *server) routePlanets() {
+	// TODO: Update upgrade actions (from resources, buildings, ships,
+	// defenses, fleets) for *this* planet.
 	s.route("/planets", "GET", s.listPlanets())
 	s.route("/planets/", "GET", s.listPlanets())
 }
@@ -121,6 +123,7 @@ func (s *server) routePlanets() {
 // serve functionalities related to the players registered in each
 // universe.
 func (s *server) routePlayers() {
+	// TODO: Should update the technology upgrade actions.
 	s.route("/players", "GET", s.listPlayers())
 	s.route("/players/", "GET", s.listPlayers())
 
@@ -132,6 +135,11 @@ func (s *server) routePlayers() {
 // serve functionalities related to the fleets registered in each
 // universe.
 func (s *server) routeFleets() {
+	// TODO: Should update the upgrade actions for fleets only, but
+	// it will most likely require to process fights, which in turn
+	// will require to update the planets actions because we will
+	// most likely fetch the data present on the planet onto which
+	// the fight is going on.
 	s.route("/fleets", "GET", s.listFleets())
 	s.route("/fleets/", "GET", s.listFleets())
 

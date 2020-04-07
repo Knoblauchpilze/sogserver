@@ -28,6 +28,9 @@ CREATE TABLE planets_resources (
   FOREIGN KEY (res) REFERENCES resources(id)
 );
 
+-- Create the trigger on the table to update the `updated_at` field.
+CREATE TRIGGER update_resources_refresh BEFORE UPDATE ON planets_resources FOR EACH ROW EXECUTE PROCEDURE update_updated_at();
+
 -- Create the buildings per planet table.
 CREATE TABLE planets_buildings (
   planet uuid NOT NULL,

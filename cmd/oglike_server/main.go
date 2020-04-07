@@ -14,12 +14,8 @@ import (
 
 // TODO: Construction actions.
 // TODO: Handle router to serve routes with CRUD syntax.
-// TODO: Add `updated_at` column in the `planets_resources` table which
-// will indicate when a planet has last been updated. The computation of
-// how is now present on the planet is done client-side.
 // TODO: Should add a table to store the resources moved by a fleet as
 // it is not directly located on the planet.
-// TODO: Add password to account table.
 // TODO: Allow to delete a player.
 // TODO: Allow to delete a planet.
 // TODO: Use the token mechanism to make sure that a client has access

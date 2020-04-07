@@ -19,10 +19,14 @@ import "time"
 // The `Mail` defines the email address associated to the
 // account. It can be used to make sure that no two accounts
 // share the same address.
+//
+// The `Password` defines the password that the user should
+// enter to grant access to the account.
 type Account struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Mail string `json:"mail"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Mail     string `json:"mail"`
+	Password string `json:"password"`
 }
 
 // Universe :

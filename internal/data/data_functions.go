@@ -61,7 +61,9 @@ func (a *Account) valid() bool {
 	exp, _ := regexp.Compile("^[a-zA-Z0-9]*[a-zA-Z0-9_.+-][a-zA-Z0-9]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$")
 
 	// Check common properties.
-	return a.Name != "" && exp.MatchString(a.Mail)
+	return a.Name != "" &&
+		exp.MatchString(a.Mail) &&
+		a.Password != ""
 }
 
 // valid :

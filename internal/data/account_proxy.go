@@ -68,7 +68,7 @@ func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
 // to be ignored.
 func (p *AccountProxy) Accounts(filters []DBFilter) ([]Account, error) {
 	// Create the query and execute it.
-	query := fmt.Sprintf("select id, mail, name from accounts")
+	query := fmt.Sprintf("select id, mail, name, password from accounts")
 	if len(filters) > 0 {
 		query += " where"
 
@@ -96,6 +96,7 @@ func (p *AccountProxy) Accounts(filters []DBFilter) ([]Account, error) {
 			&acc.ID,
 			&acc.Mail,
 			&acc.Name,
+			&acc.Password,
 		)
 
 		if err != nil {

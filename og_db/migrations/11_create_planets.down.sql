@@ -8,7 +8,8 @@ DROP TABLE planets_ships;
 -- Drop the planets referencing buildings on planets.
 DROP TABLE planets_buildings;
 
--- Drop the resources per planet table.
+-- Drop the resources per planet table and its associated trigger.
+DROP TRIGGER update_resources_refresh ON planets_resources;
 DROP TABLE planets_resources;
 
 -- Drop the planets table and its associated trigger.

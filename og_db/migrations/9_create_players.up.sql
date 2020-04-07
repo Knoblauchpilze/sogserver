@@ -4,6 +4,7 @@ CREATE TABLE accounts (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
     name text NOT NULL,
     mail text NOT NULL UNIQUE,
+    password text NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id)
 );

@@ -76,3 +76,15 @@ BEGIN
   INSERT INTO fleet_ships SELECT * FROM json_populate_recordset(null::fleet_ships, ships);
 END
 $$ LANGUAGE plpgsql;
+
+-- Update resources for a planet.
+CREATE OR REPLACE FUNCTION update_resources_for_planet(resources json) RETURNS VOID AS $$
+BEGIN
+  WITH updateData
+  AS (SELECT * FROM jsonb_populate_recordset(resources))
+  UPDATE planets_resources pr
+    SET pr.amount = ud.amount
+  FROM updateData AS ud
+  WHERE pr.planet = ud.planet AND pr.res = ud.res;
+END
+$$ LANGUAGE plpgsql;

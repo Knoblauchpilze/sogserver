@@ -28,6 +28,8 @@ func (s *server) routes() {
 	s.route("POST", "/accounts", s.createAccount())
 	s.route("POST", "/players", s.createPlayer())
 	s.route("POST", "/fleets", s.createFleet())
+	// TODO: Should propose the equivalent GET method so that the client
+	// can display the relevant timers.
 	s.route("POST", "/actions/buildings", s.registerBuildingAction())
 	s.route("POST", "/actions/technologies", s.registerTechnologyAction())
 	s.route("POST", "/actions/ships", s.registerShipAction())

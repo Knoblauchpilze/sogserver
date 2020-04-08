@@ -148,7 +148,7 @@ func (r *Route) match(req *http.Request) matching {
 	// be registered in the route.
 	path := req.URL.String()
 
-	if !strings.HasPrefix(path, r.name) {
+	if !r.matchName(path) {
 		// The route does not match the path of the request,
 		// it cannot be matched.
 		return notFound
@@ -164,4 +164,44 @@ func (r *Route) match(req *http.Request) matching {
 
 	// The route seems to match the input request.
 	return matched
+}
+
+// mathcName :
+// Used to determine whether the input `uri` can be used
+// to match the route name. This method takes care of the
+// processing needed to make sure that the `uri` not only
+// defines the same path as the route but also that it is
+// consistent with the route syntax.
+// Typically we will try to prevent matching of cases as
+// described below:
+//  -route: `/path/to/route`
+//  -uri  : `/path/to/routeeeee`
+//
+// The `uri` represents the string to match to the name
+// of the route.
+//
+// Returns `true` if the input uri can be matched with
+// the route's name and `false` otherwise.
+func (r *Route) matchName(uri string) bool {
+	// In case the `uri` does not begin as the route's name,
+	// no need to continue further.
+	if !strings.HasPrefix(uri, r.name) {
+		return false
+	}
+
+	// The uri begins as the route name. We need to make
+	// sure that the last element of the route in terms
+	// of path matches the last element of the `uri`.
+	routeElems := strings.Split(r.name, "/")
+	uriElems := strings.Split(uri, "/")
+
+	// As the route has the same prefix, we should verify
+	// that the `uriElems` are at least as numerous as the
+	// `routeElems` and that the last `routeElems` matches
+	// the corresponding `uriElems`.
+	if len(routeElems) > len(uriElems) {
+		return false
+	}
+
+	return routeElems[len(routeElems)-1] == uriElems[len(uriElems)-1]
 }

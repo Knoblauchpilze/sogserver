@@ -13,8 +13,6 @@ import (
 )
 
 // TODO: Construction actions.
-// TODO: Should add a table to store the resources moved by a fleet as
-// it is not directly located on the planet.
 // TODO: Allow to delete a player.
 // TODO: Allow to delete a planet.
 // TODO: Use the token mechanism to make sure that a client has access

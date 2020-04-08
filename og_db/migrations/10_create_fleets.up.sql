@@ -52,6 +52,15 @@ CREATE TABLE fleet_ships (
   FOREIGN KEY (ship) REFERENCES ships(id)
 );
 
+-- Create the table for resources transported by each fleet element.
+CREATE TABLE fleet_resources (
+  fleet_elem uuid NOT NULL,
+  res uuid NOT NULL,
+  amount integer NOT NULL,
+  FOREIGN KEY (fleet_elem) REFERENCES fleet_elements(id),
+  FOREIGN KEY (res) REFERENCES resources(id)
+);
+
 -- Seed the fleet objectives.
 INSERT INTO public.fleet_objectives ("name") VALUES('attacking');
 INSERT INTO public.fleet_objectives ("name") VALUES('deployment');

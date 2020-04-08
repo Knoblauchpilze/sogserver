@@ -1,4 +1,7 @@
 
+-- Drop the table representing the resources transported by a fleet
+DROP TABLE fleet_resources;
+
 -- Drop the ships belonging to fleets table.
 DROP TABLE fleet_ships;
 

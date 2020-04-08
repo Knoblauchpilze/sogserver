@@ -51,6 +51,9 @@ type Router struct {
 // The `match` allows to precisely determine which kind
 // of matching was possible among all the routes that are
 // managed by this router.
+//
+// TODO: Add a mechanism for the matching length. This
+// probably involves some sort of regexp matching.
 type routeMatch struct {
 	handler http.Handler
 	match   matching

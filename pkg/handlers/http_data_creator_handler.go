@@ -20,10 +20,6 @@ import (
 // (it will be stripped if this is the case) and will be the main
 // entry point to serve.`
 //
-// The `AccessRoute` defines the route to use to access to the
-// resources created by this handler. Indeed the route might be
-// different from the one used to create the resources.
-//
 // The `DataKey` allows to determine which key should be scanned
 // to retrieve the data to use for the creation of the resource.
 //
@@ -36,7 +32,6 @@ import (
 // to the REST API architecture.
 type CreationEndpointDesc interface {
 	Route() string
-	AccessRoute() string
 	DataKey() string
 	Create(data RouteData) ([]string, error)
 }
@@ -96,11 +91,10 @@ func ServeCreationRoute(endpoint CreationEndpointDesc, log logger.Logger) http.H
 		// To do so we will transform the resources to include the
 		// name of the route and then marshal everything in an array
 		// that will be returned to the client.
-		accessRoute := endpoint.AccessRoute()
 		resources := make([]string, len(resNames))
 
 		for id, resource := range resNames {
-			resources[id] = fmt.Sprintf("/%s/%s", accessRoute, resource)
+			resources[id] = fmt.Sprintf("/%s/%s", routeName, resource)
 		}
 
 		bts, err := json.Marshal(&resources)

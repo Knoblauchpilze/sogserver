@@ -188,14 +188,6 @@ type fleetCreator struct {
 // new fleets.
 // Returns the name of the route.
 func (fc *fleetCreator) Route() string {
-	return "fleet"
-}
-
-// AccessRoute :
-// Implementation of the method to get the route name to access to
-// the data created by this handler. This is basically the `fleet`
-// route.
-func (fc *fleetCreator) AccessRoute() string {
 	return "fleets"
 }
 

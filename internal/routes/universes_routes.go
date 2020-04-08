@@ -147,14 +147,6 @@ type universeCreator struct {
 // new universes.
 // Returns the name of the route.
 func (uc *universeCreator) Route() string {
-	return "universe"
-}
-
-// AccessRoute :
-// Implementation of the method to get the route name to access to
-// the data created by this handler. This is basically the `players`
-// route.
-func (uc *universeCreator) AccessRoute() string {
 	return "universes"
 }
 

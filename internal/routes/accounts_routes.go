@@ -148,14 +148,6 @@ type accountCreator struct {
 // new accounts.
 // Returns the name of the route.
 func (ac *accountCreator) Route() string {
-	return "account"
-}
-
-// AccessRoute :
-// Implementation of the method to get the route name to access to
-// the data created by this handler. This is basically the `accounts`
-// route.
-func (ac *accountCreator) AccessRoute() string {
 	return "accounts"
 }
 

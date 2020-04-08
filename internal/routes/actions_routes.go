@@ -34,9 +34,6 @@ type creatorFunc func(rawAction []byte) (string, error)
 // handler. It should reference to one of the known upgrade
 // action types.
 //
-// The `accessRoute` defines the access route to access facets
-// to fetch the action that are produced by this element.
-//
 // The `creator` represents the function that is called when
 // handling the creation of the `data` in the DB. Indeed all
 // the upgrade actions only differ by the fact that they use
@@ -48,10 +45,9 @@ type creatorFunc func(rawAction []byte) (string, error)
 // The `log` allows to notify problems and information during
 // an action's creation.
 type actionCreator struct {
-	route       string
-	accessRoute string
-	creator     creatorFunc
-	log         logger.Logger
+	route   string
+	creator creatorFunc
+	log     logger.Logger
 }
 
 // Route :
@@ -60,14 +56,6 @@ type actionCreator struct {
 // Returns the name of the route.
 func (ac *actionCreator) Route() string {
 	return ac.route
-}
-
-// AccessRoute :
-// Implementation of the method to get the route name to access to
-// the data created by this handler. This is basically the `account`
-// route.
-func (ac *actionCreator) AccessRoute() string {
-	return ac.accessRoute
 }
 
 // DataKey :
@@ -129,7 +117,6 @@ func (ac *actionCreator) Create(input handlers.RouteData) ([]string, error) {
 func (s *server) registerBuildingAction() http.HandlerFunc {
 	return handlers.ServeCreationRoute(
 		&actionCreator{
-			"action/building",
 			"actions/buildings",
 			func(rawAction []byte) (string, error) {
 				// First unmarshal the input data into a valid struct
@@ -169,7 +156,6 @@ func (s *server) registerBuildingAction() http.HandlerFunc {
 func (s *server) registerTechnologyAction() http.HandlerFunc {
 	return handlers.ServeCreationRoute(
 		&actionCreator{
-			"action/technology",
 			"actions/technologies",
 			func(rawAction []byte) (string, error) {
 				// First unmarshal the input data into a valid struct
@@ -210,7 +196,6 @@ func (s *server) registerTechnologyAction() http.HandlerFunc {
 func (s *server) registerShipAction() http.HandlerFunc {
 	return handlers.ServeCreationRoute(
 		&actionCreator{
-			"action/ship",
 			"actions/ships",
 			func(rawAction []byte) (string, error) {
 				// First unmarshal the input data into a valid struct
@@ -251,8 +236,7 @@ func (s *server) registerShipAction() http.HandlerFunc {
 func (s *server) registerDefenseAction() http.HandlerFunc {
 	return handlers.ServeCreationRoute(
 		&actionCreator{
-			"action/defense",
-			"actions/defenses",
+			"action/defenses",
 			func(rawAction []byte) (string, error) {
 				// First unmarshal the input data into a valid struct
 				// that can be used to register a defense upgrade.

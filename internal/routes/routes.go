@@ -2,7 +2,7 @@ package routes
 
 import (
 	"net/http"
-	"oglike_server/pkg/handlers"
+	"oglike_server/pkg/dispatcher"
 )
 
 // routes :
@@ -11,19 +11,28 @@ import (
 // actual binding is done.
 func (s *server) routes() {
 	// Handle known routes.
-	s.routeUniverses()
-	s.routeAccounts()
-	s.routeBuildings()
-	s.routeTechnologies()
-	s.routeShips()
-	s.routeDefenses()
-	s.routePlanets()
-	s.routePlayers()
-	s.routeFleets()
-	s.routeActions()
+	s.route("GET", "/universes", s.listUniverses())
+	s.route("GET", "/accounts", s.listAccounts())
+	// TODO: Should update the technology upgrade actions.
+	s.route("GET", "/players", s.listPlayers())
+	s.route("GET", "/buildings", s.listBuildings())
+	s.route("GET", "/technologies", s.listTechnologies())
+	s.route("GET", "/ships", s.listShips())
+	s.route("GET", "/defenses", s.listDefenses())
+	// TODO: Update upgrade actions (from resources, buildings, ships,
+	// defenses, fleets) for *this* planet.
+	s.route("GET", "/planets", s.listPlanets())
+	s.route("GET", "/fleets", s.listFleets())
 
-	// Default to `NotFound` in any other case.
-	http.HandleFunc("/", handlers.NotFound(s.log))
+	s.route("POST", "/universes", s.createUniverse())
+	s.route("POST", "/accounts", s.createAccount())
+	s.route("POST", "/players", s.createPlayer())
+	s.route("POST", "/fleets", s.createFleet())
+	s.route("POST", "/actions/buildings", s.registerBuildingAction())
+	s.route("POST", "/actions/technologies", s.registerTechnologyAction())
+	s.route("POST", "/actions/ships", s.registerShipAction())
+	s.route("POST", "/actions/defenses", s.registerDefenseAction())
+
 }
 
 // route :
@@ -31,129 +40,20 @@ func (s *server) routes() {
 // handler provided that it should be binded to the input route
 // and only respond to said method.
 //
-// The `name` of the route define the binding that should be
-// performed for the input handler.
-//
 // The `method` indicates the method for which the handler is
 // sensible.
 //
+// The `name` of the route define the binding that should be
+// performed for the input handler.
+//
 // The `handler` defines the element that will serve input req
 // and which should be wrapped to provide more security.
-func (s *server) route(name string, method string, handler http.HandlerFunc) {
-	http.HandleFunc(
+func (s *server) route(method string, name string, handler http.HandlerFunc) {
+	s.router.HandleFunc(
 		name,
-		handlers.Method(
+		dispatcher.WithSafetyNet(
 			s.log,
-			method,
-			handlers.WithSafetyNet(s.log, handler),
+			handler,
 		),
-	)
-}
-
-// routeUniverses :
-// Used to set up the routes needed to offer the features related
-// to universes.
-func (s *server) routeUniverses() {
-	s.route("/universes", "GET", s.listUniverses())
-	s.route("/universes/", "GET", s.listUniverses())
-
-	s.route("/universe", "POST", s.createUniverse())
-}
-
-// routeAccounts :
-// Similar to the `routeUniverses` facet but sets up the routes to
-// serve the functionalities related to the accounts registered in
-// the server.
-func (s *server) routeAccounts() {
-	s.route("/accounts", "GET", s.listAccounts())
-	s.route("/accounts/", "GET", s.listAccounts())
-
-	s.route("/account", "POST", s.createAccount())
-}
-
-// routeBuildings :
-// Similar to the `routeUniverses` facet but sets up the routes to
-// serve the functionalities related to the buildings registered in
-// the server.
-func (s *server) routeBuildings() {
-	s.route("/buildings", "GET", s.listBuildings())
-	s.route("/buildings/", "GET", s.listBuildings())
-}
-
-// routeTechnologies :
-// Similar to the `routeUniverses` facet but sets up the routes to
-// serve the functionalities related to the technologies registered
-// in the server.
-func (s *server) routeTechnologies() {
-	s.route("/technologies", "GET", s.listTechnologies())
-	s.route("/technologies/", "GET", s.listTechnologies())
-}
-
-// routeShips :
-// Similar to the `routeUniverses` facet but sets up the routes to
-// serve the functionalities related to the ships registered in the
-// server.
-func (s *server) routeShips() {
-	s.route("/ships", "GET", s.listShips())
-	s.route("/ships/", "GET", s.listShips())
-}
-
-// routeDefenses :
-// Similar to the `routeUniverses` facet but sets up the routes to
-// serve the functionalities related to the defenses registered in
-// the server.
-func (s *server) routeDefenses() {
-	s.route("/defenses", "GET", s.listDefenses())
-	s.route("/defenses/", "GET", s.listDefenses())
-}
-
-// routePlanets :
-// Similar to the `routeUniverses` facet but sets up the routes to
-// serve the functionalities related to the planets registered in
-// the server.
-func (s *server) routePlanets() {
-	// TODO: Update upgrade actions (from resources, buildings, ships,
-	// defenses, fleets) for *this* planet.
-	s.route("/planets", "GET", s.listPlanets())
-	s.route("/planets/", "GET", s.listPlanets())
-}
-
-// routePlayers :
-// Similar to the `routeUniverses` facet but sets up the routes to
-// serve functionalities related to the players registered in each
-// universe.
-func (s *server) routePlayers() {
-	// TODO: Should update the technology upgrade actions.
-	s.route("/players", "GET", s.listPlayers())
-	s.route("/players/", "GET", s.listPlayers())
-
-	s.route("/player", "POST", s.createPlayer())
-}
-
-// routeFleets :
-// Similar to the `routeUniverses` facet but sets up the routes to
-// serve functionalities related to the fleets registered in each
-// universe.
-func (s *server) routeFleets() {
-	// TODO: Should update the upgrade actions for fleets only, but
-	// it will most likely require to process fights, which in turn
-	// will require to update the planets actions because we will
-	// most likely fetch the data present on the planet onto which
-	// the fight is going on.
-	s.route("/fleets", "GET", s.listFleets())
-	s.route("/fleets/", "GET", s.listFleets())
-
-	s.route("/fleet", "POST", s.createFleet())
-	s.route("/fleet/", "POST", s.createFleet())
-}
-
-// routeActions :
-// Similar to the `routeUniverses` facet but sets up the routes to
-// serve functionalities related to the actions to be performed for
-// buildings, technologies, ships and defenses.
-func (s *server) routeActions() {
-	s.route("/action/building", "POST", s.registerBuildingAction())
-	s.route("/action/technology", "POST", s.registerTechnologyAction())
-	s.route("/action/ship", "POST", s.registerShipAction())
-	s.route("/action/defense", "POST", s.registerDefenseAction())
+	).Methods(method)
 }

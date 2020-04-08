@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"oglike_server/internal/data"
 	"oglike_server/pkg/db"
+	"oglike_server/pkg/dispatcher"
 	"oglike_server/pkg/logger"
 	"strconv"
 )
@@ -21,6 +22,11 @@ import (
 // The `port` allows to determine which port should be used by the
 // server to accept incoming requests. This is usually specified in
 // the configuration so as not to conflict with any other API.
+//
+// The `router` defines the element to use to perform the routing
+// and receive clients requests. This object will be populated to
+// reflect the routes available on this server and started upon
+// calling the `Serve` method.
 //
 // The `universes` represents a proxy object allowing to interact
 // and retrieve properties of universes from the main DB. It is used
@@ -62,6 +68,7 @@ import (
 // server.
 type server struct {
 	port          int
+	router        *dispatcher.Router
 	universes     data.UniverseProxy
 	accounts      data.AccountProxy
 	buildings     data.BuildingProxy
@@ -98,6 +105,7 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 
 	return server{
 		port,
+		nil,
 		uniProxy,
 		data.NewAccountProxy(dbase, log),
 		data.NewBuildingProxy(dbase, log),
@@ -117,8 +125,18 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 // and handle incoming requests. This will return an error in case
 // something went wrong while listening to the port.
 func (s *server) Serve() error {
+	// Create a new router if one is not already started.
+	if s.router != nil {
+		panic(fmt.Errorf("Cannot start serving OG server, process already running"))
+	}
+
+	s.router = dispatcher.NewRouter(s.log)
+
 	// Setup routes.
 	s.routes()
+
+	// Register the router as the main listener.
+	http.Handle("/", s.router)
 
 	// Serve the root path.
 	return http.ListenAndServe(":"+strconv.FormatInt(int64(s.port), 10), nil)

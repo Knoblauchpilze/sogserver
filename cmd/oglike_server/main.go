@@ -13,13 +13,15 @@ import (
 )
 
 // TODO: Construction actions.
-// TODO: Handle router to serve routes with CRUD syntax.
 // TODO: Should add a table to store the resources moved by a fleet as
 // it is not directly located on the planet.
 // TODO: Allow to delete a player.
 // TODO: Allow to delete a planet.
 // TODO: Use the token mechanism to make sure that a client has access
 // to some information (typically to the data for a planet or a player).
+// TODO: Make sure that the route only contains the word path specified
+// or if it contains more path, at least it should contain exactly the
+// path specified in input.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

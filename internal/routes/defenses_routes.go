@@ -12,7 +12,7 @@ import (
 // Returns the handler that can be executed to serve said reqs.
 func (s *server) listDefenses() http.HandlerFunc {
 	// Create the endpoint with the suited route.
-	ed := NewEndpointDesc("defenses")
+	ed := NewGetResourceEndpoint("defenses")
 
 	allowed := map[string]string{
 		"defense_id":   "id",

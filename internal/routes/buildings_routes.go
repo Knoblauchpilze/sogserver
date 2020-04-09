@@ -12,7 +12,7 @@ import (
 // Returns the handler that can be executed to serve said reqs.
 func (s *server) listBuildings() http.HandlerFunc {
 	// Create the endpoint with the suited route.
-	ed := NewEndpointDesc("buildings")
+	ed := NewGetResourceEndpoint("buildings")
 
 	allowed := map[string]string{
 		"building_id":   "id",

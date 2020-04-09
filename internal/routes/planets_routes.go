@@ -12,7 +12,7 @@ import (
 // Returns the handler that can be executed to serve said reqs.
 func (s *server) listPlanets() http.HandlerFunc {
 	// Create the endpoint with the suited route.
-	ed := NewEndpointDesc("planets")
+	ed := NewGetResourceEndpoint("planets")
 
 	allowed := map[string]string{
 		"planet_id":    "p.id",

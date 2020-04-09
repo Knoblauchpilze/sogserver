@@ -16,8 +16,10 @@ import (
 //
 // The `notFoundHandler` defines the handler to use in case
 // no route can be matched for a request. The defautl value
-// is using the `handlers` which just prints the route that
-// was accessed and does nothing else.
+// is using the default object defined by this package that
+// just prints an error message indicating the route that
+// was accessed. It can be useful when coupled with a logs
+// system to analyze the failures.
 //
 // The `methodNotAllowedHandler` defines a handler that is
 // called whenver a route is matched for a request but the

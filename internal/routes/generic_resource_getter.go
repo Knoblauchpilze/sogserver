@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
-	"oglike_server/pkg/handlers"
 	"oglike_server/pkg/logger"
 )
 
 // DataFunc :
 // Convenience define which allows to refer to the process
 // to fetch data from the DB given a set of filters. It is
-// used as a generci handler which will be provided to the
+// used as a generic handler which will be provided to the
 // resource getter and used when the data from the input
 // request has been parsed. The return values includes both
 // the data itself and any error.
@@ -21,7 +20,7 @@ import (
 // different kind from the main DB.
 type DataFunc func(filters []data.DBFilter) (interface{}, error)
 
-// EndpointDesc :
+// GetResourceEndpoint :
 // Defines the information to describe a endpoint. This allows to
 // mutualize most of the processing to actually serve the `GET`
 // requests on the server as we can rely on the specific behavior
@@ -52,14 +51,14 @@ type DataFunc func(filters []data.DBFilter) (interface{}, error)
 // resource can be fetched from its identifier appended to the
 // general resource's route.
 // If this value is empty (default case) it will be ignored.
-type EndpointDesc struct {
+type GetResourceEndpoint struct {
 	route    string
 	fetcher  DataFunc
 	filters  map[string]string
 	idFilter string
 }
 
-// NewEndpointDesc :
+// NewGetResourceEndpoint :
 // Creates a new empty endpoint description with the provided
 // route. The fetcher func is defined as an empty element to
 // avoid fetching anything and no filters are provided.
@@ -68,9 +67,9 @@ type EndpointDesc struct {
 // is associated to this endpoint.
 //
 // Returns the created end point description.
-func NewEndpointDesc(route string) *EndpointDesc {
-	return &EndpointDesc{
-		route: handlers.SanitizeRoute(route),
+func NewGetResourceEndpoint(route string) *GetResourceEndpoint {
+	return &GetResourceEndpoint{
+		route: sanitizeRoute(route),
 	}
 }
 
@@ -82,10 +81,10 @@ func NewEndpointDesc(route string) *EndpointDesc {
 // The `filters` define the association table describing the
 // filters to attach to this endpoint.
 //
-// Returns the endpoint itself in order to allow chain calls.
-func (ed *EndpointDesc) WithFilters(filters map[string]string) *EndpointDesc {
-	ed.filters = filters
-	return ed
+// Returns the endpoint to allow chain calling.
+func (gre *GetResourceEndpoint) WithFilters(filters map[string]string) *GetResourceEndpoint {
+	gre.filters = filters
+	return gre
 }
 
 // WithIDFilter :
@@ -96,9 +95,11 @@ func (ed *EndpointDesc) WithFilters(filters map[string]string) *EndpointDesc {
 //
 // The `id` defines the string representing the identifier
 // filter to apply on the DB.
-func (ed *EndpointDesc) WithIDFilter(id string) *EndpointDesc {
-	ed.idFilter = id
-	return ed
+//
+// Returns the endpoint to allow chain calling.
+func (gre *GetResourceEndpoint) WithIDFilter(id string) *GetResourceEndpoint {
+	gre.idFilter = id
+	return gre
 }
 
 // WithDataFunc :
@@ -109,9 +110,9 @@ func (ed *EndpointDesc) WithIDFilter(id string) *EndpointDesc {
 // by this endpoint to fetch data.
 //
 // Returns this endpoint to allow chain calling.
-func (ed *EndpointDesc) WithDataFunc(f DataFunc) *EndpointDesc {
-	ed.fetcher = f
-	return ed
+func (gre *GetResourceEndpoint) WithDataFunc(f DataFunc) *GetResourceEndpoint {
+	gre.fetcher = f
+	return gre
 }
 
 // ServeRoute :
@@ -127,30 +128,30 @@ func (ed *EndpointDesc) WithDataFunc(f DataFunc) *EndpointDesc {
 //
 // Returns the handler that can be executed to serve the
 // requests defined by the data of this endpoint.
-func (ed *EndpointDesc) ServeRoute(log logger.Logger) http.HandlerFunc {
+func (gre *GetResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		route := fmt.Sprintf("/%s", ed.route)
+		route := fmt.Sprintf("/%s", gre.route)
 
 		// First extract the route variables: this include both the path
 		// and the raw query parameters
-		vars, err := handlers.ExtractRouteVars(route, r)
+		vars, err := extractRouteVars(route, r)
 		if err != nil {
-			panic(fmt.Errorf("Error while serving route \"%s\" (err: %v)", ed.route, err))
+			panic(fmt.Errorf("Error while serving route \"%s\" (err: %v)", gre.route, err))
 		}
 
 		// Parse the filters from the route variables.
-		filters := ed.extractFilters(vars)
+		filters := gre.extractFilters(vars)
 
 		// Retrieve the data using the provided filters.
-		if ed.fetcher == nil {
+		if gre.fetcher == nil {
 			// The fetcher is not assigned, terminate the request here.
 			return
 		}
 
-		data, err := ed.fetcher(filters)
+		data, err := gre.fetcher(filters)
 		if err != nil {
-			log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching data for route \"%s\" (err: %v)", ed.route, err))
-			http.Error(w, handlers.InternalServerErrorString(), http.StatusInternalServerError)
+			log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching data for route \"%s\" (err: %v)", gre.route, err))
+			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
 
 			return
 		}
@@ -158,7 +159,7 @@ func (ed *EndpointDesc) ServeRoute(log logger.Logger) http.HandlerFunc {
 		// Marshal the content of the data.
 		err = marshalAndSend(data, w)
 		if err != nil {
-			log.Trace(logger.Error, fmt.Sprintf("Error while serving route \"%s\" (err: %v)", ed.route, err))
+			log.Trace(logger.Error, fmt.Sprintf("Error while serving route \"%s\" (err: %v)", gre.route, err))
 		}
 	}
 }
@@ -175,12 +176,12 @@ func (ed *EndpointDesc) ServeRoute(log logger.Logger) http.HandlerFunc {
 // parameters) retrieved from the input request.
 //
 // Returns the list of filters extracted from the input info.
-func (ed *EndpointDesc) extractFilters(vars handlers.RouteVars) []data.DBFilter {
+func (gre *GetResourceEndpoint) extractFilters(vars RouteVars) []data.DBFilter {
 	filters := make([]data.DBFilter, 0)
 
 	for key, values := range vars.Params {
 		// Check whether this filter is allowed.
-		filterName, ok := ed.filters[key]
+		filterName, ok := gre.filters[key]
 
 		if ok && len(values) > 0 {
 			filter := data.DBFilter{
@@ -202,13 +203,13 @@ func (ed *EndpointDesc) extractFilters(vars handlers.RouteVars) []data.DBFilter 
 	// element it *always* contains an identifier as second token.
 	// This behavior is only active in case the `idFilter` internal
 	// string is not empty.
-	if len(ed.idFilter) > 0 && len(vars.RouteElems) > 0 {
+	if len(gre.idFilter) > 0 && len(vars.RouteElems) > 0 {
 		def := vars.RouteElems[0]
 
 		// Append the identifier filter to the existing list.
 		found := false
 		for id := range filters {
-			if filters[id].Key == ed.idFilter {
+			if filters[id].Key == gre.idFilter {
 				found = true
 				filters[id].Values = append(filters[id].Values, def)
 			}
@@ -218,7 +219,7 @@ func (ed *EndpointDesc) extractFilters(vars handlers.RouteVars) []data.DBFilter 
 			filters = append(
 				filters,
 				data.DBFilter{
-					Key:    ed.idFilter,
+					Key:    gre.idFilter,
 					Values: []string{def},
 				},
 			)
@@ -243,7 +244,7 @@ func marshalAndSend(data interface{}, w http.ResponseWriter) error {
 	// Marshal the content before sending it back.
 	out, err := json.Marshal(data)
 	if err != nil {
-		http.Error(w, handlers.InternalServerErrorString(), http.StatusInternalServerError)
+		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
 
 		return err
 	}

@@ -17,14 +17,6 @@ import (
 // TODO: Allow to delete a planet.
 // TODO: Use the token mechanism to make sure that a client has access
 // to some information (typically to the data for a planet or a player).
-// TODO: We should probably change the `general_handler` to be even more
-// generic and for example automatically convert the `handlers.Filter`
-// to `data.DBFilter` and only require a function which can take a slice
-// of filters and return an interface for example. We could also have a
-// mechanism to register the filters that can be fetched from the query
-// params and mutualize this as well. Then we could merge the buildings,
-// technologies, ships and defenses adapters into a single one (or at
-// least not require to create all of them).
 // TODO: We should also add a mechanism in the route matching which set
 // some sort of `matching length` so that we can select the best fitted
 // route by selecting the one with the longest matching length.

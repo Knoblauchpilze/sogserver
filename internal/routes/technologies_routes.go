@@ -12,7 +12,7 @@ import (
 // Returns the handler that can be executed to serve said reqs.
 func (s *server) listTechnologies() http.HandlerFunc {
 	// Create the endpoint with the suited route.
-	ed := NewEndpointDesc("technologies")
+	ed := NewGetResourceEndpoint("technologies")
 
 	allowed := map[string]string{
 		"technology_id":   "id",

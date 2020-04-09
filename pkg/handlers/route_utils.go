@@ -17,14 +17,14 @@ func InternalServerErrorString() string {
 	return "Unexpected server error"
 }
 
-// sanitizeRoute :
+// SanitizeRoute :
 // Used to remove any '/' characters leading or trailing the
-// input route string.*
+// input route string.
 //
 // The `route` is the string to be sanitized.
 //
 // A string stripped from any leading or trailing '/' items.
-func sanitizeRoute(route string) string {
+func SanitizeRoute(route string) string {
 	if strings.HasPrefix(route, "/") {
 		route = strings.TrimPrefix(route, "/")
 	}
@@ -121,7 +121,7 @@ func tokenizeRoute(route string) ([]string, string) {
 	return splitRouteElements(route[:beginQueryParams]), route[beginQueryParams+1:]
 }
 
-// extractRouteVars :
+// ExtractRouteVars :
 // This facet of the server allows to conveniently extract the information
 // available in the route used to contact the server. Using the input route
 // it will try to detect the query parameters defined for this route along
@@ -141,7 +141,7 @@ func tokenizeRoute(route string) ([]string, string) {
 // The map may be empty but should not be `nil`. Also returns any error
 // that might have been encountered. The returned map should not be used
 // in case the error is not `nil`.
-func extractRouteVars(route string, r *http.Request) (RouteVars, error) {
+func ExtractRouteVars(route string, r *http.Request) (RouteVars, error) {
 	vars := RouteVars{
 		make([]string, 0),
 		make(map[string]Values),

@@ -17,7 +17,7 @@ type Values []string
 // then passed to the underlying interface implementation to set
 // and generate some filters from these variables. These values
 // can be extracted from the input request through calling the
-// `extractRouteVars` method.
+// `ExtractRouteVars` method.
 //
 // The `RouteElems` represents the extra path added to the route
 // as it was provided to target the server. Typically if the server

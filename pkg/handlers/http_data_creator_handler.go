@@ -66,7 +66,7 @@ func notifyCreation(resource string, w http.ResponseWriter) {
 // Returns the handler that can be executed to serve such requests.
 func ServeCreationRoute(endpoint CreationEndpointDesc, log logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		routeName := sanitizeRoute(endpoint.Route())
+		routeName := SanitizeRoute(endpoint.Route())
 		route := fmt.Sprintf("/%s", routeName)
 
 		// We want to allow queries where the data is provided with a key

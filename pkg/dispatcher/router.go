@@ -137,7 +137,6 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// In case we didn't match anything, use the `NotFound`
 	// handler.
-	// TODO: Should detect wrong methods.
 	if !matched {
 		r.notFoundHandler.ServeHTTP(w, req)
 		return

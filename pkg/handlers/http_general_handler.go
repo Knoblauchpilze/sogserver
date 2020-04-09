@@ -106,6 +106,8 @@ func marshalAndSend(data interface{}, w http.ResponseWriter) error {
 // Returns the handler that can be executed to serve such requests.
 func ServeRoute(endpoint EndpointDesc, log logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// TODO: The `route` could be removed from the interface and provided as
+		// an internal attribute of the general handler.
 		routeName := sanitizeRoute(endpoint.Route())
 		route := fmt.Sprintf("/%s", routeName)
 
@@ -123,9 +125,24 @@ func ServeRoute(endpoint EndpointDesc, log logger.Logger) http.HandlerFunc {
 		}
 
 		// Parse the filters from the route variables.
+		// TODO: We could relocalize the code to parse the filters in this
+		// object. This would also parse some `DBFilter` and not a custom
+		// `Filter` type. It also means moving this handler to the `internal`
+		// package (to the `routes`).
+		// TODO: The filters themselves would be provided as a map during
+		// the construction of this object. So instead of a free function we
+		// should create an actual `generalHandler` struct.
 		filters := endpoint.ParseFilters(vars)
 
 		// Retrieve the data using the provided filters.
+		// TODO: The `Data` method should be replaced with some typedefed
+		// function which serves the same purpose. We could for example
+		// define the interface:
+		// type DBBridge interface {
+		//   Data(filters []Filter) (interface{}, error)
+		// }
+		// And define an attribute of this kind or a single function as
+		// a member of this object.
 		data, err := endpoint.Data(filters)
 		if err != nil {
 			log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching data for route \"%s\" (err: %v)", routeName, err))

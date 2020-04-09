@@ -203,5 +203,5 @@ func (r *Route) matchName(uri string) bool {
 		return false
 	}
 
-	return routeElems[len(routeElems)-1] == uriElems[len(uriElems)-1]
+	return routeElems[len(routeElems)-1] == uriElems[len(routeElems)-1]
 }

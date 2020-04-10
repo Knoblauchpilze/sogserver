@@ -17,9 +17,6 @@ import (
 // TODO: Allow to delete a planet.
 // TODO: Use the token mechanism to make sure that a client has access
 // to some information (typically to the data for a planet or a player).
-// TODO: We should also add a mechanism in the route matching which set
-// some sort of `matching length` so that we can select the best fitted
-// route by selecting the one with the longest matching length.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration
@@ -45,21 +42,6 @@ func main() {
 		usage()
 	}
 
-	// TODO: This example could help when implementing the
-	// regexp matching for routes.
-	// exp, err := regexp.Compile("^[0-9a-z-]+$")
-	// if err != nil {
-	// 	fmt.Println(fmt.Sprintf("Error: %v", err))
-	// } else {
-	// 	test := "adszpiu0489z-zd871871z0987xxx89--78879adz098"
-	// 	m := exp.Match([]byte(test))
-	// 	fmt.Println(fmt.Sprintf("\"%s\" -> %v", test, m))
-
-	// 	test = "adszpiu0489z-zd871871z0987xxx89--78879Zadz098//"
-	// 	m = exp.Match([]byte(test))
-	// 	fmt.Println(fmt.Sprintf("\"%s\" -> %v", test, m))
-	// }
-
 	// Parse configuration if any.
 	trueConf := ""
 	if conf != nil {
@@ -84,7 +66,7 @@ func main() {
 	DB := db.NewPool(log)
 	server := routes.NewServer(metadata.Port, DB, log)
 
-	err = server.Serve()
+	err := server.Serve()
 	if err != nil {
 		panic(fmt.Errorf("Unexpected error while listening to port %d (err: %v)", metadata.Port, err))
 	}

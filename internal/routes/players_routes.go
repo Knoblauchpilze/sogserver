@@ -86,7 +86,7 @@ func (s *server) createPlayer() http.HandlerFunc {
 					// at some point.
 					s.log.Trace(logger.Error, fmt.Sprintf("Could not create homeworld for player \"%s\" (err: %v)", player.ID, err))
 				} else {
-					// Successfully created an player.
+					// Successfully created a player.
 					s.log.Trace(logger.Notice, fmt.Sprintf("Created new player \"%s\" with id \"%s\"", player.Name, player.ID))
 					resources = append(resources, player.ID)
 				}

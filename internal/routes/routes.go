@@ -23,12 +23,13 @@ func (s *server) routes() {
 	// defenses, fleets) for *this* planet.
 	s.route("GET", "/planets", s.listPlanets())
 	s.route("GET", "/fleets", s.listFleets())
-	s.route("GET", "/fleets/{a-zA-Z0-9-}+/components", s.listFleets())
+	s.route("GET", "/fleets/[a-zA-Z0-9-]+/components", s.listFleetComponents())
 
 	s.route("POST", "/universes", s.createUniverse())
 	s.route("POST", "/accounts", s.createAccount())
 	s.route("POST", "/players", s.createPlayer())
 	s.route("POST", "/fleets", s.createFleet())
+	s.route("POST", "/fleets/[a-zA-Z0-9-]+/components", s.createFleetComponent())
 	// TODO: Should propose the equivalent GET method so that the client
 	// can display the relevant timers.
 	s.route("POST", "/actions/buildings", s.registerBuildingAction())

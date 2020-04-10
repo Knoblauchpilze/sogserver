@@ -8,16 +8,6 @@ import (
 	"oglike_server/pkg/logger"
 )
 
-// mode:
-// Describes the possible fleet creation modes. We either
-// want to create a fleet or a fleet component.
-type mode string
-
-const (
-	fleetMode          mode = "fleet"
-	fleetComponentMode mode = "fleet component"
-)
-
 // listFleets :
 // Used to perform the creation of a handler allowing to serve
 // the requests on fleets.
@@ -35,25 +25,31 @@ func (s *server) listFleets() http.HandlerFunc {
 		"position":     "target_position",
 	}
 
-	// TODO: For now we don't server fleet components anymore:
-	// This was checked before in the `ParseFilters` method as
-	// the following test:
-	// `len(vars.RouteElems) == 2 && vars.RouteElems[1] == "components"`
-	// It should now be restored in the `generic_resource_getter`
-	// in the `extractFilters` method. *Or* we could implement
-	// the regular expression routes and detect that the route
-	// defined by `/fleets/fleet-id/components` better matches
-	// the request than the `/fleets` route.
-
 	// Configure the endpoint.
 	ed.WithFilters(allowed).WithIDFilter("id")
 	ed.WithDataFunc(
 		func(filters []data.DBFilter) (interface{}, error) {
-			// TODO: Should restore the:
-			// `return fa.proxy.FleetComponents(dbFilters)`
-			// method when we restore the fleet components
-			// route.
 			return s.fleets.Fleets(filters)
+		},
+	)
+
+	return ed.ServeRoute(s.log)
+}
+
+// listFleetComponents :
+// Used to perform the creation of a handler allowing to serve
+// the requests on fleet components.
+//
+// Returns the handler that can be executed to serve said reqs.
+func (s *server) listFleetComponents() http.HandlerFunc {
+	// Create the endpoint with the suited route.
+	ed := NewGetResourceEndpoint("fleets")
+
+	// Configure the endpoint.
+	ed.WithIDFilter("id")
+	ed.WithDataFunc(
+		func(filters []data.DBFilter) (interface{}, error) {
+			return s.fleets.FleetComponents(filters)
 		},
 	)
 
@@ -82,44 +78,76 @@ func (s *server) createFleet() http.HandlerFunc {
 				return resources, fmt.Errorf("Could not perform creation of fleet with no data")
 			}
 
-			// We can have two main scenarios: either the input request asks
-			// to create a new fleet or to add a component to an existing
-			// fleet. The second case is specified by the fact that the route
-			// will include the identifier of the fleet to which the component
-			// should be added.
-			creationMode := fleetMode
-			var fleetID string
-
-			if len(input.RouteElems) == 2 && input.RouteElems[1] == "component" {
-				// Update the fleet creation mode and update the identifier of
-				// the fleet to make sure that we're creating the component for
-				// the right fleet.
-				creationMode = fleetComponentMode
-
-				fleetID = input.RouteElems[0]
-			}
-
-			var res string
-			var err error
-
+			// Iterate over the provided data to create the corresponding
+			// fleets in the main DB.
 			for _, rawData := range input.Data {
-				// Perform the creation of either the fleet or the fleet comp
-				// depending on what is requested from the input route.
-				switch creationMode {
-				case fleetMode:
-					res, err = createFleet(rawData, s.fleets)
-				case fleetComponentMode:
-					res, err = createFleetComponent(rawData, fleetID, s.fleets)
-				}
+				res, err := createFleet(rawData, s.fleets)
 
 				if err != nil {
-					s.log.Trace(logger.Error, fmt.Sprintf("Caught error while creating %s (err: %v)", creationMode, err))
+					s.log.Trace(logger.Error, fmt.Sprintf("Caught error while creating fleet (err: %v)", err))
 					continue
 				}
 
-				// Successfully created an fleet.
-				s.log.Trace(logger.Notice, fmt.Sprintf("Created new %s \"%s\"", creationMode, res))
+				// Successfully created a fleet.
+				s.log.Trace(logger.Notice, fmt.Sprintf("Created new fleet \"%s\"", res))
 				resources = append(resources, res)
+			}
+
+			// Return the path to the resources created during the process.
+			return resources, nil
+		},
+	)
+
+	return ed.ServeRoute(s.log)
+}
+
+// createFleetComponent :
+// Used to perform the creation of a handler allowing to server
+// the requests to create fleet components.
+//
+// Returns the handler to execute to perform said requests.
+func (s *server) createFleetComponent() http.HandlerFunc {
+	// Create the endpoint with the suited route.
+	ed := NewCreateResourceEndpoint("fleets")
+
+	// Configure the endpoint.
+	ed.WithDataKey("fleet-data")
+	ed.WithCreationFunc(
+		func(input RouteData) ([]string, error) {
+			// We need to iterate over the data retrieved from the route and
+			// create fleets from it.
+			resources := make([]string, 0)
+
+			// Prevent request with no data.
+			if len(input.Data) == 0 {
+				return resources, fmt.Errorf("Could not perform creation of fleet component with no data")
+			}
+
+			// Make sure that we can retrieve the identifier of the
+			// fleet for which the component should be created from
+			// the route's data.
+			if len(input.RouteElems) != 2 || input.RouteElems[1] != "components" {
+				return resources, fmt.Errorf("Could not perform creation of fleet component, invalid input request")
+			}
+
+			fleetID := input.RouteElems[0]
+
+			for _, rawData := range input.Data {
+				res, err := createFleetComponent(rawData, fleetID, s.fleets)
+
+				if err != nil {
+					s.log.Trace(logger.Error, fmt.Sprintf("Caught error while creating fleet component (err: %v)", err))
+					continue
+				}
+
+				// Successfully created a fleet component: we should prefix
+				// the resource by a `components/` string in order to have
+				// consistency with the input route. We should also prefix
+				// with the fleet's identifier.
+				fullRes := fmt.Sprintf("%s/components/%s", fleetID, res)
+
+				s.log.Trace(logger.Notice, fmt.Sprintf("Created new fleet component \"%s\" for \"%s\"", res, fleetID))
+				resources = append(resources, fullRes)
 			}
 
 			// Return the path to the resources created during the process.

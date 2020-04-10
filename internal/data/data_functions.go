@@ -134,6 +134,11 @@ func (fc *FleetComponent) valid(uni Universe) bool {
 		return false
 	}
 
+	// Check the speed.
+	if fc.Speed < 0 || fc.Speed > 1 {
+		return false
+	}
+
 	// Now check individual ships.
 	if len(fc.Ships) == 0 {
 		return false

@@ -1,8 +1,10 @@
 package dispatcher
 
 import (
+	"fmt"
 	"net/http"
 	"oglike_server/pkg/logger"
+	"regexp"
 	"strings"
 )
 
@@ -15,6 +17,7 @@ type matching int
 const (
 	methodNotAllowed matching = iota
 	notFound
+	matchedPartial
 	matched
 )
 
@@ -37,12 +40,16 @@ const (
 // route. No request that doesn't match one of these verbs
 // will be directed towards this route.
 //
-// The `name` of the route defines the actual endpoint to
-// target to reach the route. We consider only absolute
-// path and perform no cleaning upon creating the route.
-// One can however sanitize the route through the method
-// of the same name so that it at least starts with a '/'
-// character.
+// The `elems` of the route defines the individual route
+// elements that should be matched for a request to be
+// targeting a route.
+// Typically a request would target the `/path/to/route`
+// path and the elements would contain `path`, `to` and
+// `route`. Each one will be matched if possible which
+// will in the end allow to match the route entirely.
+// These paths will be converted into regular expressions
+// so that we can also handle things like below:
+// `/path/to/route/[a-z]+`.
 //
 // The `handler` defines the actual processing to call in
 // case this route is triggered. It will be initialized
@@ -52,15 +59,113 @@ const (
 // to notify the user of an error.
 type Route struct {
 	methods map[string]bool
-	name    string
+	elems   []*regexp.Regexp
 	handler http.Handler
 	log     logger.Logger
+}
+
+// routeMatch :
+// Stores the information about a matched route. Notably
+// it indicates whether the route could be matched or not
+// and some more info about how the route failed to match.
+//
+// The `handler` defines the actual handler that should be
+// used to process the request. Should never be `nil` if
+// a `NotFoundHandler` is provided by the router.
+//
+// The `match` allows to precisely determine which kind
+// of matching was possible among all the routes that are
+// managed by this router.
+//
+// The `length` defins the length that has been matched
+// in the route's definition. It allows to provide some
+// sort of measure of how good this route is at marching
+// the input request in a quantitative way.
+// For now the length does not actually means the number
+// of characters matched but the number of segments that
+// have been matched. This allows to abstract away the
+// actual length of the route elements and focus on the
+// number of tokens that have been matched.
+type routeMatch struct {
+	handler http.Handler
+	match   matching
+	length  int
+}
+
+// buildRouteElements :
+// Used to separate the input route in a set of regular
+// expressions that will be traversed sequentially when
+// performing the matching.
+//
+// The `route` defines the input route to analyze. The
+// route will be split up on '/' character and each of
+// the token will be transformed into a regexp where a
+// special `^...$` part is added to make sure that the
+// regexp only matches for the full token (and not a
+// part of it).
+//
+// Returns an array of regular expressions describing
+// the input route in order to allow easy matching for
+// the route along with any error.
+func buildRouteElements(route string) ([]*regexp.Regexp, error) {
+	// Remove the first and last '/' characters from the
+	// input route if any.
+	if strings.HasPrefix(route, "/") {
+		route = strings.TrimPrefix(route, "/")
+	}
+	if strings.HasSuffix(route, "/") {
+		route = strings.TrimSuffix(route, "/")
+	}
+
+	// Make sure that the route is not empty. If this
+	// is the case we will return an empty array of
+	// regexp. This will be consistent with what is
+	// expected when matching the route.
+	if route == "" {
+		return []*regexp.Regexp{}, nil
+	}
+
+	// Split the route on '/' characters and build the
+	// list of regexp representing them.
+	tokens := strings.Split(route, "/")
+	elems := make([]*regexp.Regexp, 0)
+
+	// For each token, convert it into a regexp. We
+	// will also add the `^...$` statements to each
+	// one of them.
+	for _, token := range tokens {
+		// Format the string to include the additional
+		// control flow operators if it's not already
+		// appended to the token.
+		str := token
+		if !strings.HasPrefix(str, "^") {
+			str = fmt.Sprintf("^%s", str)
+		}
+		if !strings.HasSuffix(str, "$") {
+			str = fmt.Sprintf("%s$", str)
+		}
+
+		// Try to convert this token into a valid
+		// regular expression to use.
+		exp, err := regexp.Compile(str)
+
+		if err != nil {
+			return elems, fmt.Errorf("Could not create regexp for token \"%s\" of route \"%s\" (err: %v)", token, route, err)
+		}
+
+		elems = append(elems, exp)
+	}
+
+	return elems, nil
 }
 
 // NewRoute :
 // Used to create a new route with no associated methods
 // and the sepcified path. In case the path is empty, the
 // route is still created.
+// Note that if the route contains an invalid element
+// that cannot be converted to a regular expression a
+// panic will be issued.
 //
 // The `path` indicates the path that is associated to the
 // route to create. It will be used by the route to make
@@ -72,9 +177,16 @@ type Route struct {
 //
 // Returns the created route.
 func NewRoute(path string, log logger.Logger) *Route {
+	// Transform the route into regexp elements that can be
+	// parsed and used to match the requests.
+	tokens, err := buildRouteElements(path)
+	if err != nil {
+		panic(fmt.Errorf("Cannot create route \"%s\" (err: %v)", path, err))
+	}
+
 	return &Route{
 		methods: make(map[string]bool, 0),
-		name:    path,
+		elems:   tokens,
 		handler: http.Handler(NoOp(log)),
 		log:     log,
 	}
@@ -143,15 +255,20 @@ func (r *Route) HandlerFunc(f func(http.ResponseWriter, *http.Request)) *Route {
 // Returns the matching state for this route. Can be one
 // of the available type which helps describe precisely
 // how the request could be matched against this route.
-func (r *Route) match(req *http.Request) matching {
+func (r *Route) match(req *http.Request) routeMatch {
 	// Check whether the path at least starts correctly to
 	// be registered in the route.
 	path := req.URL.String()
 
-	if !r.matchName(path) {
+	m := routeMatch{}
+	m.length = r.matchName(path)
+
+	if m.length == 0 {
 		// The route does not match the path of the request,
 		// it cannot be matched.
-		return notFound
+		m.match = notFound
+
+		return m
 	}
 
 	// Check the method of the request.
@@ -159,11 +276,22 @@ func (r *Route) match(req *http.Request) matching {
 	if !ok {
 		// The method does not match the type requested by
 		// the route, it cannot be matched.
-		return methodNotAllowed
+		m.match = methodNotAllowed
+
+		return m
 	}
 
-	// The route seems to match the input request.
-	return matched
+	// The route seems to match the input request. We will
+	// either declare a match or a partial match depending
+	// on the length matched.
+	m.match = matchedPartial
+	if m.length == len(r.elems) {
+		m.match = matched
+	}
+
+	m.handler = r.handler
+
+	return m
 }
 
 // mathcName :
@@ -180,28 +308,76 @@ func (r *Route) match(req *http.Request) matching {
 // The `uri` represents the string to match to the name
 // of the route.
 //
-// Returns `true` if the input uri can be matched with
-// the route's name and `false` otherwise.
-func (r *Route) matchName(uri string) bool {
-	// In case the `uri` does not begin as the route's name,
-	// no need to continue further.
-	if !strings.HasPrefix(uri, r.name) {
-		return false
+// Returns an integer representing the number of single
+// characters from the input route that have been matched
+// by this route. It provides some measure of how good of
+// a fit this route is to the `uri`.
+func (r *Route) matchName(uri string) int {
+	// We want to match as much of the route as possible
+	// given the elements that compose it. We need to first
+	// analyze the input `uri` to extract individual tokens
+	// that can then be matched against the route.
+	// We will also prevent matching of empty routes and
+	// other weird cases right away.
+
+	// Sanitize the input `uri`.
+	if strings.HasPrefix(uri, "/") {
+		uri = strings.TrimPrefix(uri, "/")
+	}
+	if strings.HasSuffix(uri, "/") {
+		uri = strings.TrimSuffix(uri, "/")
 	}
 
-	// The uri begins as the route name. We need to make
-	// sure that the last element of the route in terms
-	// of path matches the last element of the `uri`.
-	routeElems := strings.Split(r.name, "/")
-	uriElems := strings.Split(uri, "/")
+	if uri == "" {
+		// We only match if there are no elements to match
+		// in this route.
+		if len(r.elems) == 0 {
+			return 1
+		}
 
-	// As the route has the same prefix, we should verify
-	// that the `uriElems` are at least as numerous as the
-	// `routeElems` and that the last `routeElems` matches
-	// the corresponding `uriElems`.
-	if len(routeElems) > len(uriElems) {
-		return false
+		return 0
 	}
 
-	return routeElems[len(routeElems)-1] == uriElems[len(routeElems)-1]
+	// Convert it to tokens.
+	tokens := strings.Split(uri, "/")
+
+	// Try to match each token of the route. To do so we
+	// obviously need at least as many tokens in the input
+	// `uri` as defined in the route.
+	// Typically imagine the following situation:
+	// - `route 1: /path/to/route/1`
+	// - `route 2: /path/to/route/1/and/more`
+	// - `route 3: /another/path/to/some/other/route`
+	// - `uri    : /path/to/route/1/and`
+	//
+	// In this case we want the `route 1` to be selected
+	// and not the `route 2`: indeed even though `route 2`
+	// would have a longer length matched, it would not
+	// be sufficient to describe the route entirely so it
+	// is not considered a good match.
+	// Same goes for the `route 3` which in addition to
+	// not being a good match has a greater length than
+	// the `uri`.
+	// This is nice because it also means that we spare
+	// some comparison right away by checking that there
+	// are at least as many tokens in the `uri` than in
+	// the `route` itself.
+	if len(r.elems) > len(tokens) {
+		return 0
+	}
+
+	length := 0
+	matched := true
+
+	// We know for sure that `len(r.elems) <= len(tokens)`
+	// so it is safe to access elements this way.
+	for id := 0; id < len(r.elems) && matched; id++ {
+		matched = r.elems[id].Match([]byte(tokens[id]))
+
+		if matched {
+			length++
+		}
+	}
+
+	return length
 }

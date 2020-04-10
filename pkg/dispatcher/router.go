@@ -1,6 +1,7 @@
 package dispatcher
 
 import (
+	"fmt"
 	"net/http"
 	"oglike_server/pkg/logger"
 )
@@ -39,26 +40,6 @@ type Router struct {
 	methodNotAllowedHandler http.Handler
 	routes                  []*Route
 	log                     logger.Logger
-}
-
-// routeMatch :
-// Stores the information about a matched route. Notably
-// it indicates whether the route could be matched or not
-// and some more info about how the route failed to match.
-//
-// The `handler` defines the actual handler that should be
-// used to process the request. Should never be `nil` if
-// a `NotFoundHandler` is provided by the router.
-//
-// The `match` allows to precisely determine which kind
-// of matching was possible among all the routes that are
-// managed by this router.
-//
-// TODO: Add a mechanism for the matching length. This
-// probably involves some sort of regexp matching.
-type routeMatch struct {
-	handler http.Handler
-	match   matching
 }
 
 // NewRouter :
@@ -167,14 +148,28 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (r *Router) Match(req *http.Request, m *routeMatch) bool {
 	// Traverse the internal list of routes and check for
 	// a match.
-	for _, route := range r.routes {
-		m.match = route.match(req)
+	m.length = 0
+	var match routeMatch
 
-		if m.match == matched {
+	for _, route := range r.routes {
+		match = route.match(req)
+
+		if match.match == matched && match.length > m.length {
+			// Notify in case we have matches with similar
+			// matched length.
+			if match.length == m.length {
+				r.log.Trace(logger.Warning, fmt.Sprintf("Found two routes with mathced length %d", match.length))
+			}
+
 			// Select this route.
+			m.match = matched
 			m.handler = route.Handler()
-			return true
 		}
+	}
+
+	// In case we matched a route, return it.
+	if m.match == matched {
+		return true
 	}
 
 	// The route could not be matched. Check whether we could

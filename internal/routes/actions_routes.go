@@ -56,13 +56,13 @@ func (s *server) registerUpgradeAction(route string, f registerFunc) http.Handle
 
 			// Prevent request with no data.
 			if len(input.Data) == 0 {
-				return resources, fmt.Errorf("Could not perform creation of defense upgrade action with no data")
+				return resources, fmt.Errorf("Could not perform creation of upgrade action with no data")
 			}
 
 			for _, rawData := range input.Data {
 				// Unmarshal and perform the creation using the provided
 				// registration function.
-				res, err := f(rawData, input.RouteElems)
+				res, err := f(rawData, input.ExtraElems)
 				if err != nil {
 					s.log.Trace(logger.Error, fmt.Sprintf("Could not register upgrade action from data \"%s\" (err: %v)", rawData, err))
 					continue
@@ -110,7 +110,7 @@ func (s *server) registerBuildingAction() http.HandlerFunc {
 
 			// Build the path to access to the resource: we need to
 			// include the planet's identifier in the route.
-			res := fmt.Sprintf("%s/buildings/%s", action.PlanetID, action.ID)
+			res := fmt.Sprintf("%s/actions/buildings/%s", action.PlanetID, action.ID)
 
 			return res, err
 		},
@@ -145,7 +145,11 @@ func (s *server) registerTechnologyAction() http.HandlerFunc {
 			// Create the upgrade action.
 			err = s.upgradeAction.CreateTechnologyAction(&action)
 
-			return action.ID, err
+			// Build the path to access to the resource: we need to
+			// include the player's identifier in the route.
+			res := fmt.Sprintf("%s/actions/technologies/%s", action.PlayerID, action.ID)
+
+			return res, err
 		},
 	)
 }
@@ -179,7 +183,11 @@ func (s *server) registerShipAction() http.HandlerFunc {
 			// Create the upgrade action.
 			err = s.upgradeAction.CreateShipAction(&action)
 
-			return action.ID, err
+			// Build the path to access to the resource: we need to
+			// include the planet's identifier in the route.
+			res := fmt.Sprintf("%s/actions/ships/%s", action.PlanetID, action.ID)
+
+			return res, err
 		},
 	)
 }
@@ -213,7 +221,11 @@ func (s *server) registerDefenseAction() http.HandlerFunc {
 			// Create the upgrade action.
 			err = s.upgradeAction.CreateDefenseAction(&action)
 
-			return action.ID, err
+			// Build the path to access to the resource: we need to
+			// include the planet's identifier in the route.
+			res := fmt.Sprintf("%s/actions/defenses/%s", action.PlanetID, action.ID)
+
+			return res, err
 		},
 	)
 }

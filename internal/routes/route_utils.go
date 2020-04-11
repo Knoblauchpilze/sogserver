@@ -347,16 +347,9 @@ func extractRouteData(route string, dataKey string, r *http.Request) (RouteData,
 		return elems, fmt.Errorf("Could not extract vars from route \"%s\" (err: %v)", route, err)
 	}
 
-	// The extra path for the route is specified until we reach a '?' character.
-	// After that come the query parameters.
-	var queryStr string
-	elems.ExtraElems, queryStr = tokenizeRoute(extra)
-
-	if len(queryStr) == 0 {
-		// No query parameters found for this request: the `extra` path defines
-		// the extra route path.
-		return elems, nil
-	}
+	// Fetch the extra elements of the route, but we don't care about the
+	// query parameters for now.
+	elems.ExtraElems, _ = tokenizeRoute(extra)
 
 	// Fetch the data from the input request: as we want to allow
 	// for multiple instances of the same key we need to call the

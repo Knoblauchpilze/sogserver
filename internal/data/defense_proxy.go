@@ -104,6 +104,11 @@ func (p *DefenseProxy) Defenses(filters []DBFilter) ([]DefenseDesc, error) {
 			continue
 		}
 
+		def.Cost, err = fetchElementCost(p.dbase, def.ID, "defense", "defenses_costs")
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch cost for defense \"%s\" (err: %v)", def.ID, err))
+		}
+
 		def.BuildingsDeps, err = fetchElementDependency(p.dbase, def.ID, "defense", "tech_tree_defenses_vs_buildings")
 		if err != nil {
 			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch building dependencies for defense \"%s\" (err: %v)", def.ID, err))

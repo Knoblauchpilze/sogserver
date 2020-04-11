@@ -103,6 +103,11 @@ func (p *ShipProxy) Ships(filters []DBFilter) ([]ShipDesc, error) {
 			continue
 		}
 
+		shp.Cost, err = fetchElementCost(p.dbase, shp.ID, "ship", "ships_costs")
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch cost for ship \"%s\" (err: %v)", shp.ID, err))
+		}
+
 		shp.BuildingsDeps, err = fetchElementDependency(p.dbase, shp.ID, "ship", "tech_tree_ships_vs_buildings")
 		if err != nil {
 			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch building dependencies for ship \"%s\" (err: %v)", shp.ID, err))

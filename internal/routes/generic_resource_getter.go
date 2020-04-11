@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"oglike_server/internal/data"
 	"oglike_server/pkg/logger"
+
+	"github.com/google/uuid"
 )
 
 // DataFunc :
@@ -51,11 +53,25 @@ type DataFunc func(filters []data.DBFilter) (interface{}, error)
 // resource can be fetched from its identifier appended to the
 // general resource's route.
 // If this value is empty (default case) it will be ignored.
+// Note that the path of the route will be checked so that it
+// is at least a valid syntax for a `uuid`.
+//
+// The `resFilter` filter corresponds to the generci semantic
+// of the REST syntax where a collection can be accessed through
+// `/path/to/collection` while a specific resource from this
+// collection can be accessed with `/path/to/collection/res-id`.
+// This filter will be in charge of collecting the last token of
+// the route and register it as a filter.
+// Note that it will only activate in case the route defines
+// some extra elements *in addition* to its registered path.
+// Note that the path of the route will be checked so that it
+// is at least a valid syntax for a `uuid`.
 type GetResourceEndpoint struct {
-	route    string
-	fetcher  DataFunc
-	filters  map[string]string
-	idFilter string
+	route     string
+	fetcher   DataFunc
+	filters   map[string]string
+	idFilter  string
+	resFilter string
 }
 
 // NewGetResourceEndpoint :
@@ -99,6 +115,28 @@ func (gre *GetResourceEndpoint) WithFilters(filters map[string]string) *GetResou
 // Returns the endpoint to allow chain calling.
 func (gre *GetResourceEndpoint) WithIDFilter(id string) *GetResourceEndpoint {
 	gre.idFilter = id
+	return gre
+}
+
+// WithResourceFilter :
+// Defines that this endpoint is able to handle filtering of
+// the resources through an identifier provided in the route.
+// It is similar to the `ID` filter but it applies to the
+// last token of the route. Typically with the following ex:
+// `/id/some/path/to/a/resource/res-id`
+// The `WithIDFilter` will be able to fetch the `id` part
+// and make a filter of it, while the resource filter will
+// catch the `res-id` part and make a filter out of it.
+// Note that in case the route path has length `1`, this
+// filter will not be triggered if the `WithIDFilter` method
+// is active on the endpoint (in order to prevent conflicts).
+//
+// The `id` defines the string representing the identifier
+// to apply on the DB.
+//
+// Returns the endpoint to allow chain calling.
+func (gre *GetResourceEndpoint) WithResourceFilter(id string) *GetResourceEndpoint {
+	gre.resFilter = id
 	return gre
 }
 
@@ -203,26 +241,60 @@ func (gre *GetResourceEndpoint) extractFilters(vars RouteVars) []data.DBFilter {
 	// element it *always* contains an identifier as second token.
 	// This behavior is only active in case the `idFilter` internal
 	// string is not empty.
-	if len(gre.idFilter) > 0 && len(vars.RouteElems) > 0 {
-		def := vars.RouteElems[0]
+	if len(gre.idFilter) > 0 && len(vars.ExtraElems) > 0 {
+		filter := vars.ExtraElems[0]
 
-		// Append the identifier filter to the existing list.
-		found := false
-		for id := range filters {
-			if filters[id].Key == gre.idFilter {
-				found = true
-				filters[id].Values = append(filters[id].Values, def)
+		// Make sure that this filter could be used as a valid `uuid`.
+		if _, err := uuid.Parse(filter); err == nil {
+			// Append the identifier filter to the existing list.
+			found := false
+			for id := range filters {
+				if filters[id].Key == gre.idFilter {
+					found = true
+					filters[id].Values = append(filters[id].Values, filter)
+				}
+			}
+
+			if !found {
+				filters = append(
+					filters,
+					data.DBFilter{
+						Key:    gre.idFilter,
+						Values: []string{filter},
+					},
+				)
 			}
 		}
+	}
 
-		if !found {
-			filters = append(
-				filters,
-				data.DBFilter{
-					Key:    gre.idFilter,
-					Values: []string{def},
-				},
-			)
+	// Finally we need to fetch the resource identifier that might
+	// be provided in the route's tokens. Typically imagine a route
+	// like `/resource/resource-id`, we want to detect whether the
+	// last element of the route should be considered as a resource
+	// identifier that can used as a filter.
+	if len(gre.resFilter) > 0 && len(vars.ExtraElems) > 0 {
+		filter := vars.ExtraElems[len(vars.ExtraElems)-1]
+
+		// Make sure that this filter could be used as a valid `uuid`.
+		if _, err := uuid.Parse(filter); err == nil {
+			// Append the identifier filter to the existing list.
+			found := false
+			for id := range filters {
+				if filters[id].Key == gre.resFilter {
+					found = true
+					filters[id].Values = append(filters[id].Values, filter)
+				}
+			}
+
+			if !found {
+				filters = append(
+					filters,
+					data.DBFilter{
+						Key:    gre.resFilter,
+						Values: []string{filter},
+					},
+				)
+			}
 		}
 	}
 

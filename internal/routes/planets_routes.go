@@ -25,7 +25,7 @@ func (s *server) listPlanets() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithIDFilter("p.id")
+	ed.WithFilters(allowed).WithResourceFilter("p.id")
 	ed.WithDataFunc(
 		func(filters []data.DBFilter) (interface{}, error) {
 			return s.planets.Planets(filters)
@@ -52,7 +52,7 @@ func (s *server) listPlanetBuildings() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithIDFilter("planet")
+	ed.WithFilters(allowed).WithIDFilter("planet").WithResourceFilter("id")
 	ed.WithDataFunc(
 		func(filters []data.DBFilter) (interface{}, error) {
 			return s.upgradeAction.Buildings(filters)
@@ -79,7 +79,7 @@ func (s *server) listPlanetShips() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithIDFilter("planet")
+	ed.WithFilters(allowed).WithIDFilter("planet").WithResourceFilter("id")
 	ed.WithDataFunc(
 		func(filters []data.DBFilter) (interface{}, error) {
 			return s.upgradeAction.Ships(filters)
@@ -106,7 +106,7 @@ func (s *server) listPlanetDefenses() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithIDFilter("planet")
+	ed.WithFilters(allowed).WithIDFilter("planet").WithResourceFilter("id")
 	ed.WithDataFunc(
 		func(filters []data.DBFilter) (interface{}, error) {
 			return s.upgradeAction.Defenses(filters)

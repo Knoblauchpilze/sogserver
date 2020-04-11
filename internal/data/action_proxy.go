@@ -173,6 +173,8 @@ func (p *ActionProxy) Technologies(filters []DBFilter) ([]TechnologyUpgradeActio
 		}
 	}
 
+	fmt.Println(fmt.Sprintf("Query: \"%s\"", query))
+
 	rows, err := p.dbase.DBQuery(query)
 
 	// Check for errors.

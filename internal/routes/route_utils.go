@@ -32,10 +32,18 @@ type Values []string
 // to the empty slice. On the other hand `/universes/oberon` will
 // yield a single element `oberon` in the `RouteElems` slice.
 //
+// The `ExtraElems` represent some more route elements which are
+// not part of the route as defined by the user. Typically in the
+// case of a route like `/path/to/collection`, if the input req
+// is actually defined by `/path/to/collection/res-id`, the route
+// elems will contain "path", "to" and "collection" while the
+// extra elems will contain the "res-id".
+//
 // The `Params` define the query parameters associated to the input
 // request. Note that in some case no parameters are provided.
 type RouteVars struct {
 	RouteElems []string
+	ExtraElems []string
 	Params     map[string]Values
 }
 
@@ -52,12 +60,20 @@ type RouteVars struct {
 // to the empty slice. On the other hand `/universe/oberon` will
 // yield a single element `oberon` in the `RouteElems` slice.
 //
+// The `ExtraElems` represent some more route elements which are
+// not part of the route as defined by the user. Typically in the
+// case of a route like `/path/to/collection`, if the input req
+// is actually defined by `/path/to/collection/res-id`, the route
+// elems will contain "path", "to" and "collection" while the
+// extra elems will contain the "res-id".
+//
 // The `Data` represents the data extracted from the route itself.
 // It is represented as an array of raw strings which are usually
 // unmarshalled into meaningful structures by the data creation
 // process.
 type RouteData struct {
 	RouteElems []string
+	ExtraElems []string
 	Data       Values
 }
 
@@ -147,7 +163,43 @@ func extractRoute(r *http.Request, prefix string) (string, error) {
 		return "", fmt.Errorf("Cannot strip prefix \"%s\" from route \"%s\"", prefix, route)
 	}
 
-	return strings.TrimPrefix(route, prefix), nil
+	// The route itself is actually the value we want to return.
+	return prefix, nil
+}
+
+// extractExtraPath :
+// Convenience method allowing to strip the provided prefix to keep
+// only the extra information provided by the route. Typically in
+// the case of a request like `/path/to/collection/res-id` if the
+// route is defined as `/path/to/collection`, the extra path will
+// be assigned to `res-id`.
+// Note that we also manage the case where some query parameters
+// are provided in the request. We don't include them in the extra
+// path.
+//
+// The `req` defines the input request as it was used to contact
+// the server: it should be composed of the route, some extra
+// (optional) pathes and some (optional) query parameters.
+//
+// The `route` defines the known prefix that should be right at
+// the start of the `req` string, excluding the additional pathes.
+//
+// Returns the list of extra elements added to the `req` when
+// compared to the `route` and the query parameters string.
+func extractExtraPath(r *http.Request, route string) (string, error) {
+	if r == nil {
+		return "", fmt.Errorf("Cannot strip prefix \"%s\" from invalid route", route)
+	}
+
+	req := r.URL.String()
+
+	if !strings.HasPrefix(req, route) {
+		return "", fmt.Errorf("Cannot strip prefix \"%s\" from route \"%s\"", route, req)
+	}
+
+	// Return the request without the `route` prefix (note: this will
+	// still include any query parameters).
+	return strings.TrimPrefix(req, route), nil
 }
 
 // tokenizeRoute :
@@ -198,11 +250,24 @@ func tokenizeRoute(route string) ([]string, string) {
 func extractRouteVars(route string, r *http.Request) (RouteVars, error) {
 	vars := RouteVars{
 		make([]string, 0),
+		make([]string, 0),
 		make(map[string]Values),
 	}
 
 	// Extract the route from the input request.
-	extra, err := extractRoute(r, route)
+	path, err := extractRoute(r, route)
+	if err != nil {
+		return vars, fmt.Errorf("Could not extract vars from route \"%s\" (err: %v)", route, err)
+	}
+
+	// The `path` should not contain any query parameters in case there are
+	// some additional elements in the route. Even if the route does not
+	// define such pathes, we will extract the query parameters with the
+	// `extractExtraPath` method so we don't care about it right now.
+	vars.RouteElems, _ = tokenizeRoute(path)
+
+	// Also extract the addition elements provided in the route.
+	extra, err := extractExtraPath(r, route)
 	if err != nil {
 		return vars, fmt.Errorf("Could not extract vars from route \"%s\" (err: %v)", route, err)
 	}
@@ -210,7 +275,7 @@ func extractRouteVars(route string, r *http.Request) (RouteVars, error) {
 	// The extra path for the route is specified until we reach a '?' character.
 	// After that come the query parameters.
 	var queryStr string
-	vars.RouteElems, queryStr = tokenizeRoute(extra)
+	vars.ExtraElems, queryStr = tokenizeRoute(extra)
 
 	if len(queryStr) == 0 {
 		// No query parameters found for this request: the `extra` path defines
@@ -261,15 +326,37 @@ func extractRouteData(route string, dataKey string, r *http.Request) (RouteData,
 	elems := RouteData{
 		make([]string, 0),
 		make([]string, 0),
+		make([]string, 0),
 	}
 
 	// Extract the route from the input request.
-	extra, err := extractRoute(r, route)
+	path, err := extractRoute(r, route)
 	if err != nil {
 		return elems, fmt.Errorf("Could not extract vars from route \"%s\" (err: %v)", route, err)
 	}
 
-	elems.RouteElems, _ = tokenizeRoute(extra)
+	// The `path` should not contain any query parameters in case there are
+	// some additional elements in the route. Even if the route does not
+	// define such pathes, we will extract the query parameters with the
+	// `extractExtraPath` method so we don't care about it right now.
+	elems.RouteElems, _ = tokenizeRoute(path)
+
+	// Also extract the addition elements provided in the route.
+	extra, err := extractExtraPath(r, route)
+	if err != nil {
+		return elems, fmt.Errorf("Could not extract vars from route \"%s\" (err: %v)", route, err)
+	}
+
+	// The extra path for the route is specified until we reach a '?' character.
+	// After that come the query parameters.
+	var queryStr string
+	elems.ExtraElems, queryStr = tokenizeRoute(extra)
+
+	if len(queryStr) == 0 {
+		// No query parameters found for this request: the `extra` path defines
+		// the extra route path.
+		return elems, nil
+	}
 
 	// Fetch the data from the input request: as we want to allow
 	// for multiple instances of the same key we need to call the

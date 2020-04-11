@@ -26,7 +26,7 @@ func (s *server) listFleets() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithIDFilter("id")
+	ed.WithFilters(allowed).WithResourceFilter("id")
 	ed.WithDataFunc(
 		func(filters []data.DBFilter) (interface{}, error) {
 			return s.fleets.Fleets(filters)

@@ -15,7 +15,7 @@ func (s *server) routes() {
 	s.route("GET", "/accounts", s.listAccounts())
 	// TODO: Should update the technology upgrade actions.
 	s.route("GET", "/players", s.listPlayers())
-	s.route("GET", "/players/[a-zA-Z0-9-]+/technologies", s.listPlayerTechnologies())
+	s.route("GET", "/players/[a-zA-Z0-9-]+/actions/technologies", s.listPlayerTechnologies())
 	s.route("GET", "/buildings", s.listBuildings())
 	s.route("GET", "/technologies", s.listTechnologies())
 	s.route("GET", "/ships", s.listShips())
@@ -23,22 +23,21 @@ func (s *server) routes() {
 	// TODO: Update upgrade actions (from resources, buildings, ships,
 	// defenses, fleets) for *this* planet.
 	s.route("GET", "/planets", s.listPlanets())
-	s.route("GET", "/planets/[a-zA-Z0-9-]+/buildings", s.listPlanetBuildings())
-	s.route("GET", "/planets/[a-zA-Z0-9-]+/ships", s.listPlanetShips())
-	s.route("GET", "/planets/[a-zA-Z0-9-]+/defenses", s.listPlanetDefenses())
+	s.route("GET", "/planets/[a-zA-Z0-9-]+/actions/buildings", s.listPlanetBuildings())
+	s.route("GET", "/planets/[a-zA-Z0-9-]+/actions/ships", s.listPlanetShips())
+	s.route("GET", "/planets/[a-zA-Z0-9-]+/actions/defenses", s.listPlanetDefenses())
 	s.route("GET", "/fleets", s.listFleets())
 	s.route("GET", "/fleets/[a-zA-Z0-9-]+/components", s.listFleetComponents())
 
 	s.route("POST", "/universes", s.createUniverse())
 	s.route("POST", "/accounts", s.createAccount())
 	s.route("POST", "/players", s.createPlayer())
+	s.route("POST", "/players/[a-zA-Z0-9-]+/actions/technologies", s.registerTechnologyAction())
+	s.route("POST", "/planets/[a-zA-Z0-9-]+/actions/buildings", s.registerBuildingAction())
+	s.route("POST", "/planets/[a-zA-Z0-9-]+/actions/ships", s.registerShipAction())
+	s.route("POST", "/planets/[a-zA-Z0-9-]+/actions/defenses", s.registerDefenseAction())
 	s.route("POST", "/fleets", s.createFleet())
 	s.route("POST", "/fleets/[a-zA-Z0-9-]+/components", s.createFleetComponent())
-
-	s.route("POST", "/actions/buildings", s.registerBuildingAction())
-	s.route("POST", "/actions/ships", s.registerShipAction())
-	s.route("POST", "/actions/defenses", s.registerDefenseAction())
-
 }
 
 // route :

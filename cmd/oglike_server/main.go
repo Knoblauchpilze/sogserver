@@ -35,6 +35,7 @@ import (
 // expressions used in the route in the `extractRouteVars` framework to allow
 // to actually determine precisely which are the elements from the route and
 // which are the extra pathes.
+// TODO: Refine building, technology and ship and defense unmarshalling.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

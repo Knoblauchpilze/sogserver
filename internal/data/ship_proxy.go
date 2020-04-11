@@ -90,12 +90,12 @@ func (p *ShipProxy) Ships(filters []DBFilter) ([]ShipDesc, error) {
 
 	// Populate the return value.
 	ships := make([]ShipDesc, 0)
-	var ship ShipDesc
+	var shp ShipDesc
 
 	for rows.Next() {
 		err = rows.Scan(
-			&ship.ID,
-			&ship.Name,
+			&shp.ID,
+			&shp.Name,
 		)
 
 		if err != nil {
@@ -103,83 +103,17 @@ func (p *ShipProxy) Ships(filters []DBFilter) ([]ShipDesc, error) {
 			continue
 		}
 
-		ship.BuildingsDeps = make([]TechDependency, 0)
-		ship.TechnologiesDeps = make([]TechDependency, 0)
-
-		ships = append(ships, ship)
-	}
-
-	// We know need to populate the dependencies that need to be
-	// met in order to be able to research this ship. This is also
-	// retrieved from the DB.
-	var techDep TechDependency
-
-	buildingDepsQueryTemplate := "select requirement, level from tech_tree_ships_vs_buildings where ship='%s'"
-	techDepsQueryTemplate := "select requirement, level from tech_tree_ships_vs_technologies where ship='%s'"
-
-	for id := range ships {
-		// Fetch the ship by value.
-		ship := &ships[id]
-
-		// Replace the ship's identifier in the query template.
-		buildingDepsQuery := fmt.Sprintf(buildingDepsQueryTemplate, ship.ID)
-
-		// Execute the query.
-		rows, err = p.dbase.DBQuery(buildingDepsQuery)
-
+		shp.BuildingsDeps, err = fetchElementDependency(p.dbase, shp.ID, "ship", "tech_tree_ships_vs_buildings")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve building dependencies for technology \"%s\" (err: %v)", ship.ID, err))
-			continue
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch building dependencies for ship \"%s\" (err: %v)", shp.ID, err))
 		}
 
-		// Populate the dependency.
-		for rows.Next() {
-			err = rows.Scan(
-				&techDep.ID,
-				&techDep.Level,
-			)
-
-			if err != nil {
-				p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve building dependency for technology \"%s\" (err: %v)", ship.ID, err))
-				continue
-			}
-
-			ship.BuildingsDeps = append(ship.BuildingsDeps, techDep)
-		}
-	}
-
-	// Handling dependencies in two distinct loops allow to not
-	// propagate failure to retrieve some dependencies to all
-	// others.
-	for id := range ships {
-		// Fetch the ship by value.
-		ship := &ships[id]
-
-		// Replace the ship's identifier in the query template.
-		techDepsQuery := fmt.Sprintf(techDepsQueryTemplate, ship.ID)
-
-		// Execute the query.
-		rows, err = p.dbase.DBQuery(techDepsQuery)
-
+		shp.TechnologiesDeps, err = fetchElementDependency(p.dbase, shp.ID, "ship", "tech_tree_ships_vs_technologies")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve technology dependencies for technology \"%s\" (err: %v)", ship.ID, err))
-			continue
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies dependencies for ship \"%s\" (err: %v)", shp.ID, err))
 		}
 
-		// Populate the dependency.
-		for rows.Next() {
-			err = rows.Scan(
-				&techDep.ID,
-				&techDep.Level,
-			)
-
-			if err != nil {
-				p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve technology dependency for technology \"%s\" (err: %v)", ship.ID, err))
-				continue
-			}
-
-			ship.TechnologiesDeps = append(ship.TechnologiesDeps, techDep)
-		}
+		ships = append(ships, shp)
 	}
 
 	return ships, nil

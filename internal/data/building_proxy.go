@@ -25,7 +25,7 @@ type BuildingProxy struct {
 	log   logger.Logger
 }
 
-// NewTechnologyProxy :
+// NewBuildingProxy :
 // Create a new proxy on the input `dbase` to access the
 // properties of buildings as registered in the DB.
 // In case the provided DB is `nil` a panic is issued.
@@ -91,12 +91,12 @@ func (p *BuildingProxy) Buildings(filters []DBFilter) ([]BuildingDesc, error) {
 
 	// Populate the return value.
 	buildings := make([]BuildingDesc, 0)
-	var bui BuildingDesc
+	var building BuildingDesc
 
 	for rows.Next() {
 		err = rows.Scan(
-			&bui.ID,
-			&bui.Name,
+			&building.ID,
+			&building.Name,
 		)
 
 		if err != nil {
@@ -104,84 +104,17 @@ func (p *BuildingProxy) Buildings(filters []DBFilter) ([]BuildingDesc, error) {
 			continue
 		}
 
-		bui.BuildingsDeps = make([]TechDependency, 0)
-		bui.TechnologiesDeps = make([]TechDependency, 0)
-
-		buildings = append(buildings, bui)
-	}
-
-	// We know need to populate the dependencies that need to be
-	// met in order to be able to construct this building. This
-	// is also retrieved from the DB.
-	var techDep TechDependency
-
-	buildingDepsQueryTemplate := "select requirement, level from tech_tree_buildings_dependencies where building='%s'"
-	techDepsQueryTemplate := "select requirement, level from tech_tree_buildings_vs_technologies where building='%s'"
-
-	for id := range buildings {
-		// Fetch the building by value.
-		bui := &buildings[id]
-
-		// Replace the building's identifier in the query template.
-		buildingDepsQuery := fmt.Sprintf(buildingDepsQueryTemplate, bui.ID)
-
-		// Execute the query.
-		rows, err = p.dbase.DBQuery(buildingDepsQuery)
-
+		building.BuildingsDeps, err = fetchElementDependency(p.dbase, building.ID, "building", "tech_tree_buildings_dependencies")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve building dependencies for building \"%s\" (err: %v)", bui.ID, err))
-			continue
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch building dependencies for building \"%s\" (err: %v)", building.ID, err))
 		}
 
-		// Populate the dependency.
-		for rows.Next() {
-			err = rows.Scan(
-				&techDep.ID,
-				&techDep.Level,
-			)
-
-			if err != nil {
-				p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve building dependency for building \"%s\" (err: %v)", bui.ID, err))
-				continue
-			}
-
-			bui.BuildingsDeps = append(bui.BuildingsDeps, techDep)
-		}
-	}
-
-	// We prefer to handle two distinct for loops as failure in the
-	// first dependency gathering does not mean failure in the other
-	// one with this approach. It's not optimal (because the list of
-	// dependencies will not be complete).
-	for id := range buildings {
-		// Fetch the building by value.
-		bui := &buildings[id]
-
-		// Replace the building's identifier in the query template.
-		techDepsQuery := fmt.Sprintf(techDepsQueryTemplate, bui.ID)
-
-		// Execute the query.
-		rows, err = p.dbase.DBQuery(techDepsQuery)
-
+		building.TechnologiesDeps, err = fetchElementDependency(p.dbase, building.ID, "building", "tech_tree_buildings_vs_technologies")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve technology dependencies for building \"%s\" (err: %v)", bui.ID, err))
-			continue
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies dependencies for building \"%s\" (err: %v)", building.ID, err))
 		}
 
-		// Populate the dependency.
-		for rows.Next() {
-			err = rows.Scan(
-				&techDep.ID,
-				&techDep.Level,
-			)
-
-			if err != nil {
-				p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve technology dependency for building \"%s\" (err: %v)", bui.ID, err))
-				continue
-			}
-
-			bui.TechnologiesDeps = append(bui.TechnologiesDeps, techDep)
-		}
+		buildings = append(buildings, building)
 	}
 
 	return buildings, nil

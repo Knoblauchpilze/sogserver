@@ -164,6 +164,20 @@ type TechDependency struct {
 	Level int    `json:"level"`
 }
 
+// ResourceAmount :
+// Defines a certain amount of a resource in the game. It is
+// basically an association between a resource and an amount
+// (defining how much of the resource is needed).
+//
+// The `Resource` defines the identifier of the resource that
+// this association describes.
+//
+// The `Amount` defines how much of the resource is needed.
+type ResourceAmount struct {
+	Resource string `json:"resource"`
+	Amount   int    `json:"amount"`
+}
+
 // BuildingDesc :
 // Defines the abstract representation of a building with its
 // name and unique identifier. It might also include a short
@@ -201,9 +215,27 @@ type BuildingDesc struct {
 //
 // The `Level` defines the current level of the building that
 // is built on this planet.
+//
+// The `Cost` define how much it will cost to upgrade the
+// building to the next level.
+//
+// The `Production` defines how much of each resource the
+// current level of the building produces. Note that this
+// might be completely empty in case the building is not
+// producing anything or negative if the building actually
+// consumes a resource to work.
+//
+// The `ProductionIncrease` defines how much the next level
+// will bring to the production level of each resource.
+// The production of the next level is given by adding both
+// the `Production` and the `ProductionIncrease` for each
+// resource.
 type Building struct {
-	ID    string `json:"id"`
-	Level int    `json:"level"`
+	ID                 string           `json:"id"`
+	Level              int              `json:"level"`
+	Cost               []ResourceAmount `json:"costs"`
+	Production         []ResourceAmount `json:"production"`
+	ProductionIncrease []ResourceAmount `json:"production_increase"`
 }
 
 // TechnologyDesc :
@@ -242,9 +274,33 @@ type TechnologyDesc struct {
 //
 // The `Level` defines the current technology level of this
 // technology on the account of a player.
+//
+// The `Cost` define the amount of each resource needed to
+// research the next level of this technology.
 type Technology struct {
-	ID    string `json:"id"`
-	Level int    `json:"level"`
+	ID    string           `json:"id"`
+	Level int              `json:"level"`
+	Cost  []ResourceAmount `json:"cost"`
+}
+
+// RapidFire :
+// Describes a rapid fire from a unit on another. It is
+// defined by both identifiers of the element that has
+// the rapid fire and the unit onto which the rapid fire
+// is applied along with a value describing the actual
+// effect.
+//
+// The `Provider` defines the element that has a rapid
+// fire on another unit.
+//
+// The `Receiver` defines the element that is subject
+// to a rapid fire from the provider.
+//
+// The `RF` defines the actual value of the rapid fire.
+type RapidFire struct {
+	Provider string `json:"ship"`
+	Receiver string `json:"receiver"`
+	RF       int    `json:"rf"`
 }
 
 // ShipDesc :
@@ -267,12 +323,24 @@ type Technology struct {
 //
 // The `TechnologiesDeps` fills a similar purpose but
 // register dependencies on technologies and not buildings.
+//
+// The `RFVSShips` defines the rapid fire this ship has
+// against other ships.
+//
+// The `RFVSDefenses` defines the rapid fire this ship
+// has against defenses.
+//
+// The `Cost` defines how much of each resource is needed
+// to build example of this ship.
 type ShipDesc struct {
 	ID               string           `json:"id"`
 	Name             string           `json:"name"`
 	Desc             string           `json:"desc"`
 	BuildingsDeps    []TechDependency `json:"buildings_dependencies"`
 	TechnologiesDeps []TechDependency `json:"technologies_dependencies"`
+	RFVSShips        []RapidFire      `json:"rf_against_ships"`
+	RFVSDefenses     []RapidFire      `json:"rf_against_defenses"`
+	Cost             []ResourceAmount `json:"cost"`
 }
 
 // Ship :
@@ -315,12 +383,16 @@ type Ship struct {
 // The `TechnologiesDeps` fills a similar purpose but
 // register dependencies on technologies and not on
 // buildings.
+//
+// The `Cost` defines how much of each resource is needed
+// to build example of this ship.
 type DefenseDesc struct {
 	ID               string           `json:"id"`
 	Name             string           `json:"name"`
 	Desc             string           `json:"desc"`
 	BuildingsDeps    []TechDependency `json:"buildings_dependencies"`
 	TechnologiesDeps []TechDependency `json:"technologies_dependencies"`
+	Cost             []ResourceAmount `json:"cost"`
 }
 
 // Defense :

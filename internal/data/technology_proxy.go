@@ -103,83 +103,17 @@ func (p *TechnologyProxy) Technologies(filters []DBFilter) ([]TechnologyDesc, er
 			continue
 		}
 
-		tech.BuildingsDeps = make([]TechDependency, 0)
-		tech.TechnologiesDeps = make([]TechDependency, 0)
+		tech.BuildingsDeps, err = fetchElementDependency(p.dbase, tech.ID, "technology", "tech_tree_technologies_vs_buildings")
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch building dependencies for technology \"%s\" (err: %v)", tech.ID, err))
+		}
+
+		tech.TechnologiesDeps, err = fetchElementDependency(p.dbase, tech.ID, "technology", "tech_tree_technologies_dependencies")
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies dependencies for technology \"%s\" (err: %v)", tech.ID, err))
+		}
 
 		technologies = append(technologies, tech)
-	}
-
-	// We know need to populate the dependencies that need to be
-	// met in order to be able to research this technology. This
-	// is also retrieved from the DB.
-	var techDep TechDependency
-
-	buildingDepsQueryTemplate := "select requirement, level from tech_tree_technologies_vs_buildings where technology='%s'"
-	techDepsQueryTemplate := "select requirement, level from tech_tree_technologies_dependencies where technology='%s'"
-
-	for id := range technologies {
-		// Fetch the technology by value.
-		tech := &technologies[id]
-
-		// Replace the technology's identifier in the query template.
-		buildingDepsQuery := fmt.Sprintf(buildingDepsQueryTemplate, tech.ID)
-
-		// Execute the query.
-		rows, err = p.dbase.DBQuery(buildingDepsQuery)
-
-		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve building dependencies for technology \"%s\" (err: %v)", tech.ID, err))
-			continue
-		}
-
-		// Populate the dependency.
-		for rows.Next() {
-			err = rows.Scan(
-				&techDep.ID,
-				&techDep.Level,
-			)
-
-			if err != nil {
-				p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve building dependency for technology \"%s\" (err: %v)", tech.ID, err))
-				continue
-			}
-
-			tech.BuildingsDeps = append(tech.BuildingsDeps, techDep)
-		}
-	}
-
-	// Handling dependencies in two distinct loops allow to not
-	// propagate failure to retrieve some dependencies to all
-	// others.
-	for id := range technologies {
-		// Fetch the technology by value.
-		tech := &technologies[id]
-
-		// Replace the technology's identifier in the query template.
-		techDepsQuery := fmt.Sprintf(techDepsQueryTemplate, tech.ID)
-
-		// Execute the query.
-		rows, err = p.dbase.DBQuery(techDepsQuery)
-
-		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve technology dependencies for technology \"%s\" (err: %v)", tech.ID, err))
-			continue
-		}
-
-		// Populate the dependency.
-		for rows.Next() {
-			err = rows.Scan(
-				&techDep.ID,
-				&techDep.Level,
-			)
-
-			if err != nil {
-				p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve technology dependency for technology \"%s\" (err: %v)", tech.ID, err))
-				continue
-			}
-
-			tech.TechnologiesDeps = append(tech.TechnologiesDeps, techDep)
-		}
 	}
 
 	return technologies, nil

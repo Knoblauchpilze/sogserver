@@ -17,6 +17,7 @@ import (
 // TODO: Allow to delete a planet.
 // TODO: Use the token mechanism to make sure that a client has access
 // to some information (typically to the data for a planet or a player).
+// TODO: Add rapid fire in `ShipDesc`.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

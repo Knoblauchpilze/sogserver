@@ -20,12 +20,14 @@ CREATE TABLE construction_actions_technologies (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
     player uuid NOT NULL,
     technology uuid NOT NULL,
+    planet uuid NOT NULL,
     current_level integer NOT NULL,
     desired_level integer NOT NULL,
     completion_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (player) REFERENCES players(id),
-    FOREIGN KEY (technology) REFERENCES technologies(id)
+    FOREIGN KEY (technology) REFERENCES technologies(id),
+    FOREIGN KEY (planet) REFERENCES planets(id)
 );
 
 -- Create the trigger on the table to update the `created_at` field.

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -50,6 +51,299 @@ func NewActionProxy(dbase *db.DB, log logger.Logger) ActionProxy {
 	}
 
 	return ActionProxy{dbase, log}
+}
+
+// Buildings :
+// Allows to fetch the list of upgrade action currently
+// registered in the DB given the filters parameters. It
+// can be used to get an idea of the actions pending for
+// a planet regarding the buildings.
+// The user can choose to filter parts of the buildings
+// actions using an array of filters that will be applied
+// to the SQL query.
+// No controls is enforced on the filters so one should
+// make sure that it's consistent with the underlying
+// table.
+//
+// The `filters` define some filtering property that can be
+// applied to the SQL query to only select part of all the
+// upgrade actions available. Each one is appended `as-is`
+// to the query.
+//
+// Returns the list of building upgrade actions along with
+// any errors. Note that in case the error is not `nil` the
+// returned list is to be ignored.
+func (p *ActionProxy) Buildings(filters []DBFilter) ([]BuildingUpgradeAction, error) {
+	// Create the query and execute it.
+	props := []string{
+		"id",
+		"planet",
+		"building",
+		"current_level",
+		"desired_level",
+		"completion_time",
+	}
+
+	table := "construction_actions_buildings"
+
+	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
+
+	if len(filters) > 0 {
+		query += " where"
+
+		for id, filter := range filters {
+			if id > 0 {
+				query += " and"
+			}
+			query += fmt.Sprintf(" %s", filter)
+		}
+	}
+
+	rows, err := p.dbase.DBQuery(query)
+
+	// Check for errors.
+	if err != nil {
+		return nil, fmt.Errorf("Could not query DB to fetch buildings upgrade actions (err: %v)", err)
+	}
+
+	// Populate the return value.
+	actions := make([]BuildingUpgradeAction, 0)
+	var act BuildingUpgradeAction
+
+	for rows.Next() {
+		err = rows.Scan(
+			&act.ID,
+			&act.PlanetID,
+			&act.BuildingID,
+			&act.CurrentLevel,
+			&act.DesiredLevel,
+			&act.CompletionTime,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for building upgrade action (err: %v)", err))
+			continue
+		}
+
+		actions = append(actions, act)
+	}
+
+	return actions, nil
+}
+
+// Technologies :
+// Similar to the `Buildings` feature but can be used to get
+// the list of technology upgrade actions. Instead of fetching
+// by planet (which would not make much sense) the result is
+// fetched at a player level.
+// The input filters describe some additional criteria that
+// should be matched by the upgrade actions.
+//
+// The `filters` define some filtering properties to apply
+// to the selected upgrade actions. Each one is used directly
+// agains the columns of the related table.
+//
+// Returns the list of technology upgrade actions matching
+// the input filters. This list should be ignored if the
+// error is not `nil`.
+func (p *ActionProxy) Technologies(filters []DBFilter) ([]TechnologyUpgradeAction, error) {
+	// Create the query and execute it.
+	props := []string{
+		"id",
+		"player",
+		"technology",
+		"planet",
+		"current_level",
+		"desired_level",
+		"completion_time",
+	}
+
+	table := "construction_actions_technologies"
+
+	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
+
+	if len(filters) > 0 {
+		query += " where"
+
+		for id, filter := range filters {
+			if id > 0 {
+				query += " and"
+			}
+			query += fmt.Sprintf(" %s", filter)
+		}
+	}
+
+	rows, err := p.dbase.DBQuery(query)
+
+	// Check for errors.
+	if err != nil {
+		return nil, fmt.Errorf("Could not query DB to fetch technologies upgrade actions (err: %v)", err)
+	}
+
+	// Populate the return value.
+	actions := make([]TechnologyUpgradeAction, 0)
+	var act TechnologyUpgradeAction
+
+	for rows.Next() {
+		err = rows.Scan(
+			&act.ID,
+			&act.PlayerID,
+			&act.TechnologyID,
+			&act.PlanetID,
+			&act.CurrentLevel,
+			&act.DesiredLevel,
+			&act.CompletionTime,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for technology upgrade action (err: %v)", err))
+			continue
+		}
+
+		actions = append(actions, act)
+	}
+
+	return actions, nil
+}
+
+// Ships :
+// Similar to the `Buildings` feature but can be used to get
+// the list of ships construction actions. The input filters
+// describe some additional criteria that should be matched
+// by the construction actions (typically actions related to
+// a specific ship, etc.).
+//
+// The `filters` define some filtering properties to apply
+// to the selected upgrade actions. Each one is used directly
+// agains the columns of the related table.
+//
+// Returns the list of ships being built that match the input
+// filters. This list should be ignored if the error is not
+// `nil`.
+func (p *ActionProxy) Ships(filters []DBFilter) ([]ShipUpgradeAction, error) {
+	// Create the query and execute it.
+	props := []string{
+		"id",
+		"planet",
+		"ship",
+		"amount",
+		"completion_time",
+	}
+
+	table := "construction_actions_ships"
+
+	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
+
+	if len(filters) > 0 {
+		query += " where"
+
+		for id, filter := range filters {
+			if id > 0 {
+				query += " and"
+			}
+			query += fmt.Sprintf(" %s", filter)
+		}
+	}
+
+	rows, err := p.dbase.DBQuery(query)
+
+	// Check for errors.
+	if err != nil {
+		return nil, fmt.Errorf("Could not query DB to fetch ships construction actions (err: %v)", err)
+	}
+
+	// Populate the return value.
+	actions := make([]ShipUpgradeAction, 0)
+	var act ShipUpgradeAction
+
+	for rows.Next() {
+		err = rows.Scan(
+			&act.ID,
+			&act.PlanetID,
+			&act.ShipID,
+			&act.Amount,
+			&act.CompletionTime,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for ship construction action (err: %v)", err))
+			continue
+		}
+
+		actions = append(actions, act)
+	}
+
+	return actions, nil
+}
+
+// Defenses :
+// Similar to the `Buildings` feature but can be used to get
+// the list of defenses construction actions. The provided
+// filters describe some additional criteria that should be
+// matched by the construction actions (typically actions
+// related to a specific defense system, etc.).
+//
+// The `filters` define some filtering properties to apply
+// to the selected upgrade actions. Each one is used directly
+// agains the columns of the related table.
+//
+// Returns the list of defenses being built that match the
+// input filters. This list should be ignored if the error
+// is not `nil`.
+func (p *ActionProxy) Defenses(filters []DBFilter) ([]DefenseUpgradeAction, error) {
+	// Create the query and execute it.
+	props := []string{
+		"id",
+		"planet",
+		"defense",
+		"amount",
+		"completion_time",
+	}
+
+	table := "construction_actions_defenses"
+
+	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
+
+	if len(filters) > 0 {
+		query += " where"
+
+		for id, filter := range filters {
+			if id > 0 {
+				query += " and"
+			}
+			query += fmt.Sprintf(" %s", filter)
+		}
+	}
+
+	rows, err := p.dbase.DBQuery(query)
+
+	// Check for errors.
+	if err != nil {
+		return nil, fmt.Errorf("Could not query DB to fetch defenses construction actions (err: %v)", err)
+	}
+
+	// Populate the return value.
+	actions := make([]DefenseUpgradeAction, 0)
+	var act DefenseUpgradeAction
+
+	for rows.Next() {
+		err = rows.Scan(
+			&act.ID,
+			&act.PlanetID,
+			&act.DefenseID,
+			&act.Amount,
+			&act.CompletionTime,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for defense construction action (err: %v)", err))
+			continue
+		}
+
+		actions = append(actions, act)
+	}
+
+	return actions, nil
 }
 
 // createAction :

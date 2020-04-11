@@ -614,6 +614,11 @@ type BuildingUpgradeAction struct {
 // The `TechnologyID` defines the identifier of the tech
 // that is being researched.
 //
+// The `PlanetID` allows to figure where the technology
+// is being researched. This allows to know where the
+// resources should be restored in case the player does
+// cancel the research.
+//
 // The `CurrentLevel` defines the current level reached
 // for this technology. Should always be smaller than
 // the `DesiredLevel`.
@@ -627,6 +632,7 @@ type TechnologyUpgradeAction struct {
 	ID             string    `json:"id"`
 	PlayerID       string    `json:"player"`
 	TechnologyID   string    `json:"technology"`
+	PlanetID       string    `json:"planet"`
 	CurrentLevel   int       `json:"current_level"`
 	DesiredLevel   int       `json:"desired_level"`
 	CompletionTime time.Time `json:"completion_time"`

@@ -35,6 +35,34 @@ func (s *server) listPlayers() http.HandlerFunc {
 	return ed.ServeRoute(s.log)
 }
 
+// listPlayerTechnologies :
+// Used to perform the creation of a handler allowing to serve
+// the requests on technologies for a player.
+//
+// Returns the handler that can be executed to serve said reqs.
+func (s *server) listPlayerTechnologies() http.HandlerFunc {
+	// Create the endpoint with the suited route.
+	ed := NewGetResourceEndpoint("players")
+
+	allowed := map[string]string{
+		"action_id":     "id",
+		"technology_id": "technology",
+		"planet_id":     "planet",
+		"current_level": "current_level",
+		"desired_level": "desired_level",
+	}
+
+	// Configure the endpoint.
+	ed.WithFilters(allowed).WithIDFilter("player")
+	ed.WithDataFunc(
+		func(filters []data.DBFilter) (interface{}, error) {
+			return s.upgradeAction.Technologies(filters)
+		},
+	)
+
+	return ed.ServeRoute(s.log)
+}
+
 // createPlayer :
 // Used to perform the creation of a handler allowing to server
 // the requests to create players.

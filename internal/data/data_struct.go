@@ -285,20 +285,15 @@ type Technology struct {
 
 // RapidFire :
 // Describes a rapid fire from a unit on another. It is
-// defined by both identifiers of the element that has
-// the rapid fire and the unit onto which the rapid fire
-// is applied along with a value describing the actual
-// effect.
-//
-// The `Provider` defines the element that has a rapid
-// fire on another unit.
+// defined by both the identifier of the element that is
+// subject to the rapid fire along with a value which
+// describes the actual effect.
 //
 // The `Receiver` defines the element that is subject
 // to a rapid fire from the provider.
 //
 // The `RF` defines the actual value of the rapid fire.
 type RapidFire struct {
-	Provider string `json:"ship"`
 	Receiver string `json:"receiver"`
 	RF       int    `json:"rf"`
 }

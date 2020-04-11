@@ -118,8 +118,76 @@ func (p *ShipProxy) Ships(filters []DBFilter) ([]ShipDesc, error) {
 			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies dependencies for ship \"%s\" (err: %v)", shp.ID, err))
 		}
 
+		shp.RFVSShips, err = p.fetchRapidFires(shp.ID, "ships_rapid_fire")
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch rapid fires for ship \"%s\" against other ships (err: %v)", shp.ID, err))
+		}
+
+		shp.RFVSDefenses, err = p.fetchRapidFires(shp.ID, "ships_rapid_fire_defenses")
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch rapid fires for ship \"%s\" against defenses (err: %v)", shp.ID, err))
+		}
+
 		ships = append(ships, shp)
 	}
 
 	return ships, nil
+}
+
+// fetchRapidFires :
+// Used to retrieve the rapid fire defined for the input ship
+// (described by its identifier) in the input table. The RFs
+// are returned in a corresponding slice along with any error.
+//
+// The `ship` describes the identifier of the ship for which
+// the rapid fires should be retrieved.
+//
+// The `table` defines the table into which the rapid fires
+// should be fetched. We define two main kind of rapid fire:
+// from a ship to another ship and from a ship to a defense
+// system.
+//
+// Returns the list of rapid fires this ship possess against
+// the other elements along with any error.
+func (p *ShipProxy) fetchRapidFires(ship string, table string) ([]RapidFire, error) {
+	// Check consistency.
+	if ship == "" {
+		return []RapidFire{}, fmt.Errorf("Cannot fetch rapid fire for invalid ships")
+	}
+
+	// Build and execute the query.
+	props := []string{
+		"target",
+		"rapid_fire",
+	}
+
+	query := fmt.Sprintf("select %s from %s where ship='%s'", strings.Join(props, ", "), table, ship)
+
+	// Execute the query.
+	rows, err := p.dbase.DBQuery(query)
+
+	if err != nil {
+		return []RapidFire{}, fmt.Errorf("Could not retrieve rapid fires for \"%s\" (err: %v)", ship, err)
+	}
+
+	// Populate the rapid fires.
+	var gError error
+
+	rfs := make([]RapidFire, 0)
+	var rf RapidFire
+
+	for rows.Next() {
+		err = rows.Scan(
+			&rf.Receiver,
+			&rf.RF,
+		)
+
+		if err != nil {
+			gError = fmt.Errorf("Could not retrieve info for rapid fires of \"%s\" (err: %v)", ship, err)
+		}
+
+		rfs = append(rfs, rf)
+	}
+
+	return rfs, gError
 }

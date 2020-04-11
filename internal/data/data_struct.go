@@ -577,7 +577,12 @@ type UpgradeAction interface {
 // The `BuildingID` defines the identifier of the building
 // to which this action is related.
 //
-// The `Level` defines the desired level for the building.
+// The `CurrentLevel` defines the current level reached
+// for this building. Should always be smaller than the
+// `DesiredLevel`.
+//
+// The `DesiredLevel` defines the desired level for the
+// building.
 //
 // The `CompletionTime` defines the time at which this
 // action will be completed.
@@ -585,7 +590,8 @@ type BuildingUpgradeAction struct {
 	ID             string    `json:"id"`
 	PlanetID       string    `json:"planet"`
 	BuildingID     string    `json:"building"`
-	Level          int       `json:"level"`
+	CurrentLevel   int       `json:"current_level"`
+	DesiredLevel   int       `json:"desired_level"`
 	CompletionTime time.Time `json:"completion_time"`
 }
 
@@ -608,7 +614,12 @@ type BuildingUpgradeAction struct {
 // The `TechnologyID` defines the identifier of the tech
 // that is being researched.
 //
-// The `Level` defines the desired level for the tech.
+// The `CurrentLevel` defines the current level reached
+// for this technology. Should always be smaller than
+// the `DesiredLevel`.
+//
+// The `DesiredLevel` defines the desired level for the
+// technology.
 //
 // The `CompletionTime` defines the time at which this
 // action will be completed.
@@ -616,7 +627,8 @@ type TechnologyUpgradeAction struct {
 	ID             string    `json:"id"`
 	PlayerID       string    `json:"player"`
 	TechnologyID   string    `json:"technology"`
-	Level          int       `json:"level"`
+	CurrentLevel   int       `json:"current_level"`
+	DesiredLevel   int       `json:"desired_level"`
 	CompletionTime time.Time `json:"completion_time"`
 }
 
@@ -637,12 +649,16 @@ type TechnologyUpgradeAction struct {
 // The `ShipID` defines the identifier of the ship that
 // is being built.
 //
+// The `Amount` defines how many ships should be built
+// by this upgrade action.
+//
 // The `CompletionTime` defines the time at which this
 // action will be completed.
 type ShipUpgradeAction struct {
 	ID             string    `json:"id"`
 	PlanetID       string    `json:"planet"`
 	ShipID         string    `json:"ship"`
+	Amount         int       `json:"amount"`
 	CompletionTime time.Time `json:"completion_time"`
 }
 
@@ -663,11 +679,15 @@ type ShipUpgradeAction struct {
 // The `DefenseID` defines the identifier of the defense
 // that is being built.
 //
+// The `Amount` defines how many ships should be built
+// by this upgrade action.
+//
 // The `CompletionTime` defines the time at which this
 // action will be completed.
 type DefenseUpgradeAction struct {
 	ID             string    `json:"id"`
 	PlanetID       string    `json:"planet"`
 	DefenseID      string    `json:"defense"`
+	Amount         int       `json:"amount"`
 	CompletionTime time.Time `json:"completion_time"`
 }

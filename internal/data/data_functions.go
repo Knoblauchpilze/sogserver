@@ -267,7 +267,9 @@ func (a BuildingUpgradeAction) valid() bool {
 	return validUUID(a.ID) &&
 		validUUID(a.PlanetID) &&
 		validUUID(a.BuildingID) &&
-		a.Level > 0
+		a.CurrentLevel >= 0 &&
+		a.DesiredLevel >= 0 &&
+		math.Abs(float64(a.DesiredLevel)-float64(a.CurrentLevel)) == 1
 }
 
 // String :
@@ -302,7 +304,8 @@ func (a TechnologyUpgradeAction) valid() bool {
 	return validUUID(a.ID) &&
 		validUUID(a.PlayerID) &&
 		validUUID(a.TechnologyID) &&
-		a.Level > 0
+		a.CurrentLevel >= 0 &&
+		a.DesiredLevel == a.CurrentLevel+1
 }
 
 // String :

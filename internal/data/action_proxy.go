@@ -116,7 +116,7 @@ func (p *ActionProxy) CreateBuildingAction(action *BuildingUpgradeAction) error 
 	err := p.createAction(action, "create_building_upgrade_action")
 
 	if err == nil {
-		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d on \"%s\"", action.BuildingID, action.Level, action.PlanetID))
+		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d on \"%s\"", action.BuildingID, action.DesiredLevel, action.PlanetID))
 	}
 
 	return err
@@ -144,7 +144,7 @@ func (p *ActionProxy) CreateTechnologyAction(action *TechnologyUpgradeAction) er
 	err := p.createAction(action, "create_technology_upgrade_action")
 
 	if err == nil {
-		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d for \"%s\"", action.TechnologyID, action.Level, action.PlayerID))
+		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d for \"%s\"", action.TechnologyID, action.DesiredLevel, action.PlayerID))
 	}
 
 	return err

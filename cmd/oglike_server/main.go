@@ -17,7 +17,6 @@ import (
 // TODO: Allow to delete a planet.
 // TODO: Use the token mechanism to make sure that a client has access
 // to some information (typically to the data for a planet or a player).
-// TODO: Add rapid fire in `ShipDesc`.
 // TODO: Provide the script to actually perform the construction action.
 // This script would be something like an update of the table by making
 // sure that it only upgrade something consistent so typically:
@@ -35,7 +34,7 @@ import (
 // expressions used in the route in the `extractRouteVars` framework to allow
 // to actually determine precisely which are the elements from the route and
 // which are the extra pathes.
-// TODO: Refine building, technology and ship and defense unmarshalling.
+// TODO: Refine building, technology to include the cost at a given level.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

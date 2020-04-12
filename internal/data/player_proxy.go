@@ -3,6 +3,7 @@ package data
 import (
 	"encoding/json"
 	"fmt"
+	"oglike_server/internal/locker"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 	"strings"
@@ -23,9 +24,22 @@ import (
 // The `log` allows to perform display to the user so as
 // to inform of potential issues and debug information to
 // the outside world.
+//
+// The `lock` allows to lock specific resources when some
+// player data should be retrieved. Indeed the player's
+// data include the technologies researched so far by the
+// player which are potentially being upgraded through a
+// `upgrade action` mechanism. In order to make sure that
+// the data is up-to-date, we have to process these actions
+// each time a player's data needs to be retrieved.
+// This plays well with the mechanism we decided to use
+// to have some kind of lazy processing of actions: the
+// research of the player are not taken into account (i.e.
+// registered in the DB) until it's really needed.
 type PlayerProxy struct {
 	dbase *db.DB
 	log   logger.Logger
+	lock  *locker.ConcurrentLocker
 }
 
 // NewPlayerProxy :
@@ -46,7 +60,11 @@ func NewPlayerProxy(dbase *db.DB, log logger.Logger) PlayerProxy {
 		panic(fmt.Errorf("Cannot create players proxy from invalid DB"))
 	}
 
-	return PlayerProxy{dbase, log}
+	return PlayerProxy{
+		dbase,
+		log,
+		locker.NewConcurrentLocker(log),
+	}
 }
 
 // Players :
@@ -133,6 +151,13 @@ func (p *PlayerProxy) fetchPlayerData(player *Player) error {
 		return fmt.Errorf("Unable to fetch data from player with invalid identifier")
 	}
 
+	// We need to update the tehcnology upgrade actions that
+	// might be registered for this player first.
+	err := p.updateTechnologyUpgradeActions(player.ID)
+	if err != nil {
+		return fmt.Errorf("Could not update technology upgrade actions for player \"%s\" (err: %v)", player.ID, err)
+	}
+
 	// Fetch technologies.
 	query := fmt.Sprintf("select technology, level from player_technologies where player='%s'", player.ID)
 	rows, err := p.dbase.DBQuery(query)
@@ -156,6 +181,62 @@ func (p *PlayerProxy) fetchPlayerData(player *Player) error {
 		}
 
 		player.Technologies = append(player.Technologies, tech)
+	}
+
+	return nil
+}
+
+// updateTechnologyUpgradeActions :
+// Used to perform the update of the technology upgrade
+// actions registered for the input player. This means
+// parsing the actions registered for this player and
+// see whether the corresponding actions can be applied
+// to the DB. Basically it will check for each research
+// action (should be at most 1 for any player) whether
+// the completion time is in the past and if so update
+// the corresponding current technology level in the
+// corresponding table.
+// The update action will also be deleted.
+//
+// The `player` defines the identifier of the player
+// for which the technology upgrade action should be
+// updated.
+//
+// Returns any error that may have occurred during the
+// process.
+func (p *PlayerProxy) updateTechnologyUpgradeActions(player string) error {
+	// Prevent invalid player identifier.
+	if player == "" {
+		return fmt.Errorf("Cannot update technology upgrade action for invalid player")
+	}
+
+	// Acquire a lock on this player.
+	lock := p.lock.Acquire(player)
+	defer p.lock.Release(lock)
+
+	// Perform the update: we will wrap the function inside
+	// a dedicated function to make sure that we don't lock
+	// the resource more than necessary.
+	var err error
+	var errExec error
+
+	func() {
+		lock.Lock()
+		defer func() {
+			err = lock.Release()
+		}()
+
+		// Perform the update.
+		query := fmt.Sprintf("SELECT update_technology_upgrade_action('%s')", player)
+		_, errExec = p.dbase.DBExecute(query)
+	}()
+
+	// Return any error.
+	if errExec != nil {
+		return fmt.Errorf("Could not update technology upgrade action for \"%s\" (err: %v)", player, errExec)
+	}
+	if err != nil {
+		return fmt.Errorf("Could not release locker when updading technology upgrade action for \"%s\" (err: %v)", player, err)
 	}
 
 	return nil

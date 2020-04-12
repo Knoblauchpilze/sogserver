@@ -16,7 +16,17 @@ $$ LANGUAGE plpgsql;
 -- Create players from the account and universe data.
 CREATE OR REPLACE FUNCTION create_player(inputs json) RETURNS VOID AS $$
 BEGIN
+  -- Insert the player's data into the dedicated table.
   INSERT INTO players SELECT * FROM json_populate_record(null::players, inputs);
+
+  -- Insert technologies with a `0` level in the table.
+  -- The conversion in itself includes retrieving the `json`
+  -- key by value and then converting it to a uuid. Here is
+  -- a useful link:
+  -- https://stackoverflow.com/questions/53567903/postgres-cast-to-uuid-from-json
+  INSERT INTO player_technologies(player, technology, level)
+    SELECT (inputs->>'id')::uuid, t.id, 0
+    FROM technologies t;
 END
 $$ LANGUAGE plpgsql;
 
@@ -28,6 +38,19 @@ BEGIN
 
   -- Insert the base resources of the planet.
   INSERT INTO planets_resources select * FROM json_populate_recordset(null::planets_resources, resources);
+
+  -- Insert base buildings, ships, defenses on the planet.
+  INSERT INTO planets_buildings(planet, building, level)
+    SELECT (planet->>'id')::uuid, b.id, 0
+    FROM buildings b;
+
+  INSERT INTO planets_ships(planet, ship, count)
+    SELECT (planet->>'id')::uuid, s.id, 0
+    FROM ships s;
+
+  INSERT INTO planets_defenses(planet, defense, count)
+    SELECT (planet->>'id')::uuid, d.id, 0
+    FROM defenses d;
 END
 $$ LANGUAGE plpgsql;
 
@@ -83,8 +106,26 @@ BEGIN
   WITH updateData
   AS (SELECT * FROM jsonb_populate_recordset(resources))
   UPDATE planets_resources pr
-    SET pr.amount = ud.amount
+    SET amount = ud.amount
   FROM updateData AS ud
   WHERE pr.planet = ud.planet AND pr.res = ud.res;
+END
+$$ LANGUAGE plpgsql;
+
+-- Update upgrade action for technologies.
+CREATE OR REPLACE FUNCTION update_technology_upgrade_action(player_id uuid) RETURNS VOID AS $$
+BEGIN
+  WITH updateData
+  AS (SELECT * FROM construction_actions_technologies cat WHERE cat.player=player_id)
+  UPDATE player_technologies pt
+    SET level = ud.desired_level
+  FROM updateData as ud
+  WHERE
+    pt.player = player_id
+    AND pt.technology = ud.technology
+    AND pt.level = ud.current_level
+    AND ud.completion_time < NOW();
+
+  DELETE FROM construction_actions_technologies WHERE player = player_id AND completion_time < NOW();
 END
 $$ LANGUAGE plpgsql;

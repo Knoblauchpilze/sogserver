@@ -16,3 +16,6 @@ Logger:
   Environment: "dev"
   ForceLocal: true
   Level: "debug"
+# Concurrent lock for upgrade actions
+Concurrent:
+  LockCount : 1

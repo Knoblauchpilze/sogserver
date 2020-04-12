@@ -13,7 +13,6 @@ func (s *server) routes() {
 	// Handle known routes.
 	s.route("GET", "/universes", s.listUniverses())
 	s.route("GET", "/accounts", s.listAccounts())
-	// TODO: Should update the technology upgrade actions.
 	s.route("GET", "/players", s.listPlayers())
 	s.route("GET", "/players/[a-zA-Z0-9-]+/actions/technologies", s.listPlayerTechnologies())
 	s.route("GET", "/buildings", s.listBuildings())

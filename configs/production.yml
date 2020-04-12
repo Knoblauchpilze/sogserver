@@ -1,3 +1,6 @@
+# Port to be used for the api
+App:
+  Port: 3000
 # Database setup
 Database:
   Host: 'localhost'
@@ -11,4 +14,8 @@ Database:
 Logger:
   Name: "oglike"
   Environment: "prod"
+  ForceLocal: true
   Level: "notice"
+# Concurrent lock for upgrade actions
+Concurrent:
+  LockCount : 1

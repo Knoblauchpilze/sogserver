@@ -309,10 +309,10 @@ func (cl *ConcurrentLocker) Release(lock *Lock) {
 	delete(cl.registered, lock.res)
 	cl.availableLocks <- lock.id
 
+	cl.cout.Trace(logger.Debug, fmt.Sprintf("Releasing locker on \"%s\" at index %d (available: %d)", lock.res, lock.id, len(cl.availableLocks)))
+
 	lock.id = -1
 	lock.res = ""
-
-	cl.cout.Trace(logger.Debug, fmt.Sprintf("Releasing locker on \"%s\" at index %d (available: %d)", lock.res, lock.id, len(cl.availableLocks)))
 }
 
 // Lock :

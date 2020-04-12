@@ -43,7 +43,7 @@ func getPlanetTemperatureAmplitude() int {
 	return 50
 }
 
-// initFromDB :
+// initResourcesFromDB :
 // Used to query information from the DB and fetch
 // the resources identifiers in order to speed up
 // the planets' creation.
@@ -60,7 +60,7 @@ func getPlanetTemperatureAmplitude() int {
 // Returns a map representing for each resource
 // its associated DB identifier along with any
 // error.
-func initFromDB(dbase *db.DB, log logger.Logger) (map[string]string, error) {
+func initResourcesFromDB(dbase *db.DB, log logger.Logger) (map[string]string, error) {
 	resources := make(map[string]string)
 
 	if dbase == nil {
@@ -183,7 +183,7 @@ func NewPlanetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) PlanetP
 	// map. We will use the dedicated handler which is used
 	// to actually fetch the data and always return a valid
 	// value.
-	resources, err := initFromDB(dbase, log)
+	resources, err := initResourcesFromDB(dbase, log)
 	if err != nil {
 		log.Trace(logger.Error, fmt.Sprintf("Could not fetch resources' identifiers from DB (err: %v)", err))
 	}
@@ -1208,7 +1208,7 @@ func (p *PlanetProxy) generateResources(planet *Planet) error {
 	// the resources from the DB and return an error is it
 	// fails.
 	if len(p.resources) == 0 {
-		resources, err := initFromDB(p.dbase, p.log)
+		resources, err := initResourcesFromDB(p.dbase, p.log)
 		if err != nil {
 			return fmt.Errorf("Unable to generate resources for planet, none defined")
 		}

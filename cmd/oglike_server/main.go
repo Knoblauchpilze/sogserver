@@ -21,7 +21,7 @@ import (
 // expressions used in the route in the `extractRouteVars` framework to allow
 // to actually determine precisely which are the elements from the route and
 // which are the extra pathes.
-// TODO: Refine building, technology to include the cost at a given level.
+// TODO: Refine building to include the cost at a given level.
 // TODO: We should fetch the progression costs similarly to the resources' identifiers.
 
 // usage :

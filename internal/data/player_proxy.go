@@ -3,6 +3,7 @@ package data
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"oglike_server/internal/locker"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -36,10 +37,159 @@ import (
 // to have some kind of lazy processing of actions: the
 // research of the player are not taken into account (i.e.
 // registered in the DB) until it's really needed.
+//
+// The `costs` is used when the data for a player should
+// be retrieved in order to compute the costs associated
+// to the next level of the technology, based on the level
+// reached by the player so far.
+// It is initialized when building the proxy so that the
+// information is readily available when needed.
 type PlayerProxy struct {
 	dbase *db.DB
 	log   logger.Logger
 	lock  *locker.ConcurrentLocker
+	costs map[string]TechnologyCost
+}
+
+// TechnologyCost :
+// Defines for a single technology the associated costs
+// for the first level along with the progression rule
+// followed to compute the cost at any level.
+//
+// The `InitCosts` rerpesents a map where the keys are
+// resources' identifiers and the values are the init
+// cost of the technology for the corresponding res.
+// If a resource does not have its identifier in this
+// map, it means that the technology does not require
+// any quantity of it.
+//
+// The `ProgressionRule` defines a value that should
+// be used to multiply the initial cost to obtain the
+// cost at any level.
+// All the technologies follow a rule where the cost
+// at level `N` is something along the line of
+// `ProgressionRule ^ N`.
+// The larger this value, the quicker the costs will
+// rise with the level.
+type TechnologyCost struct {
+	InitCosts       map[string]int
+	ProgressionRule float32
+}
+
+// initTechCostsFromDB :
+// Used to query information from the DB and fetch info
+// for technologies that will be used to compute costs
+// of a technology for a given level. The information
+// fetched in this function hardly changes during the
+// life of the server and it's more interesting to load
+// it in RAM so as to save time each time a request of
+// a player is handled.
+// In case the DB cannot be contacted an error is sent
+// back but a valid map is still returned (it is empty
+// though).
+//
+// The `dbase` represents the DB from which info about
+// technologies costs should be fetched.
+//
+// The `log` allows to notify errors and info to the
+// user in case of any failure.
+//
+// Returns a map representing for each technology its
+// associated cost and rule of progression.
+func initTechCostsFromDB(dbase *db.DB, log logger.Logger) (map[string]TechnologyCost, error) {
+	techCosts := make(map[string]TechnologyCost)
+
+	if dbase == nil {
+		return techCosts, fmt.Errorf("Could not technologies costs from DB, no DB provided")
+	}
+
+	// First retrieve the technologies progression rule.
+	props := []string{
+		"technology",
+		"progress",
+	}
+	table := "technologies_costs_progress"
+
+	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
+
+	rows, err := dbase.DBQuery(query)
+	if err != nil {
+		return techCosts, fmt.Errorf("Could not initialize technologies costs from DB (err: %v)", err)
+	}
+
+	var techID string
+	var progress float32
+
+	for rows.Next() {
+		err = rows.Scan(
+			&techID,
+			&progress,
+		)
+
+		if err != nil {
+			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for technology cost (err: %v)", err))
+			continue
+		}
+
+		existing, ok := techCosts[techID]
+		if ok {
+			log.Trace(logger.Error, fmt.Sprintf("Overriding progression rule for technology \"%s\" (existing was %f, new is %f)", techID, existing.ProgressionRule, progress))
+		}
+
+		techCosts[techID] = TechnologyCost{
+			make(map[string]int),
+			progress,
+		}
+	}
+
+	// Now populate the costs for each technology.
+	props = []string{
+		"technology",
+		"res",
+		"cost",
+	}
+	table = "technologies_costs"
+
+	query = fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
+
+	rows, err = dbase.DBQuery(query)
+	if err != nil {
+		return techCosts, fmt.Errorf("Could not initialize technologies costs from DB (err: %v)", err)
+	}
+
+	var res string
+	var cost int
+
+	for rows.Next() {
+		err = rows.Scan(
+			&techID,
+			&res,
+			&cost,
+		)
+
+		if err != nil {
+			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for technology cost (err: %v)", err))
+			continue
+		}
+
+		tech, ok := techCosts[techID]
+
+		if !ok {
+			log.Trace(logger.Error, fmt.Sprintf("Cannot define cost of %d of resource \"%s\" for technology \"%s\" not found in progression rules", cost, res, techID))
+			continue
+		}
+
+		existing, ok := tech.InitCosts[res]
+		if ok {
+			log.Trace(logger.Error, fmt.Sprintf("Overriding cost for resource \"%s\" in technology \"%s\" (existing was %d, new is %d)", res, techID, existing, cost))
+		}
+
+		tech.InitCosts[res] = cost
+
+		techCosts[techID] = tech
+	}
+
+	return techCosts, nil
 }
 
 // NewPlayerProxy :
@@ -60,10 +210,20 @@ func NewPlayerProxy(dbase *db.DB, log logger.Logger) PlayerProxy {
 		panic(fmt.Errorf("Cannot create players proxy from invalid DB"))
 	}
 
+	// Fetch the information related to technlogies costs
+	// from the DB to populate the internal map. We will
+	// use the dedicated handler which is used to actually
+	// fetch the data and always return a valid value.
+	techCosts, err := initTechCostsFromDB(dbase, log)
+	if err != nil {
+		log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies costs from DB (err: %v)", err))
+	}
+
 	return PlayerProxy{
 		dbase,
 		log,
 		locker.NewConcurrentLocker(log),
+		techCosts,
 	}
 }
 
@@ -123,7 +283,7 @@ func (p *PlayerProxy) Players(filters []DBFilter) ([]Player, error) {
 		}
 
 		// Populate the technologies researched by this player.
-		err = p.fetchPlayerData(&player)
+		err = p.fetchPlayerTechnologies(&player)
 		if err != nil {
 			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch data for player \"%s\" (err: %v)", player.ID, err))
 			continue
@@ -135,7 +295,7 @@ func (p *PlayerProxy) Players(filters []DBFilter) ([]Player, error) {
 	return players, nil
 }
 
-// fetchPlayerData :
+// fetchPlayerTechnologies :
 // Used to fetch data related to the player in argument. It
 // mainly consists in the list of technologies researched by
 // the player.
@@ -145,7 +305,7 @@ func (p *PlayerProxy) Players(filters []DBFilter) ([]Player, error) {
 // specifically the identifier) are already populated.
 //
 // Returns any error.
-func (p *PlayerProxy) fetchPlayerData(player *Player) error {
+func (p *PlayerProxy) fetchPlayerTechnologies(player *Player) error {
 	// Check whether the player has an identifier assigned.
 	if player.ID == "" {
 		return fmt.Errorf("Unable to fetch data from player with invalid identifier")
@@ -178,6 +338,14 @@ func (p *PlayerProxy) fetchPlayerData(player *Player) error {
 		if err != nil {
 			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve technology for player \"%s\" (err: %v)", player.ID, err))
 			continue
+		}
+
+		// Update the costs for this technology.
+		err = p.updateTechnologyCosts(&tech)
+		if err != nil {
+			tech.Cost = make([]ResourceAmount, 0)
+
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve costs for technology \"%s\" for player \"%s\" (err: %v)", tech.ID, player.ID, err))
 		}
 
 		player.Technologies = append(player.Technologies, tech)
@@ -237,6 +405,56 @@ func (p *PlayerProxy) updateTechnologyUpgradeActions(player string) error {
 	}
 	if err != nil {
 		return fmt.Errorf("Could not release locker when updading technologies upgrade actions for \"%s\" (err: %v)", player, err)
+	}
+
+	return nil
+}
+
+// updateTechnologyCosts :
+// Used to perform the computation of the costs for the
+// next level of the technology described in argument.
+// The output values will be saved directly in the input
+// object.
+//
+// The `tech` defines the object for which the costs
+// should be computed. A `nil` value will generate an
+// error.
+//
+// Returns any error.
+func (p *PlayerProxy) updateTechnologyCosts(tech *Technology) error {
+	// Check consistency.
+	if tech == nil || tech.ID == "" {
+		return fmt.Errorf("Cannot update technology costs from invalid technology")
+	}
+
+	// In case the costs for technology are not populated
+	// try to update it.
+	if len(p.costs) == 0 {
+		costs, err := initTechCostsFromDB(p.dbase, p.log)
+		if err != nil {
+			return fmt.Errorf("Unable to generate technologies costs for technology, none defined")
+		}
+
+		p.costs = costs
+	}
+
+	// Find the technology in the costs table.
+	info, ok := p.costs[tech.ID]
+	if !ok {
+		return fmt.Errorf("Could not compute costs for unknown technology \"%s\"", tech.ID)
+	}
+
+	// For each resource, compute the cost of the next level and
+	// use it to update the input `tech` object.
+	tech.Cost = make([]ResourceAmount, 0)
+
+	for res, cost := range info.InitCosts {
+		costForRes := ResourceAmount{
+			res,
+			cost * int(math.Round(math.Pow(float64(info.ProgressionRule), float64(tech.Level)))),
+		}
+
+		tech.Cost = append(tech.Cost, costForRes)
 	}
 
 	return nil

@@ -166,13 +166,12 @@ func parseConfiguration() configuration {
 //
 // Returns the created concurrent locker.
 func NewConcurrentLocker(log logger.Logger) *ConcurrentLocker {
-
 	// Parse the config.
 	config := parseConfiguration()
 
 	// Create the lockers.
 	allLocks := make([]*Lock, config.LockCount)
-	ids := make(chan int, 0)
+	ids := make(chan int, config.LockCount)
 
 	for id := range allLocks {
 		// Create the lock.

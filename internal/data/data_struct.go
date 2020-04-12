@@ -1,6 +1,9 @@
 package data
 
-import "time"
+import (
+	"oglike_server/pkg/duration"
+	"time"
+)
 
 // Account :
 // Defines a player's account within the OG context. It is
@@ -725,14 +728,19 @@ type TechnologyUpgradeAction struct {
 // The `Amount` defines how many ships should be built
 // by this upgrade action.
 //
-// The `CompletionTime` defines the time at which this
-// action will be completed.
+// The `Remaining` defines how many ships are yet to be
+// built by this upgrade action.
+//
+// The `CompletionTime` defines the duration of a single
+// element of the action. It might represent the duration
+// of the total action in case the `Amount` is set to 1.
 type ShipUpgradeAction struct {
-	ID             string    `json:"id"`
-	PlanetID       string    `json:"planet"`
-	ShipID         string    `json:"ship"`
-	Amount         int       `json:"amount"`
-	CompletionTime time.Time `json:"completion_time"`
+	ID             string            `json:"id"`
+	PlanetID       string            `json:"planet"`
+	ShipID         string            `json:"ship"`
+	Amount         int               `json:"amount"`
+	Remaining      int               `json:"remaining"`
+	CompletionTime duration.Duration `json:"completion_time"`
 }
 
 // DefenseUpgradeAction :
@@ -755,12 +763,17 @@ type ShipUpgradeAction struct {
 // The `Amount` defines how many ships should be built
 // by this upgrade action.
 //
-// The `CompletionTime` defines the time at which this
-// action will be completed.
+// The `Remaining` defines how many defeneses are yet to
+// be built by this upgrade action.
+//
+// The `CompletionTime` defines the duration of a single
+// element of the action. It might represent the duration
+// of the total action in case the `Amount` is set to 1.
 type DefenseUpgradeAction struct {
-	ID             string    `json:"id"`
-	PlanetID       string    `json:"planet"`
-	DefenseID      string    `json:"defense"`
-	Amount         int       `json:"amount"`
-	CompletionTime time.Time `json:"completion_time"`
+	ID             string            `json:"id"`
+	PlanetID       string            `json:"planet"`
+	DefenseID      string            `json:"defense"`
+	Amount         int               `json:"amount"`
+	Remaining      int               `json:"remaining"`
+	CompletionTime duration.Duration `json:"completion_time"`
 }

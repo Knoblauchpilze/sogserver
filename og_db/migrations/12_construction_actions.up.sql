@@ -39,7 +39,8 @@ CREATE TABLE construction_actions_ships (
     planet uuid NOT NULL,
     ship uuid NOT NULL,
     amount integer NOT NULL,
-    completion_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    remaining integer NOT NULL,
+    completion_time INTERVAL NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (planet) REFERENCES planets(id),
     FOREIGN KEY (ship) REFERENCES ships(id)
@@ -54,7 +55,8 @@ CREATE TABLE construction_actions_defenses (
     planet uuid NOT NULL,
     defense uuid NOT NULL,
     amount integer NOT NULL,
-    completion_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    remaining integer NOT NULL,
+    completion_time INTERVAL NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (planet) REFERENCES planets(id),
     FOREIGN KEY (defense) REFERENCES defenses(id)

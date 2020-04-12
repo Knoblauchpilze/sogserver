@@ -339,7 +339,9 @@ func (a ShipUpgradeAction) GetID() string {
 func (a ShipUpgradeAction) valid() bool {
 	return validUUID(a.ID) &&
 		validUUID(a.PlanetID) &&
-		validUUID(a.ShipID)
+		validUUID(a.ShipID) &&
+		a.Amount > 0 &&
+		a.Remaining >= 0
 }
 
 // String :
@@ -373,7 +375,9 @@ func (a DefenseUpgradeAction) GetID() string {
 func (a DefenseUpgradeAction) valid() bool {
 	return validUUID(a.ID) &&
 		validUUID(a.PlanetID) &&
-		validUUID(a.DefenseID)
+		validUUID(a.DefenseID) &&
+		a.Amount > 0 &&
+		a.Remaining >= 0
 }
 
 // String :

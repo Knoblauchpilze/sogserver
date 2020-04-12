@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"oglike_server/internal/locker"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 	"strings"
@@ -128,11 +129,30 @@ func initFromDB(dbase *db.DB, log logger.Logger) (map[string]string, error) {
 // part of the behavior related to universes typically
 // when fetching a universe into which a planet should
 // be created.
+//
+// The `lock` allows to lock specific resources when some
+// planet data should be retrieved. A planet can indeed
+// have some upgrade actions attached to it to define the
+// upgrade of a building, or the construction of ships or
+// defense systems.
+// Each of these actions are executed in a lazy update
+// fashion where the action is created and then performed
+// only when needed: we store the completion time and if
+// the data needs to be accessed we upgrade it.
+// This mechanism requires that when the data needs to be
+// fetched for a planet an update operation should first
+// be performed to ensure that the data is up-to-date.
+// As no data is shared across planet we don't see the
+// need to lock all the planets when a single one should
+// be updated. Using the `ConcurrentLock` we have a way
+// to lock only some planets which is exactly what we
+// need.
 type PlanetProxy struct {
 	dbase     *db.DB
 	log       logger.Logger
 	resources map[string]string
 	uniProxy  UniverseProxy
+	lock      *locker.ConcurrentLocker
 }
 
 // NewPlanetProxy :
@@ -173,6 +193,7 @@ func NewPlanetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) PlanetP
 		log,
 		resources,
 		unis,
+		locker.NewConcurrentLocker(log),
 	}
 }
 
@@ -306,8 +327,51 @@ func (p *PlanetProxy) fetchPlanetData(planet *Planet) error {
 	}
 
 	// Fetch buildings.
-	query = fmt.Sprintf("select building, level from planets_buildings where planet='%s'", planet.ID)
-	rows, err = p.dbase.DBQuery(query)
+	err = p.fetchPlanetBuildings(planet)
+	if err != nil {
+		return fmt.Errorf("Could not fetch buildings for planet \"%s\" (err: %v)", planet.ID, err)
+	}
+
+	// Fetch ships.
+	err = p.fetchPlanetShips(planet)
+	if err != nil {
+		return fmt.Errorf("Could not fetch ships for planet \"%s\" (err: %v)", planet.ID, err)
+	}
+
+	// Fetch defenses.
+	err = p.fetchPlanetDefenses(planet)
+	if err != nil {
+		return fmt.Errorf("Could not fetch defenses for planet \"%s\" (err: %v)", planet.ID, err)
+	}
+
+	return nil
+}
+
+// fetchPlanetBuildings :
+// Used to fetch the buildings currently present on a planet.
+// In addition to fetching the data this method will also set
+// the upgrade actions for the planet and execute the upgrades
+// if needed.
+//
+// The `planet` defines the planet for which buildings should
+// be fetched. An invalid value will return an error.
+//
+// Returns any error that happended while fetching buildings.
+func (p *PlanetProxy) fetchPlanetBuildings(planet *Planet) error {
+	// Check consistency.
+	if planet == nil || planet.ID == "" {
+		return fmt.Errorf("Unable to fetch buildings from planet with invalid identifier")
+	}
+
+	// We need to update the construction actions for buildings
+	// first.
+	err := p.updateBuildingsConstructionActions(planet.ID)
+	if err != nil {
+		return fmt.Errorf("Could not update buildings upgrade actions for planet \"%s\" (err: %v)", planet.ID, err)
+	}
+
+	query := fmt.Sprintf("select building, level from planets_buildings where planet='%s'", planet.ID)
+	rows, err := p.dbase.DBQuery(query)
 
 	if err != nil {
 		return fmt.Errorf("Could not fetch buildings for planet \"%s\" (err: %v)", planet.ID, err)
@@ -330,9 +394,34 @@ func (p *PlanetProxy) fetchPlanetData(planet *Planet) error {
 		planet.Buildings = append(planet.Buildings, building)
 	}
 
-	// Fetch ships.
-	query = fmt.Sprintf("select ship, count from planets_ships where planet='%s'", planet.ID)
-	rows, err = p.dbase.DBQuery(query)
+	return nil
+}
+
+// fetchPlanetShips :
+// Fills a similar role to `fetchPlanetBuildings` but handles
+// the ships associated to a planet. Note that this does not
+// handle the ships currently directed towards the planet but
+// which do not have reached it yet.
+//
+// The `planet` defines the planet for which ships should be
+// fetched. An invalid value will return an error.
+//
+// Returns any error that happended while fetching ships.
+func (p *PlanetProxy) fetchPlanetShips(planet *Planet) error {
+	// Check consistency.
+	if planet == nil || planet.ID == "" {
+		return fmt.Errorf("Unable to fetch ships from planet with invalid identifier")
+	}
+
+	// We need to update the construction actions for defenses
+	// first.
+	err := p.updateShipsConstructionActions(planet.ID)
+	if err != nil {
+		return fmt.Errorf("Could not update ships construction actions for planet \"%s\" (err: %v)", planet.ID, err)
+	}
+
+	query := fmt.Sprintf("select ship, count from planets_ships where planet='%s'", planet.ID)
+	rows, err := p.dbase.DBQuery(query)
 
 	if err != nil {
 		return fmt.Errorf("Could not fetch ships for planet \"%s\" (err: %v)", planet.ID, err)
@@ -355,9 +444,36 @@ func (p *PlanetProxy) fetchPlanetData(planet *Planet) error {
 		planet.Ships = append(planet.Ships, ship)
 	}
 
-	// Fetch defenses.
-	query = fmt.Sprintf("select defense, count from planets_defenses where planet='%s'", planet.ID)
-	rows, err = p.dbase.DBQuery(query)
+	return nil
+}
+
+// fetchPlanetDefenses :
+// Fills a similar role to `fetchPlanetBuildings` but handles
+// the defenses associated to a planet. Note that this does
+// not handle the defenses that are currently being built but
+// nontetheless provide an update of the current construction
+// actions running on the planet so that the count is as close
+// as possible from the current situation.
+//
+// The `planet` defines the planet for which defenses should
+// be fetched. An invalid value will return an error.
+//
+// Returns any error that happended while fetching defenses.
+func (p *PlanetProxy) fetchPlanetDefenses(planet *Planet) error {
+	// Check consistency.
+	if planet == nil || planet.ID == "" {
+		return fmt.Errorf("Unable to fetch defenses from planet with invalid identifier")
+	}
+
+	// We need to update the construction actions for ships first.
+	err := p.updateDefensesConstructionActions(planet.ID)
+	if err != nil {
+		return fmt.Errorf("Could not update defenses construction actions for planet \"%s\" (err: %v)", planet.ID, err)
+	}
+
+	// Fetch the data once it is up-to-date.
+	query := fmt.Sprintf("select defense, count from planets_defenses where planet='%s'", planet.ID)
+	rows, err := p.dbase.DBQuery(query)
 
 	if err != nil {
 		return fmt.Errorf("Could not fetch defenses for planet \"%s\" (err: %v)", planet.ID, err)
@@ -378,6 +494,155 @@ func (p *PlanetProxy) fetchPlanetData(planet *Planet) error {
 		}
 
 		planet.Defenses = append(planet.Defenses, defense)
+	}
+
+	return nil
+}
+
+// updateBuildingsConstructionActions :
+// Performs the update of the building construction actions
+// related to a specific planet provided in input. It will
+// analyze the actions registered for the planet (at most
+// a single one) and perform the update if the action has
+// finished already.
+// This comes handy to make sure that the data always is
+// an accurate reflection of the buildings present on each
+// planet.
+//
+// The `planet` defines the identifier of the planet for
+// which the buildings upgrade actions should be executed.
+//
+// Returns any error that may have occurred while updating.
+func (p *PlanetProxy) updateBuildingsConstructionActions(planet string) error {
+	// Prevent invalid planet identifier.
+	if planet == "" {
+		return fmt.Errorf("Cannot update buildings construction actions for invalid planet")
+	}
+
+	// Acquire a lock on this planet.
+	lock := p.lock.Acquire(planet)
+	defer p.lock.Release(lock)
+
+	// Perform the update: we will wrap the function inside
+	// a dedicated handler to make sure that we don't lock
+	// the resource more than necessary.
+	var err error
+	var errExec error
+
+	func() {
+		lock.Lock()
+		defer func() {
+			err = lock.Release()
+		}()
+
+		// Perform the update.
+		query := fmt.Sprintf("SELECT update_building_upgrade_action('%s')", planet)
+		_, errExec = p.dbase.DBExecute(query)
+	}()
+
+	// Return any error.
+	if errExec != nil {
+		return fmt.Errorf("Could not update buildings construction actions for \"%s\" (err: %v)", planet, errExec)
+	}
+	if err != nil {
+		return fmt.Errorf("Could not release locker when updading buildings construction actions for \"%s\" (err: %v)", planet, err)
+	}
+
+	return nil
+}
+
+// updateShipsConstructionActions :
+// Similar to the `updateBuildingsConstructionActions` but
+// performs the update of the ships construction actions.
+// We will follow a very similar process where the actions
+// are analyzed to update the ships count on the planet and
+// removed if necessary.
+//
+// The `planet` defines the identifier of the planet for
+// which the ships construction actions should be executed.
+//
+// Returns any error that may have occurred while updating.
+func (p *PlanetProxy) updateShipsConstructionActions(planet string) error {
+	// Prevent invalid planet identifier.
+	if planet == "" {
+		return fmt.Errorf("Cannot update ships construction actions for invalid planet")
+	}
+
+	// Acquire a lock on this planet.
+	lock := p.lock.Acquire(planet)
+	defer p.lock.Release(lock)
+
+	// Perform the update: we will wrap the function inside
+	// a dedicated handler to make sure that we don't lock
+	// the resource more than necessary.
+	var err error
+	var errExec error
+
+	func() {
+		lock.Lock()
+		defer func() {
+			err = lock.Release()
+		}()
+
+		// Perform the update.
+		query := fmt.Sprintf("SELECT update_ship_upgrade_action('%s')", planet)
+		_, errExec = p.dbase.DBExecute(query)
+	}()
+
+	// Return any error.
+	if errExec != nil {
+		return fmt.Errorf("Could not update ships construction actions for \"%s\" (err: %v)", planet, errExec)
+	}
+	if err != nil {
+		return fmt.Errorf("Could not release locker when updading ships construction actions for \"%s\" (err: %v)", planet, err)
+	}
+
+	return nil
+}
+
+// updateDefensesConstructionActions :
+// Similar to the `updateBuildingsConstructionActions` but
+// performs the update of the defenses construction actions.
+// The defenses count will be updated and actions removed if
+// all their related defenses have been built.
+//
+// The `planet` defines the identifier of the planet for
+// which the defenses construction actions should be executed.
+//
+// Returns any error that may have occurred while updating.
+func (p *PlanetProxy) updateDefensesConstructionActions(planet string) error {
+	// Prevent invalid planet identifier.
+	if planet == "" {
+		return fmt.Errorf("Cannot update defenses construction actions for invalid planet")
+	}
+
+	// Acquire a lock on this planet.
+	lock := p.lock.Acquire(planet)
+	defer p.lock.Release(lock)
+
+	// Perform the update: we will wrap the function inside
+	// a dedicated handler to make sure that we don't lock
+	// the resource more than necessary.
+	var err error
+	var errExec error
+
+	func() {
+		lock.Lock()
+		defer func() {
+			err = lock.Release()
+		}()
+
+		// Perform the update.
+		query := fmt.Sprintf("SELECT update_defense_upgrade_action('%s')", planet)
+		_, errExec = p.dbase.DBExecute(query)
+	}()
+
+	// Return any error.
+	if errExec != nil {
+		return fmt.Errorf("Could not update defenses construction actions for \"%s\" (err: %v)", planet, errExec)
+	}
+	if err != nil {
+		return fmt.Errorf("Could not release locker when updading defenses construction actions for \"%s\" (err: %v)", planet, err)
 	}
 
 	return nil

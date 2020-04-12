@@ -227,6 +227,7 @@ func (p *ActionProxy) Ships(filters []DBFilter) ([]ShipUpgradeAction, error) {
 		"planet",
 		"ship",
 		"amount",
+		"remaining",
 		"completion_time",
 	}
 
@@ -262,6 +263,7 @@ func (p *ActionProxy) Ships(filters []DBFilter) ([]ShipUpgradeAction, error) {
 			&act.PlanetID,
 			&act.ShipID,
 			&act.Amount,
+			&act.Remaining,
 			&act.CompletionTime,
 		)
 
@@ -297,6 +299,7 @@ func (p *ActionProxy) Defenses(filters []DBFilter) ([]DefenseUpgradeAction, erro
 		"planet",
 		"defense",
 		"amount",
+		"remaining",
 		"completion_time",
 	}
 
@@ -332,6 +335,7 @@ func (p *ActionProxy) Defenses(filters []DBFilter) ([]DefenseUpgradeAction, erro
 			&act.PlanetID,
 			&act.DefenseID,
 			&act.Amount,
+			&act.Remaining,
 			&act.CompletionTime,
 		)
 
@@ -463,6 +467,10 @@ func (p *ActionProxy) CreateShipAction(action *ShipUpgradeAction) error {
 		action.ID = uuid.New().String()
 	}
 
+	// Make sure that the `remaining` count is identical to
+	// the initial amount.
+	action.Remaining = action.Amount
+
 	err := p.createAction(action, "create_ship_upgrade_action")
 
 	if err == nil {
@@ -490,6 +498,10 @@ func (p *ActionProxy) CreateDefenseAction(action *DefenseUpgradeAction) error {
 	if action.ID == "" {
 		action.ID = uuid.New().String()
 	}
+
+	// Make sure that the `remaining` count is identical to
+	// the initial amount.
+	action.Remaining = action.Amount
 
 	err := p.createAction(action, "create_defense_upgrade_action")
 

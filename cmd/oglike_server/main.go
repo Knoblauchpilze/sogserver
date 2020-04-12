@@ -17,24 +17,12 @@ import (
 // TODO: Allow to delete a planet.
 // TODO: Use the token mechanism to make sure that a client has access
 // to some information (typically to the data for a planet or a player).
-// TODO: Provide the script to actually perform the construction action.
-// This script would be something like an update of the table by making
-// sure that it only upgrade something consistent so typically:
-// `update planets_buildings pb
-//  set pb.level=s.desired_level
-//  where
-//    pb.planet = s.planet and
-//    pb.building = s.building
-//    pb.level = s.current_level
-//  with source s as select * from json_populate_recordset(table::null, inputs)`
-// We should also make sure to delete the upgrade action afterwards.
-// We could also check the number of affected rows as returned by the
-// Postgres driver to see whether we could update something.
 // TODO: We should maybe find a way to transfer the mechanism for regular
 // expressions used in the route in the `extractRouteVars` framework to allow
 // to actually determine precisely which are the elements from the route and
 // which are the extra pathes.
 // TODO: Refine building, technology to include the cost at a given level.
+// TODO: We should fetch the progression costs similarly to the resources' identifiers.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

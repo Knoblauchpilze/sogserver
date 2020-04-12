@@ -1,6 +1,15 @@
 
+-- Drop the function allowing to update defense for a player.
+DROP FUNCTION update_defense_upgrade_action(planet_id uuid);
+
+-- Drop the function allowing to update ship for a player.
+DROP FUNCTION update_ship_upgrade_action(planet_id uuid);
+
 -- Drop the function allowing to update technology for a player.
 DROP FUNCTION update_technology_upgrade_action(player_id uuid);
+
+-- Drop the function allowing to update building for a planet.
+DROP FUNCTION update_building_upgrade_action(planet_id uuid);
 
 -- Drop the function to update resources on a given planet.
 DROP FUNCTION update_resources_for_planet(resources json);

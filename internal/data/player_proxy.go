@@ -151,7 +151,7 @@ func (p *PlayerProxy) fetchPlayerData(player *Player) error {
 		return fmt.Errorf("Unable to fetch data from player with invalid identifier")
 	}
 
-	// We need to update the tehcnology upgrade actions that
+	// We need to update the technology upgrade actions that
 	// might be registered for this player first.
 	err := p.updateTechnologyUpgradeActions(player.ID)
 	if err != nil {
@@ -207,7 +207,7 @@ func (p *PlayerProxy) fetchPlayerData(player *Player) error {
 func (p *PlayerProxy) updateTechnologyUpgradeActions(player string) error {
 	// Prevent invalid player identifier.
 	if player == "" {
-		return fmt.Errorf("Cannot update technology upgrade action for invalid player")
+		return fmt.Errorf("Cannot update technologies upgrade actions for invalid player")
 	}
 
 	// Acquire a lock on this player.
@@ -215,7 +215,7 @@ func (p *PlayerProxy) updateTechnologyUpgradeActions(player string) error {
 	defer p.lock.Release(lock)
 
 	// Perform the update: we will wrap the function inside
-	// a dedicated function to make sure that we don't lock
+	// a dedicated handler to make sure that we don't lock
 	// the resource more than necessary.
 	var err error
 	var errExec error
@@ -233,10 +233,10 @@ func (p *PlayerProxy) updateTechnologyUpgradeActions(player string) error {
 
 	// Return any error.
 	if errExec != nil {
-		return fmt.Errorf("Could not update technology upgrade action for \"%s\" (err: %v)", player, errExec)
+		return fmt.Errorf("Could not update technologies upgrade actions for \"%s\" (err: %v)", player, errExec)
 	}
 	if err != nil {
-		return fmt.Errorf("Could not release locker when updading technology upgrade action for \"%s\" (err: %v)", player, err)
+		return fmt.Errorf("Could not release locker when updading technologies upgrade actions for \"%s\" (err: %v)", player, err)
 	}
 
 	return nil

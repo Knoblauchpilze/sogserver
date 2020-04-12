@@ -104,7 +104,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION update_resources_for_planet(resources json) RETURNS VOID AS $$
 BEGIN
   WITH updateData
-  AS (SELECT * FROM jsonb_populate_recordset(resources))
+    AS (SELECT * FROM jsonb_populate_recordset(resources))
   UPDATE planets_resources pr
     SET amount = ud.amount
   FROM updateData AS ud
@@ -112,14 +112,32 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
+-- Update upgrade action for buildings.
+CREATE OR REPLACE FUNCTION update_building_upgrade_action(planet_id uuid) RETURNS VOID AS $$
+BEGIN
+  WITH updateData
+    AS (SELECT * FROM construction_actions_buildings cab WHERE cab.planet=planet_id)
+  UPDATE planets_buildings pb
+    SET level = ud.desired_level
+  FROM updateData AS ud
+  WHERE
+    pb.planet = planet_id
+    AND pb.building = ud.building
+    AND pb.level = ud.current_level
+    AND ud.completion_time < NOW();
+
+  DELETE FROM construction_actions_buildings WHERE planet = planet_id AND completion_time < NOW();
+END
+$$ LANGUAGE plpgsql;
+
 -- Update upgrade action for technologies.
 CREATE OR REPLACE FUNCTION update_technology_upgrade_action(player_id uuid) RETURNS VOID AS $$
 BEGIN
   WITH updateData
-  AS (SELECT * FROM construction_actions_technologies cat WHERE cat.player=player_id)
+    AS (SELECT * FROM construction_actions_technologies cat WHERE cat.player=player_id)
   UPDATE player_technologies pt
     SET level = ud.desired_level
-  FROM updateData as ud
+  FROM updateData AS ud
   WHERE
     pt.player = player_id
     AND pt.technology = ud.technology
@@ -127,5 +145,96 @@ BEGIN
     AND ud.completion_time < NOW();
 
   DELETE FROM construction_actions_technologies WHERE player = player_id AND completion_time < NOW();
+END
+$$ LANGUAGE plpgsql;
+
+-- Update upgrade action for ships.
+CREATE OR REPLACE FUNCTION update_ship_upgrade_action(planet_id uuid) RETURNS VOID AS $$
+DECLARE
+  -- Save time: this will make sure that we can't run into
+  -- problem where for example an action is not complete
+  -- when the 1. is performed and complete when the 2. is
+  -- performed (resulting in a ship never being built).
+  processing_time TIMESTAMP := NOW();
+BEGIN
+  -- 1. Register ships that are now complete. We need to account for
+  -- the fact that several elements might have completed while we
+  -- were not updating this action.
+  -- The algorithm is basically:
+  --   - compute the number of intervals that have elapsed.
+  --   - subtract the number of already built elements.
+  --   - clamp tp make sure that we don't create too many elements.
+  WITH updateData
+    AS (SELECT * FROM construction_actions_ships WHERE planet = planet_id)
+  UPDATE planets_ships ps
+    SET count = count - (ud.amount - ud.remaining) +
+      LEAST(
+        EXTRACT(MILLISECONDS FROM processing_time - ud.created_at) / EXTRACT(MILLISECOND FROM ud.completion_time),
+        CAST(ud.amount AS DOUBLE PRECISION)
+      )
+  FROM updateData AS ud
+  WHERE
+    ps.planet = planet_id
+    AND ps.ship = ud.ship
+    AND ud.created_at + (ud.amount - (ud.remaining - 1)) * ud.completion_time < processing_time;
+
+  -- 2. Update remaining actions with an amount decreased by an amount
+  -- consistent with the duration elapsed since the creation.
+  UPDATE construction_actions_ships
+    SET remaining = amount -
+      LEAST(
+        EXTRACT(MILLISECONDS FROM processing_time - created_at) / EXTRACT(MILLISECOND FROM completion_time),
+        CAST(amount AS DOUBLE PRECISION)
+      )
+  WHERE
+    planet = planet_id
+    AND created_at + (amount - (remaining - 1)) * completion_time < processing_time;
+
+  -- 3. Delete actions that don't have any remaining effect.
+  DELETE FROM construction_actions_ships WHERE planet = planet_id AND remaining = 0;
+END
+$$ LANGUAGE plpgsql;
+
+-- Update upgrade action for defenses.
+CREATE OR REPLACE FUNCTION update_defense_upgrade_action(planet_id uuid) RETURNS VOID AS $$
+DECLARE
+  -- Similar mechanism to the one used for ships.
+  processing_time TIMESTAMP := NOW();
+BEGIN
+  -- 1. Register defenses that are now complete. We need to account for
+  -- the fact that several elements might have completed while we were
+  -- not updating this action.
+  -- The algorithm is basically:
+  --   - compute the number of intervals that have elapsed.
+  --   - subtract the number of already built elements.
+  --   - clamp tp make sure that we don't create too many elements.
+  WITH updateData
+    AS (SELECT * FROM construction_actions_defenses WHERE planet = planet_id)
+  UPDATE planets_defenses pd
+    SET count = count - (ud.amount - ud.remaining) +
+      LEAST(
+        EXTRACT(MILLISECONDS FROM processing_time - ud.created_at) / EXTRACT(MILLISECOND FROM ud.completion_time),
+        CAST(ud.amount AS DOUBLE PRECISION)
+      )
+  FROM updateData AS ud
+  WHERE
+    pd.planet = planet_id
+    AND pd.defense = ud.defense
+    AND ud.created_at + (ud.amount - (ud.remaining - 1)) * ud.completion_time < processing_time;
+
+  -- 2. Update remaining actions with an amount decreased by an amount
+  -- consistent with the duration elapsed since the creation.
+  UPDATE construction_actions_defenses
+    SET remaining = amount -
+      LEAST(
+        EXTRACT(MILLISECONDS FROM processing_time - created_at) / EXTRACT(MILLISECOND FROM completion_time),
+        CAST(amount AS DOUBLE PRECISION)
+      )
+  WHERE
+    planet = planet_id
+    AND created_at + (amount - (remaining - 1)) * completion_time < processing_time;
+
+  -- 3.Delete actions that don't have any remaining effect.
+  DELETE FROM construction_actions_defenses WHERE planet = planet_id AND remaining = 0;
 END
 $$ LANGUAGE plpgsql;

@@ -1,11 +1,12 @@
 
 -- Create the table defining defenses.
 CREATE TABLE defenses (
-    id uuid NOT NULL DEFAULT uuid_generate_v4(),
-    name text,
-    shield integer NOT NULL,
-    weapon integer NOT NULL,
-    PRIMARY KEY (id)
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  name text NOT NULL,
+  shield integer NOT NULL,
+  weapon integer NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE (name)
 );
 
 -- Create the table defining the cost of a defense.

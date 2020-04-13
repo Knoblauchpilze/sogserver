@@ -10,3 +10,6 @@ DROP TABLE buildings_costs;
 
 -- Drop the buildings table.
 DROP TABLE buildings;
+
+-- Drop the building types table.
+DROP TABLE building_types;

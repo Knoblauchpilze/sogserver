@@ -1,19 +1,19 @@
 
 -- Create the table defining planets.
 CREATE TABLE planets (
-    id uuid NOT NULL DEFAULT uuid_generate_v4(),
-    player uuid NOT NULL,
-    name text,
-    min_temperature integer NOT NULL,
-    max_temperature integer NOT NULL,
-    fields integer NOT NULL,
-    galaxy integer NOT NULL,
-    solar_system integer NOT NULL,
-    position integer NOT NULL,
-    diameter integer NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    FOREIGN KEY (player) REFERENCES players(id)
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  player uuid NOT NULL,
+  name text NOT NULL,
+  min_temperature integer NOT NULL,
+  max_temperature integer NOT NULL,
+  fields integer NOT NULL,
+  galaxy integer NOT NULL,
+  solar_system integer NOT NULL,
+  position integer NOT NULL,
+  diameter integer NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  FOREIGN KEY (player) REFERENCES players(id)
 );
 
 -- Create the trigger on the table to update the `created_at` field.

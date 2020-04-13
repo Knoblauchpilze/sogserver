@@ -118,6 +118,8 @@ $$ LANGUAGE plpgsql;
 -- Update upgrade action for buildings.
 CREATE OR REPLACE FUNCTION update_building_upgrade_action(planet_id uuid) RETURNS VOID AS $$
 BEGIN
+  -- 1. Update the actions by updating the level of each
+  -- building having a completed action.
   WITH updateData
     AS (SELECT * FROM construction_actions_buildings cab WHERE cab.planet=planet_id)
   UPDATE planets_buildings pb
@@ -129,6 +131,13 @@ BEGIN
     AND pb.level = ud.current_level
     AND ud.completion_time < NOW();
 
+  -- 2. Update the resources on this planet based on the
+  -- type of building that has been completed. We will
+  -- focus on updating the storage capacity and prod for
+  -- each resource.
+  -- TODO: Handle this.
+
+  -- 3. Destroy the processed actions.
   DELETE FROM construction_actions_buildings WHERE planet = planet_id AND completion_time < NOW();
 END
 $$ LANGUAGE plpgsql;

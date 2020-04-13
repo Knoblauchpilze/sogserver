@@ -3,23 +3,25 @@
 CREATE TABLE fleet_objectives (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
-  PRIMARY KEY (id)
+  PRIMARY KEY (id),
+  UNIQUE (name)
 );
 
 -- Create the table defining fleets.
 CREATE TABLE fleets (
-    id uuid NOT NULL DEFAULT uuid_generate_v4(),
-    name text,
-    uni uuid NOT NULL,
-    objective uuid NOT NULL,
-    target_galaxy integer NOT NULL,
-    target_solar_system integer NOT NULL,
-    target_position integer NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    arrival_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    PRIMARY KEY (id),
-    FOREIGN KEY (uni) REFERENCES universes(id),
-    FOREIGN KEY (objective) REFERENCES fleet_objectives(id)
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  name text,
+  uni uuid NOT NULL,
+  objective uuid NOT NULL,
+  target_galaxy integer NOT NULL,
+  target_solar_system integer NOT NULL,
+  target_position integer NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  arrival_time TIMESTAMP WITH TIME ZONE NOT NULL,
+  PRIMARY KEY (id),
+  FOREIGN KEY (uni) REFERENCES universes(id),
+  FOREIGN KEY (objective) REFERENCES fleet_objectives(id),
+  UNIQUE (uni, name)
 );
 
 -- Create the trigger on the table to update the `created_at` field.

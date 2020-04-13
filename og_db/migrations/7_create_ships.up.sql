@@ -1,15 +1,16 @@
 
 -- Create the table defining ships.
 CREATE TABLE ships (
-    id uuid NOT NULL DEFAULT uuid_generate_v4(),
-    name text,
-    propulsion uuid NOT NULL,
-    speed integer NOT NULL,
-    cargo integer NOT NULL,
-    shield integer NOT NULL,
-    weapon integer NOT NULL,
-    PRIMARY KEY (id),
-    FOREIGN KEY (propulsion) REFERENCES technologies(id)
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  name text NOT NULL,
+  propulsion uuid NOT NULL,
+  speed integer NOT NULL,
+  cargo integer NOT NULL,
+  shield integer NOT NULL,
+  weapon integer NOT NULL,
+  PRIMARY KEY (id),
+  FOREIGN KEY (propulsion) REFERENCES technologies(id),
+  UNIQUE (name)
 );
 
 -- Create the table defining the cost of a ship.

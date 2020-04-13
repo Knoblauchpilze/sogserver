@@ -1,9 +1,10 @@
 
 -- Create the table defining technologies.
 CREATE TABLE technologies (
-    id uuid NOT NULL DEFAULT uuid_generate_v4(),
-    name text,
-    PRIMARY KEY (id)
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  name text NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE (name)
 );
 
 -- Create the table defining the cost of a technology.

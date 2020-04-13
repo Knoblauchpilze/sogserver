@@ -1,12 +1,13 @@
 
 -- Create the table defining accounts.
 CREATE TABLE accounts (
-    id uuid NOT NULL DEFAULT uuid_generate_v4(),
-    name text NOT NULL,
-    mail text NOT NULL UNIQUE,
-    password text NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id)
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  name text NOT NULL,
+  mail text NOT NULL UNIQUE,
+  password text NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE (name)
 );
 
 -- Create the trigger on the table to update the `created_at` field.
@@ -22,7 +23,8 @@ CREATE TABLE players (
   PRIMARY KEY (id),
   FOREIGN KEY (account) REFERENCES accounts(id),
   FOREIGN KEY (uni) REFERENCES universes(id),
-  UNIQUE (uni, account)
+  UNIQUE (uni, account),
+  UNIQUE (uni, name)
 );
 
 -- Create the trigger on the table to update the `created_at` field.

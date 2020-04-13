@@ -2,14 +2,18 @@
 -- Import the universes into the corresponding table.
 CREATE OR REPLACE FUNCTION create_universe(inputs json) RETURNS VOID AS $$
 BEGIN
-  INSERT INTO universes SELECT * FROM json_populate_record(null::universes, inputs);
+  INSERT INTO universes
+    SELECT *
+    FROM json_populate_record(null::universes, inputs);
 END
 $$ LANGUAGE plpgsql;
 
 -- Import the accounts into the corresponding table.
 CREATE OR REPLACE FUNCTION create_account(inputs json) RETURNS VOID AS $$
 BEGIN
-  INSERT INTO accounts SELECT * FROM json_populate_record(null::accounts, inputs);
+  INSERT INTO accounts
+    SELECT *
+    FROM json_populate_record(null::accounts, inputs);
 END
 $$ LANGUAGE plpgsql;
 
@@ -17,7 +21,9 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION create_player(inputs json) RETURNS VOID AS $$
 BEGIN
   -- Insert the player's data into the dedicated table.
-  INSERT INTO players SELECT * FROM json_populate_record(null::players, inputs);
+  INSERT INTO players
+    SELECT *
+    FROM json_populate_record(null::players, inputs);
 
   -- Insert technologies with a `0` level in the table.
   -- The conversion in itself includes retrieving the `json`
@@ -34,10 +40,14 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION create_planet(planet json, resources json) RETURNS VOID AS $$
 BEGIN
   -- Insert the planet in the planets table.
-  INSERT INTO planets SELECT * FROM json_populate_record(null::planets, planet);
+  INSERT INTO planets
+    SELECT *
+    FROM json_populate_record(null::planets, planet);
 
   -- Insert the base resources of the planet.
-  INSERT INTO planets_resources select * FROM json_populate_recordset(null::planets_resources, resources);
+  INSERT INTO planets_resources
+    SELECT *
+    FROM json_populate_recordset(null::planets_resources, resources);
 
   -- Insert base buildings, ships, defenses on the planet.
   INSERT INTO planets_buildings(planet, building, level)
@@ -55,37 +65,56 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Import building upgrade action in the dedicated table.
-CREATE OR REPLACE FUNCTION create_building_upgrade_action(upgrade json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_building_upgrade_action(upgrade json, production_effects json, storage_effects json) RETURNS VOID AS $$
 BEGIN
-  INSERT INTO construction_actions_buildings SELECT * FROM json_populate_record(null::construction_actions_buildings, upgrade);
+  -- Create the building upgrade action itself.
+  INSERT INTO construction_actions_buildings
+    SELECT *
+    FROM json_populate_record(null::construction_actions_buildings, upgrade);
+
+  -- Update the construction action effects (both
+  -- in terms of storage and production).
+  -- TODO: Handle this, we should probably provide all the production and storage
+  -- effects from the input arguments anayway: we don't want to introduce in the
+  -- DB the possibility to compute either the storage nor the production for some
+  -- specific buildings. This means also modifying the `action_proxy` in order to
+  -- include the additional parameters.
 END
 $$ LANGUAGE plpgsql;
 
 -- Import technology upgrade action in the dedicated table.
 CREATE OR REPLACE FUNCTION create_technology_upgrade_action(upgrade json) RETURNS VOID AS $$
 BEGIN
-  INSERT INTO construction_actions_technologies SELECT * FROM json_populate_record(null::construction_actions_technologies, upgrade);
+  INSERT INTO construction_actions_technologies
+    SELECT *
+    FROM json_populate_record(null::construction_actions_technologies, upgrade);
 END
 $$ LANGUAGE plpgsql;
 
 -- Import ship upgrade action in the dedicated table.
 CREATE OR REPLACE FUNCTION create_ship_upgrade_action(upgrade json) RETURNS VOID AS $$
 BEGIN
-  INSERT INTO construction_actions_ships SELECT * FROM json_populate_record(null::construction_actions_ships, upgrade);
+  INSERT INTO construction_actions_ships
+    SELECT *
+    FROM json_populate_record(null::construction_actions_ships, upgrade);
 END
 $$ LANGUAGE plpgsql;
 
 -- Import defense upgrade action in the dedicated table.
 CREATE OR REPLACE FUNCTION create_defense_upgrade_action(upgrade json) RETURNS VOID AS $$
 BEGIN
-  INSERT INTO construction_actions_defenses SELECT * FROM json_populate_record(null::construction_actions_defenses, upgrade);
+  INSERT INTO construction_actions_defenses
+    SELECT *
+    FROM json_populate_record(null::construction_actions_defenses, upgrade);
 END
 $$ LANGUAGE plpgsql;
 
 -- Import fleets in the relevant table.
 CREATE OR REPLACE FUNCTION create_fleet(inputs json) RETURNS VOID AS $$
 BEGIN
-  INSERT INTO fleets SELECT * FROM json_populate_record(null::fleets, inputs);
+  INSERT INTO fleets
+    SELECT *
+    FROM json_populate_record(null::fleets, inputs);
 END
 $$ LANGUAGE plpgsql;
 
@@ -93,15 +122,23 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION create_fleet_component(component json, ships json) RETURNS VOID AS $$
 BEGIN
   -- Insert the fleet element.
-  INSERT INTO fleet_elements SELECT * FROM json_populate_record(null::fleet_elements, component);
+  INSERT INTO fleet_elements
+    SELECT *
+    FROM json_populate_record(null::fleet_elements, component);
 
   -- Insert the ships for this fleet element.
-  INSERT INTO fleet_ships SELECT * FROM json_populate_recordset(null::fleet_ships, ships);
+  INSERT INTO fleet_ships
+    SELECT *
+    FROM json_populate_recordset(null::fleet_ships, ships);
 END
 $$ LANGUAGE plpgsql;
 
 -- Update resources for a planet.
 CREATE OR REPLACE FUNCTION update_resources_for_planet(planet_id uuid) RETURNS VOID AS $$
+DECLARE
+  -- Save time: this will make sure thatall resources are
+  -- updated at the same time.
+  processing_time TIMESTAMP := NOW();
 BEGIN
   -- Update the amount of resource to be at most the storage
   -- capacity, and otherwise to increase by the duration that
@@ -110,53 +147,139 @@ BEGIN
   -- we need to extract the number of seconds in order to be
   -- able to obtain fractions of an hour to update the value.
   UPDATE planets_resources
-    SET amount = amount + EXTRACT(epoch FROM NOW() - updated_at) * production / 3600.0
+    SET amount = amount + EXTRACT(epoch FROM processing_time - updated_at) * production / 3600.0
   WHERE planet = planet_id;
 END
 $$ LANGUAGE plpgsql;
 
 -- Update upgrade action for buildings.
 CREATE OR REPLACE FUNCTION update_building_upgrade_action(planet_id uuid) RETURNS VOID AS $$
+DECLARE
+  -- Save time: this will make sure that we can't run into
+  -- problem where for example an action is not complete
+  -- when the 1. is performed and complete when the 2. is
+  -- performed (resulting in a ship never being built).
+  processing_time TIMESTAMP := NOW();
 BEGIN
   -- 1. Update the actions by updating the level of each
   -- building having a completed action.
-  WITH updateData
-    AS (SELECT * FROM construction_actions_buildings cab WHERE cab.planet=planet_id)
+  WITH update_data
+    AS (
+      SELECT *
+      FROM construction_actions_buildings
+      WHERE
+        planet = planet_id AND
+        completion_time < processing_time
+    )
   UPDATE planets_buildings pb
     SET level = ud.desired_level
-  FROM updateData AS ud
+  FROM update_data AS ud
   WHERE
     pb.planet = planet_id
     AND pb.building = ud.building
-    AND pb.level = ud.current_level
-    AND ud.completion_time < NOW();
+    AND pb.level = ud.current_level;
 
   -- 2. Update the resources on this planet based on the
   -- type of building that has been completed. We will
   -- focus on updating the storage capacity and prod for
   -- each resource.
-  -- TODO: Handle this.
+  -- 2.a) Update resources to reach the current time.
+  SELECT update_resources_for_planet(planet_id);
 
-  -- 3. Destroy the processed actions.
+  -- 2.b) Proceed to update the mines with their new prod
+  -- values.
+  WITH update_data
+    AS (
+      SELECT *
+      FROM
+        construction_actions_buildings cab
+        INNER JOIN construction_actions_buildings_production_effects cabpe ON cab.id = cabpe.action
+        INNER JOIN buildings b ON cab.building = b.id
+        INNER JOIN building_types bt ON b.type = bt.id
+      WHERE
+        cab.planet = planet_id AND
+        bt.name = 'mine' AND
+        cab.completion_time < processing_time
+    )
+  UPDATE planets_resources pr
+    SET production = ud.new_production
+  FROM update_data AS ud
+  WHERE
+    pr.planet = planet_id
+    AND pr.res = ud.res;
+
+  -- 2.c) Update the storage facilities with their new
+  -- values.
+  WITH update_data
+    AS (
+      SELECT *
+      FROM
+        construction_actions_buildings cab
+        INNER JOIN construction_actions_buildings_storage_effects cabse ON cab.id = cabse.action
+        INNER JOIN buildings b ON cab.building = b.id
+        INNER JOIN building_types bt ON b.type = bt.id
+      WHERE
+        cab.planet = planet_id AND
+        bt.name = 'hangar' AND
+        cab.completion_time < processing_time
+    )
+  UPDATE planets_resources pr
+    SET storage_capacity = ud.new_storage_capacity
+  FROM update_data AS ud
+  WHERE
+    pr.planet = planet_id
+    AND pr.res = ud.res;
+
+  -- 3. Destroy the processed actions effect.
+  DELETE FROM
+    construction_actions_buildings_production_effects cabpe
+    USING construction_actions_buildings cab
+  WHERE
+    cabpe.action = cab.id AND
+    cab.planet = planet_id AND
+    cab.completion_time < processing_time;
+
+  DELETE FROM
+    construction_actions_buildings_storage_effects cabse
+    USING construction_actions_buildings cab
+  WHERE
+    cabse.action = cab.id AND
+    cab.planet = planet_id AND
+    cab.completion_time < processing_time;
+
+  -- 4. And finally the processed actions.
   DELETE FROM construction_actions_buildings WHERE planet = planet_id AND completion_time < NOW();
 END
 $$ LANGUAGE plpgsql;
 
 -- Update upgrade action for technologies.
 CREATE OR REPLACE FUNCTION update_technology_upgrade_action(player_id uuid) RETURNS VOID AS $$
+DECLARE
+  -- Save time: this will make sure that we can't run into
+  -- problem where for example an action is not complete
+  -- when the 1. is performed and complete when the 2. is
+  -- performed (resulting in a ship never being built).
+  processing_time TIMESTAMP := NOW();
 BEGIN
-  WITH updateData
-    AS (SELECT * FROM construction_actions_technologies cat WHERE cat.player=player_id)
+  -- 1. Register actions that are now complete.
+  WITH update_data
+    AS (
+      SELECT *
+      FROM construction_actions_technologies
+      WHERE
+        player = player_id AND
+        completion_time < processing_time
+    )
   UPDATE player_technologies pt
     SET level = ud.desired_level
-  FROM updateData AS ud
+  FROM update_data AS ud
   WHERE
-    pt.player = player_id
-    AND pt.technology = ud.technology
-    AND pt.level = ud.current_level
-    AND ud.completion_time < NOW();
+    pt.player = player_id AND
+    pt.technology = ud.technology AND
+    pt.level = ud.current_level;
 
-  DELETE FROM construction_actions_technologies WHERE player = player_id AND completion_time < NOW();
+  -- 2. Delete processed actions.
+  DELETE FROM construction_actions_technologies WHERE player = player_id AND completion_time < processing_time;
 END
 $$ LANGUAGE plpgsql;
 
@@ -176,19 +299,24 @@ BEGIN
   --   - compute the number of intervals that have elapsed.
   --   - subtract the number of already built elements.
   --   - clamp tp make sure that we don't create too many elements.
-  WITH updateData
-    AS (SELECT * FROM construction_actions_ships WHERE planet = planet_id)
+  WITH update_data
+    AS (
+      SELECT *
+      FROM construction_actions_ships
+      WHERE
+        planet = planet_id AND
+        created_at + (amount - (remaining - 1)) * completion_time < processing_time
+    )
   UPDATE planets_ships ps
     SET count = count - (ud.amount - ud.remaining) +
       LEAST(
         EXTRACT(MILLISECONDS FROM processing_time - ud.created_at) / EXTRACT(MILLISECOND FROM ud.completion_time),
         CAST(ud.amount AS DOUBLE PRECISION)
       )
-  FROM updateData AS ud
+  FROM update_data AS ud
   WHERE
-    ps.planet = planet_id
-    AND ps.ship = ud.ship
-    AND ud.created_at + (ud.amount - (ud.remaining - 1)) * ud.completion_time < processing_time;
+    ps.planet = planet_id AND
+    ps.ship = ud.ship;
 
   -- 2. Update remaining actions with an amount decreased by an amount
   -- consistent with the duration elapsed since the creation.
@@ -199,8 +327,8 @@ BEGIN
         CAST(amount AS DOUBLE PRECISION)
       )
   WHERE
-    planet = planet_id
-    AND created_at + (amount - (remaining - 1)) * completion_time < processing_time;
+    planet = planet_id AND
+    created_at + (amount - (remaining - 1)) * completion_time < processing_time;
 
   -- 3. Delete actions that don't have any remaining effect.
   DELETE FROM construction_actions_ships WHERE planet = planet_id AND remaining = 0;
@@ -220,19 +348,24 @@ BEGIN
   --   - compute the number of intervals that have elapsed.
   --   - subtract the number of already built elements.
   --   - clamp tp make sure that we don't create too many elements.
-  WITH updateData
-    AS (SELECT * FROM construction_actions_defenses WHERE planet = planet_id)
+  WITH update_data
+    AS (
+      SELECT *
+      FROM construction_actions_defenses
+      WHERE
+        planet = planet_id AND
+        created_at + (amount - (remaining - 1)) * completion_time < processing_time
+    )
   UPDATE planets_defenses pd
     SET count = count - (ud.amount - ud.remaining) +
       LEAST(
         EXTRACT(MILLISECONDS FROM processing_time - ud.created_at) / EXTRACT(MILLISECOND FROM ud.completion_time),
         CAST(ud.amount AS DOUBLE PRECISION)
       )
-  FROM updateData AS ud
+  FROM update_data AS ud
   WHERE
-    pd.planet = planet_id
-    AND pd.defense = ud.defense
-    AND ud.created_at + (ud.amount - (ud.remaining - 1)) * ud.completion_time < processing_time;
+    pd.planet = planet_id AND
+    pd.defense = ud.defense;
 
   -- 2. Update remaining actions with an amount decreased by an amount
   -- consistent with the duration elapsed since the creation.
@@ -243,8 +376,8 @@ BEGIN
         CAST(amount AS DOUBLE PRECISION)
       )
   WHERE
-    planet = planet_id
-    AND created_at + (amount - (remaining - 1)) * completion_time < processing_time;
+    planet = planet_id AND
+    created_at + (amount - (remaining - 1)) * completion_time < processing_time;
 
   -- 3.Delete actions that don't have any remaining effect.
   DELETE FROM construction_actions_defenses WHERE planet = planet_id AND remaining = 0;

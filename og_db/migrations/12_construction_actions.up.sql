@@ -8,8 +8,31 @@ CREATE TABLE construction_actions_buildings (
   desired_level integer NOT NULL,
   completion_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
   FOREIGN KEY (planet) REFERENCES planets(id),
   FOREIGN KEY (building) REFERENCES buildings(id)
+);
+
+-- Create the table describing the effects of the building
+-- upgrades on the production capacities.
+CREATE TABLE construction_actions_buildings_production_effects (
+  action uuid NOT NULL,
+  res uuid NOT NULL,
+  new_production numeric(15, 5) NOT NULL,
+  FOREIGN KEY (action) REFERENCES construction_actions_buildings(id),
+  FOREIGN KEY (res) REFERENCES resources(id),
+  UNIQUE (action, res)
+);
+
+-- Similar to the above table but describes the effects of
+-- applying an upgrade action on the storage capacities.
+CREATE TABLE construction_actions_buildings_storage_effects (
+  action uuid NOT NULL,
+  res uuid NOT NULL,
+  new_storage_capacity numeric(15, 5) NOT NULL,
+  FOREIGN KEY (action) REFERENCES construction_actions_buildings(id),
+  FOREIGN KEY (res) REFERENCES resources(id),
+  UNIQUE (action, res)
 );
 
 -- Create the trigger on the table to update the `created_at` field.
@@ -25,6 +48,7 @@ CREATE TABLE construction_actions_technologies (
   desired_level integer NOT NULL,
   completion_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
   FOREIGN KEY (player) REFERENCES players(id),
   FOREIGN KEY (technology) REFERENCES technologies(id),
   FOREIGN KEY (planet) REFERENCES planets(id)
@@ -42,6 +66,7 @@ CREATE TABLE construction_actions_ships (
   remaining integer NOT NULL,
   completion_time INTERVAL NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
   FOREIGN KEY (planet) REFERENCES planets(id),
   FOREIGN KEY (ship) REFERENCES ships(id)
 );
@@ -58,6 +83,7 @@ CREATE TABLE construction_actions_defenses (
   remaining integer NOT NULL,
   completion_time INTERVAL NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
   FOREIGN KEY (planet) REFERENCES planets(id),
   FOREIGN KEY (defense) REFERENCES defenses(id)
 );

@@ -50,6 +50,7 @@ CREATE TABLE fleet_ships (
   fleet_element uuid NOT NULL,
   ship uuid NOT NULL,
   amount integer NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
   FOREIGN KEY (fleet_element) REFERENCES fleet_elements(id),
   FOREIGN KEY (ship) REFERENCES ships(id)
 );

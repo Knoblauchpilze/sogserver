@@ -21,6 +21,12 @@ import (
 // expressions used in the route in the `extractRouteVars` framework to allow
 // to actually determine precisely which are the elements from the route and
 // which are the extra pathes.
+// TODO: Each time we upgrade a building or a technology (or anything that
+// might have an impact on the production) we should update the amount of
+// resources existing on each planet affected by the element. So typically
+// for buildings it would only be on the planet where the building has been
+// built while for technologies it should on all the planets colonized by
+// the player that researched the technology.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

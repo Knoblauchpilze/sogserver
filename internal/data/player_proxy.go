@@ -285,6 +285,8 @@ func (p *PlayerProxy) fetchPlayerTechnologies(player *Player) error {
 		return fmt.Errorf("Unable to fetch data from player with invalid identifier")
 	}
 
+	player.Technologies = make([]Technology, 0)
+
 	// We need to update the technology upgrade actions that
 	// might be registered for this player first.
 	err := p.updateTechnologyUpgradeActions(player.ID)
@@ -300,7 +302,6 @@ func (p *PlayerProxy) fetchPlayerTechnologies(player *Player) error {
 		return fmt.Errorf("Could not fetch technologies for player \"%s\" (err: %v)", player.ID, err)
 	}
 
-	player.Technologies = make([]Technology, 0)
 	var tech Technology
 
 	for rows.Next() {

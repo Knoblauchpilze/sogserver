@@ -13,6 +13,69 @@ import (
 	"github.com/google/uuid"
 )
 
+// PlanetProxy :
+// Intended as a wrapper to access properties of planets
+// and retrieve data from the database. This helps hiding
+// the complexity of how the data is laid out in the `DB`
+// and the precise name of tables from the exterior world.
+// Note that as this proxy uses some functionalities to
+// fetch universes information we figured that it would
+// be more interesting to factorize the behavior and reuse
+// the functions through composition.
+//
+// The `dbase` is the database that is wrapped by this
+// object. It is checked for consistency upon building the
+// wrapper.
+//
+// The `log` allows to perform display to the user so as
+// to inform of potential issues and debug information to
+// the outside world.
+//
+// The `resources` is a map populated from the DB which
+// keeps track of the identifier in the DB for each of
+// the resources used by the game. It allows to be much
+// more efficient in the event of a creation of a planet
+// as we only need to query the local information about
+// resources rather than contacting the DB each time.
+//
+// The `uniProxy` defines a proxy allowing to access a
+// part of the behavior related to universes typically
+// when fetching a universe into which a planet should
+// be created.
+//
+// The `lock` allows to lock specific resources when some
+// planet data should be retrieved. A planet can indeed
+// have some upgrade actions attached to it to define the
+// upgrade of a building, or the construction of ships or
+// defense systems.
+// Each of these actions are executed in a lazy update
+// fashion where the action is created and then performed
+// only when needed: we store the completion time and if
+// the data needs to be accessed we upgrade it.
+// This mechanism requires that when the data needs to be
+// fetched for a planet an update operation should first
+// be performed to ensure that the data is up-to-date.
+// As no data is shared across planets we don't see the
+// need to lock all the planets when a single one should
+// be updated. Using the `ConcurrentLock` we have a way
+// to lock only some planets which is exactly what we
+// need.
+//
+// The `buildingCosts` is used when the data for a planet
+// is needed in order to compute the costs that are linked
+// to the next level of a building based on the level that
+// has been reached so far. It is initialized upon creating
+// the proxy so that the information is readily available
+// when needed.
+type PlanetProxy struct {
+	dbase         *db.DB
+	log           logger.Logger
+	resources     map[string]string
+	uniProxy      UniverseProxy
+	lock          *locker.ConcurrentLocker
+	buildingCosts map[string]ConstructionCost
+}
+
 // getDefaultPlanetName :
 // Used to retrieve a default name for a planet. The
 // generated name will be different based on whether
@@ -100,68 +163,126 @@ func initResourcesFromDB(dbase *db.DB, log logger.Logger) (map[string]string, er
 	return resources, nil
 }
 
-// PlanetProxy :
-// Intended as a wrapper to access properties of planets
-// and retrieve data from the database. This helps hiding
-// the complexity of how the data is laid out in the `DB`
-// and the precise name of tables from the exterior world.
-// Note that as this proxy uses some functionalities to
-// fetch universes information we figured that it would
-// be more interesting to factorize the behavior and reuse
-// the functions through composition.
+// initBuildingCostsFromDB :
+// Used to query information from the DB and fetch info
+// for buildings that will be used to compute costs of
+// a building for a given level. As this data is hardly
+// changing in the life of the server it's interesting
+// to fetch it right away so it is readily available in
+// memory (rather than in the DB) when needed.
+// In case the DB cannot be contacted an error is sent
+// back but a valid map is still returned (it is empty
+// though).
 //
-// The `dbase` is the database that is wrapped by this
-// object. It is checked for consistency upon building the
-// wrapper.
+// The `dbase` represents the DB from which info about
+// buildings costs should be fetched.
 //
-// The `log` allows to perform display to the user so as
-// to inform of potential issues and debug information to
-// the outside world.
+// The `log` allows to notify errors and info to the
+// user in case of any failure.
 //
-// The `resources` is a map populated from the DB which
-// keeps track of the identifier in the DB for each of
-// the resources used by the game. It allows to be much
-// more efficient in the event of a creation of a planet
-// as we only need to query the local information about
-// resources rather than contacting the DB each time.
-//
-// The `uniProxy` defines a proxy allowing to access a
-// part of the behavior related to universes typically
-// when fetching a universe into which a planet should
-// be created.
-//
-// The `lock` allows to lock specific resources when some
-// planet data should be retrieved. A planet can indeed
-// have some upgrade actions attached to it to define the
-// upgrade of a building, or the construction of ships or
-// defense systems.
-// Each of these actions are executed in a lazy update
-// fashion where the action is created and then performed
-// only when needed: we store the completion time and if
-// the data needs to be accessed we upgrade it.
-// This mechanism requires that when the data needs to be
-// fetched for a planet an update operation should first
-// be performed to ensure that the data is up-to-date.
-// As no data is shared across planet we don't see the
-// need to lock all the planets when a single one should
-// be updated. Using the `ConcurrentLock` we have a way
-// to lock only some planets which is exactly what we
-// need.
-type PlanetProxy struct {
-	dbase     *db.DB
-	log       logger.Logger
-	resources map[string]string
-	uniProxy  UniverseProxy
-	lock      *locker.ConcurrentLocker
+// Returns a map representing the associated cost for
+// each building along with the progression rule to
+// use to compute the next level costs.
+func initBuildingCostsFromDB(dbase *db.DB, log logger.Logger) (map[string]ConstructionCost, error) {
+	buildingCosts := make(map[string]ConstructionCost)
+
+	if dbase == nil {
+		return buildingCosts, fmt.Errorf("Could not buildings costs from DB, no DB provided")
+	}
+
+	// First retrieve the buildings progression rule.
+	props := []string{
+		"building",
+		"progress",
+	}
+	table := "buildings_costs_progress"
+
+	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
+
+	rows, err := dbase.DBQuery(query)
+	if err != nil {
+		return buildingCosts, fmt.Errorf("Could not initialize buildings costs from DB (err: %v)", err)
+	}
+
+	var buildingID string
+	var progress float32
+
+	for rows.Next() {
+		err = rows.Scan(
+			&buildingID,
+			&progress,
+		)
+
+		if err != nil {
+			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for building cost (err: %v)", err))
+			continue
+		}
+
+		existing, ok := buildingCosts[buildingID]
+		if ok {
+			log.Trace(logger.Error, fmt.Sprintf("Overriding progression rule for building \"%s\" (existing was %f, new is %f)", buildingID, existing.ProgressionRule, progress))
+		}
+
+		buildingCosts[buildingID] = ConstructionCost{
+			make(map[string]int),
+			progress,
+		}
+	}
+
+	// Now populate the costs for each building.
+	props = []string{
+		"building",
+		"res",
+		"cost",
+	}
+	table = "buildings_costs"
+
+	query = fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
+
+	rows, err = dbase.DBQuery(query)
+	if err != nil {
+		return buildingCosts, fmt.Errorf("Could not initialize buildings costs from DB (err: %v)", err)
+	}
+
+	var res string
+	var cost int
+
+	for rows.Next() {
+		err = rows.Scan(
+			&buildingID,
+			&res,
+			&cost,
+		)
+
+		if err != nil {
+			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for building cost (err: %v)", err))
+			continue
+		}
+
+		tech, ok := buildingCosts[buildingID]
+
+		if !ok {
+			log.Trace(logger.Error, fmt.Sprintf("Cannot define cost of %d of resource \"%s\" for building \"%s\" not found in progression rules", cost, res, buildingID))
+			continue
+		}
+
+		existing, ok := tech.InitCosts[res]
+		if ok {
+			log.Trace(logger.Error, fmt.Sprintf("Overriding cost for resource \"%s\" in building \"%s\" (existing was %d, new is %d)", res, buildingID, existing, cost))
+		}
+
+		tech.InitCosts[res] = cost
+
+		buildingCosts[buildingID] = tech
+	}
+
+	return buildingCosts, nil
 }
 
 // NewPlanetProxy :
 // Create a new proxy on the input `dbase` to access the
 // properties of planets as registered in the DB. In
 // case the provided DB is `nil` a panic is issued.
-// Information in the following thread helped shape this
-// component:
-// https://www.reddit.com/r/golang/comments/9i5cpg/good_approach_to_interacting_with_databases/
 //
 // The `dbase` represents the database to use to fetch
 // data related to planets.
@@ -188,12 +309,20 @@ func NewPlanetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) PlanetP
 		log.Trace(logger.Error, fmt.Sprintf("Could not fetch resources' identifiers from DB (err: %v)", err))
 	}
 
+	// In a similar way, fetch the initial costs and the
+	// progression rules for each building.
+	buildingCosts, err := initBuildingCostsFromDB(dbase, log)
+	if err != nil {
+		log.Trace(logger.Error, fmt.Sprintf("Could not fetch buildings costs from DB (err: %v)", err))
+	}
+
 	return PlanetProxy{
 		dbase,
 		log,
 		resources,
 		unis,
 		locker.NewConcurrentLocker(log),
+		buildingCosts,
 	}
 }
 
@@ -391,6 +520,14 @@ func (p *PlanetProxy) fetchPlanetBuildings(planet *Planet) error {
 			continue
 		}
 
+		// Update the costs for this building.
+		err = p.updateBuildingCosts(&building)
+		if err != nil {
+			building.Cost = make([]ResourceAmount, 0)
+
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve costs for building \"%s\" for planet \"%s\" (err: %v)", building.ID, planet.ID, err))
+		}
+
 		planet.Buildings = append(planet.Buildings, building)
 	}
 
@@ -547,6 +684,45 @@ func (p *PlanetProxy) updateBuildingsConstructionActions(planet string) error {
 	if err != nil {
 		return fmt.Errorf("Could not release locker when updading buildings construction actions for \"%s\" (err: %v)", planet, err)
 	}
+
+	return nil
+}
+
+// updateBuildingCosts :
+// Used to perform the computation of the costs for the
+// next level of the building described in argument. The
+// output values will be saved directly in the input
+// object.
+//
+// The `building` defines the object for which the costs
+// should be computed. A `nil` value will raise an error.
+//
+// Returns any error.
+func (p *PlanetProxy) updateBuildingCosts(building *Building) error {
+	// Check consistency.
+	if building == nil || building.ID == "" {
+		return fmt.Errorf("Cannot update building costs from invalid building")
+	}
+
+	// In case the costs for building are not populated try
+	// to update it.
+	if len(p.buildingCosts) == 0 {
+		costs, err := initBuildingCostsFromDB(p.dbase, p.log)
+		if err != nil {
+			return fmt.Errorf("Unable to generate buildings costs for building \"%s\", none defined", building.ID)
+		}
+
+		p.buildingCosts = costs
+	}
+
+	// Find the building in the costs table.
+	info, ok := p.buildingCosts[building.ID]
+	if !ok {
+		return fmt.Errorf("Could not compute costs for unknown building \"%s\"", building.ID)
+	}
+
+	// Compute the cost for each resource.
+	building.Cost = info.ComputeCosts(building.Level)
 
 	return nil
 }

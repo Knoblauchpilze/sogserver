@@ -206,6 +206,36 @@ func (c Coordinate) String() string {
 	return fmt.Sprintf("[G: %d, S: %d, P: %d]", c.Galaxy, c.System, c.Position)
 }
 
+// ComputeCosts :
+// Used to perform the computation of the resources needed
+// to build the `level`-th level of the element described
+// by these construction costs.
+// The level is clamped to be in the range `[0; +inf[` if
+// this is not already the case.
+//
+// The `level` for which the costs should be computed. It
+// is clamped to be positive.
+//
+// Returns a slice describing the amount needed of each
+// resource needed by the item.
+func (cc ConstructionCost) ComputeCosts(level int) []ResourceAmount {
+	// Clamp the input level.
+	fLevel := math.Max(0.0, float64(level))
+
+	costs := make([]ResourceAmount, 0)
+
+	for res, cost := range cc.InitCosts {
+		costForRes := ResourceAmount{
+			res,
+			cost * int(math.Round(math.Pow(float64(cc.ProgressionRule), fLevel))),
+		}
+
+		costs = append(costs, costForRes)
+	}
+
+	return costs
+}
+
 // Linearize :
 // Used as a simple way to extract a single integer from a
 // coordinates object. We use the input universe to create

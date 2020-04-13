@@ -106,6 +106,30 @@ type Coordinate struct {
 	Position int `json:"position"`
 }
 
+// ConstructionCost :
+// Defines for a single element the associated costs
+// for the first level along with a progression rule
+// followed to compute the cost at any level.
+//
+// The `InitCosts` rerpesents a map where the keys are
+// resources' identifiers and the values are the init
+// cost of the element for the corresponding resource.
+// If a resource does not have its identifier in this
+// map, it means that the element does not require any
+// quantity of it.
+//
+// The `ProgressionRule` defines a value that should
+// be used to multiply the initial cost to obtain the
+// cost at any level. All the elements follow a rule
+// where the cost at level `N` is something along the
+// line of `InitCost * ProgressionRule ^ N`.
+// The larger this value, the quicker the costs will
+// rise with the level.
+type ConstructionCost struct {
+	InitCosts       map[string]int
+	ProgressionRule float32
+}
+
 // ResourceDesc :
 // Defines the abstract representation of a resource which
 // is bascially an identifier and the actual name of the

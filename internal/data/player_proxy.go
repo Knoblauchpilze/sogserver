@@ -3,7 +3,6 @@ package data
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"oglike_server/internal/locker"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -38,42 +37,17 @@ import (
 // research of the player are not taken into account (i.e.
 // registered in the DB) until it's really needed.
 //
-// The `costs` is used when the data for a player should
-// be retrieved in order to compute the costs associated
-// to the next level of the technology, based on the level
-// reached by the player so far.
-// It is initialized when building the proxy so that the
-// information is readily available when needed.
+// The `techCosts` is used when the data for a player is
+// needed in order to compute the costs that are linked
+// to the next level of a technology based on the level
+// reached so far. It is initialized when building the
+// proxy so that the information is readily available
+// when needed.
 type PlayerProxy struct {
-	dbase *db.DB
-	log   logger.Logger
-	lock  *locker.ConcurrentLocker
-	costs map[string]TechnologyCost
-}
-
-// TechnologyCost :
-// Defines for a single technology the associated costs
-// for the first level along with the progression rule
-// followed to compute the cost at any level.
-//
-// The `InitCosts` rerpesents a map where the keys are
-// resources' identifiers and the values are the init
-// cost of the technology for the corresponding res.
-// If a resource does not have its identifier in this
-// map, it means that the technology does not require
-// any quantity of it.
-//
-// The `ProgressionRule` defines a value that should
-// be used to multiply the initial cost to obtain the
-// cost at any level.
-// All the technologies follow a rule where the cost
-// at level `N` is something along the line of
-// `ProgressionRule ^ N`.
-// The larger this value, the quicker the costs will
-// rise with the level.
-type TechnologyCost struct {
-	InitCosts       map[string]int
-	ProgressionRule float32
+	dbase     *db.DB
+	log       logger.Logger
+	lock      *locker.ConcurrentLocker
+	techCosts map[string]ConstructionCost
 }
 
 // initTechCostsFromDB :
@@ -96,8 +70,8 @@ type TechnologyCost struct {
 //
 // Returns a map representing for each technology its
 // associated cost and rule of progression.
-func initTechCostsFromDB(dbase *db.DB, log logger.Logger) (map[string]TechnologyCost, error) {
-	techCosts := make(map[string]TechnologyCost)
+func initTechCostsFromDB(dbase *db.DB, log logger.Logger) (map[string]ConstructionCost, error) {
+	techCosts := make(map[string]ConstructionCost)
 
 	if dbase == nil {
 		return techCosts, fmt.Errorf("Could not technologies costs from DB, no DB provided")
@@ -136,7 +110,7 @@ func initTechCostsFromDB(dbase *db.DB, log logger.Logger) (map[string]Technology
 			log.Trace(logger.Error, fmt.Sprintf("Overriding progression rule for technology \"%s\" (existing was %f, new is %f)", techID, existing.ProgressionRule, progress))
 		}
 
-		techCosts[techID] = TechnologyCost{
+		techCosts[techID] = ConstructionCost{
 			make(map[string]int),
 			progress,
 		}
@@ -429,33 +403,23 @@ func (p *PlayerProxy) updateTechnologyCosts(tech *Technology) error {
 
 	// In case the costs for technology are not populated
 	// try to update it.
-	if len(p.costs) == 0 {
+	if len(p.techCosts) == 0 {
 		costs, err := initTechCostsFromDB(p.dbase, p.log)
 		if err != nil {
-			return fmt.Errorf("Unable to generate technologies costs for technology, none defined")
+			return fmt.Errorf("Unable to generate technologies costs for technology \"%s\", none defined", tech.ID)
 		}
 
-		p.costs = costs
+		p.techCosts = costs
 	}
 
 	// Find the technology in the costs table.
-	info, ok := p.costs[tech.ID]
+	info, ok := p.techCosts[tech.ID]
 	if !ok {
 		return fmt.Errorf("Could not compute costs for unknown technology \"%s\"", tech.ID)
 	}
 
-	// For each resource, compute the cost of the next level and
-	// use it to update the input `tech` object.
-	tech.Cost = make([]ResourceAmount, 0)
-
-	for res, cost := range info.InitCosts {
-		costForRes := ResourceAmount{
-			res,
-			cost * int(math.Round(math.Pow(float64(info.ProgressionRule), float64(tech.Level)))),
-		}
-
-		tech.Cost = append(tech.Cost, costForRes)
-	}
+	// Compute the cost for each resource.
+	tech.Cost = info.ComputeCosts(tech.Level)
 
 	return nil
 }

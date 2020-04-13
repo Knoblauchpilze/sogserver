@@ -44,6 +44,15 @@ CREATE TABLE buildings_gains_progress (
   FOREIGN KEY (res) REFERENCES resources(id)
 );
 
+-- Create the table defining the law of progression of storage of a building.
+CREATE TABLE buildings_storage_progress (
+  building uuid NOT NULL,
+  base integer NOT NULL,
+  multiplier numeric(15, 5) NOT NULL,
+  progress numeric(15, 5) NOT NULL,
+  FOREIGN KEY (building) REFERENCES buildings(id)
+);
+
 -- Seed the available building types.
 INSERT INTO public.building_types ("name") VALUES('mine');
 INSERT INTO public.building_types ("name") VALUES('hangar');
@@ -657,3 +666,40 @@ INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progres
     1.0
   );
 
+-- Seed the building storage progress.
+INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress", "temperature_coeff", "temperature_offset")
+  VALUES(
+    (SELECT id FROM buildings WHERE name='fusion reactor'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    -10,
+    1.1,
+    0.0,
+    1.0
+  );
+
+INSERT INTO public.buildings_storage_progress ("building", "base", "multiplier", "progress")
+  VALUES(
+    (SELECT id FROM buildings WHERE name='metal storage'),
+    5000,
+    2.5,
+    0.606060606
+    -- Corresponds to 20/33.
+  );
+
+INSERT INTO public.buildings_storage_progress ("building", "base", "multiplier", "progress")
+
+  VALUES(
+    (SELECT id FROM buildings WHERE name='crystal storage'),
+    5000,
+    2.5,
+    0.606060606
+    -- Corresponds to 20/33.
+  );
+
+INSERT INTO public.buildings_storage_progress ("building", "base", "multiplier", "progress")
+  VALUES(
+    (SELECT id FROM buildings WHERE name='deuterium tank'),
+    5000,
+    2.5,
+    0.606060606
+  );

@@ -67,6 +67,15 @@ import (
 // has been reached so far. It is initialized upon creating
 // the proxy so that the information is readily available
 // when needed.
+//
+// The `prodRules` is used in a similar way as the other
+// `buildingCosts` attribute. It regroups the information
+// about the production of each resource associated to
+// some building. Typically mines are able to generate a
+// certain quantity of resources for each level: this is
+// an information that hardly changes throughout the life
+// of the server and we prefer to load it in memory so as
+// to make it easily available.
 type PlanetProxy struct {
 	dbase         *db.DB
 	log           logger.Logger
@@ -74,6 +83,7 @@ type PlanetProxy struct {
 	uniProxy      UniverseProxy
 	lock          *locker.ConcurrentLocker
 	buildingCosts map[string]ConstructionCost
+	prodRules     map[string][]ProductionRule
 }
 
 // getDefaultPlanetName :
@@ -183,7 +193,7 @@ func initResourcesFromDB(dbase *db.DB, log logger.Logger) (map[string]string, er
 // Returns a map representing the associated cost for
 // each building along with the progression rule to
 // use to compute the next level costs.
-func initBuildingCostsFromDB(dbase *db.DB, log logger.Logger) (map[string]ConstructionCost, error) {
+func initBuildingsCostsFromDB(dbase *db.DB, log logger.Logger) (map[string]ConstructionCost, error) {
 	buildingCosts := make(map[string]ConstructionCost)
 
 	if dbase == nil {
@@ -279,6 +289,121 @@ func initBuildingCostsFromDB(dbase *db.DB, log logger.Logger) (map[string]Constr
 	return buildingCosts, nil
 }
 
+// initBuildingsProductionFromDB :
+// Similar to `initBuildingCostsFromDB` but used to
+// query information about the production gains for
+// each building from the DB.
+// In case the DB cannot be contacted an error is sent
+// back but a valid map is still returned (it is empty
+// though).
+//
+// The `dbase` represents the DB from which info about
+// buildings production should be fetched.
+//
+// The `log` allows to notify errors and info to the
+// user in case of any failure.
+//
+// Returns a map representing the associated prod for
+// each building. As a building can produce several
+// resources, the key (corresponding to the building's
+// identifier) can have several associated values (i.e.
+// production rules).
+func initBuildingsProductionFromDB(dbase *db.DB, log logger.Logger) (map[string][]ProductionRule, error) {
+	prodRules := make(map[string][]ProductionRule)
+
+	if dbase == nil {
+		return prodRules, fmt.Errorf("Could not buildings production rules from DB, no DB provided")
+	}
+
+	// First retrieve the buildings progression rule.
+	props := []string{
+		"building",
+		"res",
+		"base",
+		"progress",
+		"temperature_coeff",
+		"temperature_offset",
+	}
+	table := "buildings_gains_progress"
+
+	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
+
+	rows, err := dbase.DBQuery(query)
+	if err != nil {
+		return prodRules, fmt.Errorf("Could not initialize buildings production rules from DB (err: %v)", err)
+	}
+
+	var buildingID string
+	var res string
+	var base int
+	var progress float32
+	var tempCoeff float32
+	var tempOffset float32
+
+	// This map allows to make sure that we don't override for
+	// a single building the rule associated to a particular
+	// resource.
+	resForBuildings := make(map[string]map[string]bool)
+
+	for rows.Next() {
+		err = rows.Scan(
+			&buildingID,
+			&res,
+			&base,
+			&progress,
+			&tempCoeff,
+			&tempOffset,
+		)
+
+		if err != nil {
+			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for building production rule (err: %v)", err))
+			continue
+		}
+
+		// Make sure that this resource has not already been defined
+		// for this building.
+		resForBuilding, ok := resForBuildings[buildingID]
+		if !ok {
+			// Obvisouly not defined yet as even the building does not
+			// have any associated production rules.
+			resForBuilding = make(map[string]bool)
+		} else {
+			_, ok = resForBuilding[res]
+			if ok {
+				log.Trace(logger.Error, fmt.Sprintf("Overriding production rule for resource \"%s\" for building \"%s\"", res, buildingID))
+			}
+		}
+
+		// In any case we will register this resource as defined for
+		// the current building.
+		resForBuilding[res] = true
+		resForBuildings[buildingID] = resForBuilding
+
+		// If the building already exists, we will append a new prod
+		// rule for the corresponding resource. If the building does
+		// not exist yet we will create it.
+		buildingRules, ok := prodRules[buildingID]
+		if !ok {
+			buildingRules = make([]ProductionRule, 0)
+		}
+
+		rule := ProductionRule{
+			Resource:          res,
+			InitProd:          base,
+			ProgressionRule:   progress,
+			TemperatureCoeff:  tempCoeff,
+			TemperatureOffset: tempOffset,
+		}
+
+		buildingRules = append(buildingRules, rule)
+
+		// Save back the building to the map.
+		prodRules[buildingID] = buildingRules
+	}
+
+	return prodRules, nil
+}
+
 // NewPlanetProxy :
 // Create a new proxy on the input `dbase` to access the
 // properties of planets as registered in the DB. In
@@ -311,9 +436,15 @@ func NewPlanetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) PlanetP
 
 	// In a similar way, fetch the initial costs and the
 	// progression rules for each building.
-	buildingCosts, err := initBuildingCostsFromDB(dbase, log)
+	buildingCosts, err := initBuildingsCostsFromDB(dbase, log)
 	if err != nil {
 		log.Trace(logger.Error, fmt.Sprintf("Could not fetch buildings costs from DB (err: %v)", err))
+	}
+
+	// Finally fetch the production rules for each building.
+	prodRules, err := initBuildingsProductionFromDB(dbase, log)
+	if err != nil {
+		log.Trace(logger.Error, fmt.Sprintf("COuld not fetch buildings production rules from DB (err: %v)", err))
 	}
 
 	return PlanetProxy{
@@ -323,6 +454,7 @@ func NewPlanetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) PlanetP
 		unis,
 		locker.NewConcurrentLocker(log),
 		buildingCosts,
+		prodRules,
 	}
 }
 
@@ -528,6 +660,15 @@ func (p *PlanetProxy) fetchPlanetBuildings(planet *Planet) error {
 			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve costs for building \"%s\" for planet \"%s\" (err: %v)", building.ID, planet.ID, err))
 		}
 
+		// Update the production for this building.
+		err = p.updateBuildingProduction(&building, planet)
+		if err != nil {
+			building.Production = make([]ResourceAmount, 0)
+			building.ProductionIncrease = make([]ResourceAmount, 0)
+
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve production for building \"%s\" for planet \"%s\" (err: %v)", building.ID, planet.ID, err))
+		}
+
 		planet.Buildings = append(planet.Buildings, building)
 	}
 
@@ -707,7 +848,7 @@ func (p *PlanetProxy) updateBuildingCosts(building *Building) error {
 	// In case the costs for building are not populated try
 	// to update it.
 	if len(p.buildingCosts) == 0 {
-		costs, err := initBuildingCostsFromDB(p.dbase, p.log)
+		costs, err := initBuildingsCostsFromDB(p.dbase, p.log)
 		if err != nil {
 			return fmt.Errorf("Unable to generate buildings costs for building \"%s\", none defined", building.ID)
 		}
@@ -723,6 +864,72 @@ func (p *PlanetProxy) updateBuildingCosts(building *Building) error {
 
 	// Compute the cost for each resource.
 	building.Cost = info.ComputeCosts(building.Level)
+
+	return nil
+}
+
+// updateBuildingProduction :
+// Used to perform the computation of the production for
+// the current level of the building. We will also update
+// the production increase for the next level. The output
+// values will be saved directly in the input building.
+//
+// The `building` defines the object for which the prod
+// should be computed. A `nil` value will raise an error.
+//
+// The `planet` is used to provide information relative
+// to the temperature on the place of production as some
+// buildings are dependent on the temperature to provide
+// the final amount produced.
+//
+// Returns any error.
+func (p *PlanetProxy) updateBuildingProduction(building *Building, planet *Planet) error {
+	// Check consistency.
+	if building == nil || building.ID == "" {
+		return fmt.Errorf("Cannot update building production from invalid building")
+	}
+
+	// In case the production rules for buildings are not
+	// populated try to update it.
+	if len(p.prodRules) == 0 {
+		rules, err := initBuildingsProductionFromDB(p.dbase, p.log)
+		if err != nil {
+			return fmt.Errorf("Unable to generate buildings production rules for building \"%s\", none defined", building.ID)
+		}
+
+		p.prodRules = rules
+	}
+
+	// Find the building in the production table.
+	rules, ok := p.prodRules[building.ID]
+	if !ok {
+		// The building does not seem to produce any resource. That
+		// or the rules do not have been updated but we can't do
+		// much about this anyways so we can safely return an empty
+		// production for this building.
+		building.Production = make([]ResourceAmount, 0)
+		building.ProductionIncrease = make([]ResourceAmount, 0)
+
+		return nil
+	}
+
+	// Compute the production and production increase for
+	// each resource this building is associated to.
+	building.Production = make([]ResourceAmount, 0)
+	building.ProductionIncrease = make([]ResourceAmount, 0)
+
+	for _, rule := range rules {
+		prodCurLevel := rule.ComputeProduction(building.Level, planet.averageTemp())
+		prodNextLevel := rule.ComputeProduction(building.Level+1, planet.averageTemp())
+
+		prodIncrease := ResourceAmount{
+			Resource: rule.Resource,
+			Amount:   prodNextLevel.Amount - prodCurLevel.Amount,
+		}
+
+		building.Production = append(building.Production, prodCurLevel)
+		building.ProductionIncrease = append(building.ProductionIncrease, prodIncrease)
+	}
 
 	return nil
 }

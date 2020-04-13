@@ -66,6 +66,15 @@ func (a *Account) valid() bool {
 		a.Password != ""
 }
 
+// averageTemp :
+// Returns the average temperature for a planet as a float
+// value.
+//
+// Returns the average temperature.
+func (p *Planet) averageTemp() float32 {
+	return float32((p.MinTemp + p.MaxTemp) / 2)
+}
+
 // valid :
 // Used to determine whether the parameters defined for this
 // player are consistent with what is expected. We will only
@@ -227,13 +236,48 @@ func (cc ConstructionCost) ComputeCosts(level int) []ResourceAmount {
 	for res, cost := range cc.InitCosts {
 		costForRes := ResourceAmount{
 			res,
-			cost * int(math.Round(math.Pow(float64(cc.ProgressionRule), fLevel))),
+			int(math.Round(float64(cost) * math.Pow(float64(cc.ProgressionRule), fLevel))),
 		}
 
 		costs = append(costs, costForRes)
 	}
 
 	return costs
+}
+
+// ComputeProduction :
+// Used to perform the computation of the resources that
+// are produced by the level `level` of the element that
+// is described by the input production rule.
+// The level is clamped to be in the range `[0; +inf[` if
+// this is not already the case.
+//
+// The `level` for which the production should be computed.
+// It is clamped to be positive.
+//
+// The `temperature` defines the average temperature of
+// the planet where the production is evaluated. It is
+// used to determine the temperature dependent part of the
+// resource production.
+//
+// Returns a slice describing the amount needed of each
+// resource produced by the item at level `level`.
+func (pr ProductionRule) ComputeProduction(level int, temperature float32) ResourceAmount {
+	// Clamp the input level.
+	fLevel := math.Max(0.0, float64(level))
+	fInitProd := float64(pr.InitProd)
+
+	// Compute both parts of the production (temperature
+	// dependent and independent).
+	tempDep := float64(pr.TemperatureOffset + temperature*pr.TemperatureCoeff)
+	tempIndep := fInitProd * fLevel * math.Pow(float64(pr.ProgressionRule), fLevel)
+
+	prod := ResourceAmount{
+		Resource: pr.Resource,
+		Amount:   int(math.Round(tempDep * tempIndep)),
+	}
+
+	return prod
 }
 
 // Linearize :

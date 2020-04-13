@@ -130,6 +130,56 @@ type ConstructionCost struct {
 	ProgressionRule float32
 }
 
+// ProductionRule :
+// Used to define the rule to produce some quantity
+// of a resource for an element (usually a building).
+// Some of the in-game buildings are able to generate
+// resources meaning that it provides a certain amount
+// or a resource at each step of time (usually using
+// the second as time unit).
+// The higher the level of the building, the more of
+// the resource will be produced using a progression
+// rule similar to `Base * Level * Exp ^ Level`.
+//
+// The `Resource` defines an identifier of the res
+// that is produced by the element. It should be
+// linked to an actual existing resource in the
+// `resources` table.
+//
+// The `InitProd` defines the base production at the
+// `0`-th level for this resource. This is the base
+// from where the production gains are scaled.
+//
+// The `ProgressionRule` defines the base associated
+// to the exponential growth in production for the
+// resource. The larger this value the quicker the
+// production will rise with each level.
+//
+// The `TemperatureCoeff` defines a coefficient to
+// apply to the production which depends on the temp
+// of the planet where the production rule is applied.
+// If this value is positive it means that the hotter
+// the planet is, the more production for this res is
+// to be expected, while the effect is reversed if the
+// coefficient is negative.
+// A coefficient of `0` means that the temperature of
+// the planet does not have any impact on the resource
+// prod.
+//
+// The `TemperatureOffset` is used in conjunction with
+// the `TemperatureCoeff` and allows to provide some
+// bost in the computation.
+// Typically the temperature dependent part of the
+// production of a resource looks something like this:
+// `TemperatureCoeff * T + TemperatureOffset`.
+type ProductionRule struct {
+	Resource          string
+	InitProd          int
+	ProgressionRule   float32
+	TemperatureCoeff  float32
+	TemperatureOffset float32
+}
+
 // ResourceDesc :
 // Defines the abstract representation of a resource which
 // is bascially an identifier and the actual name of the

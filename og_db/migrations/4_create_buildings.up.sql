@@ -28,6 +28,8 @@ CREATE TABLE buildings_gains_progress (
   res uuid NOT NULL,
   base integer NOT NULL,
   progress numeric(15, 5) NOT NULL,
+  temperature_coeff numeric(15, 5) NOT NULL,
+  temperature_offset numeric(15, 5) NOT NULL,
   FOREIGN KEY (building) REFERENCES buildings(id),
   FOREIGN KEY (res) REFERENCES resources(id)
 );
@@ -478,71 +480,89 @@ INSERT INTO public.buildings_costs_progress ("building", "progress")
   );
 
 -- Seed the building gains progress.
-INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress")
+INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress", "temperature_coeff", "temperature_offset")
   VALUES(
     (SELECT id FROM buildings WHERE name='metal mine'),
     (SELECT id FROM resources WHERE name='metal'),
     30,
-    1.1
+    1.1,
+    0.0,
+    1.0
   );
-INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress")
+INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress", "temperature_coeff", "temperature_offset")
   VALUES(
     (SELECT id FROM buildings WHERE name='metal mine'),
     (SELECT id FROM resources WHERE name='energy'),
     -10,
-    1.1
+    1.1,
+    0.0,
+    1.0
   );
 
-INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress")
+INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress", "temperature_coeff", "temperature_offset")
   VALUES(
     (SELECT id FROM buildings WHERE name='crystal mine'),
     (SELECT id FROM resources WHERE name='crystal'),
     20,
-    1.1
+    1.1,
+    0.0,
+    1.0
   );
-INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress")
+INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress", "temperature_coeff", "temperature_offset")
   VALUES(
     (SELECT id FROM buildings WHERE name='crystal mine'),
     (SELECT id FROM resources WHERE name='energy'),
     -10,
-    1.1
+    1.1,
+    0.0,
+    1.0
   );
 
-INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress")
+INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress", "temperature_coeff", "temperature_offset")
   VALUES(
     (SELECT id FROM buildings WHERE name='deuterium synthetizer'),
     (SELECT id FROM resources WHERE name='deuterium'),
     10,
-    1.1
+    1.1,
+    -0.004,
+    1.44
   );
-INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress")
+INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress", "temperature_coeff", "temperature_offset")
   VALUES(
     (SELECT id FROM buildings WHERE name='deuterium synthetizer'),
     (SELECT id FROM resources WHERE name='energy'),
     -20,
-    1.1
+    1.1,
+    0.0,
+    1.0
   );
 
-INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress")
+INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress", "temperature_coeff", "temperature_offset")
   VALUES(
     (SELECT id FROM buildings WHERE name='solar plant'),
     (SELECT id FROM resources WHERE name='energy'),
     20,
-    1.1
+    1.1,
+    0.0,
+    1.0
   );
 
-INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress")
+INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress", "temperature_coeff", "temperature_offset")
   VALUES(
     (SELECT id FROM buildings WHERE name='fusion reactor'),
     (SELECT id FROM resources WHERE name='energy'),
     30,
-    1.05
+    1.05,
+    0.0,
+    1.0
   );
-INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress")
+INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress", "temperature_coeff", "temperature_offset")
   VALUES(
     (SELECT id FROM buildings WHERE name='fusion reactor'),
     (SELECT id FROM resources WHERE name='deuterium'),
     -10,
-    1.1
+    1.1,
+    0.0,
+    1.0
   );
 

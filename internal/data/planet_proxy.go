@@ -304,7 +304,7 @@ func initBuildingsCostsFromDB(dbase *db.DB, log logger.Logger) (map[string]Const
 	return buildingCosts, nil
 }
 
-// initBuildingsProductionFromDB :
+// initBuildingsProductionRulesFromDB :
 // Similar to `initBuildingCostsFromDB` but used to
 // query information about the production gains for
 // each building from the DB.
@@ -323,7 +323,7 @@ func initBuildingsCostsFromDB(dbase *db.DB, log logger.Logger) (map[string]Const
 // resources, the key (corresponding to the building's
 // identifier) can have several associated values (i.e.
 // production rules).
-func initBuildingsProductionFromDB(dbase *db.DB, log logger.Logger) (map[string][]ProductionRule, error) {
+func initBuildingsProductionRulesFromDB(dbase *db.DB, log logger.Logger) (map[string][]ProductionRule, error) {
 	prodRules := make(map[string][]ProductionRule)
 
 	if dbase == nil {
@@ -457,9 +457,9 @@ func NewPlanetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) PlanetP
 	}
 
 	// Finally fetch the production rules for each building.
-	prodRules, err := initBuildingsProductionFromDB(dbase, log)
+	prodRules, err := initBuildingsProductionRulesFromDB(dbase, log)
 	if err != nil {
-		log.Trace(logger.Error, fmt.Sprintf("COuld not fetch buildings production rules from DB (err: %v)", err))
+		log.Trace(logger.Error, fmt.Sprintf("Could not fetch buildings production rules from DB (err: %v)", err))
 	}
 
 	return PlanetProxy{
@@ -928,7 +928,7 @@ func (p *PlanetProxy) updateBuildingProduction(building *Building, planet *Plane
 	// In case the production rules for buildings are not
 	// populated try to update it.
 	if len(p.prodRules) == 0 {
-		rules, err := initBuildingsProductionFromDB(p.dbase, p.log)
+		rules, err := initBuildingsProductionRulesFromDB(p.dbase, p.log)
 		if err != nil {
 			return fmt.Errorf("Unable to generate buildings production rules for building \"%s\", none defined", building.ID)
 		}

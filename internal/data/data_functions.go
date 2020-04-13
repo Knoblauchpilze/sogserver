@@ -260,8 +260,9 @@ func (cc ConstructionCost) ComputeCosts(level int) []ResourceAmount {
 // used to determine the temperature dependent part of the
 // resource production.
 //
-// Returns a slice describing the amount needed of each
-// resource produced by the item at level `level`.
+// Returns the amount of resource that are produced by the
+// selected rule with the specified level and temperature
+// values.
 func (pr ProductionRule) ComputeProduction(level int, temperature float32) ResourceAmount {
 	// Clamp the input level.
 	fLevel := math.Max(0.0, float64(level))
@@ -278,6 +279,28 @@ func (pr ProductionRule) ComputeProduction(level int, temperature float32) Resou
 	}
 
 	return prod
+}
+
+// ComputeStorage :
+// Used to perform the computation of the amount of res
+// that can be held at the specified level.
+//
+// The `level` for which the storage capacity should be
+// computed.
+//
+// Returns the amount of resource that can be held for
+// the specified level by this storage.
+func (sr StorageRule) ComputeStorage(level int) ResourceAmount {
+	factor := float64(sr.Multiplier) * math.Exp(float64(sr.Progress)*float64(level))
+
+	capacity := sr.InitStorage * int(math.Round(factor))
+
+	res := ResourceAmount{
+		Resource: sr.Resource,
+		Amount:   capacity,
+	}
+
+	return res
 }
 
 // Linearize :

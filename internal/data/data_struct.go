@@ -180,6 +180,30 @@ type ProductionRule struct {
 	TemperatureOffset float32
 }
 
+// StorageRule :
+// Used to define the prgoression rule for a storage.
+// It defines the way storage scale with the level as
+// it increases.
+//
+// The `Resource` defines the id of the resource that
+// the storage hold.
+//
+// The `InitStorage` defines some base storage that
+// is used in the formula to compute the capacity at
+// each level.
+//
+// The `Multiplier` defines another parameter for the
+// formula to compute the capacity.
+//
+// The `Progress` defines the exponential constant in
+// used to make the storage capacity progres.
+type StorageRule struct {
+	Resource    string
+	InitStorage int
+	Multiplier  float32
+	Progress    float32
+}
+
 // ResourceDesc :
 // Defines the abstract representation of a resource which
 // is bascially an identifier and the actual name of the
@@ -760,6 +784,50 @@ type BuildingUpgradeAction struct {
 	CurrentLevel   int       `json:"current_level"`
 	DesiredLevel   int       `json:"desired_level"`
 	CompletionTime time.Time `json:"completion_time"`
+}
+
+// ProductionEffect :
+// Defines a production effect that a building upgrade
+// action can have on the production of a planet. It is
+// used to regroup the resource and the value of the
+// change brought by the building upgrade action.
+//
+// The `Action` defines the identifier of the action to
+// which this effect is linked.
+//
+// The `Resource` defines the resource which is changed
+// by the building upgrade action.
+//
+// The `Effect` defines the actual effect of the upgrade
+// action. This value should be substituted to the planet
+// production if the upgrade action completes.
+type ProductionEffect struct {
+	Action   string  `json:"action"`
+	Resource string  `json:"res"`
+	Effect   float32 `json:"new_production"`
+}
+
+// StorageEffect :
+// Defines a storage effect that a building upgrade
+// action can have on the capacity of a resource that
+// can be stored on a planet. It is used to regroup
+// the resource and the value of the change brought
+// by the building upgrade action.
+//
+// The `Action` defines the identifier of the action
+// to which this effect is linked.
+//
+// The `Resource` defines the resource which is changed
+// by the building upgrade action.
+//
+// The `Effect` defines the actual effect of the upgrade
+// action. This value should be substituted to the planet
+// storage capacity for the resource if the upgrade
+// action completes.
+type StorageEffect struct {
+	Action   string  `json:"action"`
+	Resource string  `json:"res"`
+	Effect   float32 `json:"new_storage_capacity"`
 }
 
 // TechnologyUpgradeAction :

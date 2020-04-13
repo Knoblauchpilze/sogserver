@@ -74,6 +74,13 @@ BEGIN
 
   -- Update the construction action effects (both
   -- in terms of storage and production).
+  INSERT INTO construction_actions_buildings_production_effects
+    SELECT *
+    FROM json_populate_recordset(null::construction_actions_buildings_production_effects, production_effects);
+
+  INSERT INTO construction_actions_buildings_storage_effects
+    SELECT *
+    FROM json_populate_recordset(null::construction_actions_buildings_storage_effects, storage_effects);
   -- TODO: Handle this, we should probably provide all the production and storage
   -- effects from the input arguments anayway: we don't want to introduce in the
   -- DB the possibility to compute either the storage nor the production for some

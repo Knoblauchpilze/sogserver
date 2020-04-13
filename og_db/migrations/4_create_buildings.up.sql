@@ -47,10 +47,12 @@ CREATE TABLE buildings_gains_progress (
 -- Create the table defining the law of progression of storage of a building.
 CREATE TABLE buildings_storage_progress (
   building uuid NOT NULL,
+  res uuid NOT NULL,
   base integer NOT NULL,
   multiplier numeric(15, 5) NOT NULL,
   progress numeric(15, 5) NOT NULL,
-  FOREIGN KEY (building) REFERENCES buildings(id)
+  FOREIGN KEY (building) REFERENCES buildings(id),
+  FOREIGN KEY (res) REFERENCES resources(id)
 );
 
 -- Seed the available building types.
@@ -667,38 +669,31 @@ INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progres
   );
 
 -- Seed the building storage progress.
-INSERT INTO public.buildings_gains_progress ("building", "res", "base", "progress", "temperature_coeff", "temperature_offset")
-  VALUES(
-    (SELECT id FROM buildings WHERE name='fusion reactor'),
-    (SELECT id FROM resources WHERE name='deuterium'),
-    -10,
-    1.1,
-    0.0,
-    1.0
-  );
-
-INSERT INTO public.buildings_storage_progress ("building", "base", "multiplier", "progress")
+INSERT INTO public.buildings_storage_progress ("building", "res", "base", "multiplier", "progress")
   VALUES(
     (SELECT id FROM buildings WHERE name='metal storage'),
+    (SELECT id FROM resources WHERE name='metal'),
     5000,
     2.5,
     0.606060606
     -- Corresponds to 20/33.
   );
 
-INSERT INTO public.buildings_storage_progress ("building", "base", "multiplier", "progress")
+INSERT INTO public.buildings_storage_progress ("building", "res", "base", "multiplier", "progress")
 
   VALUES(
     (SELECT id FROM buildings WHERE name='crystal storage'),
+    (SELECT id FROM resources WHERE name='crystal'),
     5000,
     2.5,
     0.606060606
     -- Corresponds to 20/33.
   );
 
-INSERT INTO public.buildings_storage_progress ("building", "base", "multiplier", "progress")
+INSERT INTO public.buildings_storage_progress ("building", "res", "base", "multiplier", "progress")
   VALUES(
     (SELECT id FROM buildings WHERE name='deuterium tank'),
+    (SELECT id FROM resources WHERE name='deuterium'),
     5000,
     2.5,
     0.606060606

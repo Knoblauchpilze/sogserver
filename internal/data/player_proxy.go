@@ -348,41 +348,9 @@ func (p *PlayerProxy) fetchPlayerTechnologies(player *Player) error {
 // Returns any error that may have occurred during the
 // process.
 func (p *PlayerProxy) updateTechnologyUpgradeActions(player string) error {
-	// Prevent invalid player identifier.
-	if player == "" {
-		return fmt.Errorf("Cannot update technologies upgrade actions for invalid player")
-	}
+	query := fmt.Sprintf("SELECT update_technology_upgrade_action('%s')", player)
 
-	// Acquire a lock on this player.
-	lock := p.lock.Acquire(player)
-	defer p.lock.Release(lock)
-
-	// Perform the update: we will wrap the function inside
-	// a dedicated handler to make sure that we don't lock
-	// the resource more than necessary.
-	var err error
-	var errExec error
-
-	func() {
-		lock.Lock()
-		defer func() {
-			err = lock.Release()
-		}()
-
-		// Perform the update.
-		query := fmt.Sprintf("SELECT update_technology_upgrade_action('%s')", player)
-		_, errExec = p.dbase.DBExecute(query)
-	}()
-
-	// Return any error.
-	if errExec != nil {
-		return fmt.Errorf("Could not update technologies upgrade actions for \"%s\" (err: %v)", player, errExec)
-	}
-	if err != nil {
-		return fmt.Errorf("Could not release locker when updading technologies upgrade actions for \"%s\" (err: %v)", player, err)
-	}
-
-	return nil
+	return performWithLock(player, p.dbase, query, p.lock)
 }
 
 // updateTechnologyCosts :

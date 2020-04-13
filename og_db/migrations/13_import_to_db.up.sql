@@ -101,14 +101,17 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Update resources for a planet.
-CREATE OR REPLACE FUNCTION update_resources_for_planet(resources json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION update_resources_for_planet(planet_id uuid) RETURNS VOID AS $$
 BEGIN
-  WITH updateData
-    AS (SELECT * FROM jsonb_populate_recordset(resources))
-  UPDATE planets_resources pr
-    SET amount = ud.amount
-  FROM updateData AS ud
-  WHERE pr.planet = ud.planet AND pr.res = ud.res;
+  -- Update the amount of resource to be at most the storage
+  -- capacity, and otherwise to increase by the duration that
+  -- passed between the last update and the current time.
+  -- Note that even if the production is expressed in hours,
+  -- we need to extract the number of seconds in order to be
+  -- able to obtain fractions of an hour to update the value.
+  UPDATE planets_resources
+    SET amount = amount + EXTRACT(epoch FROM NOW() - updated_at) * production / 3600.0
+  WHERE planet = planet_id;
 END
 $$ LANGUAGE plpgsql;
 

@@ -27,6 +27,14 @@ import (
 // for buildings it would only be on the planet where the building has been
 // built while for technologies it should on all the planets colonized by
 // the player that researched the technology.
+// TODO: It seems like some assumptions we make when updating resources in
+// DB (and more precisely resources count) do not play well when intervals
+// reach lengths of more than a month/day/year. See here for details:
+// https://stackoverflow.com/questions/952493/how-do-i-convert-an-interval-into-a-number-of-hours-with-postgres
+// To avoid this maybe we could have some function that would run every
+// night (or another duration which would be consistent with the maximum
+// interval with no issues) to perform update for players that didn't
+// connect for a long time.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

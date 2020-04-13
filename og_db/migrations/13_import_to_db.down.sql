@@ -12,7 +12,7 @@ DROP FUNCTION update_technology_upgrade_action(player_id uuid);
 DROP FUNCTION update_building_upgrade_action(planet_id uuid);
 
 -- Drop the function to update resources on a given planet.
-DROP FUNCTION update_resources_for_planet(resources json);
+DROP FUNCTION update_resources_for_planet(planet_id uuid);
 
 -- Drop the fleet components import function.
 DROP FUNCTION create_fleet_component(component json, ships json);

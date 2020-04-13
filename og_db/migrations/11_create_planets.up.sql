@@ -23,13 +23,16 @@ CREATE TRIGGER update_planets_creation BEFORE INSERT ON planets FOR EACH ROW EXE
 CREATE TABLE planets_resources (
   planet uuid NOT NULL,
   res uuid NOT NULL,
-  amount numeric(15, 5) DEFAULT 1.0,
+  amount numeric(15, 5) NOT NULL,
+  production numeric(15, 5) NOT NULL,
+  storage_capacity numeric(15, 5) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (planet) REFERENCES planets(id),
   FOREIGN KEY (res) REFERENCES resources(id)
 );
 
 -- Create the trigger on the table to update the `updated_at` field.
-CREATE TRIGGER update_resources_refresh BEFORE UPDATE ON planets_resources FOR EACH ROW EXECUTE PROCEDURE update_updated_at();
+CREATE TRIGGER update_resources_refresh BEFORE INSERT OR UPDATE ON planets_resources FOR EACH ROW EXECUTE PROCEDURE update_updated_at();
 
 -- Create the buildings per planet table.
 CREATE TABLE planets_buildings (

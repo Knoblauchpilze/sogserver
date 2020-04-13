@@ -191,9 +191,23 @@ type ProductionRule struct {
 //
 // The `Name` defines the human-readable name of the res
 // as displayed to the user.
+//
+// The `BaseProd` defines the production without modifiers
+// for this resource on each planet. It represents a way
+// for the user to get resources without building anything
+// else.
+//
+// The `BaseStorage` defines the base capacity to store
+// the resource without any modifiers (usually hangars).
+//
+// The `BaseAmount` defines the base amount for this res
+// that can be found on any new planet in the game.
 type ResourceDesc struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	BaseProd    int    `json:"base_production"`
+	BaseStorage int    `json:"base_storage"`
+	BaseAmount  int    `json:"base_amount"`
 }
 
 // Resource :
@@ -214,10 +228,19 @@ type ResourceDesc struct {
 // The `Amount` defines the quantity of said resources.
 // Depending on the context it can either be a quantity
 // available or needed.
+//
+// The `Production` defines the production level for this
+// resource for each second. This value takes into account
+// all the modifiers which might impact it.
+//
+// The `Storage` defines how many units of the resource
+// can be stored in the location where it is placed.
 type Resource struct {
-	ID     string `json:"res"`
-	Planet string `json:"planet"`
-	Amount int    `json:"amount"`
+	ID         string  `json:"res"`
+	Planet     string  `json:"planet"`
+	Amount     float32 `json:"amount"`
+	Production float32 `json:"production"`
+	Storage    float32 `json:"storage_capacity"`
 }
 
 // TechDependency :

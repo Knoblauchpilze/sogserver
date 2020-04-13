@@ -196,6 +196,10 @@ BEGIN
 
   -- 2.b) Proceed to update the mines with their new prod
   -- values.
+  -- TODO: Maybe this can be removed: the fact that a line
+  -- exists in this table might be enough as we only defined
+  -- it if the building defined by this upgrade action had
+  -- an impact on production/storage.
   WITH update_data
     AS (
       SELECT *

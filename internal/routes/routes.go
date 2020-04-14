@@ -19,7 +19,7 @@ func (s *server) routes() {
 	s.route("GET", "/technologies", s.listTechnologies())
 	s.route("GET", "/ships", s.listShips())
 	s.route("GET", "/defenses", s.listDefenses())
-	// TODO: Update upgrade actions (from resources, fleets) for *this* planet.
+	// TODO: Update upgrade actions (from fleets) for *this* planet.
 	s.route("GET", "/planets", s.listPlanets())
 	s.route("GET", "/planets/[a-zA-Z0-9-]+/actions/buildings", s.listPlanetBuildings())
 	s.route("GET", "/planets/[a-zA-Z0-9-]+/actions/ships", s.listPlanetShips())

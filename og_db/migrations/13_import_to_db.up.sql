@@ -81,12 +81,6 @@ BEGIN
   INSERT INTO construction_actions_buildings_storage_effects
     SELECT *
     FROM json_populate_recordset(null::construction_actions_buildings_storage_effects, storage_effects);
-  -- TODO: Handle this, we should probably provide all the production and storage
-  -- effects from the input arguments anayway: we don't want to introduce in the
-  -- DB the possibility to compute either the storage nor the production for some
-  -- specific buildings. This means also modifying the `action_proxy` in order to
-  -- include the additional parameters. We should use the `buildings_storage_progress`
-  -- table to retrieve the corresponing data.
 END
 $$ LANGUAGE plpgsql;
 

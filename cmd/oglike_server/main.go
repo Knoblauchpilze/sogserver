@@ -12,7 +12,6 @@ import (
 	"oglike_server/pkg/logger"
 )
 
-// TODO: Construction actions.
 // TODO: Allow to delete a player.
 // TODO: Allow to delete a planet.
 // TODO: Use the token mechanism to make sure that a client has access
@@ -21,12 +20,6 @@ import (
 // expressions used in the route in the `extractRouteVars` framework to allow
 // to actually determine precisely which are the elements from the route and
 // which are the extra pathes.
-// TODO: Each time we upgrade a building or a technology (or anything that
-// might have an impact on the production) we should update the amount of
-// resources existing on each planet affected by the element. So typically
-// for buildings it would only be on the planet where the building has been
-// built while for technologies it should on all the planets colonized by
-// the player that researched the technology.
 // TODO: It seems like some assumptions we make when updating resources in
 // DB (and more precisely resources count) do not play well when intervals
 // reach lengths of more than a month/day/year. See here for details:

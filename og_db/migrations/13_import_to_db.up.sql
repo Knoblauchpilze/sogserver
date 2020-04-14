@@ -164,7 +164,10 @@ DECLARE
   processing_time TIMESTAMP := NOW();
 BEGIN
   -- 1. Update the actions by updating the level of each
-  -- building having a completed action.
+  -- building having a completed action. Make sure to
+  -- order by ascending order of operations in case some
+  -- pending operations concerns the same building for
+  -- different levels.
   WITH update_data
     AS (
       SELECT *
@@ -172,6 +175,8 @@ BEGIN
       WHERE
         planet = planet_id AND
         completion_time < processing_time
+      ORDER BY
+        desired_level ASC
     )
   UPDATE planets_buildings pb
     SET level = ud.desired_level
@@ -190,30 +195,20 @@ BEGIN
 
   -- 2.b) Proceed to update the mines with their new prod
   -- values.
-  -- TODO: We should group the resources and sum their
-  -- contribution before applying it.
-  -- Otherwise consider the following scenario:
-  --  action 1 requests res1 to increase of 22.
-  --  action 2 requests res1 to decrease of 22.
-  -- While performing the update, the value of `production`
-  -- is always the same, and we thus define:
-  --  for action 1, production += 22
-  --  for action 2, production -= 22 (ignoring the value set from action 1).
-  -- So probably sum the contribution of all resources in the
-  -- first part of the query.
-  -- https://stackoverflow.com/questions/44053065/how-to-update-same-row-multiple-times-with-sql
   WITH update_data
     AS (
-      SELECT *
+      SELECT res, SUM(new_production) AS prod_change
       FROM
         construction_actions_buildings_production_effects cabpe
         INNER JOIN construction_actions_buildings cab ON cab.id = cabpe.action
       WHERE
         cab.planet = planet_id AND
         cab.completion_time < processing_time
+      GROUP BY
+        cabpe.res
     )
   UPDATE planets_resources pr
-    SET production = production + ud.new_production
+    SET production = production + ud.prod_change
   FROM update_data AS ud
   WHERE
     pr.planet = planet_id
@@ -223,16 +218,18 @@ BEGIN
   -- values.
   WITH update_data
     AS (
-      SELECT *
+      SELECT res, SUM(new_storage_capacity) AS capacity_change
       FROM
         construction_actions_buildings_storage_effects cabse
         INNER JOIN construction_actions_buildings cab ON cab.id = cabse.action
       WHERE
         cab.planet = planet_id AND
         cab.completion_time < processing_time
+      GROUP BY
+        cabse.res
     )
   UPDATE planets_resources pr
-    SET storage_capacity = storage_capacity + ud.new_storage_capacity
+    SET storage_capacity = storage_capacity + ud.capacity_change
   FROM update_data AS ud
   WHERE
     pr.planet = planet_id
@@ -277,6 +274,8 @@ BEGIN
       WHERE
         player = player_id AND
         completion_time < processing_time
+      ORDER BY
+        desired_level ASC
     )
   UPDATE player_technologies pt
     SET level = ud.desired_level

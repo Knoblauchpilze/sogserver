@@ -102,6 +102,7 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 
 	uniProxy := data.NewUniverseProxy(dbase, log)
 	playerProxy := data.NewPlayerProxy(dbase, log)
+	planetProxy := data.NewPlanetProxy(dbase, log, uniProxy)
 
 	return server{
 		port,
@@ -112,10 +113,10 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 		data.NewTechnologyProxy(dbase, log),
 		data.NewShipProxy(dbase, log),
 		data.NewDefenseProxy(dbase, log),
-		data.NewPlanetProxy(dbase, log, uniProxy),
+		planetProxy,
 		playerProxy,
 		data.NewFleetProxy(dbase, log, uniProxy, playerProxy),
-		data.NewActionProxy(dbase, log),
+		data.NewActionProxy(dbase, log, planetProxy),
 		log,
 	}
 }

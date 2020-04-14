@@ -124,16 +124,19 @@ func fetchElementCost(dbase *db.DB, element string, filterName string, table str
 
 	costs := make([]ResourceAmount, 0)
 	var cost ResourceAmount
+	var amount float32
 
 	for rows.Next() {
 		err = rows.Scan(
 			&cost.Resource,
-			&cost.Amount,
+			&amount,
 		)
 
 		if err != nil {
 			gError = fmt.Errorf("Could not retrieve info for cost of \"%s\" (err: %v)", element, err)
 		}
+
+		cost.Amount = float32(amount)
 
 		costs = append(costs, cost)
 	}

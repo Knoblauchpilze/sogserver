@@ -298,8 +298,8 @@ type TechDependency struct {
 //
 // The `Amount` defines how much of the resource is needed.
 type ResourceAmount struct {
-	Resource string `json:"resource"`
-	Amount   int    `json:"amount"`
+	Resource string  `json:"resource"`
+	Amount   float32 `json:"amount"`
 }
 
 // BuildingDesc :

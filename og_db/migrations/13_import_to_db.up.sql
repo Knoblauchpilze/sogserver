@@ -192,29 +192,34 @@ BEGIN
   -- focus on updating the storage capacity and prod for
   -- each resource.
   -- 2.a) Update resources to reach the current time.
-  SELECT update_resources_for_planet(planet_id);
+  PERFORM update_resources_for_planet(planet_id);
 
   -- 2.b) Proceed to update the mines with their new prod
   -- values.
-  -- TODO: Maybe this can be removed: the fact that a line
-  -- exists in this table might be enough as we only defined
-  -- it if the building defined by this upgrade action had
-  -- an impact on production/storage.
+  -- TODO: We should group the resources and sum their
+  -- contribution before applying it.
+  -- Otherwise consider the following scenario:
+  --  action 1 requests res1 to increase of 22.
+  --  action 2 requests res1 to decrease of 22.
+  -- While performing the update, the value of `production`
+  -- is always the same, and we thus define:
+  --  for action 1, production += 22
+  --  for action 2, production -= 22 (ignoring the value set from action 1).
+  -- So probably sum the contribution of all resources in the
+  -- first part of the query.
+  -- https://stackoverflow.com/questions/44053065/how-to-update-same-row-multiple-times-with-sql
   WITH update_data
     AS (
       SELECT *
       FROM
-        construction_actions_buildings cab
-        INNER JOIN construction_actions_buildings_production_effects cabpe ON cab.id = cabpe.action
-        INNER JOIN buildings b ON cab.building = b.id
-        INNER JOIN building_types bt ON b.type = bt.id
+        construction_actions_buildings_production_effects cabpe
+        INNER JOIN construction_actions_buildings cab ON cab.id = cabpe.action
       WHERE
         cab.planet = planet_id AND
-        bt.name = 'mine' AND
         cab.completion_time < processing_time
     )
   UPDATE planets_resources pr
-    SET production = ud.new_production
+    SET production = production + ud.new_production
   FROM update_data AS ud
   WHERE
     pr.planet = planet_id
@@ -226,17 +231,14 @@ BEGIN
     AS (
       SELECT *
       FROM
-        construction_actions_buildings cab
-        INNER JOIN construction_actions_buildings_storage_effects cabse ON cab.id = cabse.action
-        INNER JOIN buildings b ON cab.building = b.id
-        INNER JOIN building_types bt ON b.type = bt.id
+        construction_actions_buildings_storage_effects cabse
+        INNER JOIN construction_actions_buildings cab ON cab.id = cabse.action
       WHERE
         cab.planet = planet_id AND
-        bt.name = 'hangar' AND
         cab.completion_time < processing_time
     )
   UPDATE planets_resources pr
-    SET storage_capacity = ud.new_storage_capacity
+    SET storage_capacity = storage_capacity + ud.new_storage_capacity
   FROM update_data AS ud
   WHERE
     pr.planet = planet_id
@@ -260,7 +262,7 @@ BEGIN
     cab.completion_time < processing_time;
 
   -- 4. And finally the processed actions.
-  DELETE FROM construction_actions_buildings WHERE planet = planet_id AND completion_time < NOW();
+  DELETE FROM construction_actions_buildings WHERE planet = planet_id AND completion_time < processing_time;
 END
 $$ LANGUAGE plpgsql;
 

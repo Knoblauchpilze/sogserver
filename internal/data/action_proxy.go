@@ -25,11 +25,25 @@ import (
 // The `log` allows to perform display to the user so as
 // to inform of potential issues and debug information to
 // the outside world.
+//
+// The `prodRules` defines the production rules defines
+// for various buildings. This is used when creating a
+// building upgrade action to measure the consequences
+// of upgrading a building.
+//
+// The `storageRules` defines something similar to the
+// `prodRules` but for storage associated to each item.
+//
+// The `planetProxy` defines the proxy allowing to query
+// a planet from an identifier. It is used in conjunction
+// to the production rules to allow the computation of
+// the precise production on a particular planet.
 type ActionProxy struct {
 	dbase        *db.DB
 	log          logger.Logger
 	prodRules    map[string][]ProductionRule
 	storageRules map[string][]StorageRule
+	planetProxy  PlanetProxy
 }
 
 // initBuildingsStorageRulesFromDB :
@@ -149,8 +163,12 @@ func initBuildingsStorageRulesFromDB(dbase *db.DB, log logger.Logger) (map[strin
 // we can have an idea of the activity of this component.
 // One possible example is for timing the requests.
 //
+// The `planets` defines a proxy that can be used to
+// fetch information about the planets when creating
+// the building upgrade actions.
+//
 // Returns the created proxy.
-func NewActionProxy(dbase *db.DB, log logger.Logger) ActionProxy {
+func NewActionProxy(dbase *db.DB, log logger.Logger, planets PlanetProxy) ActionProxy {
 	if dbase == nil {
 		panic(fmt.Errorf("Cannot create actions proxy from invalid DB"))
 	}
@@ -172,6 +190,7 @@ func NewActionProxy(dbase *db.DB, log logger.Logger) ActionProxy {
 		log,
 		prodRules,
 		storageRules,
+		planets,
 	}
 }
 
@@ -601,8 +620,42 @@ func (p *ActionProxy) fetchBuildingProductionEffects(action *BuildingUpgradeActi
 		return []ProductionEffect{}, fmt.Errorf("Cannot fetch building upgrade action production effects for invalid action")
 	}
 
-	// TODO: Implement this.
-	return []ProductionEffect{}, fmt.Errorf("Not implemented")
+	// Search for production rules of the building described
+	// by the action: if some exists, we need to create the
+	// corresponding effect.
+	prodEffects := make([]ProductionEffect, 0)
+
+	rules, ok := p.prodRules[action.BuildingID]
+
+	if !ok {
+		// No production rule, nothing to add.
+		return prodEffects, nil
+	}
+
+	// As we will need the production, we need to fetch the
+	// planet onto which the building will be built.
+	planet, err := p.fetchPlanet(action.PlanetID)
+	if err != nil {
+		return []ProductionEffect{}, fmt.Errorf("Cannot fetch planet \"%s\" for building upgrade action production effects (err: %v)", action.PlanetID, err)
+	}
+
+	for _, rule := range rules {
+		// The `Effect` should reference the difference from the
+		// current situation. So we need to compute the difference
+		// between the current production and the next level.
+		curProd := rule.ComputeProduction(action.CurrentLevel, planet.averageTemp())
+		desiredProd := rule.ComputeProduction(action.DesiredLevel, planet.averageTemp())
+
+		effect := ProductionEffect{
+			Action:   action.ID,
+			Resource: rule.Resource,
+			Effect:   desiredProd.Amount - curProd.Amount,
+		}
+
+		prodEffects = append(prodEffects, effect)
+	}
+
+	return prodEffects, nil
 }
 
 // fetchBuildingStorageEffects :
@@ -619,11 +672,70 @@ func (p *ActionProxy) fetchBuildingProductionEffects(action *BuildingUpgradeActi
 func (p *ActionProxy) fetchBuildingStorageEffects(action *BuildingUpgradeAction) ([]StorageEffect, error) {
 	// Make sure that the action is valid.
 	if action == nil || !action.valid() {
-		return []StorageEffect{}, fmt.Errorf("Cannot fetch building upgrade action production effects for invalid action")
+		return []StorageEffect{}, fmt.Errorf("Cannot fetch building upgrade action storage effects for invalid action")
 	}
 
-	// TODO: Implement this.
-	return []StorageEffect{}, fmt.Errorf("Not implemented")
+	// Search for srotage effects for the building described
+	// by the action: if some exists, we need to create the
+	// corresponding effect.
+	storageEffects := make([]StorageEffect, 0)
+
+	rules, ok := p.storageRules[action.BuildingID]
+
+	if !ok {
+		// No storage rule, nothing to add.
+		return storageEffects, nil
+	}
+
+	for _, rule := range rules {
+		// The `Effect` should reference the difference from the
+		// current situation. So we need to compute the storage
+		// increase (or decrease) from the current level.
+		curStorage := rule.ComputeStorage(action.CurrentLevel)
+		desiredStorage := rule.ComputeStorage(action.DesiredLevel)
+
+		effect := StorageEffect{
+			Action:   action.ID,
+			Resource: rule.Resource,
+			Effect:   desiredStorage.Amount - curStorage.Amount,
+		}
+
+		storageEffects = append(storageEffects, effect)
+	}
+
+	return storageEffects, nil
+}
+
+// fetchPlanet :
+// Used to fetch the planet described by the input identifier
+// in the internal DB. It is used to compute the production
+// effects in the case of a building upgrade action.
+//
+// The `id` defines the identifier of the planet to fetch.
+//
+// Returns the planet corresponding to the identifier along
+// with any error.
+func (p *ActionProxy) fetchPlanet(id string) (Planet, error) {
+	// Create the db filters from the input identifier.
+	filters := make([]DBFilter, 1)
+
+	filters[0] = DBFilter{
+		"p.id",
+		[]string{id},
+	}
+
+	planets, err := p.planetProxy.Planets(filters)
+
+	// Check for errors and cases where we retrieve several
+	// players.
+	if err != nil {
+		return Planet{}, err
+	}
+	if len(planets) != 1 {
+		return Planet{}, fmt.Errorf("Retrieved %d planets for id \"%s\" (expected 1)", len(planets), id)
+	}
+
+	return planets[0], nil
 }
 
 // CreateTechnologyAction :

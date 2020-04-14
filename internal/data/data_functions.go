@@ -236,7 +236,7 @@ func (cc ConstructionCost) ComputeCosts(level int) []ResourceAmount {
 	for res, cost := range cc.InitCosts {
 		costForRes := ResourceAmount{
 			res,
-			int(math.Round(float64(cost) * math.Pow(float64(cc.ProgressionRule), fLevel))),
+			float32(float64(cost) * math.Pow(float64(cc.ProgressionRule), fLevel)),
 		}
 
 		costs = append(costs, costForRes)
@@ -275,7 +275,7 @@ func (pr ProductionRule) ComputeProduction(level int, temperature float32) Resou
 
 	prod := ResourceAmount{
 		Resource: pr.Resource,
-		Amount:   int(math.Round(tempDep * tempIndep)),
+		Amount:   float32(tempDep * tempIndep),
 	}
 
 	return prod
@@ -293,7 +293,7 @@ func (pr ProductionRule) ComputeProduction(level int, temperature float32) Resou
 func (sr StorageRule) ComputeStorage(level int) ResourceAmount {
 	factor := float64(sr.Multiplier) * math.Exp(float64(sr.Progress)*float64(level))
 
-	capacity := sr.InitStorage * int(math.Round(factor))
+	capacity := float32(sr.InitStorage * int(math.Floor(factor)))
 
 	res := ResourceAmount{
 		Resource: sr.Resource,

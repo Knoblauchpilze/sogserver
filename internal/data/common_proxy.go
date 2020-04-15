@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"oglike_server/internal/locker"
 	"oglike_server/pkg/db"
+	"oglike_server/pkg/logger"
 	"strings"
 )
 
@@ -208,4 +209,221 @@ func performWithLock(resource string, dbase *db.DB, query string, cl *locker.Con
 	}
 
 	return nil
+}
+
+// initProgressCostsFromDB :
+// Used to query information from the DB and fetch info
+// for the construction costs of an in-game element. As
+// the structure for most of the elements is similar we
+// can mutualize part of the code to fetch the info.
+// This method assumes that the element for which the
+// costs should be retrieved follow a progression rule
+// where each level costs more than the previous one.
+// We thus need to fetch both the initial cost and the
+// rule to compute the cost at the next level. The info
+// is assumed to be registered in two different tables
+// that should be provided as input.
+// In case the DB cannot be contacted an error is sent
+// back but a valid map is still returned (it is empty
+// though).
+//
+// The `dbase` represents the DB from which info about
+// elements costs should be fetched.
+//
+// The `log` allows to notify errors and info to the
+// user in case of any failure.
+//
+// The `propName` defines the name of the property that
+// describes the identifier of the element in the DB.
+// It will be used as the main key in the output map.
+//
+// The `tableForProgress` defines the name of the DB
+// table defining the costs for the progression rules
+// of each element.
+//
+// The `tableForCosts` define the name of the DB table
+// defining the initial costs for each element. Along
+// with the `tableForProgress` it defines all the info
+// needed to compute the cost of a given level of the
+// element.
+//
+// Returns a map representing the associated cost for
+// each element along with the progression rule to use
+// to compute the next level costs.
+func initProgressCostsFromDB(dbase *db.DB, log logger.Logger, propName string, tableForProgress string, tableForCosts string) (map[string]ConstructionCost, error) {
+	costs := make(map[string]ConstructionCost)
+
+	if dbase == nil {
+		return costs, fmt.Errorf("Could not fetch construction costs from DB, no DB provided")
+	}
+
+	// First retrieve the elements progression rule.
+	props := []string{
+		propName,
+		"progress",
+	}
+
+	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), tableForProgress)
+
+	rows, err := dbase.DBQuery(query)
+	if err != nil {
+		return costs, fmt.Errorf("Could not initialize element construction costs from DB (err: %v)", err)
+	}
+
+	var ID string
+	var progress float32
+
+	for rows.Next() {
+		err = rows.Scan(
+			&ID,
+			&progress,
+		)
+
+		if err != nil {
+			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for element cost (err: %v)", err))
+			continue
+		}
+
+		existing, ok := costs[ID]
+		if ok {
+			log.Trace(logger.Error, fmt.Sprintf("Overriding progression rule for element \"%s\" (existing was %f, new is %f)", ID, existing.ProgressionRule, progress))
+		}
+
+		costs[ID] = ConstructionCost{
+			make(map[string]int),
+			progress,
+		}
+	}
+
+	// Now populate the costs for each element.
+	props = []string{
+		propName,
+		"res",
+		"cost",
+	}
+
+	query = fmt.Sprintf("select %s from %s", strings.Join(props, ", "), tableForCosts)
+
+	rows, err = dbase.DBQuery(query)
+	if err != nil {
+		return costs, fmt.Errorf("Could not initialize element constructions costs from DB (err: %v)", err)
+	}
+
+	var res string
+	var cost int
+
+	for rows.Next() {
+		err = rows.Scan(
+			&ID,
+			&res,
+			&cost,
+		)
+
+		if err != nil {
+			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for element construction cost (err: %v)", err))
+			continue
+		}
+
+		elem, ok := costs[ID]
+
+		if !ok {
+			log.Trace(logger.Error, fmt.Sprintf("Cannot define cost of %d of resource \"%s\" for element \"%s\" not found in progression rules", cost, res, ID))
+			continue
+		}
+
+		existing, ok := elem.InitCosts[res]
+		if ok {
+			log.Trace(logger.Error, fmt.Sprintf("Overriding cost for resource \"%s\" in element \"%s\" (existing was %d, new is %d)", res, ID, existing, cost))
+		}
+
+		elem.InitCosts[res] = cost
+
+		costs[ID] = elem
+	}
+
+	return costs, nil
+}
+
+// initFixedCostsFromDB :
+// Used in a similar way to the `initProgressCostsFromDB`
+// but assumes that the elements to fetch follow a fixed
+// costs rule where a single price is fixed for any unit
+// of the element.
+// The information is assumed to be registered in a single
+// table in the DB which should be provided in input.
+//
+// The `dbase` is the DB from which information should
+// be fetched.
+//
+// The `log` defines a way to inform the user of errors
+// and notifications.
+//
+// The `propName` define the name of the field that is
+// used to identify the element in the table. This is
+// used as a key in the output map.
+//
+// The `table` defines the table inside the DB that is
+// to be queried to fetch the costs.
+//
+// Returns a map where keys are the `propName` values
+// extracted from the table along with the associated
+// resources. Any error is also returned (in which case
+// the map should be ignored).
+func initFixedCostsFromDB(dbase *db.DB, log logger.Logger, propName string, table string) (map[string]FixedCost, error) {
+	costs := make(map[string]FixedCost)
+
+	if dbase == nil {
+		return costs, fmt.Errorf("Could not fetch fixed costs from DB, no DB provided")
+	}
+
+	// Retrieve the elements from the provided table progression rule.
+	props := []string{
+		propName,
+		"res",
+		"cost",
+	}
+
+	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
+
+	rows, err := dbase.DBQuery(query)
+	if err != nil {
+		return costs, fmt.Errorf("Could not initialize element fixed costs from DB (err: %v)", err)
+	}
+
+	var ID string
+	var res string
+	var cost int
+
+	for rows.Next() {
+		err = rows.Scan(
+			&ID,
+			&res,
+			&cost,
+		)
+
+		if err != nil {
+			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for element cost (err: %v)", err))
+			continue
+		}
+
+		// Check whether this element exists in the table.
+		elem, ok := costs[ID]
+		if !ok {
+			elem = FixedCost{
+				make(map[string]int),
+			}
+		}
+
+		// Check whether the resource is already defined for
+		// this element.
+		if existing, ok := elem.InitCosts[res]; ok {
+			log.Trace(logger.Error, fmt.Sprintf("Overriding fixed cost for res \"%s\" in element \"%s\" (existing was %d, new is %d)", res, ID, existing, cost))
+		}
+
+		elem.InitCosts[res] = cost
+
+		costs[ID] = elem
+	}
+
+	return costs, nil
 }

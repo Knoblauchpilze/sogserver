@@ -188,122 +188,6 @@ func initResourcesFromDB(dbase *db.DB, log logger.Logger) (map[string]ResourceDe
 	return resources, nil
 }
 
-// initBuildingCostsFromDB :
-// Used to query information from the DB and fetch info
-// for buildings that will be used to compute costs of
-// a building for a given level. As this data is hardly
-// changing in the life of the server it's interesting
-// to fetch it right away so it is readily available in
-// memory (rather than in the DB) when needed.
-// In case the DB cannot be contacted an error is sent
-// back but a valid map is still returned (it is empty
-// though).
-//
-// The `dbase` represents the DB from which info about
-// buildings costs should be fetched.
-//
-// The `log` allows to notify errors and info to the
-// user in case of any failure.
-//
-// Returns a map representing the associated cost for
-// each building along with the progression rule to
-// use to compute the next level costs.
-func initBuildingsCostsFromDB(dbase *db.DB, log logger.Logger) (map[string]ConstructionCost, error) {
-	buildingCosts := make(map[string]ConstructionCost)
-
-	if dbase == nil {
-		return buildingCosts, fmt.Errorf("Could not buildings costs from DB, no DB provided")
-	}
-
-	// First retrieve the buildings progression rule.
-	props := []string{
-		"building",
-		"progress",
-	}
-	table := "buildings_costs_progress"
-
-	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
-
-	rows, err := dbase.DBQuery(query)
-	if err != nil {
-		return buildingCosts, fmt.Errorf("Could not initialize buildings costs from DB (err: %v)", err)
-	}
-
-	var buildingID string
-	var progress float32
-
-	for rows.Next() {
-		err = rows.Scan(
-			&buildingID,
-			&progress,
-		)
-
-		if err != nil {
-			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for building cost (err: %v)", err))
-			continue
-		}
-
-		existing, ok := buildingCosts[buildingID]
-		if ok {
-			log.Trace(logger.Error, fmt.Sprintf("Overriding progression rule for building \"%s\" (existing was %f, new is %f)", buildingID, existing.ProgressionRule, progress))
-		}
-
-		buildingCosts[buildingID] = ConstructionCost{
-			make(map[string]int),
-			progress,
-		}
-	}
-
-	// Now populate the costs for each building.
-	props = []string{
-		"building",
-		"res",
-		"cost",
-	}
-	table = "buildings_costs"
-
-	query = fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
-
-	rows, err = dbase.DBQuery(query)
-	if err != nil {
-		return buildingCosts, fmt.Errorf("Could not initialize buildings costs from DB (err: %v)", err)
-	}
-
-	var res string
-	var cost int
-
-	for rows.Next() {
-		err = rows.Scan(
-			&buildingID,
-			&res,
-			&cost,
-		)
-
-		if err != nil {
-			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for building cost (err: %v)", err))
-			continue
-		}
-
-		tech, ok := buildingCosts[buildingID]
-
-		if !ok {
-			log.Trace(logger.Error, fmt.Sprintf("Cannot define cost of %d of resource \"%s\" for building \"%s\" not found in progression rules", cost, res, buildingID))
-			continue
-		}
-
-		existing, ok := tech.InitCosts[res]
-		if ok {
-			log.Trace(logger.Error, fmt.Sprintf("Overriding cost for resource \"%s\" in building \"%s\" (existing was %d, new is %d)", res, buildingID, existing, cost))
-		}
-
-		tech.InitCosts[res] = cost
-
-		buildingCosts[buildingID] = tech
-	}
-
-	return buildingCosts, nil
-}
-
 // initBuildingsProductionRulesFromDB :
 // Similar to `initBuildingCostsFromDB` but used to
 // query information about the production gains for
@@ -451,7 +335,7 @@ func NewPlanetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) PlanetP
 
 	// In a similar way, fetch the initial costs and the
 	// progression rules for each building.
-	buildingCosts, err := initBuildingsCostsFromDB(dbase, log)
+	buildingCosts, err := initProgressCostsFromDB(dbase, log, "building", "buildings_costs_progress", "buildings_costs")
 	if err != nil {
 		log.Trace(logger.Error, fmt.Sprintf("Could not fetch buildings costs from DB (err: %v)", err))
 	}
@@ -884,7 +768,7 @@ func (p *PlanetProxy) updateBuildingCosts(building *Building) error {
 	// In case the costs for building are not populated try
 	// to update it.
 	if len(p.buildingCosts) == 0 {
-		costs, err := initBuildingsCostsFromDB(p.dbase, p.log)
+		costs, err := initProgressCostsFromDB(p.dbase, p.log, "building", "buildings_costs_progress", "buildings_costs")
 		if err != nil {
 			return fmt.Errorf("Unable to generate buildings costs for building \"%s\", none defined", building.ID)
 		}

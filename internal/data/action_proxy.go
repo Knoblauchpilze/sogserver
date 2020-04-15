@@ -34,16 +34,31 @@ import (
 // The `storageRules` defines something similar to the
 // `prodRules` but for storage associated to each item.
 //
+// The `progressCosts` regroups the costs of all the unit
+// in the game indifferently to whether it is a building
+// or a technology. It is used to make sure that there
+// are actually enough resources on the planet before
+// performing the registration of any upgrade action.
+// These costs only include the elements following a rule
+// of progression which depends on the level of the elem.
+//
+// The `fixedCosts` are similar to the `progressCosts`
+// but are used for elements that are unit-like in the
+// sense that they have a fixed costs and they cannot
+// be upgraded (hence no progression).
+//
 // The `planetProxy` defines the proxy allowing to query
 // a planet from an identifier. It is used in conjunction
 // to the production rules to allow the computation of
 // the precise production on a particular planet.
 type ActionProxy struct {
-	dbase        *db.DB
-	log          logger.Logger
-	prodRules    map[string][]ProductionRule
-	storageRules map[string][]StorageRule
-	planetProxy  PlanetProxy
+	dbase         *db.DB
+	log           logger.Logger
+	prodRules     map[string][]ProductionRule
+	storageRules  map[string][]StorageRule
+	progressCosts map[string]ConstructionCost
+	fixedCosts    map[string]FixedCost
+	planetProxy   PlanetProxy
 }
 
 // initBuildingsStorageRulesFromDB :
@@ -185,11 +200,52 @@ func NewActionProxy(dbase *db.DB, log logger.Logger, planets PlanetProxy) Action
 		log.Trace(logger.Error, fmt.Sprintf("Could not fetch buildings storage rules from DB (err: %v)", err))
 	}
 
+	// Fetch the building, technologies, ships and defenses
+	// costs from the DB.
+	bCosts, err := initProgressCostsFromDB(dbase, log, "building", "buildings_costs_progress", "buildings_costs")
+	if err != nil {
+		log.Trace(logger.Error, fmt.Sprintf("Could not fetch buildings construction costs from DB (err: %v)", err))
+	}
+
+	tCosts, err := initProgressCostsFromDB(dbase, log, "technology", "technologies_costs_progress", "technologies_costs")
+	if err != nil {
+		log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies construction costs from DB (err: %v)", err))
+	}
+
+	sCosts, err := initFixedCostsFromDB(dbase, log, "ship", "ships_costs")
+	if err != nil {
+		log.Trace(logger.Error, fmt.Sprintf("Could not fetch ships construction costs from DB (err: %v)", err))
+	}
+
+	dCosts, err := initFixedCostsFromDB(dbase, log, "defense", "defenses_costs")
+	if err != nil {
+		log.Trace(logger.Error, fmt.Sprintf("Could not fetch defenses construction costs from DB (err: %v)", err))
+	}
+
+	// Group common costs in a single map.
+	for k, v := range tCosts {
+		if _, ok := bCosts[k]; ok {
+			log.Trace(logger.Error, fmt.Sprintf("Overriding progress costs for element \"%s\"", k))
+		}
+
+		bCosts[k] = v
+	}
+
+	for k, v := range dCosts {
+		if _, ok := sCosts[k]; ok {
+			log.Trace(logger.Error, fmt.Sprintf("Overriding fixed costs for element \"%s\"", k))
+		}
+
+		sCosts[k] = v
+	}
+
 	return ActionProxy{
 		dbase,
 		log,
 		prodRules,
 		storageRules,
+		bCosts,
+		sCosts,
 		planets,
 	}
 }
@@ -533,6 +589,28 @@ func (p *ActionProxy) createAction(action UpgradeAction, script string) error {
 	return nil
 }
 
+// verifyAction :
+// Used internally to make sure that the action can
+// be executed given the resources existing on the
+// planet where it's needed and given the dependencies
+// that might have to be met.
+//
+// The `action` defines the element that should be
+// verified for consistency.
+//
+// Returns an error if the action cannot be performed
+// for some reason and `nil` if the action is possible.
+func (p *ActionProxy) verifyAction(action UpgradeAction) error {
+	// We need to make sure that both the resources on the
+	// planet where the action should be performed are at
+	// a sufficient level to allow the action and also that
+	// the dependencies (both buildings and technologies)
+	// to allow the construction of the element described
+	// by the action are met.
+	// TODO: Implement the checking of all the above.
+	return fmt.Errorf("Not implemented")
+}
+
 // CreateBuildingAction :
 // Used to perform the creation of the building upgrade
 // action described by the input data to the DB. In case
@@ -555,6 +633,11 @@ func (p *ActionProxy) CreateBuildingAction(action *BuildingUpgradeAction) error 
 	// Check whether the action is valid.
 	if !action.valid() {
 		return fmt.Errorf("Could not create upgrade action, some properties are invalid")
+	}
+
+	err := p.verifyAction(action)
+	if err != nil {
+		return fmt.Errorf("Could not create building action (err: %v)", err)
 	}
 
 	// We need to create the data related to the production and storage
@@ -757,7 +840,12 @@ func (p *ActionProxy) CreateTechnologyAction(action *TechnologyUpgradeAction) er
 		action.ID = uuid.New().String()
 	}
 
-	err := p.createAction(action, "create_technology_upgrade_action")
+	err := p.verifyAction(action)
+	if err != nil {
+		return fmt.Errorf("Could not create technology action (err: %v)", err)
+	}
+
+	err = p.createAction(action, "create_technology_upgrade_action")
 
 	if err == nil {
 		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d for \"%s\"", action.TechnologyID, action.DesiredLevel, action.PlayerID))
@@ -789,7 +877,12 @@ func (p *ActionProxy) CreateShipAction(action *ShipUpgradeAction) error {
 	// the initial amount.
 	action.Remaining = action.Amount
 
-	err := p.createAction(action, "create_ship_upgrade_action")
+	err := p.verifyAction(action)
+	if err != nil {
+		return fmt.Errorf("Could not create ship action (err: %v)", err)
+	}
+
+	err = p.createAction(action, "create_ship_upgrade_action")
 
 	if err == nil {
 		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to build \"%s\" on \"%s\"", action.ShipID, action.PlanetID))
@@ -821,7 +914,12 @@ func (p *ActionProxy) CreateDefenseAction(action *DefenseUpgradeAction) error {
 	// the initial amount.
 	action.Remaining = action.Amount
 
-	err := p.createAction(action, "create_defense_upgrade_action")
+	err := p.verifyAction(action)
+	if err != nil {
+		return fmt.Errorf("Could not create defense action (err: %v)", err)
+	}
+
+	err = p.createAction(action, "create_defense_upgrade_action")
 
 	if err == nil {
 		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to build \"%s\" on \"%s\"", action.DefenseID, action.PlanetID))

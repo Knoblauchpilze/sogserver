@@ -111,7 +111,7 @@ type Coordinate struct {
 // for the first level along with a progression rule
 // followed to compute the cost at any level.
 //
-// The `InitCosts` rerpesents a map where the keys are
+// The `InitCosts` represents a map where the keys are
 // resources' identifiers and the values are the init
 // cost of the element for the corresponding resource.
 // If a resource does not have its identifier in this
@@ -128,6 +128,20 @@ type Coordinate struct {
 type ConstructionCost struct {
 	InitCosts       map[string]int
 	ProgressionRule float32
+}
+
+// FixedCost :
+// Used in a similar way to `ConstructionCost` but
+// to define a cost that does not scale with a level.
+// It is typically used to represent the cost of a
+// single unit (like a ship).
+//
+// The `InitCosts` represents the cost of the unit.
+// Each element of the map has a key corresponding
+// to the identifier of the resource needed along
+// with the value needed.
+type FixedCost struct {
+	InitCosts map[string]int
 }
 
 // ProductionRule :
@@ -749,6 +763,8 @@ type UpgradeAction interface {
 	GetID() string
 	valid() bool
 	String() string
+	GetPlanetID() string
+	IsUnitLike() bool
 }
 
 // BuildingUpgradeAction :

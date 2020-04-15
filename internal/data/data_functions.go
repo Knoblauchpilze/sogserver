@@ -245,6 +245,33 @@ func (cc ConstructionCost) ComputeCosts(level int) []ResourceAmount {
 	return costs
 }
 
+// ComputeCosts :
+// Used to perform the computation of the amount of
+// resources needed to compute the desired number of
+// elements of this unit.
+//
+// The `count` defines how many unit should be built.
+//
+// Returns a slice describing the amount needed of
+// each resource required by the item.
+func (fc FixedCost) ComputeCosts(count int) []ResourceAmount {
+	// Clamp the input level.
+	fCount := math.Max(0.0, float64(count))
+
+	costs := make([]ResourceAmount, 0)
+
+	for res, cost := range fc.InitCosts {
+		costForRes := ResourceAmount{
+			res,
+			float32(float64(cost) * fCount),
+		}
+
+		costs = append(costs, costForRes)
+	}
+
+	return costs
+}
+
 // ComputeProduction :
 // Used to perform the computation of the resources that
 // are produced by the level `level` of the element that
@@ -380,6 +407,25 @@ func (a BuildingUpgradeAction) String() string {
 	return fmt.Sprintf("\"%s\"", a.PlanetID)
 }
 
+// GetPlanetID :
+// Defines the identifier of the planet associated to the
+// upgrade action.
+//
+// Returns the identifier of the planet where the upgrade
+// action should be performed.
+func (a BuildingUpgradeAction) GetPlanetID() string {
+	return a.PlanetID
+}
+
+// IsUnitLike :
+// Defines whether the element that is associated to this
+// upgrade action is unit-like or not. Unit-like elements
+// do not have a notion of `level` and thus always cost
+// the same price.
+func (a BuildingUpgradeAction) IsUnitLike() bool {
+	return false
+}
+
 // GetID :
 // Used to retrieve identifier of the technology upgrade
 // action. This returns the corresponding internal field.
@@ -414,6 +460,25 @@ func (a TechnologyUpgradeAction) valid() bool {
 // we want to group such failure for analysis purposes.
 func (a TechnologyUpgradeAction) String() string {
 	return fmt.Sprintf("\"%s\"", a.PlayerID)
+}
+
+// GetPlanetID :
+// Defines the identifier of the planet associated to the
+// upgrade action.
+//
+// Returns the identifier of the planet where the upgrade
+// action should be performed.
+func (a TechnologyUpgradeAction) GetPlanetID() string {
+	return a.PlanetID
+}
+
+// IsUnitLike :
+// Defines whether the element that is associated to this
+// upgrade action is unit-like or not. Unit-like elements
+// do not have a notion of `level` and thus always cost
+// the same price.
+func (a TechnologyUpgradeAction) IsUnitLike() bool {
+	return false
 }
 
 // GetID :
@@ -452,6 +517,25 @@ func (a ShipUpgradeAction) String() string {
 	return fmt.Sprintf("\"%s\"", a.PlanetID)
 }
 
+// GetPlanetID :
+// Defines the identifier of the planet associated to the
+// upgrade action.
+//
+// Returns the identifier of the planet where the upgrade
+// action should be performed.
+func (a ShipUpgradeAction) GetPlanetID() string {
+	return a.PlanetID
+}
+
+// IsUnitLike :
+// Defines whether the element that is associated to this
+// upgrade action is unit-like or not. Unit-like elements
+// do not have a notion of `level` and thus always cost
+// the same price.
+func (a ShipUpgradeAction) IsUnitLike() bool {
+	return true
+}
+
 // GetID :
 // Used to retrieve identifier of the defense upgrade action.
 // This basically returns the corresponding internal field.
@@ -486,4 +570,23 @@ func (a DefenseUpgradeAction) valid() bool {
 // we want to group such failure for analysis purposes.
 func (a DefenseUpgradeAction) String() string {
 	return fmt.Sprintf("\"%s\"", a.PlanetID)
+}
+
+// GetPlanetID :
+// Defines the identifier of the planet associated to the
+// upgrade action.
+//
+// Returns the identifier of the planet where the upgrade
+// action should be performed.
+func (a DefenseUpgradeAction) GetPlanetID() string {
+	return a.PlanetID
+}
+
+// IsUnitLike :
+// Defines whether the element that is associated to this
+// upgrade action is unit-like or not. Unit-like elements
+// do not have a notion of `level` and thus always cost
+// the same price.
+func (a DefenseUpgradeAction) IsUnitLike() bool {
+	return true
 }

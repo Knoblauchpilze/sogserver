@@ -753,20 +753,6 @@ type Fleet struct {
 	ArrivalTime time.Time `json:"arrival_time"`
 }
 
-// UpgradeAction :
-// General interface for an upgrade action that can be
-// applied to buildings, technologies, ships and also
-// defenses.
-// Such an interface allows to easily mutualize the
-// insertion process of such actions in the DB.
-type UpgradeAction interface {
-	GetID() string
-	valid() bool
-	String() string
-	GetPlanetID() string
-	IsUnitLike() bool
-}
-
 // BuildingUpgradeAction :
 // Defines the upgrade action associated to a building. It
 // describes the building to which it is associated along

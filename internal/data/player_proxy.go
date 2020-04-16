@@ -50,122 +50,6 @@ type PlayerProxy struct {
 	techCosts map[string]ConstructionCost
 }
 
-// initTechCostsFromDB :
-// Used to query information from the DB and fetch info
-// for technologies that will be used to compute costs
-// of a technology for a given level. The information
-// fetched in this function hardly changes during the
-// life of the server and it's more interesting to load
-// it in RAM so as to save time each time a request of
-// a player is handled.
-// In case the DB cannot be contacted an error is sent
-// back but a valid map is still returned (it is empty
-// though).
-//
-// The `dbase` represents the DB from which info about
-// technologies costs should be fetched.
-//
-// The `log` allows to notify errors and info to the
-// user in case of any failure.
-//
-// Returns a map representing for each technology its
-// associated cost and rule of progression.
-func initTechCostsFromDB(dbase *db.DB, log logger.Logger) (map[string]ConstructionCost, error) {
-	techCosts := make(map[string]ConstructionCost)
-
-	if dbase == nil {
-		return techCosts, fmt.Errorf("Could not technologies costs from DB, no DB provided")
-	}
-
-	// First retrieve the technologies progression rule.
-	props := []string{
-		"technology",
-		"progress",
-	}
-	table := "technologies_costs_progress"
-
-	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
-
-	rows, err := dbase.DBQuery(query)
-	if err != nil {
-		return techCosts, fmt.Errorf("Could not initialize technologies costs from DB (err: %v)", err)
-	}
-
-	var techID string
-	var progress float32
-
-	for rows.Next() {
-		err = rows.Scan(
-			&techID,
-			&progress,
-		)
-
-		if err != nil {
-			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for technology cost (err: %v)", err))
-			continue
-		}
-
-		existing, ok := techCosts[techID]
-		if ok {
-			log.Trace(logger.Error, fmt.Sprintf("Overriding progression rule for technology \"%s\" (existing was %f, new is %f)", techID, existing.ProgressionRule, progress))
-		}
-
-		techCosts[techID] = ConstructionCost{
-			make(map[string]int),
-			progress,
-		}
-	}
-
-	// Now populate the costs for each technology.
-	props = []string{
-		"technology",
-		"res",
-		"cost",
-	}
-	table = "technologies_costs"
-
-	query = fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
-
-	rows, err = dbase.DBQuery(query)
-	if err != nil {
-		return techCosts, fmt.Errorf("Could not initialize technologies costs from DB (err: %v)", err)
-	}
-
-	var res string
-	var cost int
-
-	for rows.Next() {
-		err = rows.Scan(
-			&techID,
-			&res,
-			&cost,
-		)
-
-		if err != nil {
-			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for technology cost (err: %v)", err))
-			continue
-		}
-
-		tech, ok := techCosts[techID]
-
-		if !ok {
-			log.Trace(logger.Error, fmt.Sprintf("Cannot define cost of %d of resource \"%s\" for technology \"%s\" not found in progression rules", cost, res, techID))
-			continue
-		}
-
-		existing, ok := tech.InitCosts[res]
-		if ok {
-			log.Trace(logger.Error, fmt.Sprintf("Overriding cost for resource \"%s\" in technology \"%s\" (existing was %d, new is %d)", res, techID, existing, cost))
-		}
-
-		tech.InitCosts[res] = cost
-
-		techCosts[techID] = tech
-	}
-
-	return techCosts, nil
-}
-
 // NewPlayerProxy :
 // Create a new proxy on the input `dbase` to access the
 // properties of players as registered in the DB.
@@ -188,7 +72,7 @@ func NewPlayerProxy(dbase *db.DB, log logger.Logger) PlayerProxy {
 	// from the DB to populate the internal map. We will
 	// use the dedicated handler which is used to actually
 	// fetch the data and always return a valid value.
-	techCosts, err := initTechCostsFromDB(dbase, log)
+	techCosts, err := initProgressCostsFromDB(dbase, log, "technology", "technologies_costs_progress", "technologies_costs")
 	if err != nil {
 		log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies costs from DB (err: %v)", err))
 	}
@@ -373,7 +257,7 @@ func (p *PlayerProxy) updateTechnologyCosts(tech *Technology) error {
 	// In case the costs for technology are not populated
 	// try to update it.
 	if len(p.techCosts) == 0 {
-		costs, err := initTechCostsFromDB(p.dbase, p.log)
+		costs, err := initProgressCostsFromDB(p.dbase, p.log, "technology", "technologies_costs_progress", "technologies_costs")
 		if err != nil {
 			return fmt.Errorf("Unable to generate technologies costs for technology \"%s\", none defined", tech.ID)
 		}

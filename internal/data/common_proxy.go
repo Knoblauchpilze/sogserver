@@ -211,6 +211,74 @@ func performWithLock(resource string, dbase *db.DB, query string, cl *locker.Con
 	return nil
 }
 
+// initResourcesFromDB :
+// Used to query information from the DB and fetch data
+// related to the resources. It is used to retrieve part
+// of the data model to memory so as to speed up various
+// processes.
+// In case the DB cannot be contacted the process will
+// fail.
+//
+// The `dbase` represents the DB from which info about
+// resources should be fetched.
+//
+// The `log` allows to notify errors and info to the
+// user in case of any failure.
+//
+// Returns a map representing all the data related to
+// a resource along with any error.
+func initResourcesFromDB(dbase *db.DB, log logger.Logger) (map[string]ResourceDesc, error) {
+	resources := make(map[string]ResourceDesc)
+
+	if dbase == nil {
+		return resources, fmt.Errorf("Could not initialize resources from DB, no DB provided")
+	}
+
+	// Prepare the query to execute on the DB.
+	props := []string{
+		"id",
+		"name",
+		"base_production",
+		"base_storage",
+		"base_amount",
+	}
+	table := "resources"
+
+	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
+
+	rows, err := dbase.DBQuery(query)
+	if err != nil {
+		return resources, fmt.Errorf("Could not initialize resources from DB (err: %v)", err)
+	}
+
+	// Traverse the rows and store each resource in
+	// the output map.
+	var res ResourceDesc
+
+	for rows.Next() {
+		err = rows.Scan(
+			&res.ID,
+			&res.Name,
+			&res.BaseProd,
+			&res.BaseStorage,
+			&res.BaseAmount,
+		)
+
+		if err != nil {
+			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for resource (err: %v)", err))
+			continue
+		}
+
+		if existing, ok := resources[res.Name]; ok {
+			log.Trace(logger.Warning, fmt.Sprintf("Overriding resource \"%s\" with id \"%s\" (existing \"%s\")", res.Name, res.ID, existing.ID))
+		}
+
+		resources[res.Name] = res
+	}
+
+	return resources, nil
+}
+
 // initProgressCostsFromDB :
 // Used to query information from the DB and fetch info
 // for the construction costs of an in-game element. As
@@ -426,4 +494,222 @@ func initFixedCostsFromDB(dbase *db.DB, log logger.Logger, propName string, tabl
 	}
 
 	return costs, nil
+}
+
+// initBuildingsProductionRulesFromDB :
+// Similar to `initBuildingCostsFromDB` but used to
+// query information about the production gains for
+// each building from the DB.
+// In case the DB cannot be contacted an error is sent
+// back but a valid map is still returned (it is empty
+// though).
+//
+// The `dbase` represents the DB from which info about
+// buildings production should be fetched.
+//
+// The `log` allows to notify errors and info to the
+// user in case of any failure.
+//
+// Returns a map representing the associated prod for
+// each building. As a building can produce several
+// resources, the key (corresponding to the building's
+// identifier) can have several associated values (i.e.
+// production rules).
+func initBuildingsProductionRulesFromDB(dbase *db.DB, log logger.Logger) (map[string][]ProductionRule, error) {
+	prodRules := make(map[string][]ProductionRule)
+
+	if dbase == nil {
+		return prodRules, fmt.Errorf("Could not buildings production rules from DB, no DB provided")
+	}
+
+	// First retrieve the buildings progression rule.
+	props := []string{
+		"building",
+		"res",
+		"base",
+		"progress",
+		"temperature_coeff",
+		"temperature_offset",
+	}
+	table := "buildings_gains_progress"
+
+	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
+
+	rows, err := dbase.DBQuery(query)
+	if err != nil {
+		return prodRules, fmt.Errorf("Could not initialize buildings production rules from DB (err: %v)", err)
+	}
+
+	var buildingID string
+	var res string
+	var base int
+	var progress float32
+	var tempCoeff float32
+	var tempOffset float32
+
+	// This map allows to make sure that we don't override for
+	// a single building the rule associated to a particular
+	// resource.
+	resForBuildings := make(map[string]map[string]bool)
+
+	for rows.Next() {
+		err = rows.Scan(
+			&buildingID,
+			&res,
+			&base,
+			&progress,
+			&tempCoeff,
+			&tempOffset,
+		)
+
+		if err != nil {
+			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for building production rule (err: %v)", err))
+			continue
+		}
+
+		// Make sure that this resource has not already been defined
+		// for this building.
+		resForBuilding, ok := resForBuildings[buildingID]
+		if !ok {
+			// Obvisouly not defined yet as even the building does not
+			// have any associated production rules.
+			resForBuilding = make(map[string]bool)
+		} else {
+			_, ok = resForBuilding[res]
+			if ok {
+				log.Trace(logger.Error, fmt.Sprintf("Overriding production rule for resource \"%s\" for building \"%s\"", res, buildingID))
+			}
+		}
+
+		// In any case we will register this resource as defined for
+		// the current building.
+		resForBuilding[res] = true
+		resForBuildings[buildingID] = resForBuilding
+
+		// If the building already exists, we will append a new prod
+		// rule for the corresponding resource. If the building does
+		// not exist yet we will create it.
+		buildingRules, ok := prodRules[buildingID]
+		if !ok {
+			buildingRules = make([]ProductionRule, 0)
+		}
+
+		rule := ProductionRule{
+			Resource:          res,
+			InitProd:          base,
+			ProgressionRule:   progress,
+			TemperatureCoeff:  tempCoeff,
+			TemperatureOffset: tempOffset,
+		}
+
+		buildingRules = append(buildingRules, rule)
+
+		// Save back the building to the map.
+		prodRules[buildingID] = buildingRules
+	}
+
+	return prodRules, nil
+}
+
+// initBuildingsStorageRulesFromDB :
+// Used to query information from the DB and fetch
+// the progression for the various storage defined
+// in the DB. This will allow to compute for each
+// level the capacity for the storage associated
+// to each resource.
+// In case the DB cannot be contacted an error is
+// returned but a valid map is still returned (it
+// is empty though).
+//
+// The `dbase` represents the DB from which info
+// about storage capacities should be fetched.
+//
+// The `log` allows to notify errors and info to
+// the user in case of any failure.
+//
+// Returns a map representing for each storage
+// its associated properties along with any
+// error.
+func initBuildingsStorageRulesFromDB(dbase *db.DB, log logger.Logger) (map[string][]StorageRule, error) {
+	storageRules := make(map[string][]StorageRule)
+
+	if dbase == nil {
+		return storageRules, fmt.Errorf("Could not initialize storage capacities from DB, no DB provided")
+	}
+
+	// Prepare the query to execute on the DB.
+	props := []string{
+		"building",
+		"res",
+		"base",
+		"multiplier",
+		"progress",
+	}
+
+	table := "buildings_storage_progress"
+
+	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
+
+	rows, err := dbase.DBQuery(query)
+	if err != nil {
+		return storageRules, fmt.Errorf("Could not initialize storage capacities from DB (err: %v)", err)
+	}
+
+	// Traverse the rows and store each storage rule in the output map.
+	var buildingID string
+	var rule StorageRule
+
+	// This map allows to make sure that we don't override for
+	// a single building the storage rule associated to a single
+	// resource.
+	storageForBuildings := make(map[string]map[string]bool)
+
+	for rows.Next() {
+		err = rows.Scan(
+			&buildingID,
+			&rule.Resource,
+			&rule.InitStorage,
+			&rule.Multiplier,
+			&rule.Progress,
+		)
+
+		if err != nil {
+			log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for storage capacity (err: %v)", err))
+			continue
+		}
+
+		// Make sure that this resource has not already been defined
+		// for this building.
+		storageForBuilding, ok := storageForBuildings[buildingID]
+		if !ok {
+			// Obvisouly not defined yet as even the building does not
+			// have any associated storage rules.
+			storageForBuilding = make(map[string]bool)
+		} else {
+			_, ok = storageForBuilding[rule.Resource]
+			if ok {
+				log.Trace(logger.Error, fmt.Sprintf("Overriding storage rule for resource \"%s\" for building \"%s\"", rule.Resource, buildingID))
+			}
+		}
+
+		// In any case we will register this resource as defined for
+		// the current building.
+		storageForBuilding[rule.Resource] = true
+		storageForBuildings[buildingID] = storageForBuilding
+
+		// If the building already exists, we will append a new
+		// storage rule for the corresponding resource. If the
+		// building does not exist yet we will create it.
+		buildingRules, ok := storageRules[buildingID]
+		if !ok {
+			buildingRules = make([]StorageRule, 0)
+		}
+
+		buildingRules = append(buildingRules, rule)
+
+		// Save back the building to the map.
+		storageRules[buildingID] = buildingRules
+	}
+
+	return storageRules, nil
 }

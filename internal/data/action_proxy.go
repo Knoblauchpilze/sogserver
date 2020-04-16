@@ -456,9 +456,10 @@ func (p *ActionProxy) Defenses(filters []DBFilter) ([]DefenseUpgradeAction, erro
 // Returns any error that occurred during the insertion
 // of the upgrade action in the DB.
 func (p *ActionProxy) createAction(action UpgradeAction, script string) error {
-	// Validate that the input data describe a valid action.
-	if !action.valid() {
-		return fmt.Errorf("Could not create upgrade action, some properties are invalid")
+	// Make sure that the input data describe a valid action.
+	err := p.verifyAction(action)
+	if err != nil {
+		return fmt.Errorf("Could not create upgrade action (err: %v)", err)
 	}
 
 	// Create the query and execute it.
@@ -467,7 +468,7 @@ func (p *ActionProxy) createAction(action UpgradeAction, script string) error {
 		args:   []interface{}{action},
 	}
 
-	err := p.insertToDB(query)
+	err = p.insertToDB(query)
 
 	// Check for errors.
 	if err != nil {
@@ -519,13 +520,9 @@ func (p *ActionProxy) CreateBuildingAction(action *BuildingUpgradeAction) error 
 	}
 
 	// Check whether the action is valid.
-	if !action.valid() {
-		return fmt.Errorf("Could not create upgrade action, some properties are invalid")
-	}
-
 	err := p.verifyAction(action)
 	if err != nil {
-		return fmt.Errorf("Could not create building action (err: %v)", err)
+		return fmt.Errorf("Could not create upgrade action (err: %v)", err)
 	}
 
 	// We need to create the data related to the production and storage
@@ -718,12 +715,9 @@ func (p *ActionProxy) CreateTechnologyAction(action *TechnologyUpgradeAction) er
 		action.ID = uuid.New().String()
 	}
 
-	err := p.verifyAction(action)
-	if err != nil {
-		return fmt.Errorf("Could not create technology action (err: %v)", err)
-	}
-
-	err = p.createAction(action, "create_technology_upgrade_action")
+	// Perform the creation of the action through the
+	// dedicated handler.
+	err := p.createAction(action, "create_technology_upgrade_action")
 
 	if err == nil {
 		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d for \"%s\"", action.TechnologyID, action.DesiredLevel, action.PlayerID))
@@ -755,12 +749,9 @@ func (p *ActionProxy) CreateShipAction(action *ShipUpgradeAction) error {
 	// the initial amount.
 	action.Remaining = action.Amount
 
-	err := p.verifyAction(action)
-	if err != nil {
-		return fmt.Errorf("Could not create ship action (err: %v)", err)
-	}
-
-	err = p.createAction(action, "create_ship_upgrade_action")
+	// Perform the creation of the action through the
+	// dedicated handler.
+	err := p.createAction(action, "create_ship_upgrade_action")
 
 	if err == nil {
 		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to build \"%s\" on \"%s\"", action.ShipID, action.PlanetID))
@@ -792,12 +783,9 @@ func (p *ActionProxy) CreateDefenseAction(action *DefenseUpgradeAction) error {
 	// the initial amount.
 	action.Remaining = action.Amount
 
-	err := p.verifyAction(action)
-	if err != nil {
-		return fmt.Errorf("Could not create defense action (err: %v)", err)
-	}
-
-	err = p.createAction(action, "create_defense_upgrade_action")
+	// Perform the creation of the action through the
+	// dedicated handler.
+	err := p.createAction(action, "create_defense_upgrade_action")
 
 	if err == nil {
 		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to build \"%s\" on \"%s\"", action.DefenseID, action.PlanetID))

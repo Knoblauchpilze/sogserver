@@ -7,7 +7,32 @@ import (
 	"time"
 )
 
+// validationTools :
+// Provides a convenience structure regrouping the needed
+// information to perform the validation of an upgrade
+// action. It contains some information about the costs
+// of each element in the game along with some dependencies
+// that need to be met for each element.
+type validationTools struct {
+	pCosts   map[string]ConstructionCost
+	fCosts   map[string]FixedCost
+	techTree map[string]TechDependency
+}
+
 // UpgradeAction :
+// Generic interface describing an upgrade action to perform
+// on a planet. This can concern any kind of data but it is
+// required to define at least these methods in order to be
+// able to correctly be checked against the planet data. It
+// mostly consists into evaluating the cost of the action so
+// that we can compare it with the resources existing on the
+// planet and also providing some way to verify that needed
+// buildings/technologies criteria are also met.
+type UpgradeAction interface {
+	Validate(tools validationTools) (bool, error)
+}
+
+// BaseUpgradeAction :
 // Provide the base building block for an action in the game.
 // Such an action always has a planet associated to it where
 // it will take place along with some way of identifying it.
@@ -26,7 +51,7 @@ import (
 // ID of an in-game building, technology, etc. which needs
 // to be upgraded. Depending on the precise type of this
 // element the related DB table will vary.
-type UpgradeAction struct {
+type BaseUpgradeAction struct {
 	ID        string `json:"id"`
 	PlanetID  string `json:"planet"`
 	ElementID string `json:"element"`
@@ -38,7 +63,7 @@ type UpgradeAction struct {
 // are at least not obviously wrong.
 //
 // Returns `true` if the action seems valid.
-func (a UpgradeAction) valid() bool {
+func (a BaseUpgradeAction) valid() bool {
 	return validUUID(a.ID) &&
 		validUUID(a.PlanetID) &&
 		validUUID(a.ElementID)
@@ -49,7 +74,7 @@ func (a UpgradeAction) valid() bool {
 // easily display this action if needed.
 //
 // Returns the strig describing this action.
-func (a UpgradeAction) String() string {
+func (a BaseUpgradeAction) String() string {
 	return fmt.Sprintf("\"%s\"", a.PlanetID)
 }
 
@@ -81,7 +106,7 @@ type ProgressAction struct {
 	CompletionTime       time.Time `json:"completion_time"`
 	IsStrictlyUpgradable bool
 
-	UpgradeAction
+	BaseUpgradeAction
 }
 
 // valid :
@@ -91,7 +116,7 @@ type ProgressAction struct {
 //
 // Returns `true` if this action is not obviously wrong.
 func (a ProgressAction) valid() bool {
-	return a.UpgradeAction.valid() &&
+	return a.BaseUpgradeAction.valid() &&
 		a.CurrentLevel >= 0 &&
 		a.DesiredLevel >= 0 &&
 		((a.IsStrictlyUpgradable && a.DesiredLevel == a.CurrentLevel+1) ||
@@ -125,6 +150,27 @@ func (a ProgressAction) computeCost(costs map[string]ConstructionCost) ([]Resour
 	return needed, nil
 }
 
+// Validate :
+// Implementation of the `UpgradeAction` interface to
+// perform the validation of the data contained in the
+// current action against the information provided by
+// the game framework. We will check that each element
+// required by the validation tools allow the action
+// to be performed.
+//
+// The `tools` allow to define the technological deps
+// between elements and some resources that are present
+// on the place where the action should be launched.
+//
+// Returns `true` if the action can be launched given
+// the information provided in input.
+func (a ProgressAction) Validate(tools validationTools) (bool, error) {
+	// TODO: Should add the resources on a planet to be able
+	// to validate the costs computed for this action against
+	// a certain amount of resources.
+	return false, fmt.Errorf("Not implemented")
+}
+
 // FixedAction :
 // Specialization of the `UpgradeAction` to provide an
 // action that concerns a unit-like element. This type
@@ -149,7 +195,7 @@ type FixedAction struct {
 	Remaining      int               `json:"remaining"`
 	CompletionTime duration.Duration `json:"completion_time"`
 
-	UpgradeAction
+	BaseUpgradeAction
 }
 
 // valid :
@@ -159,7 +205,7 @@ type FixedAction struct {
 //
 // Returns `true` if this action is not obviously wrong.
 func (a FixedAction) valid() bool {
-	return a.UpgradeAction.valid() &&
+	return a.BaseUpgradeAction.valid() &&
 		a.Amount > 0 &&
 		a.Remaining >= 0 &&
 		a.Remaining <= a.Amount
@@ -191,4 +237,22 @@ func (a FixedAction) computeTotalCost(costs map[string]FixedCost) ([]ResourceAmo
 	needed := cost.ComputeCosts(a.Remaining)
 
 	return needed, nil
+}
+
+// Validate :
+// Similar to the equivalent method in the `ProgressAction`
+// method: required to implement the interface defined by
+// the `UpgradeAction`.
+//
+// The `tools` allow to define the technological deps
+// between elements and some resources that are present
+// on the place where the action should be launched.
+//
+// Returns `true` if the action can be launched given
+// the information provided in input.
+func (a FixedAction) Validate(tools validationTools) (bool, error) {
+	// TODO: Should add the resources on a planet to be able
+	// to validate the costs computed for this action against
+	// a certain amount of resources.
+	return false, fmt.Errorf("Not implemented")
 }

@@ -1,92 +1,47 @@
 package data
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
-	"oglike_server/internal/locker"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
-	"strings"
 
 	"github.com/google/uuid"
 )
 
 // PlanetProxy :
 // Intended as a wrapper to access properties of planets
-// and retrieve data from the database. This helps hiding
-// the complexity of how the data is laid out in the `DB`
-// and the precise name of tables from the exterior world.
-// Note that as this proxy uses some functionalities to
-// fetch universes information we figured that it would
-// be more interesting to factorize the behavior and reuse
-// the functions through composition.
+// and retrieve data from the database. Internally uses
+// the common proxy defined in this package.
+// The planets usually need to fetch information from a
+// parent universe so that we can make sure that the
+// info to create the planet is consistent.
 //
-// The `dbase` is the database that is wrapped by this
-// object. It is checked for consistency upon building the
-// wrapper.
+// The `uProxy` defines a way to access to information
+// about universes. It reuses the existing proxy to not
+// duplicate features.
 //
-// The `log` allows to perform display to the user so as
-// to inform of potential issues and debug information to
-// the outside world.
+// The `rDescs` defines some information fetched from
+// the main DB about resources and their identifier.
+// It is used to create relevant info for planets (so
+// typically when creating the initial stock of res).
 //
-// The `resources` is a map populated from the DB which
-// keeps track of the identifier in the DB for each of
-// the resources used by the game. It allows to be much
-// more efficient in the event of a creation of a planet
-// as we only need to query the local information about
-// resources rather than contacting the DB each time.
-// In addition to the name this table also defines the
-// base production for each resource and the initial
-// storage available for it.
+// The `bCosts` defines the rules to compute the cost
+// of a building given a certain level. It is used to
+// enrich information provided to the user when some
+// planet are fetched.
 //
-// The `uniProxy` defines a proxy allowing to access a
-// part of the behavior related to universes typically
-// when fetching a universe into which a planet should
-// be created.
-//
-// The `lock` allows to lock specific resources when some
-// planet data should be retrieved. A planet can indeed
-// have some upgrade actions attached to it to define the
-// upgrade of a building, or the construction of ships or
-// defense systems.
-// Each of these actions are executed in a lazy update
-// fashion where the action is created and then performed
-// only when needed: we store the completion time and if
-// the data needs to be accessed we upgrade it.
-// This mechanism requires that when the data needs to be
-// fetched for a planet an update operation should first
-// be performed to ensure that the data is up-to-date.
-// As no data is shared across planets we don't see the
-// need to lock all the planets when a single one should
-// be updated. Using the `ConcurrentLock` we have a way
-// to lock only some planets which is exactly what we
-// need.
-//
-// The `buildingCosts` is used when the data for a planet
-// is needed in order to compute the costs that are linked
-// to the next level of a building based on the level that
-// has been reached so far. It is initialized upon creating
-// the proxy so that the information is readily available
-// when needed.
-//
-// The `prodRules` is used in a similar way as the other
-// `buildingCosts` attribute. It regroups the information
-// about the production of each resource associated to
-// some building. Typically mines are able to generate a
-// certain quantity of resources for each level: this is
-// an information that hardly changes throughout the life
-// of the server and we prefer to load it in memory so as
-// to make it easily available.
+// The `pRules` defines a way to compute the amount
+// of resources produced by buildings on a planet so
+// that we can refine the info provided on a planet.
 type PlanetProxy struct {
-	dbase         *db.DB
-	log           logger.Logger
-	resources     map[string]ResourceDesc
-	uniProxy      UniverseProxy
-	lock          *locker.ConcurrentLocker
-	buildingCosts map[string]ConstructionCost
-	prodRules     map[string][]ProductionRule
+	uProxy UniverseProxy
+	rDescs map[string]ResourceDesc
+	bCosts map[string]ConstructionCost
+	pRules map[string][]ProductionRule
+
+	commonProxy
 }
 
 // getDefaultPlanetName :
@@ -120,56 +75,106 @@ func getPlanetTemperatureAmplitude() int {
 }
 
 // NewPlanetProxy :
-// Create a new proxy on the input `dbase` to access the
-// properties of planets as registered in the DB. In
-// case the provided DB is `nil` a panic is issued.
+// Create a new proxy allowing to serve the requests
+// related to planets.
 //
 // The `dbase` represents the database to use to fetch
 // data related to planets.
 //
-// The `log` will be used to notify information so that
-// we can have an idea of the activity of this component.
-// One possible example is for timing the requests.
+// The `log` allows to notify errors and information.
 //
-// The `unis` defines a proxy that can be used to fetch
-// information about the universes when creating planets.
+// The `unis` provides a way to access the universes
+// information from the main DB.
 //
 // Returns the created proxy.
 func NewPlanetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) PlanetProxy {
-	if dbase == nil {
-		panic(fmt.Errorf("Cannot create planets proxy from invalid DB"))
-	}
-
-	// Fetch resources from the DB to populate the internal
-	// map. We will use the dedicated handler which is used
-	// to actually fetch the data and always return a valid
-	// value.
-	resources, err := initResourcesFromDB(dbase, log)
-	if err != nil {
-		log.Trace(logger.Error, fmt.Sprintf("Could not fetch resources' identifiers from DB (err: %v)", err))
-	}
-
-	// In a similar way, fetch the initial costs and the
-	// progression rules for each building.
-	buildingCosts, err := initProgressCostsFromDB(dbase, log, "building", "buildings_costs_progress", "buildings_costs")
-	if err != nil {
-		log.Trace(logger.Error, fmt.Sprintf("Could not fetch buildings costs from DB (err: %v)", err))
-	}
-
-	// Finally fetch the production rules for each building.
-	prodRules, err := initBuildingsProductionRulesFromDB(dbase, log)
-	if err != nil {
-		log.Trace(logger.Error, fmt.Sprintf("Could not fetch buildings production rules from DB (err: %v)", err))
-	}
-
-	return PlanetProxy{
-		dbase,
-		log,
-		resources,
+	proxy := PlanetProxy{
 		unis,
-		locker.NewConcurrentLocker(log),
-		buildingCosts,
-		prodRules,
+		make(map[string]ResourceDesc),
+		make(map[string]ConstructionCost),
+		make(map[string][]ProductionRule),
+
+		newCommonProxy(dbase, log),
+	}
+
+	err := proxy.init()
+	if err != nil {
+		log.Trace(logger.Error, fmt.Sprintf("Could not fetch planet related information from DB (err: %v)", err))
+	}
+
+	return proxy
+}
+
+// init :
+// Used to perform the initialziation of the needed
+// DB variables for this proxy. This typically means
+// fetching various buildings costs from the DB and
+// production rules.
+//
+// Returns `nil` if the DB info could be fetched from
+// the DB successfully.
+func (p PlanetProxy) init() error {
+	// Fetch from DB if needed.
+	var err error
+
+	if len(p.rDescs) == 0 {
+		p.rDescs, err = initResourcesFromDB(p.dbase, p.log)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(p.bCosts) == 0 {
+		p.bCosts, err = initProgressCostsFromDB(
+			p.dbase,
+			p.log,
+			"building",
+			"buildings_costs_progress",
+			"buildings_costs",
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(p.pRules) == 0 {
+		p.pRules, err = initBuildingsProductionRulesFromDB(p.dbase, p.log)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// buildQuery :
+// Used to assemble a query description struct from
+// the input properties.
+//
+// The `props` define the properties that should be
+// Used for the query.
+//
+// The `table` defines the table in which the query
+// should be executed.
+//
+// The `filterName` defines the name of the column
+// to filter.
+//
+// The `filter` defines the value which should be
+// kept in the `filterName` column.
+//
+// Returns the description of the query built from
+// the input properties.
+func (p PlanetProxy) buildQuery(props []string, table string, filterName string, filter string) queryDesc {
+	return queryDesc{
+		props: props,
+		table: table,
+		filters: []DBFilter{
+			DBFilter{
+				Key:    filterName,
+				Values: []string{filter},
+			},
+		},
 	}
 }
 
@@ -189,36 +194,26 @@ func NewPlanetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) PlanetP
 // value of the array should be ignored.
 func (p *PlanetProxy) Planets(filters []DBFilter) ([]Planet, error) {
 	// Create the query and execute it.
-	props := []string{
-		"p.id",
-		"p.player",
-		"p.name",
-		"p.fields",
-		"p.min_temperature",
-		"p.max_temperature",
-		"p.diameter",
-		"p.galaxy",
-		"p.solar_system",
-		"p.position",
+	query := queryDesc{
+		props: []string{
+			"p.id",
+			"p.player",
+			"p.name",
+			"p.fields",
+			"p.min_temperature",
+			"p.max_temperature",
+			"p.diameter",
+			"p.galaxy",
+			"p.solar_system",
+			"p.position",
+		},
+		table:   "planets p inner join players pl on p.player=pl.id",
+		filters: filters,
 	}
 
-	table := "planets p inner join players pl"
-	joinCond := "p.player=pl.id"
-
-	query := fmt.Sprintf("select %s from %s on %s", strings.Join(props, ", "), table, joinCond)
-
-	if len(filters) > 0 {
-		query += " where"
-
-		for id, filter := range filters {
-			if id > 0 {
-				query += " and"
-			}
-			query += fmt.Sprintf(" %s", filter)
-		}
-	}
-
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
@@ -229,8 +224,8 @@ func (p *PlanetProxy) Planets(filters []DBFilter) ([]Planet, error) {
 	planets := make([]Planet, 0)
 	var planet Planet
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&planet.ID,
 			&planet.PlayerID,
 			&planet.Name,
@@ -277,8 +272,14 @@ func (p *PlanetProxy) fetchPlanetData(planet *Planet) error {
 		return fmt.Errorf("Unable to fetch data from planet with invalid identifier")
 	}
 
+	// Update upgrade actions.
+	err := p.updateConstructionActions(planet.ID)
+	if err != nil {
+		return fmt.Errorf("Unable to update upgrade actions for planet \"%s\" (err: %v)", planet.ID, err)
+	}
+
 	// Fetch resources.
-	err := p.fetchPlanetResources(planet)
+	err = p.fetchPlanetResources(planet)
 	if err != nil {
 		return fmt.Errorf("Could not fetch resources for planet \"%s\" (err: %v)", planet.ID, err)
 	}
@@ -304,6 +305,45 @@ func (p *PlanetProxy) fetchPlanetData(planet *Planet) error {
 	return nil
 }
 
+// updateConstructionActions :
+// Used to perform the update of the construction actions for
+// the planet described by the input identifier. It will call
+// the corresponding DB script to get up-to-date values for
+// the planet.
+//
+// The `planetID` defines the identifier of the planet which
+// should be updated.
+//
+// Returns any error that occurred during the update.
+func (p PlanetProxy) updateConstructionActions(planetID string) error {
+	// Update resources.
+	query := fmt.Sprintf("SELECT update_resources_for_planet('%s')", planetID)
+	err := p.performWithLock(planetID, query)
+	if err != nil {
+		return fmt.Errorf("Could not update resources for \"%s\" (err: %v)", planetID, err)
+	}
+
+	query = fmt.Sprintf("SELECT update_building_upgrade_action('%s')", planetID)
+	err = p.performWithLock(planetID, query)
+	if err != nil {
+		return fmt.Errorf("Could not update buildings upgrade actions for \"%s\" (err: %v)", planetID, err)
+	}
+
+	query = fmt.Sprintf("SELECT update_ship_upgrade_action('%s')", planetID)
+	err = p.performWithLock(planetID, query)
+	if err != nil {
+		return fmt.Errorf("Could not update ships upgrade actions for \"%s\" (err: %v)", planetID, err)
+	}
+
+	query = fmt.Sprintf("SELECT update_defense_upgrade_action('%s')", planetID)
+	err = p.performWithLock(planetID, query)
+	if err != nil {
+		return fmt.Errorf("Could not update defenses upgrade actions for \"%s\" (err: %v)", planetID, err)
+	}
+
+	return nil
+}
+
 // fetchPlanetResources :
 // Used to fetch the resources currently present on a planet.
 // We need to execute a script to update the production of a
@@ -319,25 +359,35 @@ func (p *PlanetProxy) fetchPlanetResources(planet *Planet) error {
 		return fmt.Errorf("Unable to fetch resources from planet with invalid identifier")
 	}
 
-	// We need to update the resources existing on the planet
-	// before fetching the data.
-	err := p.updateResourcesFromProduction(planet.ID)
-	if err != nil {
-		return fmt.Errorf("Could not update resources production for planet \"%s\" (err: %v)", planet.ID, err)
-	}
-
-	query := fmt.Sprintf("select res, amount, production, storage_capacity from planets_resources where planet='%s'", planet.ID)
-	rows, err := p.dbase.DBQuery(query)
-
-	if err != nil {
-		return fmt.Errorf("Could not fetch resources for planet \"%s\" (err: %v)", planet.ID, err)
-	}
-
 	planet.Resources = make([]Resource, 0)
+
+	// Create the query and execute it.
+	query := p.buildQuery(
+		[]string{
+			"res",
+			"amount",
+			"production",
+			"storage_capacity",
+		},
+		"planets_resources",
+		"planet",
+		planet.ID,
+	)
+
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
+
+	// Check for errors.
+	if err != nil {
+		return fmt.Errorf("Could not query DB to fetch resources for planet \"%s\" (err: %v)", planet.ID, err)
+	}
+
+	// Populate the return value.
 	var resource Resource
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&resource.ID,
 			&resource.Amount,
 			&resource.Production,
@@ -373,24 +423,31 @@ func (p *PlanetProxy) fetchPlanetBuildings(planet *Planet) error {
 
 	planet.Buildings = make([]Building, 0)
 
-	// We need to update the construction actions for buildings
-	// first.
-	err := p.updateBuildingsConstructionActions(planet.ID)
+	// Create the query and execute it.
+	query := p.buildQuery(
+		[]string{
+			"building",
+			"level",
+		},
+		"planets_buildings",
+		"planet",
+		planet.ID,
+	)
+
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
+
+	// Check for errors.
 	if err != nil {
-		return fmt.Errorf("Could not update buildings upgrade actions for planet \"%s\" (err: %v)", planet.ID, err)
+		return fmt.Errorf("Could not query DB to fetch buildings for planet \"%s\" (err: %v)", planet.ID, err)
 	}
 
-	query := fmt.Sprintf("select building, level from planets_buildings where planet='%s'", planet.ID)
-	rows, err := p.dbase.DBQuery(query)
-
-	if err != nil {
-		return fmt.Errorf("Could not fetch buildings for planet \"%s\" (err: %v)", planet.ID, err)
-	}
-
+	// Populate the return value.
 	var building Building
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&building.ID,
 			&building.Level,
 		)
@@ -441,24 +498,31 @@ func (p *PlanetProxy) fetchPlanetShips(planet *Planet) error {
 
 	planet.Ships = make([]Ship, 0)
 
-	// We need to update the construction actions for defenses
-	// first.
-	err := p.updateShipsConstructionActions(planet.ID)
+	// Create the query and execute it.
+	query := p.buildQuery(
+		[]string{
+			"ship",
+			"count",
+		},
+		"planets_ships",
+		"planet",
+		planet.ID,
+	)
+
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
+
+	// Check for errors.
 	if err != nil {
-		return fmt.Errorf("Could not update ships construction actions for planet \"%s\" (err: %v)", planet.ID, err)
+		return fmt.Errorf("Could not query DB to fetch ships for planet \"%s\" (err: %v)", planet.ID, err)
 	}
 
-	query := fmt.Sprintf("select ship, count from planets_ships where planet='%s'", planet.ID)
-	rows, err := p.dbase.DBQuery(query)
-
-	if err != nil {
-		return fmt.Errorf("Could not fetch ships for planet \"%s\" (err: %v)", planet.ID, err)
-	}
-
+	// Populate the return value.
 	var ship Ship
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&ship.ID,
 			&ship.Count,
 		)
@@ -494,24 +558,31 @@ func (p *PlanetProxy) fetchPlanetDefenses(planet *Planet) error {
 
 	planet.Defenses = make([]Defense, 0)
 
-	// We need to update the construction actions for ships first.
-	err := p.updateDefensesConstructionActions(planet.ID)
+	// Create the query and execute it.
+	query := p.buildQuery(
+		[]string{
+			"defense",
+			"count",
+		},
+		"planets_defenses",
+		"planet",
+		planet.ID,
+	)
+
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
+
+	// Check for errors.
 	if err != nil {
-		return fmt.Errorf("Could not update defenses construction actions for planet \"%s\" (err: %v)", planet.ID, err)
+		return fmt.Errorf("Could not query DB to fetch defenses for planet \"%s\" (err: %v)", planet.ID, err)
 	}
 
-	// Fetch the data once it is up-to-date.
-	query := fmt.Sprintf("select defense, count from planets_defenses where planet='%s'", planet.ID)
-	rows, err := p.dbase.DBQuery(query)
-
-	if err != nil {
-		return fmt.Errorf("Could not fetch defenses for planet \"%s\" (err: %v)", planet.ID, err)
-	}
-
+	// Populate the return value.
 	var defense Defense
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&defense.ID,
 			&defense.Count,
 		)
@@ -525,44 +596,6 @@ func (p *PlanetProxy) fetchPlanetDefenses(planet *Planet) error {
 	}
 
 	return nil
-}
-
-// updateResourcesFromProduction :
-// Performs the update of the resources currently accumulated
-// on a planet since the last update. This include running some
-// scripts which will automatically compute the amount produced
-// during the elapsed period.
-// We must also take care of actions that potentially changed
-// the amount of resources existing such as fleets interactions.
-//
-// The `planet` defines the planet for which resources should
-// be updated since the last actualization.
-//
-// Returns any error generated by the process.
-func (p *PlanetProxy) updateResourcesFromProduction(planet string) error {
-	query := fmt.Sprintf("SELECT update_resources_for_planet('%s')", planet)
-
-	return performWithLock(planet, p.dbase, query, p.lock)
-}
-
-// updateBuildingsConstructionActions :
-// Performs the update of the building construction actions
-// related to a specific planet provided in input. It will
-// analyze the actions registered for the planet (at most
-// a single one) and perform the update if the action has
-// finished already.
-// This comes handy to make sure that the data always is
-// an accurate reflection of the buildings present on each
-// planet.
-//
-// The `planet` defines the identifier of the planet for
-// which the buildings upgrade actions should be executed.
-//
-// Returns any error that may have occurred while updating.
-func (p *PlanetProxy) updateBuildingsConstructionActions(planet string) error {
-	query := fmt.Sprintf("SELECT update_building_upgrade_action('%s')", planet)
-
-	return performWithLock(planet, p.dbase, query, p.lock)
 }
 
 // updateBuildingCosts :
@@ -583,17 +616,15 @@ func (p *PlanetProxy) updateBuildingCosts(building *Building) error {
 
 	// In case the costs for building are not populated try
 	// to update it.
-	if len(p.buildingCosts) == 0 {
-		costs, err := initProgressCostsFromDB(p.dbase, p.log, "building", "buildings_costs_progress", "buildings_costs")
+	if len(p.bCosts) == 0 {
+		err := p.init()
 		if err != nil {
 			return fmt.Errorf("Unable to generate buildings costs for building \"%s\", none defined", building.ID)
 		}
-
-		p.buildingCosts = costs
 	}
 
 	// Find the building in the costs table.
-	info, ok := p.buildingCosts[building.ID]
+	info, ok := p.bCosts[building.ID]
 	if !ok {
 		return fmt.Errorf("Could not compute costs for unknown building \"%s\"", building.ID)
 	}
@@ -627,17 +658,15 @@ func (p *PlanetProxy) updateBuildingProduction(building *Building, planet *Plane
 
 	// In case the production rules for buildings are not
 	// populated try to update it.
-	if len(p.prodRules) == 0 {
-		rules, err := initBuildingsProductionRulesFromDB(p.dbase, p.log)
+	if len(p.pRules) == 0 {
+		err := p.init()
 		if err != nil {
 			return fmt.Errorf("Unable to generate buildings production rules for building \"%s\", none defined", building.ID)
 		}
-
-		p.prodRules = rules
 	}
 
 	// Find the building in the production table.
-	rules, ok := p.prodRules[building.ID]
+	rules, ok := p.pRules[building.ID]
 	if !ok {
 		// The building does not seem to produce any resource. That
 		// or the rules do not have been updated but we can't do
@@ -668,39 +697,6 @@ func (p *PlanetProxy) updateBuildingProduction(building *Building, planet *Plane
 	}
 
 	return nil
-}
-
-// updateShipsConstructionActions :
-// Similar to the `updateBuildingsConstructionActions` but
-// performs the update of the ships construction actions.
-// We will follow a very similar process where the actions
-// are analyzed to update the ships count on the planet and
-// removed if necessary.
-//
-// The `planet` defines the identifier of the planet for
-// which the ships construction actions should be executed.
-//
-// Returns any error that may have occurred while updating.
-func (p *PlanetProxy) updateShipsConstructionActions(planet string) error {
-	query := fmt.Sprintf("SELECT update_ship_upgrade_action('%s')", planet)
-
-	return performWithLock(planet, p.dbase, query, p.lock)
-}
-
-// updateDefensesConstructionActions :
-// Similar to the `updateBuildingsConstructionActions` but
-// performs the update of the defenses construction actions.
-// The defenses count will be updated and actions removed if
-// all their related defenses have been built.
-//
-// The `planet` defines the identifier of the planet for
-// which the defenses construction actions should be executed.
-//
-// Returns any error that may have occurred while updating.
-func (p *PlanetProxy) updateDefensesConstructionActions(planet string) error {
-	query := fmt.Sprintf("SELECT update_defense_upgrade_action('%s')", planet)
-
-	return performWithLock(planet, p.dbase, query, p.lock)
 }
 
 // CreateFor :
@@ -855,7 +851,7 @@ func (p *PlanetProxy) fetchUniverse(id string) (Universe, error) {
 		[]string{id},
 	}
 
-	unis, err := p.uniProxy.Universes(filters)
+	unis, err := p.uProxy.Universes(filters)
 
 	// Check for errors and cases where we retrieve several
 	// universes.
@@ -892,20 +888,22 @@ func (p *PlanetProxy) generateUsedCoords(uni Universe) (map[int]Coordinate, erro
 	// Create the query allowing to fetch all the planets of
 	// a specific universe. This will consistute the list of
 	// used planets for this universe.
-	props := []string{
-		"p.galaxy",
-		"p.solar_system",
-		"p.position",
-	}
+	query := p.buildQuery(
+		[]string{
+			"p.galaxy",
+			"p.solar_system",
+			"p.position",
+		},
+		"planets p inner join players pl on p.player=pl.id",
+		"pl.uni",
+		uni.ID,
+	)
 
-	table := "planets p inner join players pl"
-	joinCond := "p.player=pl.id"
-	where := fmt.Sprintf("pl.uni='%s'", uni.ID)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
-	query := fmt.Sprintf("select %s from %s on %s where %s", strings.Join(props, ", "), table, joinCond, where)
-
-	// Execute the query and check for errors.
-	rows, err := p.dbase.DBQuery(query)
+	// Check for errors.
 	if err != nil {
 		return nil, fmt.Errorf("Could not fetch used coordinates for universe \"%s\" (err: %v)", uni.ID, err)
 	}
@@ -914,8 +912,8 @@ func (p *PlanetProxy) generateUsedCoords(uni Universe) (map[int]Coordinate, erro
 	coords := make(map[int]Coordinate)
 	var coord Coordinate
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&coord.Galaxy,
 			&coord.System,
 			&coord.Position,
@@ -952,22 +950,16 @@ func (p *PlanetProxy) generateUsedCoords(uni Universe) (map[int]Coordinate, erro
 // in the DB (for example because the coordinates already
 // are used).
 func (p *PlanetProxy) createPlanet(planet Planet) error {
-	// Marshal the planet.
-	data, err := json.Marshal(planet)
-	if err != nil {
-		return fmt.Errorf("Could not import planet \"%s\" for \"%s\" in DB (err: %v)", planet.Name, planet.PlayerID, err)
+	// Create the query and execute it.
+	query := insertReq{
+		script: "create_planet",
+		args: []interface{}{
+			planet,
+			planet.Resources,
+		},
 	}
-	jsonForPlanet := string(data)
 
-	// Marshal the resources for this planet.
-	data, err = json.Marshal(planet.Resources)
-	if err != nil {
-		return fmt.Errorf("Could not import planet \"%s\" for \"%s\" in DB (err: %v)", planet.Name, planet.PlayerID, err)
-	}
-	jsonForResources := string(data)
-
-	query := fmt.Sprintf("select * from create_planet('%s', '%s')", jsonForPlanet, jsonForResources)
-	_, err = p.dbase.DBExecute(query)
+	err := p.insertToDB(query)
 
 	// Check for errors.
 	if err != nil {
@@ -1262,13 +1254,11 @@ func (p *PlanetProxy) generateResources(planet *Planet) error {
 	// If this is the case we will first attempt to fetch
 	// the resources from the DB and return an error is it
 	// fails.
-	if len(p.resources) == 0 {
-		resources, err := initResourcesFromDB(p.dbase, p.log)
+	if len(p.rDescs) == 0 {
+		err := p.init()
 		if err != nil {
 			return fmt.Errorf("Unable to generate resources for planet, none defined")
 		}
-
-		p.resources = resources
 	}
 
 	// We will consider that we have a certain number of each
@@ -1280,7 +1270,7 @@ func (p *PlanetProxy) generateResources(planet *Planet) error {
 		planet.Resources = make([]Resource, 0)
 	}
 
-	for _, res := range p.resources {
+	for _, res := range p.rDescs {
 		desc := Resource{
 			ID:         res.ID,
 			Planet:     planet.ID,

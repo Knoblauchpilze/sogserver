@@ -45,6 +45,7 @@ type PlayerProxy struct {
 func NewPlayerProxy(dbase *db.DB, log logger.Logger) PlayerProxy {
 	proxy := PlayerProxy{
 		make(map[string]ConstructionCost),
+
 		newCommonProxy(dbase, log),
 	}
 

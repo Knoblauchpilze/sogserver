@@ -1,150 +1,180 @@
 package data
 
 import (
-	"encoding/json"
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
-	"strings"
 
 	"github.com/google/uuid"
 )
 
 // ActionProxy :
-// Intended as a wrapper to access and register new props
-// for actions that aim at upgrading buildings, technos
-// or building new ships or defenses on planets.
-// The goal of this proxy is to hide the real layout of
-// the DB to the exterior world and provide a sanitized
-// environment to perform these interactions.
+// Intended as a wrapper to access properties of upgrade
+// actions and register some new ones on various elements
+// of the game. Internally uses the common proxy defined
+// in this package. Additional information is needed to
+// perform verification when upgrade actions are submitted
+// for creation. Indeed we want to make sure that it is
+// actually possible to request the action on the planet
+// or for the player it is intended to.
 //
-// The `dbase` is the database that is wrapped by this
-// object. It is checked for consistency upon building the
-// wrapper.
+// The `pProxy` allows to fetch information about planets
+// when an action concerning a planet is received.
 //
-// The `log` allows to perform display to the user so as
-// to inform of potential issues and debug information to
-// the outside world.
+// The `pRules` allows to create the needed production
+// effects when an upgrade action for a building is set.
 //
-// The `prodRules` defines the production rules defines
-// for various buildings. This is used when creating a
-// building upgrade action to measure the consequences
-// of upgrading a building.
+// The `sRules` allows to create the storage effects when
+// a storage buildings (typically a hangar) is requested.
 //
-// The `storageRules` defines something similar to the
-// `prodRules` but for storage associated to each item.
+// The `pCosts` defines the construction costs for an
+// upgradable element (e.g.g a building or a technology)
+// which is used to verify that an upgrade action for an
+// element is possible given the resources on a planet.
+// TODO: We should maybe extend the lock period to the
+// whole verification process and not just the update of
+// the upgrade actions.
 //
-// The `progressCosts` regroups the costs of all the unit
-// in the game indifferently to whether it is a building
-// or a technology. It is used to make sure that there
-// are actually enough resources on the planet before
-// performing the registration of any upgrade action.
-// These costs only include the elements following a rule
-// of progression which depends on the level of the elem.
-//
-// The `fixedCosts` are similar to the `progressCosts`
-// but are used for elements that are unit-like in the
-// sense that they have a fixed costs and they cannot
-// be upgraded (hence no progression).
-//
-// The `planetProxy` defines the proxy allowing to query
-// a planet from an identifier. It is used in conjunction
-// to the production rules to allow the computation of
-// the precise production on a particular planet.
+// The `fCosts` should be defines the construction costs
+// for a unit like element (typically a ship or a def) so
+// that it can be checked against the planet's resources
+// when the creation is requested.
 type ActionProxy struct {
-	dbase         *db.DB
-	log           logger.Logger
-	prodRules     map[string][]ProductionRule
-	storageRules  map[string][]StorageRule
-	progressCosts map[string]ConstructionCost
-	fixedCosts    map[string]FixedCost
-	planetProxy   PlanetProxy
+	pProxy PlanetProxy
+	pRules map[string][]ProductionRule
+	sRules map[string][]StorageRule
+	pCosts map[string]ConstructionCost
+	fCosts map[string]FixedCost
+
+	commonProxy
 }
 
 // NewActionProxy :
-// Create a new proxy on the input `dbase` to access the
-// properties of upgrade actions registered in the DB. It
-// includes all kind of actions (for buildings, ships,
-// defenses or technologies).
-// In case the provided DB is `nil` a panic is issued.
+// Create a new proxy allowing to serve the requests
+// related to upgrade actions.
 //
 // The `dbase` represents the database to use to fetch
 // data related to upgrade actions.
 //
-// The `log` will be used to notify information so that
-// we can have an idea of the activity of this component.
-// One possible example is for timing the requests.
+// The `log` allows to notify errors and information.
 //
-// The `planets` defines a proxy that can be used to
-// fetch information about the planets when creating
-// the building upgrade actions.
+// The `planets` provides a way to access to planets
+// from the main DB.
 //
 // Returns the created proxy.
 func NewActionProxy(dbase *db.DB, log logger.Logger, planets PlanetProxy) ActionProxy {
-	if dbase == nil {
-		panic(fmt.Errorf("Cannot create actions proxy from invalid DB"))
+	proxy := ActionProxy{
+		planets,
+		make(map[string][]ProductionRule),
+		make(map[string][]StorageRule),
+		make(map[string]ConstructionCost),
+		make(map[string]FixedCost),
+
+		newCommonProxy(dbase, log),
 	}
 
-	// Fetch the production rules for each building.
-	prodRules, err := initBuildingsProductionRulesFromDB(dbase, log)
+	err := proxy.init()
 	if err != nil {
-		log.Trace(logger.Error, fmt.Sprintf("Could not fetch buildings production rules from DB (err: %v)", err))
+		log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies costs from DB (err: %v)", err))
 	}
 
-	// Fetch the storage rules for each building.
-	storageRules, err := initBuildingsStorageRulesFromDB(dbase, log)
-	if err != nil {
-		log.Trace(logger.Error, fmt.Sprintf("Could not fetch buildings storage rules from DB (err: %v)", err))
+	return proxy
+}
+
+// init :
+// Used to perform the initialziation of the needed
+// DB variables for this proxy. This typically means
+// fetching technologies costs from the DB.
+//
+// Returns `nil` if the technologies could be fetched
+// from the DB successfully.
+func (p ActionProxy) init() error {
+	// Fetch from DB and aggregate resources as needed.
+	var err error
+
+	if len(p.pRules) == 0 {
+		p.pRules, err = initBuildingsProductionRulesFromDB(p.dbase, p.log)
+		if err != nil {
+			return fmt.Errorf("Could not fetch buildings production rules from DB (err: %v)", err)
+		}
+	}
+
+	if len(p.sRules) == 0 {
+		p.sRules, err = initBuildingsStorageRulesFromDB(p.dbase, p.log)
+		if err != nil {
+			return fmt.Errorf("Could not fetch buildings storage rules from DB (err: %v)", err)
+		}
 	}
 
 	// Fetch the building, technologies, ships and defenses
 	// costs from the DB.
-	bCosts, err := initProgressCostsFromDB(dbase, log, "building", "buildings_costs_progress", "buildings_costs")
-	if err != nil {
-		log.Trace(logger.Error, fmt.Sprintf("Could not fetch buildings construction costs from DB (err: %v)", err))
-	}
-
-	tCosts, err := initProgressCostsFromDB(dbase, log, "technology", "technologies_costs_progress", "technologies_costs")
-	if err != nil {
-		log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies construction costs from DB (err: %v)", err))
-	}
-
-	sCosts, err := initFixedCostsFromDB(dbase, log, "ship", "ships_costs")
-	if err != nil {
-		log.Trace(logger.Error, fmt.Sprintf("Could not fetch ships construction costs from DB (err: %v)", err))
-	}
-
-	dCosts, err := initFixedCostsFromDB(dbase, log, "defense", "defenses_costs")
-	if err != nil {
-		log.Trace(logger.Error, fmt.Sprintf("Could not fetch defenses construction costs from DB (err: %v)", err))
-	}
-
-	// Group common costs in a single map.
-	for k, v := range tCosts {
-		if _, ok := bCosts[k]; ok {
-			log.Trace(logger.Error, fmt.Sprintf("Overriding progress costs for element \"%s\"", k))
+	if len(p.pCosts) == 0 {
+		bCosts, err := initProgressCostsFromDB(
+			p.dbase,
+			p.log,
+			"building",
+			"buildings_costs_progress",
+			"buildings_costs",
+		)
+		if err != nil {
+			return fmt.Errorf("Could not fetch buildings construction costs from DB (err: %v)", err)
 		}
 
-		bCosts[k] = v
-	}
-
-	for k, v := range dCosts {
-		if _, ok := sCosts[k]; ok {
-			log.Trace(logger.Error, fmt.Sprintf("Overriding fixed costs for element \"%s\"", k))
+		tCosts, err := initProgressCostsFromDB(
+			p.dbase,
+			p.log,
+			"technology",
+			"technologies_costs_progress",
+			"technologies_costs",
+		)
+		if err != nil {
+			return fmt.Errorf("Could not fetch technologies construction costs from DB (err: %v)", err)
 		}
 
-		sCosts[k] = v
+		for k, v := range tCosts {
+			if _, ok := bCosts[k]; ok {
+				p.log.Trace(logger.Error, fmt.Sprintf("Overriding progress costs for element \"%s\"", k))
+			}
+
+			bCosts[k] = v
+		}
+
+		p.pCosts = bCosts
 	}
 
-	return ActionProxy{
-		dbase,
-		log,
-		prodRules,
-		storageRules,
-		bCosts,
-		sCosts,
-		planets,
+	if len(p.fCosts) == 0 {
+		sCosts, err := initFixedCostsFromDB(
+			p.dbase,
+			p.log,
+			"ship",
+			"ships_costs",
+		)
+		if err != nil {
+			return fmt.Errorf("Could not fetch ships construction costs from DB (err: %v)", err)
+		}
+
+		dCosts, err := initFixedCostsFromDB(
+			p.dbase,
+			p.log,
+			"defense",
+			"defenses_costs",
+		)
+		if err != nil {
+			return fmt.Errorf("Could not fetch defenses construction costs from DB (err: %v)", err)
+		}
+
+		for k, v := range dCosts {
+			if _, ok := sCosts[k]; ok {
+				p.log.Trace(logger.Error, fmt.Sprintf("Overriding fixed costs for element \"%s\"", k))
+			}
+
+			sCosts[k] = v
+		}
+
+		p.fCosts = sCosts
 	}
+
+	return nil
 }
 
 // Buildings :
@@ -169,31 +199,22 @@ func NewActionProxy(dbase *db.DB, log logger.Logger, planets PlanetProxy) Action
 // returned list is to be ignored.
 func (p *ActionProxy) Buildings(filters []DBFilter) ([]BuildingUpgradeAction, error) {
 	// Create the query and execute it.
-	props := []string{
-		"id",
-		"planet",
-		"building",
-		"current_level",
-		"desired_level",
-		"completion_time",
+	query := queryDesc{
+		props: []string{
+			"id",
+			"planet",
+			"building",
+			"current_level",
+			"desired_level",
+			"completion_time",
+		},
+		table:   "construction_actions_buildings",
+		filters: filters,
 	}
 
-	table := "construction_actions_buildings"
-
-	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
-
-	if len(filters) > 0 {
-		query += " where"
-
-		for id, filter := range filters {
-			if id > 0 {
-				query += " and"
-			}
-			query += fmt.Sprintf(" %s", filter)
-		}
-	}
-
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
@@ -204,8 +225,8 @@ func (p *ActionProxy) Buildings(filters []DBFilter) ([]BuildingUpgradeAction, er
 	actions := make([]BuildingUpgradeAction, 0)
 	var act BuildingUpgradeAction
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&act.ID,
 			&act.PlanetID,
 			&act.BuildingID,
@@ -242,32 +263,23 @@ func (p *ActionProxy) Buildings(filters []DBFilter) ([]BuildingUpgradeAction, er
 // error is not `nil`.
 func (p *ActionProxy) Technologies(filters []DBFilter) ([]TechnologyUpgradeAction, error) {
 	// Create the query and execute it.
-	props := []string{
-		"id",
-		"player",
-		"technology",
-		"planet",
-		"current_level",
-		"desired_level",
-		"completion_time",
+	query := queryDesc{
+		props: []string{
+			"id",
+			"player",
+			"technology",
+			"planet",
+			"current_level",
+			"desired_level",
+			"completion_time",
+		},
+		table:   "construction_actions_technologies",
+		filters: filters,
 	}
 
-	table := "construction_actions_technologies"
-
-	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
-
-	if len(filters) > 0 {
-		query += " where"
-
-		for id, filter := range filters {
-			if id > 0 {
-				query += " and"
-			}
-			query += fmt.Sprintf(" %s", filter)
-		}
-	}
-
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
@@ -278,8 +290,8 @@ func (p *ActionProxy) Technologies(filters []DBFilter) ([]TechnologyUpgradeActio
 	actions := make([]TechnologyUpgradeAction, 0)
 	var act TechnologyUpgradeAction
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&act.ID,
 			&act.PlayerID,
 			&act.TechnologyID,
@@ -316,31 +328,22 @@ func (p *ActionProxy) Technologies(filters []DBFilter) ([]TechnologyUpgradeActio
 // `nil`.
 func (p *ActionProxy) Ships(filters []DBFilter) ([]ShipUpgradeAction, error) {
 	// Create the query and execute it.
-	props := []string{
-		"id",
-		"planet",
-		"ship",
-		"amount",
-		"remaining",
-		"completion_time",
+	query := queryDesc{
+		props: []string{
+			"id",
+			"planet",
+			"ship",
+			"amount",
+			"remaining",
+			"completion_time",
+		},
+		table:   "construction_actions_ships",
+		filters: filters,
 	}
 
-	table := "construction_actions_ships"
-
-	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
-
-	if len(filters) > 0 {
-		query += " where"
-
-		for id, filter := range filters {
-			if id > 0 {
-				query += " and"
-			}
-			query += fmt.Sprintf(" %s", filter)
-		}
-	}
-
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
@@ -351,8 +354,8 @@ func (p *ActionProxy) Ships(filters []DBFilter) ([]ShipUpgradeAction, error) {
 	actions := make([]ShipUpgradeAction, 0)
 	var act ShipUpgradeAction
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&act.ID,
 			&act.PlanetID,
 			&act.ShipID,
@@ -388,31 +391,22 @@ func (p *ActionProxy) Ships(filters []DBFilter) ([]ShipUpgradeAction, error) {
 // is not `nil`.
 func (p *ActionProxy) Defenses(filters []DBFilter) ([]DefenseUpgradeAction, error) {
 	// Create the query and execute it.
-	props := []string{
-		"id",
-		"planet",
-		"defense",
-		"amount",
-		"remaining",
-		"completion_time",
+	query := queryDesc{
+		props: []string{
+			"id",
+			"planet",
+			"defense",
+			"amount",
+			"remaining",
+			"completion_time",
+		},
+		table:   "construction_actions_defenses",
+		filters: filters,
 	}
 
-	table := "construction_actions_defenses"
-
-	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
-
-	if len(filters) > 0 {
-		query += " where"
-
-		for id, filter := range filters {
-			if id > 0 {
-				query += " and"
-			}
-			query += fmt.Sprintf(" %s", filter)
-		}
-	}
-
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
@@ -423,8 +417,8 @@ func (p *ActionProxy) Defenses(filters []DBFilter) ([]DefenseUpgradeAction, erro
 	actions := make([]DefenseUpgradeAction, 0)
 	var act DefenseUpgradeAction
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&act.ID,
 			&act.PlanetID,
 			&act.DefenseID,
@@ -462,27 +456,24 @@ func (p *ActionProxy) Defenses(filters []DBFilter) ([]DefenseUpgradeAction, erro
 // Returns any error that occurred during the insertion
 // of the upgrade action in the DB.
 func (p *ActionProxy) createAction(action UpgradeAction, script string) error {
-	// Check whether the action is valid.
+	// Validate that the input data describe a valid action.
 	if !action.valid() {
 		return fmt.Errorf("Could not create upgrade action, some properties are invalid")
 	}
 
-	// Marshal the input action to pass it to the import script.
-	data, err := json.Marshal(action)
-	if err != nil {
-		return fmt.Errorf("Could not import upgrade action for %s (err: %v)", action, err)
+	// Create the query and execute it.
+	query := insertReq{
+		script: script,
+		args:   []interface{}{action},
 	}
-	jsonToSend := string(data)
 
-	query := fmt.Sprintf("select * from %s('%s')", script, jsonToSend)
-	_, err = p.dbase.DBExecute(query)
+	err := p.insertToDB(query)
 
-	// Check for errors during the insertion process.
+	// Check for errors.
 	if err != nil {
 		return fmt.Errorf("Could not import upgrade action %s (err: %s)", action, err)
 	}
 
-	// All is well.
 	return nil
 }
 
@@ -552,30 +543,20 @@ func (p *ActionProxy) CreateBuildingAction(action *BuildingUpgradeAction) error 
 	}
 
 	// Marshal the input building action to pass it to the import script.
-	data, err := json.Marshal(action)
-	if err != nil {
-		return fmt.Errorf("Could not import upgrade action for %s (err: %v)", *action, err)
+	query := insertReq{
+		script: "create_building_upgrade_action",
+		args: []interface{}{
+			action,
+			prodEffects,
+			storageEffects,
+		},
 	}
-	jsonForAction := string(data)
 
-	data, err = json.Marshal(prodEffects)
+	err = p.insertToDB(query)
+
+	// Check for errors.
 	if err != nil {
-		return fmt.Errorf("Could not import upgrade action for %s (err: %v)", *action, err)
-	}
-	jsonForProdEffects := string(data)
-
-	data, err = json.Marshal(storageEffects)
-	if err != nil {
-		return fmt.Errorf("Could not import upgrade action for %s (err: %v)", *action, err)
-	}
-	jsonForStorageEffects := string(data)
-
-	query := fmt.Sprintf("select * from %s('%s', '%s', '%s')", "create_building_upgrade_action", jsonForAction, jsonForProdEffects, jsonForStorageEffects)
-	_, err = p.dbase.DBExecute(query)
-
-	// Check for errors during the insertion process.
-	if err != nil {
-		return fmt.Errorf("Could not import upgrade action %s (err: %s)", *action, err)
+		return fmt.Errorf("Could not import upgrade action for \"%s\" (err: %s)", action.PlanetID, err)
 	}
 
 	p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d on \"%s\"", action.BuildingID, action.DesiredLevel, action.PlanetID))
@@ -605,7 +586,7 @@ func (p *ActionProxy) fetchBuildingProductionEffects(action *BuildingUpgradeActi
 	// corresponding effect.
 	prodEffects := make([]ProductionEffect, 0)
 
-	rules, ok := p.prodRules[action.BuildingID]
+	rules, ok := p.pRules[action.BuildingID]
 
 	if !ok {
 		// No production rule, nothing to add.
@@ -660,7 +641,7 @@ func (p *ActionProxy) fetchBuildingStorageEffects(action *BuildingUpgradeAction)
 	// corresponding effect.
 	storageEffects := make([]StorageEffect, 0)
 
-	rules, ok := p.storageRules[action.BuildingID]
+	rules, ok := p.sRules[action.BuildingID]
 
 	if !ok {
 		// No storage rule, nothing to add.
@@ -704,7 +685,7 @@ func (p *ActionProxy) fetchPlanet(id string) (Planet, error) {
 		[]string{id},
 	}
 
-	planets, err := p.planetProxy.Planets(filters)
+	planets, err := p.pProxy.Planets(filters)
 
 	// Check for errors and cases where we retrieve several
 	// players.

@@ -207,7 +207,7 @@ func (p *PlayerProxy) fetchPlayerTechnologies(player *Player) error {
 		)
 
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for universe (err: %v)", err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for technology of player \"%s\" (err: %v)", player.ID, err))
 			continue
 		}
 

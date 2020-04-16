@@ -3,6 +3,7 @@ package data
 import (
 	"fmt"
 	"math"
+	"oglike_server/pkg/duration"
 	"time"
 )
 
@@ -25,19 +26,10 @@ import (
 // ID of an in-game building, technology, etc. which needs
 // to be upgraded. Depending on the precise type of this
 // element the related DB table will vary.
-//
-// The `IsUnitLike` defines whether the action is related to
-// the construction of something that resembles a unit (i.e.
-// it has a fixed cost and no possible upgrades) or something
-// that can be upgraded (like a building or a technology for
-// example).
-// Depending on this status the way to compute the total
-// cost required to launch the action will be different.
 type UpgradeAction struct {
-	ID         string `json:"id"`
-	PlanetID   string `json:"planet"`
-	ElementID  string `json:"element"`
-	IsUnitLike bool
+	ID        string `json:"id"`
+	PlanetID  string `json:"planet"`
+	ElementID string `json:"element"`
 }
 
 // valid :
@@ -104,4 +96,99 @@ func (a ProgressAction) valid() bool {
 		a.DesiredLevel >= 0 &&
 		((a.IsStrictlyUpgradable && a.DesiredLevel == a.CurrentLevel+1) ||
 			(!a.IsStrictlyUpgradable && math.Abs(float64(a.DesiredLevel)-float64(a.CurrentLevel)) == 1))
+}
+
+// computeCost :
+// Used to compute the construction cost of the action
+// based on the level it aims at reaching and the total
+// cost of various elements defined in the input table.
+//
+// The `costs` defines the initial costs and the rules
+// to make the progress for various in-game elements.
+// The map is indexed by ID key (so one of them should
+// match the `a.ElementID` value).
+//
+// Returns a slice containing for each resource that
+// is needed for this action the amount necessary. In
+// case the input map does not define anything for the
+// action an error is returned.
+func (a ProgressAction) computeCost(costs map[string]ConstructionCost) ([]ResourceAmount, error) {
+	// Find this action in the input table.
+	cost, ok := costs[a.ElementID]
+
+	if !ok {
+		return []ResourceAmount{}, fmt.Errorf("Cannot compute cost for action \"%s\" defining unknown element \"%s\"", a.ID, a.ElementID)
+	}
+
+	needed := cost.ComputeCosts(a.DesiredLevel)
+
+	return needed, nil
+}
+
+// FixedAction :
+// Specialization of the `UpgradeAction` to provide an
+// action that concerns a unit-like element. This type
+// of element cannot be upgraded and is rather built
+// in a certain amount on a planet.
+//
+// The `Amount` defines the number of the unit to be
+// produced by this action.
+//
+// The `Remaining` defines how many elements are still
+// to be built at the moment of the analysis.
+//
+// The `CompletionTime`  defines the time it takes to
+// complete the construction of a single unit of this
+// element. The remaining time is thus given by the
+// following: `Remaining * CompletionTime`. Note that
+// it is a bit different to what is provided by the
+// `ProgressAction` where the completion time is some
+// absolute time at which the action is finished.
+type FixedAction struct {
+	Amount         int               `json:"amount"`
+	Remaining      int               `json:"remaining"`
+	CompletionTime duration.Duration `json:"completion_time"`
+
+	UpgradeAction
+}
+
+// valid :
+// Used to refine the behavior of the base upgrade action
+// to make sure that the amounts provided for this action
+// are correct.
+//
+// Returns `true` if this action is not obviously wrong.
+func (a FixedAction) valid() bool {
+	return a.UpgradeAction.valid() &&
+		a.Amount > 0 &&
+		a.Remaining >= 0 &&
+		a.Remaining <= a.Amount
+}
+
+// computeTotalCost :
+// Used to compute the construction cost of the action
+// based on the total number of unit described by it.
+// It uses the provided table to retrieve the actual
+// cost of a single unit.
+//
+// The `costs` defines the initial costs of a single
+// unit. The map is indexed by ID key (so one of them
+// should match the `a.ElementID` value).
+//
+// Returns a slice containing for each resource that
+// is needed for this action the total amount that is
+// still needed given the `a.Remaining` number to be
+// built. In case the input map does not define anything
+// for the action an error is returned.
+func (a FixedAction) computeTotalCost(costs map[string]FixedCost) ([]ResourceAmount, error) {
+	// Find this action in the input table.
+	cost, ok := costs[a.ElementID]
+
+	if !ok {
+		return []ResourceAmount{}, fmt.Errorf("Cannot compute cost for action \"%s\" defining unknown element \"%s\"", a.ID, a.ElementID)
+	}
+
+	needed := cost.ComputeCosts(a.Remaining)
+
+	return needed, nil
 }

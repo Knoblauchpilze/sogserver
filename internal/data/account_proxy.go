@@ -1,7 +1,6 @@
 package data
 
 import (
-	"encoding/json"
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -12,41 +11,26 @@ import (
 
 // AccountProxy :
 // Intended as a wrapper to access properties of accounts
-// and retrieve data from the database. This helps hiding
-// the complexity of how the data is laid out in the `DB`
-// and the precise name of tables from the exterior world.
-//
-// The `dbase` is the database that is wrapped by this
-// object. It is checked for consistency upon building the
-// wrapper.
-//
-// The `log` allows to perform display to the user so as
-// to inform of potential issues and debug information to
-// the outside world.
+// and retrieve data from the database. Internally uses the
+// common proxy defined in this package.
 type AccountProxy struct {
-	dbase *db.DB
-	log   logger.Logger
+	commonProxy
 }
 
 // NewAccountProxy :
-// Create a new proxy on the input `dbase` to access the
-// properties of accounts as registered in the DB.
-// In case the provided DB is `nil` a panic is issued.
+// Create a new proxy allowing to serve the requests
+// related to accounts.
 //
 // The `dbase` represents the database to use to fetch
 // data related to accounts.
 //
-// The `log` will be used to notify information so that
-// we can have an idea of the activity of this component.
-// One possible example is for timing the requests.
+// The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
 func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
-	if dbase == nil {
-		panic(fmt.Errorf("Cannot create accounts proxy from invalid DB"))
+	return AccountProxy{
+		newCommonProxy(dbase, log),
 	}
-
-	return AccountProxy{dbase, log}
 }
 
 // Accounts :
@@ -68,19 +52,20 @@ func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
 // to be ignored.
 func (p *AccountProxy) Accounts(filters []DBFilter) ([]Account, error) {
 	// Create the query and execute it.
-	query := fmt.Sprintf("select id, mail, name, password from accounts")
-	if len(filters) > 0 {
-		query += " where"
-
-		for id, filter := range filters {
-			if id > 0 {
-				query += " and"
-			}
-			query += fmt.Sprintf(" %s", filter)
-		}
+	query := queryDesc{
+		props: []string{
+			"id",
+			"mail",
+			"name",
+			"password",
+		},
+		table:   "accounts",
+		filters: filters,
 	}
 
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
@@ -91,8 +76,8 @@ func (p *AccountProxy) Accounts(filters []DBFilter) ([]Account, error) {
 	accounts := make([]Account, 0)
 	var acc Account
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&acc.ID,
 			&acc.Mail,
 			&acc.Name,
@@ -133,23 +118,22 @@ func (p *AccountProxy) Create(acc *Account) error {
 		return fmt.Errorf("Could not create account \"%s\", some properties are invalid", acc.Name)
 	}
 
-	// Marshal the input account to pass it to the import script.
-	data, err := json.Marshal(acc)
-	if err != nil {
-		return fmt.Errorf("Could not import account \"%s\" (err: %v)", acc.Name, err)
+	// Create the query and execute it.
+	query := insertReq{
+		script: "create_account",
+		args:   []interface{}{*acc},
 	}
-	jsonToSend := string(data)
 
-	query := fmt.Sprintf("select * from create_account('%s')", jsonToSend)
-	_, err = p.dbase.DBExecute(query)
+	err := p.insertToDB(query)
 
-	// Check for errors. We will refine this process a bit to try
-	// to detect cases where the user tries to insert an account
-	// with an already existing e-mail.
-	// In this case we should get an error indicating a `23505` as
-	// return code. We will refine the error in this case.
+	// Check for errors.
 	if err != nil {
-		// Check for duplicated key error.
+		// We will refine this process a bit to try to detect
+		// cases where the user tries to insert an account
+		// with an already existing e-mail.
+		// In this case we should get an error indicating a
+		// `23505` as return code. We will refine the error
+		// in this case.
 		msg := fmt.Sprintf("%v", err)
 
 		if strings.Contains(msg, getDuplicatedElementErrorKey()) {
@@ -159,6 +143,5 @@ func (p *AccountProxy) Create(acc *Account) error {
 		return fmt.Errorf("Could not import account \"%s\" (err: %s)", acc.Name, msg)
 	}
 
-	// All is well.
 	return nil
 }

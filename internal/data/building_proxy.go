@@ -4,46 +4,30 @@ import (
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
-	"strings"
 )
 
 // BuildingProxy :
 // Intended as a wrapper to access properties of buildings
-// and retrieve data from the database. This helps hiding
-// the complexity of how the data is laid out in the `DB`
-// and the precise name of tables from the exterior world.
-//
-// The `dbase` is the database that is wrapped by this
-// object. It is checked for consistency upon creating the
-// wrapper.
-//
-// The `log` allows to perform display to the user so as
-// to inform of potential issues and debug information to
-// the outside world.
+// and retrieve data from the database. Internally uses the
+// common proxy defined in this package.
 type BuildingProxy struct {
-	dbase *db.DB
-	log   logger.Logger
+	commonProxy
 }
 
 // NewBuildingProxy :
-// Create a new proxy on the input `dbase` to access the
-// properties of buildings as registered in the DB.
-// In case the provided DB is `nil` a panic is issued.
+// Create a new proxy allowing to serve the requests
+// related to buildings.
 //
 // The `dbase` represents the database to use to fetch
 // data related to buildings.
 //
-// The `log` will be used to notify information so that
-// we can have an idea of the activity of this component.
-// One possible example is for timing the requests.
+// The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
 func NewBuildingProxy(dbase *db.DB, log logger.Logger) BuildingProxy {
-	if dbase == nil {
-		panic(fmt.Errorf("Cannot create buildings proxy from invalid DB"))
+	return BuildingProxy{
+		newCommonProxy(dbase, log),
 	}
-
-	return BuildingProxy{dbase, log}
 }
 
 // Buildings :
@@ -65,24 +49,18 @@ func NewBuildingProxy(dbase *db.DB, log logger.Logger) BuildingProxy {
 // to be ignored.
 func (p *BuildingProxy) Buildings(filters []DBFilter) ([]BuildingDesc, error) {
 	// Create the query and execute it.
-	props := []string{
-		"id",
-		"name",
+	query := queryDesc{
+		props: []string{
+			"id",
+			"name",
+		},
+		table:   "buildings",
+		filters: filters,
 	}
 
-	query := fmt.Sprintf("select %s from buildings", strings.Join(props, ", "))
-	if len(filters) > 0 {
-		query += " where"
-
-		for id, filter := range filters {
-			if id > 0 {
-				query += " and"
-			}
-			query += fmt.Sprintf(" %s", filter)
-		}
-	}
-
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
@@ -91,12 +69,12 @@ func (p *BuildingProxy) Buildings(filters []DBFilter) ([]BuildingDesc, error) {
 
 	// Populate the return value.
 	buildings := make([]BuildingDesc, 0)
-	var building BuildingDesc
+	var desc BuildingDesc
 
-	for rows.Next() {
-		err = rows.Scan(
-			&building.ID,
-			&building.Name,
+	for res.next() {
+		err = res.scan(
+			&desc.ID,
+			&desc.Name,
 		)
 
 		if err != nil {
@@ -104,17 +82,17 @@ func (p *BuildingProxy) Buildings(filters []DBFilter) ([]BuildingDesc, error) {
 			continue
 		}
 
-		building.BuildingsDeps, err = fetchElementDependency(p.dbase, building.ID, "building", "tech_tree_buildings_dependencies")
+		desc.BuildingsDeps, err = fetchElementDependency(p.dbase, desc.ID, "building", "tech_tree_buildings_dependencies")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch building dependencies for building \"%s\" (err: %v)", building.ID, err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch building dependencies for building \"%s\" (err: %v)", desc.ID, err))
 		}
 
-		building.TechnologiesDeps, err = fetchElementDependency(p.dbase, building.ID, "building", "tech_tree_buildings_vs_technologies")
+		desc.TechnologiesDeps, err = fetchElementDependency(p.dbase, desc.ID, "building", "tech_tree_buildings_vs_technologies")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies dependencies for building \"%s\" (err: %v)", building.ID, err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies dependencies for building \"%s\" (err: %v)", desc.ID, err))
 		}
 
-		buildings = append(buildings, building)
+		buildings = append(buildings, desc)
 	}
 
 	return buildings, nil

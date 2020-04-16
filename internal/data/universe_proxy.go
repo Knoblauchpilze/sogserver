@@ -1,55 +1,35 @@
 package data
 
 import (
-	"encoding/json"
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
-	"strings"
 
 	"github.com/google/uuid"
 )
 
 // UniverseProxy :
 // Intended as a wrapper to access properties of universes
-// and retrieve data from the database. This helps hiding
-// the complexity of how the data is laid out in the `DB`
-// and the precise name of tables from the exterior world.
-//
-// The `dbase` is the database that is wrapped by this
-// object. It is checked for consistency upon building the
-// wrapper.
-//
-// The `log` allows to perform display to the user so as
-// to inform of potential issues and debug information to
-// the outside world.
+// and retrieve data from the database. Internally uses the
+// common proxy defined in this package.
 type UniverseProxy struct {
-	dbase *db.DB
-	log   logger.Logger
+	commonProxy
 }
 
 // NewUniverseProxy :
-// Create a new proxy on the input `dbase` to access the
-// properties of universes as registered in the DB. In
-// case the provided DB is `nil` a panic is issued.
-// Information in the following thread helped shape this
-// component (and the similar ones in the package):
-// https://www.reddit.com/r/golang/comments/9i5cpg/good_approach_to_interacting_with_databases/
+// Create a new proxy allowing to serve the requests
+// related to universes.
 //
 // The `dbase` represents the database to use to fetch
 // data related to universes.
 //
-// The `log` will be used to notify information so that
-// we can have an idea of the activity of this component.
-// One possible example is for timing the requests.
+// The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
 func NewUniverseProxy(dbase *db.DB, log logger.Logger) UniverseProxy {
-	if dbase == nil {
-		panic(fmt.Errorf("Cannot create universes proxy from invalid DB"))
+	return UniverseProxy{
+		newCommonProxy(dbase, log),
 	}
-
-	return UniverseProxy{dbase, log}
 }
 
 // Universes :
@@ -72,33 +52,27 @@ func NewUniverseProxy(dbase *db.DB, log logger.Logger) UniverseProxy {
 // to be ignored.
 func (p *UniverseProxy) Universes(filters []DBFilter) ([]Universe, error) {
 	// Create the query and execute it.
-	props := []string{
-		"id",
-		"name",
-		"economic_speed",
-		"fleet_speed",
-		"research_speed",
-		"fleets_to_ruins_ratio",
-		"defenses_to_ruins_ratio",
-		"fleets_consumption_ratio",
-		"galaxies_count",
-		"galaxy_size",
-		"solar_system_size",
+	query := queryDesc{
+		props: []string{
+			"id",
+			"name",
+			"economic_speed",
+			"fleet_speed",
+			"research_speed",
+			"fleets_to_ruins_ratio",
+			"defenses_to_ruins_ratio",
+			"fleets_consumption_ratio",
+			"galaxies_count",
+			"galaxy_size",
+			"solar_system_size",
+		},
+		table:   "universes",
+		filters: filters,
 	}
 
-	query := fmt.Sprintf("select %s from universes", strings.Join(props, ", "))
-	if len(filters) > 0 {
-		query += " where"
-
-		for id, filter := range filters {
-			if id > 0 {
-				query += " and"
-			}
-			query += fmt.Sprintf(" %s", filter)
-		}
-	}
-
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
@@ -109,8 +83,8 @@ func (p *UniverseProxy) Universes(filters []DBFilter) ([]Universe, error) {
 	universes := make([]Universe, 0)
 	var uni Universe
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&uni.ID,
 			&uni.Name,
 			&uni.EcoSpeed,
@@ -158,21 +132,18 @@ func (p *UniverseProxy) Create(uni *Universe) error {
 		return fmt.Errorf("Could not create universe \"%s\", some properties are invalid", uni.Name)
 	}
 
-	// Marshal the input universe to pass it to the import script.
-	data, err := json.Marshal(uni)
-	if err != nil {
-		return fmt.Errorf("Could not import universe \"%s\" (err: %v)", uni.Name, err)
+	// Create the query and execute it.
+	query := insertReq{
+		script: "create_universe",
+		args:   []interface{}{*uni},
 	}
-	jsonToSend := string(data)
 
-	query := fmt.Sprintf("select * from create_universe('%s')", jsonToSend)
-	_, err = p.dbase.DBExecute(query)
+	err := p.insertToDB(query)
 
 	// Check for errors.
 	if err != nil {
 		return fmt.Errorf("Could not import universe \"%s\" (err: %v)", uni.Name, err)
 	}
 
-	// All is well.
 	return nil
 }

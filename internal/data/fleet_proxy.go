@@ -1,11 +1,9 @@
 package data
 
 import (
-	"encoding/json"
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
-	"strings"
 
 	"github.com/google/uuid"
 )
@@ -30,65 +28,52 @@ type shipInFleetForDB struct {
 
 // FleetProxy :
 // Intended as a wrapper to access properties of fleets and
-// retrieve data from the database. This helps hiding the
-// complexity of how the data is laid out in the `DB` and
-// the precise name of tables from the exterior world.
+// their components and retrieve data from the database. It
+// uses the common proxy defined in this package.
+// In addition to the base properties the fleet proxy also
+// needs to have access to the universes (so as to verify
+// that fleets are not going outside of the bounds provided
+// by a universe) and the players (to make sure that owners
+// actually exist).
 //
-// The `dbase` is the database that is wrapped by this
-// object. It is checked for consistency upon creating the
-// wrapper.
+// The `uProxy` represents a reference to the proxy allowing
+// to access to universes.
 //
-// The `log` allows to perform display to the user so as
-// to inform of potential issues and debug information to
-// the outside world.
-//
-// The `uniProxy` defines a proxy allowing to access a
-// part of the behavior related to universes typically
-// when fetching a universe into which a fleet should
-// be created.
-//
-// The `playerProxy` defines a proxy allowing to access
-// a part of the behavior related to universes typically
-// when fetching a player for which a fleet component
-// should be created.
+// The `pProxy` represents a reference to the proxy allowing
+// to access to players.
 type FleetProxy struct {
-	dbase       *db.DB
-	log         logger.Logger
-	uniProxy    UniverseProxy
-	playerProxy PlayerProxy
+	uProxy UniverseProxy
+	pProxy PlayerProxy
+
+	commonProxy
 }
 
 // NewFleetProxy :
-// Create a new proxy on the input `dbase` to access the
-// properties of fleets as registered in the DB.
-// In case the provided DB is `nil` a panic is issued.
+// Create a new proxy allowing to serve the requests
+// related to fleets. It uses two other proxies: one
+// to access to the universes and the other one to
+// access the players. This is used to make sure that
+// creating a fleet is consistent with the properties
+// of each element.
 //
 // The `dbase` represents the database to use to fetch
 // data related to fleets.
 //
-// The `log` will be used to notify information so that
-// we can have an idea of the activity of this component.
-// One possible example is for timing the requests.
+// The `log` allows to notify errors and information.
 //
-// The `unis` defines a proxy that can be used to
-// fetch information about the universes when creating
-// fleets.
+// The `unis` defines a way to access to universes as
+// registered in the DB.
 //
-// The `players` defines a proxy that can be used to fetch
-// information about the players when creating the fleet
-// components.
+// The `players` defines a way to access to players
+// as defined in the DB.
 //
 // Returns the created proxy.
 func NewFleetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy, players PlayerProxy) FleetProxy {
-	if dbase == nil {
-		panic(fmt.Errorf("Cannot create fleets proxy from invalid DB"))
-	}
-
 	return FleetProxy{
-		dbase,
-		log,
 		unis,
 		players,
+
+		newCommonProxy(dbase, log),
 	}
 }
 
@@ -110,46 +95,36 @@ func NewFleetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy, players 
 // ignored.
 func (p *FleetProxy) Fleets(filters []DBFilter) ([]Fleet, error) {
 	// Create the query and execute it.
-	props := []string{
-		"id",
-		"name",
-		"uni",
-		"objective",
-		"arrival_time",
-		"target_galaxy",
-		"target_solar_system",
-		"target_position",
+	query := queryDesc{
+		props: []string{
+			"id",
+			"name",
+			"uni",
+			"objective",
+			"arrival_time",
+			"target_galaxy",
+			"target_solar_system",
+			"target_position",
+		},
+		table:   "fleets",
+		filters: filters,
 	}
 
-	table := "fleets"
-
-	query := fmt.Sprintf("select %s from %s", strings.Join(props, ", "), table)
-
-	if len(filters) > 0 {
-		query += " where"
-
-		for id, filter := range filters {
-			if id > 0 {
-				query += " and"
-			}
-			query += fmt.Sprintf(" %s", filter)
-		}
-	}
-
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
 		return nil, fmt.Errorf("Could not query DB to fetch fleets (err: %v)", err)
 	}
 
-	// Populate the return value: we should obtain a single
-	// result, otherwise it's an issue.
+	// Populate the return value.
 	fleets := make([]Fleet, 0)
 	var fleet Fleet
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&fleet.ID,
 			&fleet.Name,
 			&fleet.UniverseID,
@@ -188,7 +163,7 @@ func (p *FleetProxy) FleetComponents(filters []DBFilter) ([]FleetComponent, erro
 	// Fetch the fleet from the filters.
 	fleets, err := p.Fleets(filters)
 	if err != nil {
-		return nil, fmt.Errorf("Could not fetch component for fleet (err: %v)", err)
+		return nil, fmt.Errorf("Could not fetch components for fleet (err: %v)", err)
 	}
 
 	// Check that we only found a single fleet matching the
@@ -200,38 +175,43 @@ func (p *FleetProxy) FleetComponents(filters []DBFilter) ([]FleetComponent, erro
 
 	fleet := fleets[0]
 
-	// Create the query to fetch individual components of the
-	// fleet and execute it.
-	props := []string{
-		"id",
-		"player",
-		"start_galaxy",
-		"start_solar_system",
-		"start_position",
-		"speed",
-		"joined_at",
+	// Create the query and execute it.
+	query := queryDesc{
+		props: []string{
+			"id",
+			"player",
+			"start_galaxy",
+			"start_solar_system",
+			"start_position",
+			"speed",
+			"joined_at",
+		},
+		table: "fleet_elements",
+		filters: []DBFilter{
+			DBFilter{
+				Key:    "fleet",
+				Values: []string{fleet.ID},
+			},
+		},
 	}
 
-	table := "fleet_elements"
-	where := fmt.Sprintf("fleet='%s'", fleet.ID)
-
-	query := fmt.Sprintf("select %s from %s where %s", strings.Join(props, ", "), table, where)
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
 		return nil, fmt.Errorf("Could not query DB to fetch fleet \"%s\" details (err: %v)", fleet.ID, err)
 	}
 
-	// Populate the return content from the result of the
-	// DB query.
+	// Populate the return value.
 	components := make([]FleetComponent, 0)
 	comp := FleetComponent{
 		FleetID: fleet.ID,
 	}
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&comp.ID,
 			&comp.PlayerID,
 			&comp.Galaxy,
@@ -276,31 +256,36 @@ func (p *FleetProxy) fetchFleetComponentData(comp *FleetComponent) error {
 		return fmt.Errorf("Unable to fetch data from fleet component with invalid identifier")
 	}
 
-	// Create the query to fetch individual components of the
-	// fleet and execute it.
-	props := []string{
-		"ship",
-		"amount",
+	// Create the query and execute it.
+	query := queryDesc{
+		props: []string{
+			"ship",
+			"amount",
+		},
+		table: "fleet_ships",
+		filters: []DBFilter{
+			DBFilter{
+				Key:    "fleet_element",
+				Values: []string{comp.ID},
+			},
+		},
 	}
 
-	table := "fleet_ships"
-	where := fmt.Sprintf("fleet_element='%s'", comp.ID)
-
-	query := fmt.Sprintf("select %s from %s where %s", strings.Join(props, ", "), table, where)
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
 		return fmt.Errorf("Could not query DB to fetch fleet component \"%s\" details (err: %v)", comp.ID, err)
 	}
 
-	// Populate the return content from the result of the
-	// DB query.
+	// Populate the return value.
 	comp.Ships = make([]ShipInFleet, 0)
 	var ship ShipInFleet
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&ship.ShipID,
 			&ship.Amount,
 		)
@@ -340,27 +325,24 @@ func (p *FleetProxy) Create(fleet *Fleet) error {
 		return fmt.Errorf("Could not create fleet \"%s\", unable to fetch universe (err: %v)", fleet.ID, err)
 	}
 
-	// Validate that the input data describe a valid fleet.
+	// Validate that the input data describe a valid universe.
 	if !fleet.valid(uni) {
 		return fmt.Errorf("Could not create fleet \"%s\", some properties are invalid", fleet.ID)
 	}
 
-	// Marshal the input fleet to pass it to the import script.
-	data, err := json.Marshal(fleet)
-	if err != nil {
-		return fmt.Errorf("Could not import fleet \"%s\" (err: %v)", fleet.ID, err)
+	// Create the query and execute it.
+	query := insertReq{
+		script: "create_fleet",
+		args:   []interface{}{*fleet},
 	}
-	jsonToSend := string(data)
 
-	query := fmt.Sprintf("select * from create_fleet('%s')", jsonToSend)
-	_, err = p.dbase.DBExecute(query)
+	err = p.insertToDB(query)
 
 	// Check for errors.
 	if err != nil {
-		return fmt.Errorf("Could not import fleet \"%s\" (err: %s)", fleet.ID, err)
+		return fmt.Errorf("Could not import universe \"%s\" (err: %v)", uni.Name, err)
 	}
 
-	// All is well.
 	return nil
 }
 
@@ -384,7 +366,7 @@ func (p *FleetProxy) fetchUniverse(id string) (Universe, error) {
 		[]string{id},
 	}
 
-	unis, err := p.uniProxy.Universes(filters)
+	unis, err := p.uProxy.Universes(filters)
 
 	// Check for errors and cases where we retrieve several
 	// universes.
@@ -446,15 +428,6 @@ func (p *FleetProxy) CreateComponent(comp *FleetComponent) error {
 		return fmt.Errorf("Could not create fleet component for fleet \"%s\", player belongs to \"%s\" but fleet is in \"%s\"", comp.FleetID, player.UniverseID, uni.ID)
 	}
 
-	// Marshal the input fleet component to pass it to the import
-	// scripts. We need to separate the fleet from the ships that
-	// compose it.
-	data, err := json.Marshal(comp)
-	if err != nil {
-		return fmt.Errorf("Could not create fleet component for fleet \"%s\" (err: %v)", comp.FleetID, err)
-	}
-	jsonForComp := string(data)
-
 	// Convert the input ships to something that can be directly
 	// inserted into the DB. We need to manually create the ID
 	// and assign the identifier of the parent fleet component.
@@ -468,21 +441,22 @@ func (p *FleetProxy) CreateComponent(comp *FleetComponent) error {
 		}
 	}
 
-	data, err = json.Marshal(shipsForDB)
-	if err != nil {
-		return fmt.Errorf("Could not create fleet component for fleet \"%s\" (err: %v)", comp.FleetID, err)
+	// Create the query and execute it.
+	query := insertReq{
+		script: "create_fleet_component",
+		args: []interface{}{
+			comp,
+			shipsForDB,
+		},
 	}
-	jsonForShips := string(data)
 
-	query := fmt.Sprintf("select * from create_fleet_component('%s', '%s')", jsonForComp, jsonForShips)
-	_, err = p.dbase.DBExecute(query)
+	err = p.insertToDB(query)
 
 	// Check for errors.
 	if err != nil {
 		return fmt.Errorf("Could not import fleet component for fleet \"%s\" (err: %s)", comp.FleetID, err)
 	}
 
-	// All is well.
 	return nil
 }
 
@@ -537,7 +511,7 @@ func (p *FleetProxy) fetchPlayer(id string) (Player, error) {
 		[]string{id},
 	}
 
-	players, err := p.playerProxy.Players(filters)
+	players, err := p.pProxy.Players(filters)
 
 	// Check for errors and cases where we retrieve several
 	// players.

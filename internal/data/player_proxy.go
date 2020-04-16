@@ -1,9 +1,7 @@
 package data
 
 import (
-	"encoding/json"
 	"fmt"
-	"oglike_server/internal/locker"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 	"strings"
@@ -12,77 +10,72 @@ import (
 )
 
 // PlayerProxy :
-// Intended as a wrapper to access properties of players
-// and retrieve data from the database. This helps hiding
-// the complexity of how the data is laid out in the `DB`
-// and the precise name of tables from the exterior world.
+// Intended as a wrapper to access properties of players and
+// retrieve data from the database. Internally uses the common
+// proxy defined in this package.
+// The additional information used by this proxy is the fact
+// that the technologies associated to a player should be
+// assigned their costs to research the next level. In order
+// to do that we will fetch the information from the tables
+// in the DB and then use this whenever a request is issued.
+// This has the advantage of only necessiting the query of
+// the DB once: it is made possible by the fact that these
+// info almost never change (and thus it makes sense to cache
+// it).
 //
-// The `dbase` is the database that is wrapped by this
-// object. It is checked for consistency upon building the
-// wrapper.
-//
-// The `log` allows to perform display to the user so as
-// to inform of potential issues and debug information to
-// the outside world.
-//
-// The `lock` allows to lock specific resources when some
-// player data should be retrieved. Indeed the player's
-// data include the technologies researched so far by the
-// player which are potentially being upgraded through a
-// `upgrade action` mechanism. In order to make sure that
-// the data is up-to-date, we have to process these actions
-// each time a player's data needs to be retrieved.
-// This plays well with the mechanism we decided to use
-// to have some kind of lazy processing of actions: the
-// research of the player are not taken into account (i.e.
-// registered in the DB) until it's really needed.
-//
-// The `techCosts` is used when the data for a player is
-// needed in order to compute the costs that are linked
-// to the next level of a technology based on the level
-// reached so far. It is initialized when building the
-// proxy so that the information is readily available
-// when needed.
+// The `techCosts` are fetched from the DB and represent a
+// way to compute the costs in resources for each technology
+// for any level.
 type PlayerProxy struct {
-	dbase     *db.DB
-	log       logger.Logger
-	lock      *locker.ConcurrentLocker
 	techCosts map[string]ConstructionCost
+
+	commonProxy
 }
 
 // NewPlayerProxy :
-// Create a new proxy on the input `dbase` to access the
-// properties of players as registered in the DB.
-// In case the provided DB is `nil` a panic is issued.
+// Create a new proxy allowing to serve the requests
+// related to players.
 //
 // The `dbase` represents the database to use to fetch
 // data related to players.
 //
-// The `log` will be used to notify information so that
-// we can have an idea of the activity of this component.
-// One possible example is for timing the requests.
+// The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
 func NewPlayerProxy(dbase *db.DB, log logger.Logger) PlayerProxy {
-	if dbase == nil {
-		panic(fmt.Errorf("Cannot create players proxy from invalid DB"))
+	proxy := PlayerProxy{
+		make(map[string]ConstructionCost),
+		newCommonProxy(dbase, log),
 	}
 
-	// Fetch the information related to technlogies costs
-	// from the DB to populate the internal map. We will
-	// use the dedicated handler which is used to actually
-	// fetch the data and always return a valid value.
-	techCosts, err := initProgressCostsFromDB(dbase, log, "technology", "technologies_costs_progress", "technologies_costs")
+	err := proxy.init()
 	if err != nil {
 		log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies costs from DB (err: %v)", err))
 	}
 
-	return PlayerProxy{
-		dbase,
-		log,
-		locker.NewConcurrentLocker(log),
-		techCosts,
-	}
+	return proxy
+}
+
+// init :
+// Used to perform the initialziation of the needed
+// DB variables for this proxy. This typically means
+// fetching technologies costs from the DB.
+//
+// Returns `nil` if the technologies could be fetched
+// from the DB successfully.
+func (p PlayerProxy) init() error {
+	var err error
+
+	// Fetch from DB.
+	p.techCosts, err = initProgressCostsFromDB(
+		p.dbase,
+		p.log,
+		"technology",
+		"technologies_costs_progress",
+		"technologies_costs",
+	)
+
+	return err
 }
 
 // Players :
@@ -104,19 +97,20 @@ func NewPlayerProxy(dbase *db.DB, log logger.Logger) PlayerProxy {
 // to be ignored.
 func (p *PlayerProxy) Players(filters []DBFilter) ([]Player, error) {
 	// Create the query and execute it.
-	query := fmt.Sprintf("select id, uni, account, name from players")
-	if len(filters) > 0 {
-		query += " where"
-
-		for id, filter := range filters {
-			if id > 0 {
-				query += " and"
-			}
-			query += fmt.Sprintf(" %s", filter)
-		}
+	query := queryDesc{
+		props: []string{
+			"id",
+			"uni",
+			"account",
+			"name",
+		},
+		table:   "players",
+		filters: filters,
 	}
 
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
@@ -127,8 +121,8 @@ func (p *PlayerProxy) Players(filters []DBFilter) ([]Player, error) {
 	players := make([]Player, 0)
 	var player Player
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&player.ID,
 			&player.UniverseID,
 			&player.AccountID,
@@ -178,24 +172,41 @@ func (p *PlayerProxy) fetchPlayerTechnologies(player *Player) error {
 		return fmt.Errorf("Could not update technology upgrade actions for player \"%s\" (err: %v)", player.ID, err)
 	}
 
-	// Fetch technologies.
-	query := fmt.Sprintf("select technology, level from player_technologies where player='%s'", player.ID)
-	rows, err := p.dbase.DBQuery(query)
-
-	if err != nil {
-		return fmt.Errorf("Could not fetch technologies for player \"%s\" (err: %v)", player.ID, err)
+	// Create the query and execute it.
+	query := queryDesc{
+		props: []string{
+			"technology, level",
+			"level",
+		},
+		table: "player_technologies",
+		filters: []DBFilter{
+			DBFilter{
+				Key:    "player",
+				Values: []string{player.ID},
+			},
+		},
 	}
 
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
+
+	// Check for errors.
+	if err != nil {
+		return fmt.Errorf("Could not query DB to fetch technologies for player \"%s\" (err: %v)", player.ID, err)
+	}
+
+	// Populate the return value.
 	var tech Technology
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&tech.ID,
 			&tech.Level,
 		)
 
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve technology for player \"%s\" (err: %v)", player.ID, err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for universe (err: %v)", err))
 			continue
 		}
 
@@ -234,7 +245,7 @@ func (p *PlayerProxy) fetchPlayerTechnologies(player *Player) error {
 func (p *PlayerProxy) updateTechnologyUpgradeActions(player string) error {
 	query := fmt.Sprintf("SELECT update_technology_upgrade_action('%s')", player)
 
-	return performWithLock(player, p.dbase, query, p.lock)
+	return p.performWithLock(player, query)
 }
 
 // updateTechnologyCosts :
@@ -257,12 +268,10 @@ func (p *PlayerProxy) updateTechnologyCosts(tech *Technology) error {
 	// In case the costs for technology are not populated
 	// try to update it.
 	if len(p.techCosts) == 0 {
-		costs, err := initProgressCostsFromDB(p.dbase, p.log, "technology", "technologies_costs_progress", "technologies_costs")
+		err := p.init()
 		if err != nil {
 			return fmt.Errorf("Unable to generate technologies costs for technology \"%s\", none defined", tech.ID)
 		}
-
-		p.techCosts = costs
 	}
 
 	// Find the technology in the costs table.
@@ -305,25 +314,21 @@ func (p *PlayerProxy) Create(player *Player) error {
 		return fmt.Errorf("Could not create player \"%s\", some properties are invalid", player.Name)
 	}
 
-	// Marshal the input player to pass it to the import script.
-	data, err := json.Marshal(player)
-	if err != nil {
-		return fmt.Errorf("Could not import player \"%s\" for \"%s\" (err: %v)", player.Name, player.AccountID, err)
+	// Create the query and execute it.
+	query := insertReq{
+		script: "create_player",
+		args:   []interface{}{*player},
 	}
-	jsonToSend := string(data)
 
-	query := fmt.Sprintf("select * from create_player('%s')", jsonToSend)
-	_, err = p.dbase.DBExecute(query)
+	err := p.insertToDB(query)
 
-	// Check for errors. We will refine this process a bit to try
-	// to detect cases where the user tries to create a player and
-	// there's already an entry for this account in the same uni.
-	// In this case we should get an error indicating a `23505` as
-	// return code. We will refine the error in this case.
+	// Check for errors.
 	if err != nil {
 		// Check for duplicated key error.
 		msg := fmt.Sprintf("%v", err)
 
+		// TODO: This could maybe factorized in some sort of `personalizeErrorMessage` methods
+		// that would be added to the `db_error_utils`.
 		if strings.Contains(msg, getDuplicatedElementErrorKey()) {
 			return fmt.Errorf("Could not import player \"%s\", account \"%s\" already exists in universe \"%s\" (err: %s)", player.Name, player.AccountID, player.UniverseID, msg)
 		}
@@ -336,6 +341,5 @@ func (p *PlayerProxy) Create(player *Player) error {
 		return fmt.Errorf("Could not import player \"%s\" for \"%s\" (err: %s)", player.Name, player.AccountID, msg)
 	}
 
-	// All is well.
 	return nil
 }

@@ -4,46 +4,30 @@ import (
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
-	"strings"
 )
 
 // DefenseProxy :
 // Intended as a wrapper to access properties of defenses
-// and retrieve data from the database. This helps hiding
-// the complexity of how the data is laid out in the `DB`
-// and the precise name of tables from the exterior world.
-//
-// The `dbase` is the database that is wrapped by this
-// object. It is checked for consistency upon creating the
-// wrapper.
-//
-// The `log` allows to perform display to the user so as
-// to inform of potential issues and debug information to
-// the outside world.
+// and retrieve data from the database. Internally uses the
+// common proxy defined in this package.
 type DefenseProxy struct {
-	dbase *db.DB
-	log   logger.Logger
+	commonProxy
 }
 
 // NewDefenseProxy :
-// Create a new proxy on the input `dbase` to access the
-// properties of defenses as registered in the DB.
-// In case the provided DB is `nil` a panic is issued.
+// Create a new proxy allowing to serve the requests
+// related to defenses.
 //
 // The `dbase` represents the database to use to fetch
 // data related to defenses.
 //
-// The `log` will be used to notify information so that
-// we can have an idea of the activity of this component.
-// One possible example is for timing the requests.
+// The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
 func NewDefenseProxy(dbase *db.DB, log logger.Logger) DefenseProxy {
-	if dbase == nil {
-		panic(fmt.Errorf("Cannot create defenses proxy from invalid DB"))
+	return DefenseProxy{
+		newCommonProxy(dbase, log),
 	}
-
-	return DefenseProxy{dbase, log}
 }
 
 // Defenses :
@@ -65,24 +49,18 @@ func NewDefenseProxy(dbase *db.DB, log logger.Logger) DefenseProxy {
 // be ignored.
 func (p *DefenseProxy) Defenses(filters []DBFilter) ([]DefenseDesc, error) {
 	// Create the query and execute it.
-	props := []string{
-		"id",
-		"name",
+	query := queryDesc{
+		props: []string{
+			"id",
+			"name",
+		},
+		table:   "defenses",
+		filters: filters,
 	}
 
-	query := fmt.Sprintf("select %s from defenses", strings.Join(props, ", "))
-	if len(filters) > 0 {
-		query += " where"
-
-		for id, filter := range filters {
-			if id > 0 {
-				query += " and"
-			}
-			query += fmt.Sprintf(" %s", filter)
-		}
-	}
-
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
@@ -91,12 +69,12 @@ func (p *DefenseProxy) Defenses(filters []DBFilter) ([]DefenseDesc, error) {
 
 	// Populate the return value.
 	defenses := make([]DefenseDesc, 0)
-	var def DefenseDesc
+	var desc DefenseDesc
 
-	for rows.Next() {
-		err = rows.Scan(
-			&def.ID,
-			&def.Name,
+	for res.next() {
+		err = res.scan(
+			&desc.ID,
+			&desc.Name,
 		)
 
 		if err != nil {
@@ -104,22 +82,22 @@ func (p *DefenseProxy) Defenses(filters []DBFilter) ([]DefenseDesc, error) {
 			continue
 		}
 
-		def.Cost, err = fetchElementCost(p.dbase, def.ID, "defense", "defenses_costs")
+		desc.Cost, err = fetchElementCost(p.dbase, desc.ID, "defense", "defenses_costs")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch cost for defense \"%s\" (err: %v)", def.ID, err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch cost for defense \"%s\" (err: %v)", desc.ID, err))
 		}
 
-		def.BuildingsDeps, err = fetchElementDependency(p.dbase, def.ID, "defense", "tech_tree_defenses_vs_buildings")
+		desc.BuildingsDeps, err = fetchElementDependency(p.dbase, desc.ID, "defense", "tech_tree_defenses_vs_buildings")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch building dependencies for defense \"%s\" (err: %v)", def.ID, err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch building dependencies for defense \"%s\" (err: %v)", desc.ID, err))
 		}
 
-		def.TechnologiesDeps, err = fetchElementDependency(p.dbase, def.ID, "defense", "tech_tree_defenses_vs_technologies")
+		desc.TechnologiesDeps, err = fetchElementDependency(p.dbase, desc.ID, "defense", "tech_tree_defenses_vs_technologies")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies dependencies for defense \"%s\" (err: %v)", def.ID, err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies dependencies for defense \"%s\" (err: %v)", desc.ID, err))
 		}
 
-		defenses = append(defenses, def)
+		defenses = append(defenses, desc)
 	}
 
 	return defenses, nil

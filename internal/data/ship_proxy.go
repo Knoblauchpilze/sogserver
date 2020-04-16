@@ -4,46 +4,30 @@ import (
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
-	"strings"
 )
 
 // ShipProxy :
 // Intended as a wrapper to access properties of ships and
-// retrieve data from the database. This helps hiding the
-// complexity of how the data is laid out in the `DB` and
-// the precise name of tables from the exterior world.
-//
-// The `dbase` is the database that is wrapped by this
-// object. It is checked for consistency upon creating the
-// wrapper.
-//
-// The `log` allows to perform display to the user so as
-// to inform of potential issues and debug information to
-// the outside world.
+// retrieve data from the database. Internally uses the
+// common proxy defined in this package.
 type ShipProxy struct {
-	dbase *db.DB
-	log   logger.Logger
+	commonProxy
 }
 
 // NewShipProxy :
-// Create a new proxy on the input `dbase` to access the
-// properties of ships as registered in the DB.
-// In case the provided DB is `nil` a panic is issued.
+// Create a new proxy allowing to serve the requests
+// related to ships.
 //
 // The `dbase` represents the database to use to fetch
 // data related to ships.
 //
-// The `log` will be used to notify information so that
-// we can have an idea of the activity of this component.
-// One possible example is for timing the requests.
+// The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
 func NewShipProxy(dbase *db.DB, log logger.Logger) ShipProxy {
-	if dbase == nil {
-		panic(fmt.Errorf("Cannot create ships proxy from invalid DB"))
+	return ShipProxy{
+		newCommonProxy(dbase, log),
 	}
-
-	return ShipProxy{dbase, log}
 }
 
 // Ships :
@@ -64,24 +48,18 @@ func NewShipProxy(dbase *db.DB, log logger.Logger) ShipProxy {
 // ignored.
 func (p *ShipProxy) Ships(filters []DBFilter) ([]ShipDesc, error) {
 	// Create the query and execute it.
-	props := []string{
-		"id",
-		"name",
+	query := queryDesc{
+		props: []string{
+			"id",
+			"name",
+		},
+		table:   "ships",
+		filters: filters,
 	}
 
-	query := fmt.Sprintf("select %s from ships", strings.Join(props, ", "))
-	if len(filters) > 0 {
-		query += " where"
-
-		for id, filter := range filters {
-			if id > 0 {
-				query += " and"
-			}
-			query += fmt.Sprintf(" %s", filter)
-		}
-	}
-
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
@@ -90,12 +68,12 @@ func (p *ShipProxy) Ships(filters []DBFilter) ([]ShipDesc, error) {
 
 	// Populate the return value.
 	ships := make([]ShipDesc, 0)
-	var shp ShipDesc
+	var desc ShipDesc
 
-	for rows.Next() {
-		err = rows.Scan(
-			&shp.ID,
-			&shp.Name,
+	for res.next() {
+		err = res.scan(
+			&desc.ID,
+			&desc.Name,
 		)
 
 		if err != nil {
@@ -103,32 +81,32 @@ func (p *ShipProxy) Ships(filters []DBFilter) ([]ShipDesc, error) {
 			continue
 		}
 
-		shp.Cost, err = fetchElementCost(p.dbase, shp.ID, "ship", "ships_costs")
+		desc.Cost, err = fetchElementCost(p.dbase, desc.ID, "ship", "ships_costs")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch cost for ship \"%s\" (err: %v)", shp.ID, err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch cost for ship \"%s\" (err: %v)", desc.ID, err))
 		}
 
-		shp.BuildingsDeps, err = fetchElementDependency(p.dbase, shp.ID, "ship", "tech_tree_ships_vs_buildings")
+		desc.BuildingsDeps, err = fetchElementDependency(p.dbase, desc.ID, "ship", "tech_tree_ships_vs_buildings")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch building dependencies for ship \"%s\" (err: %v)", shp.ID, err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch building dependencies for ship \"%s\" (err: %v)", desc.ID, err))
 		}
 
-		shp.TechnologiesDeps, err = fetchElementDependency(p.dbase, shp.ID, "ship", "tech_tree_ships_vs_technologies")
+		desc.TechnologiesDeps, err = fetchElementDependency(p.dbase, desc.ID, "ship", "tech_tree_ships_vs_technologies")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies dependencies for ship \"%s\" (err: %v)", shp.ID, err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies dependencies for ship \"%s\" (err: %v)", desc.ID, err))
 		}
 
-		shp.RFVSShips, err = p.fetchRapidFires(shp.ID, "ships_rapid_fire")
+		desc.RFVSShips, err = p.fetchRapidFires(desc.ID, "ships_rapid_fire")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch rapid fires for ship \"%s\" against other ships (err: %v)", shp.ID, err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch rapid fires for ship \"%s\" against other ships (err: %v)", desc.ID, err))
 		}
 
-		shp.RFVSDefenses, err = p.fetchRapidFires(shp.ID, "ships_rapid_fire_defenses")
+		desc.RFVSDefenses, err = p.fetchRapidFires(desc.ID, "ships_rapid_fire_defenses")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch rapid fires for ship \"%s\" against defenses (err: %v)", shp.ID, err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch rapid fires for ship \"%s\" against defenses (err: %v)", desc.ID, err))
 		}
 
-		ships = append(ships, shp)
+		ships = append(ships, desc)
 	}
 
 	return ships, nil
@@ -155,16 +133,24 @@ func (p *ShipProxy) fetchRapidFires(ship string, table string) ([]RapidFire, err
 		return []RapidFire{}, fmt.Errorf("Cannot fetch rapid fire for invalid ships")
 	}
 
-	// Build and execute the query.
-	props := []string{
-		"target",
-		"rapid_fire",
+	// Create the query and execute it.
+	query := queryDesc{
+		props: []string{
+			"target",
+			"rapid_fire",
+		},
+		table: table,
+		filters: []DBFilter{
+			DBFilter{
+				"ship",
+				[]string{ship},
+			},
+		},
 	}
 
-	query := fmt.Sprintf("select %s from %s where ship='%s'", strings.Join(props, ", "), table, ship)
-
-	// Execute the query.
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	if err != nil {
 		return []RapidFire{}, fmt.Errorf("Could not retrieve rapid fires for \"%s\" (err: %v)", ship, err)
@@ -176,8 +162,8 @@ func (p *ShipProxy) fetchRapidFires(ship string, table string) ([]RapidFire, err
 	rfs := make([]RapidFire, 0)
 	var rf RapidFire
 
-	for rows.Next() {
-		err = rows.Scan(
+	for res.next() {
+		err = res.scan(
 			&rf.Receiver,
 			&rf.RF,
 		)

@@ -4,45 +4,30 @@ import (
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
-	"strings"
 )
 
 // TechnologyProxy :
 // Intended as a wrapper to access properties of technologies
-// and retrieve data from the database. This helps hiding the
-// complexity of how the data is laid out in the `DB` and the
-// precise name of tables from the exterior world.
-//
-// The `dbase` is the database that is wrapped by this object.
-// It is checked for consistency upon creating the wrapper.
-//
-// The `log` allows to perform display to the user so as
-// to inform of potential issues and debug information to
-// the outside world.
+// and retrieve data from the database. Internally uses the
+// common proxy defined in this package.
 type TechnologyProxy struct {
-	dbase *db.DB
-	log   logger.Logger
+	commonProxy
 }
 
 // NewTechnologyProxy :
-// Create a new proxy on the input `dbase` to access the
-// properties of technologies as registered in the DB.
-// In case the provided DB is `nil` a panic is issued.
+// Create a new proxy allowing to serve the requests
+// related to technologies.
 //
 // The `dbase` represents the database to use to fetch
 // data related to technologies.
 //
-// The `log` will be used to notify information so that
-// we can have an idea of the activity of this component.
-// One possible example is for timing the requests.
+// The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
 func NewTechnologyProxy(dbase *db.DB, log logger.Logger) TechnologyProxy {
-	if dbase == nil {
-		panic(fmt.Errorf("Cannot create technologies proxy from invalid DB"))
+	return TechnologyProxy{
+		newCommonProxy(dbase, log),
 	}
-
-	return TechnologyProxy{dbase, log}
 }
 
 // Technologies :
@@ -64,24 +49,18 @@ func NewTechnologyProxy(dbase *db.DB, log logger.Logger) TechnologyProxy {
 // be ignored.
 func (p *TechnologyProxy) Technologies(filters []DBFilter) ([]TechnologyDesc, error) {
 	// Create the query and execute it.
-	props := []string{
-		"id",
-		"name",
+	query := queryDesc{
+		props: []string{
+			"id",
+			"name",
+		},
+		table:   "technologies",
+		filters: filters,
 	}
 
-	query := fmt.Sprintf("select %s from technologies", strings.Join(props, ", "))
-	if len(filters) > 0 {
-		query += " where"
-
-		for id, filter := range filters {
-			if id > 0 {
-				query += " and"
-			}
-			query += fmt.Sprintf(" %s", filter)
-		}
-	}
-
-	rows, err := p.dbase.DBQuery(query)
+	// Create the query and execute it.
+	res, err := p.fetchDB(query)
+	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
@@ -90,12 +69,12 @@ func (p *TechnologyProxy) Technologies(filters []DBFilter) ([]TechnologyDesc, er
 
 	// Populate the return value.
 	technologies := make([]TechnologyDesc, 0)
-	var tech TechnologyDesc
+	var desc TechnologyDesc
 
-	for rows.Next() {
-		err = rows.Scan(
-			&tech.ID,
-			&tech.Name,
+	for res.next() {
+		err = res.scan(
+			&desc.ID,
+			&desc.Name,
 		)
 
 		if err != nil {
@@ -103,17 +82,17 @@ func (p *TechnologyProxy) Technologies(filters []DBFilter) ([]TechnologyDesc, er
 			continue
 		}
 
-		tech.BuildingsDeps, err = fetchElementDependency(p.dbase, tech.ID, "technology", "tech_tree_technologies_vs_buildings")
+		desc.BuildingsDeps, err = fetchElementDependency(p.dbase, desc.ID, "technology", "tech_tree_technologies_vs_buildings")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch building dependencies for technology \"%s\" (err: %v)", tech.ID, err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch building dependencies for technology \"%s\" (err: %v)", desc.ID, err))
 		}
 
-		tech.TechnologiesDeps, err = fetchElementDependency(p.dbase, tech.ID, "technology", "tech_tree_technologies_dependencies")
+		desc.TechnologiesDeps, err = fetchElementDependency(p.dbase, desc.ID, "technology", "tech_tree_technologies_dependencies")
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies dependencies for technology \"%s\" (err: %v)", tech.ID, err))
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies dependencies for technology \"%s\" (err: %v)", desc.ID, err))
 		}
 
-		technologies = append(technologies, tech)
+		technologies = append(technologies, desc)
 	}
 
 	return technologies, nil

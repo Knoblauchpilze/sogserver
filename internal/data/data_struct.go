@@ -753,41 +753,6 @@ type Fleet struct {
 	ArrivalTime time.Time `json:"arrival_time"`
 }
 
-// BuildingUpgradeAction :
-// Defines the upgrade action associated to a building. It
-// describes the building to which it is associated along
-// with the planet where the building is built.
-// Indication about the duration of the action and a level
-// that will be reached by the building is provided.
-//
-// The `ID` defines the identifier of this building upgrade
-// action as registered in the DB. It allows to uniquely
-// identify it if needed (for example to fetch it later).
-//
-// The `PlanetID` defines an identifier of the planet where
-// the building is built.
-//
-// The `BuildingID` defines the identifier of the building
-// to which this action is related.
-//
-// The `CurrentLevel` defines the current level reached
-// for this building. Should always be smaller than the
-// `DesiredLevel`.
-//
-// The `DesiredLevel` defines the desired level for the
-// building.
-//
-// The `CompletionTime` defines the time at which this
-// action will be completed.
-type BuildingUpgradeAction struct {
-	ID             string    `json:"id"`
-	PlanetID       string    `json:"planet"`
-	BuildingID     string    `json:"building"`
-	CurrentLevel   int       `json:"current_level"`
-	DesiredLevel   int       `json:"desired_level"`
-	CompletionTime time.Time `json:"completion_time"`
-}
-
 // ProductionEffect :
 // Defines a production effect that a building upgrade
 // action can have on the production of a planet. It is
@@ -830,6 +795,41 @@ type StorageEffect struct {
 	Action   string  `json:"action"`
 	Resource string  `json:"res"`
 	Effect   float32 `json:"new_storage_capacity"`
+}
+
+// BuildingUpgradeAction :
+// Defines the upgrade action associated to a building. It
+// describes the building to which it is associated along
+// with the planet where the building is built.
+// Indication about the duration of the action and a level
+// that will be reached by the building is provided.
+//
+// The `ID` defines the identifier of this building upgrade
+// action as registered in the DB. It allows to uniquely
+// identify it if needed (for example to fetch it later).
+//
+// The `PlanetID` defines an identifier of the planet where
+// the building is built.
+//
+// The `BuildingID` defines the identifier of the building
+// to which this action is related.
+//
+// The `CurrentLevel` defines the current level reached
+// for this building. Should always be smaller than the
+// `DesiredLevel`.
+//
+// The `DesiredLevel` defines the desired level for the
+// building.
+//
+// The `CompletionTime` defines the time at which this
+// action will be completed.
+type BuildingUpgradeAction struct {
+	ID             string    `json:"id"`
+	PlanetID       string    `json:"planet"`
+	BuildingID     string    `json:"building"`
+	CurrentLevel   int       `json:"current_level"`
+	DesiredLevel   int       `json:"desired_level"`
+	CompletionTime time.Time `json:"completion_time"`
 }
 
 // TechnologyUpgradeAction :

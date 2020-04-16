@@ -28,6 +28,33 @@ type validationTools struct {
 // that we can compare it with the resources existing on the
 // planet and also providing some way to verify that needed
 // buildings/technologies criteria are also met.
+//
+// TODO: This is the structure of each action:
+// Common
+// `json:"id"`
+// `json:"planet"`
+// `json:"element"`
+// Building
+// `json:"current_level"`
+// `json:"desired_level"`
+// `json:"completion_time"`
+// Tech
+// `json:"current_level"`
+// `json:"desired_level"`
+// `json:"completion_time"`
+// Ship
+// `json:"amount"`
+// `json:"remaining"`
+// `json:"completion_time"`
+// Def
+// `json:"amount"`
+// `json:"remaining"`
+// `json:"completion_time"`
+// We could maybe follow a similar process to the unmarshalling
+// of props in nyce. But in the end what matters is to call the
+// right method on the `ActionProxy` so maybe we could unmarshal
+// into two kind (Progress and Fixed) and then only calling the
+// right method will suffice (like `CreateBuildingAction`, etc.).
 type UpgradeAction interface {
 	Validate(tools validationTools) (bool, error)
 }

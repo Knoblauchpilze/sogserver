@@ -14,6 +14,8 @@ func (s *server) routes() {
 	s.route("GET", "/universes", s.listUniverses())
 	s.route("GET", "/accounts", s.listAccounts())
 	s.route("GET", "/players", s.listPlayers())
+	// TODO: Maybe change that because a technology should be launched from
+	// a planet anyway.
 	s.route("GET", "/players/[a-zA-Z0-9-]+/actions/technologies", s.listPlayerTechnologies())
 	s.route("GET", "/buildings", s.listBuildings())
 	s.route("GET", "/technologies", s.listTechnologies())

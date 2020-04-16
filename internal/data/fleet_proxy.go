@@ -359,6 +359,8 @@ func (p *FleetProxy) Create(fleet *Fleet) error {
 // along with any errors.
 func (p *FleetProxy) fetchUniverse(id string) (Universe, error) {
 	// Create the db filters from the input identifier.
+	// TODO: Maybe regroup these methods (this one and `fetchPlanet`, etc.)
+	// in the `commonProxy`.
 	filters := make([]DBFilter, 1)
 
 	filters[0] = DBFilter{

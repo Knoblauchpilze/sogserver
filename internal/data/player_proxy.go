@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
-	"strings"
 
 	"github.com/google/uuid"
 )
@@ -323,21 +322,18 @@ func (p *PlayerProxy) Create(player *Player) error {
 
 	// Check for errors.
 	if err != nil {
-		// Check for duplicated key error.
+		// Analyze the error code through the dedicated handler.
 		msg := fmt.Sprintf("%v", err)
 
-		// TODO: This could maybe factorized in some sort of `personalizeErrorMessage` methods
-		// that would be added to the `db_error_utils`.
-		if strings.Contains(msg, getDuplicatedElementErrorKey()) {
-			return fmt.Errorf("Could not import player \"%s\", account \"%s\" already exists in universe \"%s\" (err: %s)", player.Name, player.AccountID, player.UniverseID, msg)
+		code := db.GetSQLErrorCode(msg)
+		switch code {
+		case db.DuplicatedElement:
+			return fmt.Errorf("Could not import player \"%s\", account \"%s\" already exists in universe \"%s\"", player.Name, player.AccountID, player.UniverseID)
+		case db.ForeignKeyViolation:
+			return fmt.Errorf("Could not import player \"%s\", account \"%s\" or universe \"%s\" does not exist", player.Name, player.AccountID, player.UniverseID)
+		default:
+			return fmt.Errorf("Could not import player \"%s\" for \"%s\" (err: %s)", player.Name, player.AccountID, msg)
 		}
-
-		// Check for foreign key violation error.
-		if strings.Contains(msg, getForeignKeyViolationErrorKey()) {
-			return fmt.Errorf("Could not import player \"%s\", account \"%s\" or universe \"%s\" does not exist (err: %s)", player.Name, player.AccountID, player.UniverseID, msg)
-		}
-
-		return fmt.Errorf("Could not import player \"%s\" for \"%s\" (err: %s)", player.Name, player.AccountID, msg)
 	}
 
 	return nil

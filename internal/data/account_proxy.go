@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
-	"strings"
 
 	"github.com/google/uuid"
 )
@@ -127,19 +126,16 @@ func (p *AccountProxy) Create(acc *Account) error {
 
 	// Check for errors.
 	if err != nil {
-		// We will refine this process a bit to try to detect
-		// cases where the user tries to insert an account
-		// with an already existing e-mail.
-		// In this case we should get an error indicating a
-		// `23505` as return code. We will refine the error
-		// in this case.
+		//  Analyze the error through the dedicated handler.
 		msg := fmt.Sprintf("%v", err)
 
-		if strings.Contains(msg, getDuplicatedElementErrorKey()) {
+		code := db.GetSQLErrorCode(msg)
+		switch code {
+		case db.DuplicatedElement:
 			return fmt.Errorf("Could not import account \"%s\", mail \"%s\" already exists (err: %s)", acc.Name, acc.Mail, msg)
+		default:
+			return fmt.Errorf("Could not import account \"%s\" (err: %s)", acc.Name, msg)
 		}
-
-		return fmt.Errorf("Could not import account \"%s\" (err: %s)", acc.Name, msg)
 	}
 
 	return nil

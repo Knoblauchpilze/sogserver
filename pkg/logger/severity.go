@@ -2,11 +2,12 @@ package logger
 
 import "strings"
 
-// Severity:
+// Severity :
 // Describes the various available log severities that can be
 // used in conjunction with the logger interface.
 type Severity int
 
+// Define the possible severity level for a log message.
 const (
 	Verbose Severity = iota
 	Debug

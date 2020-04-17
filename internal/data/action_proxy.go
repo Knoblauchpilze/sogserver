@@ -422,6 +422,16 @@ func (p *ActionProxy) populateTechTree(query queryDesc, techTree *map[string][]T
 // any errors. Note that in case the error is not `nil` the
 // returned list is to be ignored.
 func (p *ActionProxy) Buildings(filters []DBFilter) ([]ProgressAction, error) {
+	// Update the upgrade actions for the planet described by
+	// the input filters: this will prune already completed
+	// upgrade actions and also update the remaining ones. It
+	// is needed to make sure that we only retrieve actions
+	// still valid at the moment of the request.
+	err := p.updateActionsFromFilters(filters)
+	if err != nil {
+		return []ProgressAction{}, fmt.Errorf("Could not update upgrade action before retrieving building ones (err: %v)", err)
+	}
+
 	// Create the query and execute it.
 	query := queryDesc{
 		props: []string{
@@ -441,7 +451,7 @@ func (p *ActionProxy) Buildings(filters []DBFilter) ([]ProgressAction, error) {
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch buildings upgrade actions (err: %v)", err)
+		return []ProgressAction{}, fmt.Errorf("Could not query DB to fetch buildings upgrade actions (err: %v)", err)
 	}
 
 	// Populate the return value.
@@ -485,6 +495,13 @@ func (p *ActionProxy) Buildings(filters []DBFilter) ([]ProgressAction, error) {
 // the input filters. This list should be ignored if the
 // error is not `nil`.
 func (p *ActionProxy) Technologies(filters []DBFilter) ([]ProgressAction, error) {
+	// Similarly to the `Buildings`, we want to update the upgrade
+	// actions so that only valid ones are fetched by this method.
+	err := p.updateActionsFromFilters(filters)
+	if err != nil {
+		return []ProgressAction{}, fmt.Errorf("Could not update upgrade action before retrieving technology ones (err: %v)", err)
+	}
+
 	// Create the query and execute it.
 	query := queryDesc{
 		props: []string{
@@ -504,7 +521,7 @@ func (p *ActionProxy) Technologies(filters []DBFilter) ([]ProgressAction, error)
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch technologies upgrade actions (err: %v)", err)
+		return []ProgressAction{}, fmt.Errorf("Could not query DB to fetch technologies upgrade actions (err: %v)", err)
 	}
 
 	// Populate the return value.
@@ -547,6 +564,13 @@ func (p *ActionProxy) Technologies(filters []DBFilter) ([]ProgressAction, error)
 // filters. This list should be ignored if the error is not
 // `nil`.
 func (p *ActionProxy) Ships(filters []DBFilter) ([]FixedAction, error) {
+	// Similarly to the `Buildings`, we want to update the upgrade
+	// actions so that only valid ones are fetched by this method.
+	err := p.updateActionsFromFilters(filters)
+	if err != nil {
+		return []FixedAction{}, fmt.Errorf("Could not update upgrade action before retrieving ship ones (err: %v)", err)
+	}
+
 	// Create the query and execute it.
 	query := queryDesc{
 		props: []string{
@@ -566,7 +590,7 @@ func (p *ActionProxy) Ships(filters []DBFilter) ([]FixedAction, error) {
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch ships construction actions (err: %v)", err)
+		return []FixedAction{}, fmt.Errorf("Could not query DB to fetch ships construction actions (err: %v)", err)
 	}
 
 	// Populate the return value.
@@ -609,6 +633,13 @@ func (p *ActionProxy) Ships(filters []DBFilter) ([]FixedAction, error) {
 // input filters. This list should be ignored if the error
 // is not `nil`.
 func (p *ActionProxy) Defenses(filters []DBFilter) ([]FixedAction, error) {
+	// Similarly to the `Buildings`, we want to update the upgrade
+	// actions so that only valid ones are fetched by this method.
+	err := p.updateActionsFromFilters(filters)
+	if err != nil {
+		return []FixedAction{}, fmt.Errorf("Could not update upgrade action before retrieving defense ones (err: %v)", err)
+	}
+
 	// Create the query and execute it.
 	query := queryDesc{
 		props: []string{
@@ -628,7 +659,7 @@ func (p *ActionProxy) Defenses(filters []DBFilter) ([]FixedAction, error) {
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch defenses construction actions (err: %v)", err)
+		return []FixedAction{}, fmt.Errorf("Could not query DB to fetch defenses construction actions (err: %v)", err)
 	}
 
 	// Populate the return value.
@@ -654,6 +685,57 @@ func (p *ActionProxy) Defenses(filters []DBFilter) ([]FixedAction, error) {
 	}
 
 	return actions, nil
+}
+
+// updateActionsFromFilters :
+// Used to analyze the filters provided as input to find a
+// planet for which actions should be upgraded. In case a
+// planet's identifier cannot be determined from the input
+// filters an error is returned.
+//
+// The `filters` defines the list of elements which should
+// be scanned in order to find a planet's identifier.
+//
+// Return any error.
+func (p *ActionProxy) updateActionsFromFilters(filters []DBFilter) error {
+	// Traverse the filters to find one named `planet`.
+	planetID := ""
+	found := false
+
+	for id := 0; id < len(filters) && !found; id++ {
+		if filters[id].Key == "planet" {
+			// Detect invalid filters.
+			if len(filters[id].Values) != 1 {
+				return fmt.Errorf("Cannot determine unique planet identifier from %d filters", len(filters[id].Values))
+			}
+
+			found = true
+			planetID = filters[id].Values[0]
+		}
+	}
+
+	if !found || len(planetID) == 0 {
+		return fmt.Errorf("Could not find planet identifier from %d input filter(s)", len(filters))
+	}
+
+	// Fetch the planet (which will update the construction
+	// actions) so that we can update the technologies that
+	// may have an upgrade action running for the player's
+	// owning the planet. The update of the technologies is
+	// also automatically done when fetching the player so
+	// it's not needed to actually do it (we just have to
+	// fetch the player).
+	pla, err := p.fetchPlanet(planetID)
+	if err != nil {
+		return fmt.Errorf("Could not find planet from identifier \"%s\"", planetID)
+	}
+
+	_, err = p.fetchPlayer(pla.PlayerID)
+	if err != nil {
+		return fmt.Errorf("Could not find player \"%s\" from planet \"%s\"", pla.PlayerID, planetID)
+	}
+
+	return nil
 }
 
 // createAction :
@@ -759,6 +841,9 @@ func (p *ActionProxy) verifyAction(a UpgradeAction) error {
 	if !valid {
 		return fmt.Errorf("Action cannot be performed on planet \"%s\"", a.GetPlanet())
 	}
+
+	// The action is valid, compute the completion time
+	// from the data existing on the planet.
 
 	return nil
 }

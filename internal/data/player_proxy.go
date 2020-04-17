@@ -113,7 +113,7 @@ func (p *PlayerProxy) Players(filters []DBFilter) ([]Player, error) {
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch players (err: %v)", err)
+		return []Player{}, fmt.Errorf("Could not query DB to fetch players (err: %v)", err)
 	}
 
 	// Populate the return value.

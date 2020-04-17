@@ -213,7 +213,7 @@ func (p *PlanetProxy) Planets(filters []DBFilter) ([]Planet, error) {
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch planets (err: %v)", err)
+		return []Planet{}, fmt.Errorf("Could not query DB to fetch planets (err: %v)", err)
 	}
 
 	// Populate the return value.
@@ -865,7 +865,7 @@ func (p *PlanetProxy) generateUsedCoords(uni Universe) (map[int]Coordinate, erro
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not fetch used coordinates for universe \"%s\" (err: %v)", uni.ID, err)
+		return map[int]Coordinate{}, fmt.Errorf("Could not fetch used coordinates for universe \"%s\" (err: %v)", uni.ID, err)
 	}
 
 	// Traverse all the coordinates and populate the list.

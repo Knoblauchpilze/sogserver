@@ -67,7 +67,7 @@ func (p *AccountProxy) Accounts(filters []DBFilter) ([]Account, error) {
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch accounts (err: %v)", err)
+		return []Account{}, fmt.Errorf("Could not query DB to fetch accounts (err: %v)", err)
 	}
 
 	// Populate the return value.

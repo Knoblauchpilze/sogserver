@@ -75,7 +75,7 @@ func (p *UniverseProxy) Universes(filters []DBFilter) ([]Universe, error) {
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch universes (err: %v)", err)
+		return []Universe{}, fmt.Errorf("Could not query DB to fetch universes (err: %v)", err)
 	}
 
 	// Populate the return value.

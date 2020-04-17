@@ -113,7 +113,7 @@ func (p *FleetProxy) Fleets(filters []DBFilter) ([]Fleet, error) {
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch fleets (err: %v)", err)
+		return []Fleet{}, fmt.Errorf("Could not query DB to fetch fleets (err: %v)", err)
 	}
 
 	// Populate the return value.
@@ -160,14 +160,14 @@ func (p *FleetProxy) FleetComponents(filters []DBFilter) ([]FleetComponent, erro
 	// Fetch the fleet from the filters.
 	fleets, err := p.Fleets(filters)
 	if err != nil {
-		return nil, fmt.Errorf("Could not fetch components for fleet (err: %v)", err)
+		return []FleetComponent{}, fmt.Errorf("Could not fetch components for fleet (err: %v)", err)
 	}
 
 	// Check that we only found a single fleet matching the
 	// input filters: this will be the fleet for which the
 	// components should be retrieved.
 	if len(fleets) != 1 {
-		return nil, fmt.Errorf("Found %d fleet(s) matching filters, cannot fetch components", len(fleets))
+		return []FleetComponent{}, fmt.Errorf("Found %d fleet(s) matching filters, cannot fetch components", len(fleets))
 	}
 
 	fleet := fleets[0]
@@ -197,7 +197,7 @@ func (p *FleetProxy) FleetComponents(filters []DBFilter) ([]FleetComponent, erro
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch fleet \"%s\" details (err: %v)", fleet.ID, err)
+		return []FleetComponent{}, fmt.Errorf("Could not query DB to fetch fleet \"%s\" details (err: %v)", fleet.ID, err)
 	}
 
 	// Populate the return value.

@@ -63,7 +63,7 @@ func (p *TechnologyProxy) Technologies(filters []DBFilter) ([]TechnologyDesc, er
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch technologies (err: %v)", err)
+		return []TechnologyDesc{}, fmt.Errorf("Could not query DB to fetch technologies (err: %v)", err)
 	}
 
 	// Populate the return value.

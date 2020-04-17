@@ -63,7 +63,7 @@ func (p *DefenseProxy) Defenses(filters []DBFilter) ([]DefenseDesc, error) {
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch defenses (err: %v)", err)
+		return []DefenseDesc{}, fmt.Errorf("Could not query DB to fetch defenses (err: %v)", err)
 	}
 
 	// Populate the return value.

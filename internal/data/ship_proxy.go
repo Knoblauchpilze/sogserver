@@ -62,7 +62,7 @@ func (p *ShipProxy) Ships(filters []DBFilter) ([]ShipDesc, error) {
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch ships (err: %v)", err)
+		return []ShipDesc{}, fmt.Errorf("Could not query DB to fetch ships (err: %v)", err)
 	}
 
 	// Populate the return value.

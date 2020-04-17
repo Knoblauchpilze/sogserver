@@ -63,7 +63,7 @@ func (p *BuildingProxy) Buildings(filters []DBFilter) ([]BuildingDesc, error) {
 
 	// Check for errors.
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB to fetch buildings (err: %v)", err)
+		return []BuildingDesc{}, fmt.Errorf("Could not query DB to fetch buildings (err: %v)", err)
 	}
 
 	// Populate the return value.

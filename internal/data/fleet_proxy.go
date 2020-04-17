@@ -42,9 +42,8 @@ type shipInFleetForDB struct {
 // The `pProxy` represents a reference to the proxy allowing
 // to access to players.
 type FleetProxy struct {
-	uProxy UniverseProxy
-	pProxy PlayerProxy
-
+	universesDependentProxy
+	playersDependentProxy
 	commonProxy
 }
 
@@ -70,9 +69,8 @@ type FleetProxy struct {
 // Returns the created proxy.
 func NewFleetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy, players PlayerProxy) FleetProxy {
 	return FleetProxy{
-		unis,
-		players,
-
+		newUniversesDependentProxy(unis),
+		newPlayersDependentProxy(players),
 		newCommonProxy(dbase, log),
 	}
 }
@@ -343,42 +341,6 @@ func (p *FleetProxy) Create(fleet *Fleet) error {
 	return nil
 }
 
-// fetchUniverse :
-// Used to fetch the universe from the DB. The input identifier
-// is meant to represent a universe registered in the DB. We
-// will make sure that it can be fetched and that a single item
-// is matching in the DB.
-// In case no universe can be found an error is returned.
-//
-// The `id` defines the index of the universe to fetch.
-//
-// Returns the universe corresponding to the input identifier
-// along with any errors.
-func (p *FleetProxy) fetchUniverse(id string) (Universe, error) {
-	// Create the db filters from the input identifier.
-	// TODO: Maybe regroup these methods (this one and `fetchPlanet`, etc.)
-	// in the `commonProxy`.
-	filters := make([]DBFilter, 1)
-
-	filters[0] = DBFilter{
-		"id",
-		[]string{id},
-	}
-
-	unis, err := p.uProxy.Universes(filters)
-
-	// Check for errors and cases where we retrieve several
-	// universes.
-	if err != nil {
-		return Universe{}, err
-	}
-	if len(unis) != 1 {
-		return Universe{}, fmt.Errorf("Retrieved %d universes for id \"%s\" (expected 1)", len(unis), id)
-	}
-
-	return unis[0], nil
-}
-
 // CreateComponent :
 // Used to perform the creation of a new component for a fleet.
 // The component should describe the player willing to join the
@@ -490,36 +452,4 @@ func (p *FleetProxy) fetchFleet(id string) (Fleet, error) {
 	}
 
 	return fleets[0], nil
-}
-
-// fetchPlayer :
-// Used to fetch the player described by the input identifier in
-// the internal DB. It is mostly used to check consistency when
-// performing the creation of a new fleet component for a fleet.
-//
-// The `id` defines the identifier of the player to fetch.
-//
-// Returns the player corresponding to the identifier along with
-// any error.
-func (p *FleetProxy) fetchPlayer(id string) (Player, error) {
-	// Create the db filters from the input identifier.
-	filters := make([]DBFilter, 1)
-
-	filters[0] = DBFilter{
-		"id",
-		[]string{id},
-	}
-
-	players, err := p.pProxy.Players(filters)
-
-	// Check for errors and cases where we retrieve several
-	// players.
-	if err != nil {
-		return Player{}, err
-	}
-	if len(players) != 1 {
-		return Player{}, fmt.Errorf("Retrieved %d players for id \"%s\" (expected 1)", len(players), id)
-	}
-
-	return players[0], nil
 }

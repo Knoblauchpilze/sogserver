@@ -18,10 +18,6 @@ import (
 // parent universe so that we can make sure that the
 // info to create the planet is consistent.
 //
-// The `uProxy` defines a way to access to information
-// about universes. It reuses the existing proxy to not
-// duplicate features.
-//
 // The `rDescs` defines some information fetched from
 // the main DB about resources and their identifier.
 // It is used to create relevant info for planets (so
@@ -36,11 +32,11 @@ import (
 // of resources produced by buildings on a planet so
 // that we can refine the info provided on a planet.
 type PlanetProxy struct {
-	uProxy UniverseProxy
 	rDescs map[string]ResourceDesc
 	bCosts map[string]ConstructionCost
 	pRules map[string][]ProductionRule
 
+	universesDependentProxy
 	commonProxy
 }
 
@@ -89,11 +85,11 @@ func getPlanetTemperatureAmplitude() int {
 // Returns the created proxy.
 func NewPlanetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) PlanetProxy {
 	proxy := PlanetProxy{
-		unis,
 		make(map[string]ResourceDesc),
 		make(map[string]ConstructionCost),
 		make(map[string][]ProductionRule),
 
+		newUniversesDependentProxy(unis),
 		newCommonProxy(dbase, log),
 	}
 
@@ -166,7 +162,7 @@ func (p *PlanetProxy) init() error {
 //
 // Returns the description of the query built from
 // the input properties.
-func (p PlanetProxy) buildQuery(props []string, table string, filterName string, filter string) queryDesc {
+func (p *PlanetProxy) buildQuery(props []string, table string, filterName string, filter string) queryDesc {
 	return queryDesc{
 		props: props,
 		table: table,
@@ -315,7 +311,7 @@ func (p *PlanetProxy) fetchPlanetData(planet *Planet) error {
 // should be updated.
 //
 // Returns any error that occurred during the update.
-func (p PlanetProxy) updateConstructionActions(planetID string) error {
+func (p *PlanetProxy) updateConstructionActions(planetID string) error {
 	// Update resources.
 	query := fmt.Sprintf("SELECT update_resources_for_planet('%s')", planetID)
 	err := p.performWithLock(planetID, query)
@@ -827,38 +823,6 @@ func (p *PlanetProxy) CreateFor(player Player, coord *Coordinate) error {
 	}
 
 	return nil
-}
-
-// fetchUniverse :
-// Used to fetch the universe from the DB with an identifier
-// matching the input one. If no such universe can be fetched
-// an error is returned.
-//
-// The `id` defines the index of the universe to fetch.
-//
-// Returns the universe corresponding to the input identifier
-// along with any errors.
-func (p *PlanetProxy) fetchUniverse(id string) (Universe, error) {
-	// Create the db filters from the input identifier.
-	filters := make([]DBFilter, 1)
-
-	filters[0] = DBFilter{
-		"id",
-		[]string{id},
-	}
-
-	unis, err := p.uProxy.Universes(filters)
-
-	// Check for errors and cases where we retrieve several
-	// universes.
-	if err != nil {
-		return Universe{}, err
-	}
-	if len(unis) > 1 {
-		err = fmt.Errorf("Retrieved %d universes for id \"%s\"", len(unis), id)
-	}
-
-	return unis[0], err
 }
 
 // generateUsedCoords :

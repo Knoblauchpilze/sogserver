@@ -49,14 +49,14 @@ import (
 // the level of the dependency and the identifier of
 // the element.
 type ActionProxy struct {
-	pProxy   PlanetProxy
-	plProxy  PlayerProxy
 	pRules   map[string][]ProductionRule
 	sRules   map[string][]StorageRule
 	pCosts   map[string]ConstructionCost
 	fCosts   map[string]FixedCost
 	techTree map[string][]TechDependency
 
+	planetsDependentProxy
+	playersDependentProxy
 	commonProxy
 }
 
@@ -78,14 +78,14 @@ type ActionProxy struct {
 // Returns the created proxy.
 func NewActionProxy(dbase *db.DB, log logger.Logger, planets PlanetProxy, players PlayerProxy) ActionProxy {
 	proxy := ActionProxy{
-		planets,
-		players,
 		make(map[string][]ProductionRule),
 		make(map[string][]StorageRule),
 		make(map[string]ConstructionCost),
 		make(map[string]FixedCost),
 		make(map[string][]TechDependency),
 
+		newPlanetsDependentProxy(planets),
+		newPlayersDependentProxy(players),
 		newCommonProxy(dbase, log),
 	}
 
@@ -217,7 +217,7 @@ func (p *ActionProxy) init() error {
 //
 // Returns a map representing all the data of the tech tree
 // of the game along with any error.
-func (p ActionProxy) initTechTree() (map[string][]TechDependency, error) {
+func (p *ActionProxy) initTechTree() (map[string][]TechDependency, error) {
 	// We need to scan all the dependencies tables so namely:
 	//   - tech_tree_buildings_dependencies
 	//   - tech_tree_technologies_dependencies
@@ -340,7 +340,7 @@ func (p ActionProxy) initTechTree() (map[string][]TechDependency, error) {
 //
 // Returns any error (mainly in case the DB has not been
 // queried properly).
-func (p ActionProxy) populateTechTree(query queryDesc, techTree *map[string][]TechDependency, sanity *map[string]map[string]int) error {
+func (p *ActionProxy) populateTechTree(query queryDesc, techTree *map[string][]TechDependency, sanity *map[string]map[string]int) error {
 	// Execute the query.
 	res, err := p.fetchDB(query)
 	defer res.Close()
@@ -925,70 +925,6 @@ func (p *ActionProxy) fetchBuildingStorageEffects(action *ProgressAction) ([]Sto
 	}
 
 	return storageEffects, nil
-}
-
-// fetchPlanet :
-// Used to fetch the planet described by the input identifier
-// in the internal DB. It is used to compute the production
-// effects in the case of a building upgrade action.
-//
-// The `id` defines the identifier of the planet to fetch.
-//
-// Returns the planet corresponding to the identifier along
-// with any error.
-func (p *ActionProxy) fetchPlanet(id string) (Planet, error) {
-	// Create the db filters from the input identifier.
-	filters := make([]DBFilter, 1)
-
-	filters[0] = DBFilter{
-		"p.id",
-		[]string{id},
-	}
-
-	planets, err := p.pProxy.Planets(filters)
-
-	// Check for errors and cases where we retrieve several
-	// players.
-	if err != nil {
-		return Planet{}, err
-	}
-	if len(planets) != 1 {
-		return Planet{}, fmt.Errorf("Retrieved %d planets for id \"%s\" (expected 1)", len(planets), id)
-	}
-
-	return planets[0], nil
-}
-
-// fetchPlayer :
-// Used to fetch the player described by the input identifier in
-// the internal DB. It is mostly used to check consistency when
-// performing the creation of a new action on a planet.
-//
-// The `id` defines the identifier of the player to fetch.
-//
-// Returns the player corresponding to the identifier along with
-// any error.
-func (p *ActionProxy) fetchPlayer(id string) (Player, error) {
-	// Create the db filters from the input identifier.
-	filters := make([]DBFilter, 1)
-
-	filters[0] = DBFilter{
-		"id",
-		[]string{id},
-	}
-
-	players, err := p.plProxy.Players(filters)
-
-	// Check for errors and cases where we retrieve several
-	// players.
-	if err != nil {
-		return Player{}, err
-	}
-	if len(players) != 1 {
-		return Player{}, fmt.Errorf("Retrieved %d players for id \"%s\" (expected 1)", len(players), id)
-	}
-
-	return players[0], nil
 }
 
 // CreateTechnologyAction :

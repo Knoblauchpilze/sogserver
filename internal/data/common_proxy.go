@@ -11,53 +11,6 @@ import (
 	"github.com/jackc/pgx"
 )
 
-// commonProxy :
-// Intended as a common wrapper to access the main DB
-// through a convenience way. It holds most of the
-// common resources needed to acces the DB and notify
-// errors/information to the user about processes that
-// may occur while fetching data. This helps hiding
-// the complexity of how the data is laid out in the
-// `DB` and the precise name of tables from the rest
-// of the application.
-// The following link contains useful information on
-// the paradigm we're following with this object:
-// https://www.reddit.com/r/golang/comments/9i5cpg/good_approach_to_interacting_with_databases/
-//
-// The `dbase` is the database that is wrapped by this
-// object. It is checked for consistency upon building
-// the wrapper.
-//
-// The `log` allows to perform display to the user so as
-// to inform of potential issues and debug information to
-// the outside world.
-//
-// The `lock` allows to lock specific resources when some
-// data should be retrieved. For example in the case of
-// a planet, one might first want to update the upgrade
-// actions that are built on this planet in order to be
-// sure to get up-to-date content.
-// This typically include checking whether some buildings
-// have reached completion and upgrading the resources
-// that are present on the planet.
-// Each of these actions are executed in a lazy update
-// fashion where the action is created and then performed
-// only when needed: we store the completion time and if
-// the data needs to be accessed we upgrade it.
-// This mechanism requires that when the data needs to be
-// fetched for a planet an update operation should first
-// be performed to ensure that the data is up-to-date.
-// As no data is usually shared across elements of a same
-// collection we don't see the need to lock all of them
-// when a single one should be updated. Using the structure
-// defined in the `ConcurrentLock` we have a way to lock
-// only some elements which is exactly what we need.
-type commonProxy struct {
-	dbase *db.DB
-	log   logger.Logger
-	lock  *locker.ConcurrentLocker
-}
-
 // queryDesc :
 // Defines an abstract query where some fields can be
 // configured to adapt in a certain extent to various
@@ -194,6 +147,53 @@ func (q queryResult) Close() {
 type insertReq struct {
 	script string
 	args   []interface{}
+}
+
+// commonProxy :
+// Intended as a common wrapper to access the main DB
+// through a convenience way. It holds most of the
+// common resources needed to acces the DB and notify
+// errors/information to the user about processes that
+// may occur while fetching data. This helps hiding
+// the complexity of how the data is laid out in the
+// `DB` and the precise name of tables from the rest
+// of the application.
+// The following link contains useful information on
+// the paradigm we're following with this object:
+// https://www.reddit.com/r/golang/comments/9i5cpg/good_approach_to_interacting_with_databases/
+//
+// The `dbase` is the database that is wrapped by this
+// object. It is checked for consistency upon building
+// the wrapper.
+//
+// The `log` allows to perform display to the user so as
+// to inform of potential issues and debug information to
+// the outside world.
+//
+// The `lock` allows to lock specific resources when some
+// data should be retrieved. For example in the case of
+// a planet, one might first want to update the upgrade
+// actions that are built on this planet in order to be
+// sure to get up-to-date content.
+// This typically include checking whether some buildings
+// have reached completion and upgrading the resources
+// that are present on the planet.
+// Each of these actions are executed in a lazy update
+// fashion where the action is created and then performed
+// only when needed: we store the completion time and if
+// the data needs to be accessed we upgrade it.
+// This mechanism requires that when the data needs to be
+// fetched for a planet an update operation should first
+// be performed to ensure that the data is up-to-date.
+// As no data is usually shared across elements of a same
+// collection we don't see the need to lock all of them
+// when a single one should be updated. Using the structure
+// defined in the `ConcurrentLock` we have a way to lock
+// only some elements which is exactly what we need.
+type commonProxy struct {
+	dbase *db.DB
+	log   logger.Logger
+	lock  *locker.ConcurrentLocker
 }
 
 // newCommonProxy :

@@ -174,7 +174,7 @@ func (p *PlayerProxy) fetchPlayerTechnologies(player *Player) error {
 	// Create the query and execute it.
 	query := queryDesc{
 		props: []string{
-			"technology, level",
+			"technology",
 			"level",
 		},
 		table: "player_technologies",

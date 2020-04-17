@@ -35,16 +35,13 @@ type registerFunc func(input string, routeTokens []string) (string, error)
 // creation process will be configured through values provided
 // as input.
 //
-// The `route` defines the route to serve to register upgrade
-// actions.
-//
 // The `f` defines the registration function to apply when the
 // upgrade action should be created.
 //
 // Returns the handler to execute to perform said requests.
-func (s *server) registerUpgradeAction(route string, f registerFunc) http.HandlerFunc {
+func (s *server) registerUpgradeAction(f registerFunc) http.HandlerFunc {
 	// Create the endpoint with the suited route.
-	ed := NewCreateResourceEndpoint(route)
+	ed := NewCreateResourceEndpoint("planets")
 
 	// Configure the endpoint.
 	ed.WithDataKey("action-data")
@@ -87,7 +84,6 @@ func (s *server) registerUpgradeAction(route string, f registerFunc) http.Handle
 // Returns the handler to execute to perform said requests.
 func (s *server) registerBuildingAction() http.HandlerFunc {
 	return s.registerUpgradeAction(
-		"planets",
 		func(input string, routeTokens []string) (string, error) {
 			// Unmarshal the input data into a building upgrade action
 			// and perform the registration through the dedicated func.
@@ -124,7 +120,6 @@ func (s *server) registerBuildingAction() http.HandlerFunc {
 // Returns the handler to execute to perform said requests.
 func (s *server) registerTechnologyAction() http.HandlerFunc {
 	return s.registerUpgradeAction(
-		"players",
 		func(input string, routeTokens []string) (string, error) {
 			// Unmarshal the input data into a technology upgrade action
 			// and perform the registration through the dedicated func.
@@ -161,7 +156,6 @@ func (s *server) registerTechnologyAction() http.HandlerFunc {
 // Returns the handler to execute to perform said requests.
 func (s *server) registerShipAction() http.HandlerFunc {
 	return s.registerUpgradeAction(
-		"planets",
 		func(input string, routeTokens []string) (string, error) {
 			// Unmarshal the input data into a ship upgrade action
 			// and perform the registration through the dedicated
@@ -199,7 +193,6 @@ func (s *server) registerShipAction() http.HandlerFunc {
 // Returns the handler to execute to perform said requests.
 func (s *server) registerDefenseAction() http.HandlerFunc {
 	return s.registerUpgradeAction(
-		"planets",
 		func(input string, routeTokens []string) (string, error) {
 			// Unmarshal the input data into a defense upgrade
 			// action and perform the registration through the

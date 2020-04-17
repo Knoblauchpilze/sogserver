@@ -14,9 +14,98 @@ import (
 // of each element in the game along with some dependencies
 // that need to be met for each element.
 type validationTools struct {
-	pCosts   map[string]ConstructionCost
-	fCosts   map[string]FixedCost
-	techTree map[string]TechDependency
+	pCosts       map[string]ConstructionCost
+	fCosts       map[string]FixedCost
+	techTree     map[string][]TechDependency
+	available    map[string]float32
+	buildings    []Building
+	technologies []Technology
+}
+
+// enoughRes :
+// Used to determine whether the input vector of resources
+// can be satisfied with what is provided by this element.
+//
+// The `needed` represents the array of resources that are
+// needed for some process.
+//
+// Returns `true` if the resources can be satisfied.
+func (vt validationTools) enoughRes(needed []ResourceAmount) bool {
+	for _, res := range needed {
+		avail, ok := vt.available[res.Resource]
+
+		if !ok {
+			// Not enough of the resource (as it does not
+			// even exist).
+			return false
+		}
+
+		if res.Amount > avail {
+			// Not enough of the resource available.
+			return false
+		}
+	}
+
+	return true
+}
+
+// meetTechCriteria :
+// USed to determine whether the planet registered for this
+// validation tools can satisfy the various dependencies of
+// the `element`. We will go through what is required and
+// see whether it is provided by the planet.
+//
+// The `element` to analyze. If this element cannot be found
+// in the list of dependencies available in this object an
+// error will be returned.
+func (vt validationTools) meetTechCriteria(element string) (bool, error) {
+	// Fetch the dependencies for the input element.
+	deps, ok := vt.techTree[element]
+
+	if !ok {
+		return false, fmt.Errorf("Could not find tech tree for \"%s\"", element)
+	}
+
+	for _, dep := range deps {
+		// Search the planet for an element of this nature.
+		found := false
+
+		for id := 0; id < len(vt.buildings) && !found; id++ {
+			b := vt.buildings[id]
+
+			// Check whether the dependency can be met.
+			if b.ID == element {
+				found = true
+
+				if b.Level < dep.Level {
+					return false, nil
+				}
+			}
+		}
+
+		if !found {
+			for id := 0; id < len(vt.technologies) && !found; id++ {
+				t := vt.technologies[id]
+
+				// Check whether the dependency can be met.
+				if t.ID == element {
+					found = true
+
+					if t.Level < dep.Level {
+						return false, nil
+					}
+				}
+			}
+		}
+
+		// If we didn't found the dependency it means that it
+		// does not exist in the planet and thus is not met.
+		if !found {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 // UpgradeAction :
@@ -192,10 +281,26 @@ func (a ProgressAction) computeCost(costs map[string]ConstructionCost) ([]Resour
 // Returns `true` if the action can be launched given
 // the information provided in input.
 func (a ProgressAction) Validate(tools validationTools) (bool, error) {
-	// TODO: Should add the resources on a planet to be able
-	// to validate the costs computed for this action against
-	// a certain amount of resources.
-	return false, fmt.Errorf("Not implemented")
+	// We need to make sure that there are enough resources
+	// available given the cost of this action.
+	needed, err := a.computeCost(tools.pCosts)
+	if err != nil {
+		return false, fmt.Errorf("Unable to determine cost for action on \"%s\" (err: %v)", a.ElementID, err)
+	}
+
+	if !tools.enoughRes(needed) {
+		return false, nil
+	}
+
+	// We need to make sure that the technologies and the
+	// buildings needed to compute the action are also
+	// existing on the planet.
+	meet, err := tools.meetTechCriteria(a.ElementID)
+	if err != nil {
+		return false, fmt.Errorf("Unable to determine whether \"%s\" meets the tech criteria (err: %v)", a.ElementID, err)
+	}
+
+	return meet, nil
 }
 
 // FixedAction :
@@ -278,8 +383,24 @@ func (a FixedAction) computeTotalCost(costs map[string]FixedCost) ([]ResourceAmo
 // Returns `true` if the action can be launched given
 // the information provided in input.
 func (a FixedAction) Validate(tools validationTools) (bool, error) {
-	// TODO: Should add the resources on a planet to be able
-	// to validate the costs computed for this action against
-	// a certain amount of resources.
-	return false, fmt.Errorf("Not implemented")
+	// We need to make sure that there are enough resources
+	// available given the cost of this action.
+	needed, err := a.computeTotalCost(tools.fCosts)
+	if err != nil {
+		return false, fmt.Errorf("Unable to determine cost for action on \"%s\" (err: %v)", a.ElementID, err)
+	}
+
+	if !tools.enoughRes(needed) {
+		return false, nil
+	}
+
+	// We need to make sure that the technologies and the
+	// buildings needed to compute the action are also
+	// existing on the planet.
+	meet, err := tools.meetTechCriteria(a.ElementID)
+	if err != nil {
+		return false, fmt.Errorf("Unable to determine whether \"%s\" meets the tech criteria (err: %v)", a.ElementID, err)
+	}
+
+	return meet, nil
 }

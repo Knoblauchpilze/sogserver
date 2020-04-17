@@ -64,7 +64,7 @@ func NewPlayerProxy(dbase *db.DB, log logger.Logger) PlayerProxy {
 //
 // Returns `nil` if the technologies could be fetched
 // from the DB successfully.
-func (p PlayerProxy) init() error {
+func (p *PlayerProxy) init() error {
 	var err error
 
 	// Fetch from DB.

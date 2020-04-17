@@ -113,7 +113,7 @@ func NewPlanetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) PlanetP
 //
 // Returns `nil` if the DB info could be fetched from
 // the DB successfully.
-func (p PlanetProxy) init() error {
+func (p *PlanetProxy) init() error {
 	// Fetch from DB if needed.
 	var err error
 
@@ -132,6 +132,7 @@ func (p PlanetProxy) init() error {
 			"buildings_costs_progress",
 			"buildings_costs",
 		)
+
 		if err != nil {
 			return err
 		}

@@ -104,7 +104,7 @@ func NewActionProxy(dbase *db.DB, log logger.Logger, planets PlanetProxy, player
 //
 // Returns `nil` if the technologies could be fetched
 // from the DB successfully.
-func (p ActionProxy) init() error {
+func (p *ActionProxy) init() error {
 	// Fetch from DB and aggregate resources as needed.
 	var err error
 

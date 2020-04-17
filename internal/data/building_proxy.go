@@ -58,7 +58,6 @@ func (p *BuildingProxy) Buildings(filters []DBFilter) ([]BuildingDesc, error) {
 		filters: filters,
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 

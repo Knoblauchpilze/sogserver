@@ -70,7 +70,6 @@ func (p *UniverseProxy) Universes(filters []DBFilter) ([]Universe, error) {
 		filters: filters,
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 

@@ -109,7 +109,6 @@ func (p *PlayerProxy) Players(filters []DBFilter) ([]Player, error) {
 		filters: filters,
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 
@@ -181,14 +180,13 @@ func (p *PlayerProxy) fetchPlayerTechnologies(player *Player) error {
 		},
 		table: "player_technologies",
 		filters: []DBFilter{
-			DBFilter{
+			{
 				Key:    "player",
 				Values: []string{player.ID},
 			},
 		},
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 

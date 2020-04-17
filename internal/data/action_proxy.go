@@ -21,6 +21,9 @@ import (
 // The `pProxy` allows to fetch information about planets
 // when an action concerning a planet is received.
 //
+// The `plProxy` allows to fetch information about players
+// when data concerning the owner of a planet is needed.
+//
 // The `pRules` allows to create the needed production
 // effects when an upgrade action for a building is set.
 //
@@ -39,12 +42,20 @@ import (
 // for a unit like element (typically a ship or a def) so
 // that it can be checked against the planet's resources
 // when the creation is requested.
+//
+// The `techTree` defines the dependencies for any item
+// in the game using a map where the key is the id of
+// the item and the values represent a combination of
+// the level of the dependency and the identifier of
+// the element.
 type ActionProxy struct {
-	pProxy PlanetProxy
-	pRules map[string][]ProductionRule
-	sRules map[string][]StorageRule
-	pCosts map[string]ConstructionCost
-	fCosts map[string]FixedCost
+	pProxy   PlanetProxy
+	plProxy  PlayerProxy
+	pRules   map[string][]ProductionRule
+	sRules   map[string][]StorageRule
+	pCosts   map[string]ConstructionCost
+	fCosts   map[string]FixedCost
+	techTree map[string][]TechDependency
 
 	commonProxy
 }
@@ -61,14 +72,19 @@ type ActionProxy struct {
 // The `planets` provides a way to access to planets
 // from the main DB.
 //
+// The `players` provides a way to access to players
+// from the main DB.
+//
 // Returns the created proxy.
-func NewActionProxy(dbase *db.DB, log logger.Logger, planets PlanetProxy) ActionProxy {
+func NewActionProxy(dbase *db.DB, log logger.Logger, planets PlanetProxy, players PlayerProxy) ActionProxy {
 	proxy := ActionProxy{
 		planets,
+		players,
 		make(map[string][]ProductionRule),
 		make(map[string][]StorageRule),
 		make(map[string]ConstructionCost),
 		make(map[string]FixedCost),
+		make(map[string][]TechDependency),
 
 		newCommonProxy(dbase, log),
 	}
@@ -174,6 +190,214 @@ func (p ActionProxy) init() error {
 		p.fCosts = sCosts
 	}
 
+	// Fetch tech tree dependencies.
+	if len(p.techTree) == 0 {
+		techTree, err := p.initTechTree()
+		if err != nil || techTree == nil {
+			return fmt.Errorf("Could not fetch tech tree from DB (err: %v)", err)
+		}
+
+		p.techTree = techTree
+	}
+
+	return nil
+}
+
+// initTechTree :
+// Used to fetch the tech tree defined in the DB for the list
+// of elements of the game. All buildings, technologies, ships
+// and defenses will be aggregated in a single map so that it
+// is easier to manipulate.
+//
+// The `dbase` defines the source from where the data of the
+// tech dependencies should be fetched.
+//
+// The `log` allows to notify errors and info to the user in
+// case of any failure.
+//
+// Returns a map representing all the data of the tech tree
+// of the game along with any error.
+func (p ActionProxy) initTechTree() (map[string][]TechDependency, error) {
+	// We need to scan all the dependencies tables so namely:
+	//   - tech_tree_buildings_dependencies
+	//   - tech_tree_technologies_dependencies
+	//   - tech_tree_buildings_vs_technologies
+	//   - tech_tree_technologies_vs_buildings
+	//   - tech_tree_ships_vs_buildings
+	//   - tech_tree_ships_vs_technologies
+	//   - tech_tree_defenses_vs_buildings
+	//   - tech_tree_defenses_vs_technologies
+	// Each of these tables as a similar structure like:
+	//   - element uuid
+	//   - requirement uuid
+	//   - level integer
+	// Where the `element` can be any of `building`, `technology`
+	// `ship` or `defense`.
+	// We will select everything from these tables and then use
+	// the data to populate the `techTree` map.
+	techTree := make(map[string][]TechDependency)
+	sanity := make(map[string]map[string]int)
+
+	// Create the query and execute it.
+	query := queryDesc{
+		props: []string{
+			"",
+			"requirement",
+			"level",
+		},
+		table:   "",
+		filters: []DBFilter{},
+	}
+
+	// Fetch buildings dependencies on buildings.
+	query.props[0] = "building"
+	query.table = "tech_tree_buildings_dependencies"
+
+	err := p.populateTechTree(query, &techTree, &sanity)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch buildings dependencies on technologies.
+	query.props[0] = "building"
+	query.table = "tech_tree_buildings_vs_technologies"
+
+	err = p.populateTechTree(query, &techTree, &sanity)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch technologies dependencies on buildings.
+	query.props[0] = "technology"
+	query.table = "tech_tree_technologies_vs_buildings"
+
+	err = p.populateTechTree(query, &techTree, &sanity)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch technologies dependencies on technologies.
+	query.props[0] = "technology"
+	query.table = "tech_tree_technologies_dependencies"
+
+	err = p.populateTechTree(query, &techTree, &sanity)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch ships dependencies on buildings.
+	query.props[0] = "ship"
+	query.table = "tech_tree_ships_vs_buildings"
+
+	err = p.populateTechTree(query, &techTree, &sanity)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch ships dependencies on technologies.
+	query.props[0] = "ship"
+	query.table = "tech_tree_ships_vs_technologies"
+
+	err = p.populateTechTree(query, &techTree, &sanity)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch defenses dependencies on buildings.
+	query.props[0] = "defense"
+	query.table = "tech_tree_defenses_vs_buildings"
+
+	err = p.populateTechTree(query, &techTree, &sanity)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch defenses dependencies on technologies.
+	query.props[0] = "defense"
+	query.table = "tech_tree_defenses_vs_technologies"
+
+	err = p.populateTechTree(query, &techTree, &sanity)
+	if err != nil {
+		return nil, err
+	}
+
+	return techTree, nil
+}
+
+// populateTechTree :
+// Used to analyze the query in input and populate the tech
+// tree from its result.
+//
+// The `query` defines the query that should be performed
+// and which will return information about the tech tree.
+//
+// The `techTree` defines the existing tech tree.
+//
+// The `sanity` is a map registering all the already found
+// dependency along with their level. It prevents any case
+// where a dependency would be overriden by another one.
+// An error message is still displayed in this case.
+//
+// Returns any error (mainly in case the DB has not been
+// queried properly).
+func (p ActionProxy) populateTechTree(query queryDesc, techTree *map[string][]TechDependency, sanity *map[string]map[string]int) error {
+	// Execute the query.
+	res, err := p.fetchDB(query)
+	defer res.Close()
+
+	if err != nil {
+		return fmt.Errorf("Cannot fetch buildings tech tree (err: %v)", err)
+	}
+
+	// Analyze the result and build the tech tree.
+	var elem, dep string
+	var req int
+
+	for res.next() {
+		err = res.scan(
+			&elem,
+			&dep,
+			&req,
+		)
+
+		if err != nil {
+			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve dependency info while building tech tree (err: %v)", err))
+			continue
+		}
+
+		// Check that we don't override anything.
+		override := false
+
+		e, ok := (*sanity)[elem]
+		if !ok {
+			e = make(map[string]int)
+			e[dep] = req
+		} else {
+			d, ok := e[dep]
+
+			if ok {
+				p.log.Trace(logger.Error, fmt.Sprintf("Prevented override of dependency on \"%s\" for \"%s\" (existing: %d, new: %d)", dep, elem, d, req))
+				override = true
+			}
+
+			e[dep] = req
+		}
+
+		(*sanity)[elem] = e
+
+		// Register the dependency for this element.
+		if !override {
+			deps, ok := (*techTree)[elem]
+			if !ok {
+				deps = make([]TechDependency, 0)
+			}
+
+			deps = append(deps, TechDependency{dep, req})
+
+			(*techTree)[elem] = deps
+		}
+	}
+
 	return nil
 }
 
@@ -197,7 +421,7 @@ func (p ActionProxy) init() error {
 // Returns the list of building upgrade actions along with
 // any errors. Note that in case the error is not `nil` the
 // returned list is to be ignored.
-func (p *ActionProxy) Buildings(filters []DBFilter) ([]BuildingUpgradeAction, error) {
+func (p *ActionProxy) Buildings(filters []DBFilter) ([]ProgressAction, error) {
 	// Create the query and execute it.
 	query := queryDesc{
 		props: []string{
@@ -212,7 +436,6 @@ func (p *ActionProxy) Buildings(filters []DBFilter) ([]BuildingUpgradeAction, er
 		filters: filters,
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 
@@ -222,14 +445,14 @@ func (p *ActionProxy) Buildings(filters []DBFilter) ([]BuildingUpgradeAction, er
 	}
 
 	// Populate the return value.
-	actions := make([]BuildingUpgradeAction, 0)
-	var act BuildingUpgradeAction
+	actions := make([]ProgressAction, 0)
+	var act ProgressAction
 
 	for res.next() {
 		err = res.scan(
 			&act.ID,
 			&act.PlanetID,
-			&act.BuildingID,
+			&act.ElementID,
 			&act.CurrentLevel,
 			&act.DesiredLevel,
 			&act.CompletionTime,
@@ -261,12 +484,11 @@ func (p *ActionProxy) Buildings(filters []DBFilter) ([]BuildingUpgradeAction, er
 // Returns the list of technology upgrade actions matching
 // the input filters. This list should be ignored if the
 // error is not `nil`.
-func (p *ActionProxy) Technologies(filters []DBFilter) ([]TechnologyUpgradeAction, error) {
+func (p *ActionProxy) Technologies(filters []DBFilter) ([]ProgressAction, error) {
 	// Create the query and execute it.
 	query := queryDesc{
 		props: []string{
 			"id",
-			"player",
 			"technology",
 			"planet",
 			"current_level",
@@ -277,7 +499,6 @@ func (p *ActionProxy) Technologies(filters []DBFilter) ([]TechnologyUpgradeActio
 		filters: filters,
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 
@@ -287,14 +508,13 @@ func (p *ActionProxy) Technologies(filters []DBFilter) ([]TechnologyUpgradeActio
 	}
 
 	// Populate the return value.
-	actions := make([]TechnologyUpgradeAction, 0)
-	var act TechnologyUpgradeAction
+	actions := make([]ProgressAction, 0)
+	var act ProgressAction
 
 	for res.next() {
 		err = res.scan(
 			&act.ID,
-			&act.PlayerID,
-			&act.TechnologyID,
+			&act.ElementID,
 			&act.PlanetID,
 			&act.CurrentLevel,
 			&act.DesiredLevel,
@@ -326,7 +546,7 @@ func (p *ActionProxy) Technologies(filters []DBFilter) ([]TechnologyUpgradeActio
 // Returns the list of ships being built that match the input
 // filters. This list should be ignored if the error is not
 // `nil`.
-func (p *ActionProxy) Ships(filters []DBFilter) ([]ShipUpgradeAction, error) {
+func (p *ActionProxy) Ships(filters []DBFilter) ([]FixedAction, error) {
 	// Create the query and execute it.
 	query := queryDesc{
 		props: []string{
@@ -341,7 +561,6 @@ func (p *ActionProxy) Ships(filters []DBFilter) ([]ShipUpgradeAction, error) {
 		filters: filters,
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 
@@ -351,14 +570,14 @@ func (p *ActionProxy) Ships(filters []DBFilter) ([]ShipUpgradeAction, error) {
 	}
 
 	// Populate the return value.
-	actions := make([]ShipUpgradeAction, 0)
-	var act ShipUpgradeAction
+	actions := make([]FixedAction, 0)
+	var act FixedAction
 
 	for res.next() {
 		err = res.scan(
 			&act.ID,
 			&act.PlanetID,
-			&act.ShipID,
+			&act.ElementID,
 			&act.Amount,
 			&act.Remaining,
 			&act.CompletionTime,
@@ -389,7 +608,7 @@ func (p *ActionProxy) Ships(filters []DBFilter) ([]ShipUpgradeAction, error) {
 // Returns the list of defenses being built that match the
 // input filters. This list should be ignored if the error
 // is not `nil`.
-func (p *ActionProxy) Defenses(filters []DBFilter) ([]DefenseUpgradeAction, error) {
+func (p *ActionProxy) Defenses(filters []DBFilter) ([]FixedAction, error) {
 	// Create the query and execute it.
 	query := queryDesc{
 		props: []string{
@@ -404,7 +623,6 @@ func (p *ActionProxy) Defenses(filters []DBFilter) ([]DefenseUpgradeAction, erro
 		filters: filters,
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 
@@ -414,14 +632,14 @@ func (p *ActionProxy) Defenses(filters []DBFilter) ([]DefenseUpgradeAction, erro
 	}
 
 	// Populate the return value.
-	actions := make([]DefenseUpgradeAction, 0)
-	var act DefenseUpgradeAction
+	actions := make([]FixedAction, 0)
+	var act FixedAction
 
 	for res.next() {
 		err = res.scan(
 			&act.ID,
 			&act.PlanetID,
-			&act.DefenseID,
+			&act.ElementID,
 			&act.Amount,
 			&act.Remaining,
 			&act.CompletionTime,
@@ -484,20 +702,65 @@ func (p *ActionProxy) createAction(action UpgradeAction, script string) error {
 // planet where it's needed and given the dependencies
 // that might have to be met.
 //
-// The `action` defines the element that should be
-// verified for consistency.
+// The `a` defines the element that should be verified
+// for consistency.
 //
 // Returns an error if the action cannot be performed
 // for some reason and `nil` if the action is possible.
-func (p *ActionProxy) verifyAction(action UpgradeAction) error {
+func (p *ActionProxy) verifyAction(a UpgradeAction) error {
 	// We need to make sure that both the resources on the
 	// planet where the action should be performed are at
 	// a sufficient level to allow the action and also that
 	// the dependencies (both buildings and technologies)
 	// to allow the construction of the element described
 	// by the action are met.
-	// TODO: Implement the checking of all the above.
-	return fmt.Errorf("Not implemented")
+
+	// Fetch the planet related to the upgrade action.
+	planet, err := p.fetchPlanet(a.GetPlanet())
+	if err != nil {
+		return fmt.Errorf("Cannot retrieve planet \"%s\" to verify action (err: %v)", a.GetPlanet(), err)
+	}
+
+	// Fetch the player related to this planet.
+	player, err := p.fetchPlayer(planet.PlayerID)
+	if err != nil {
+		return fmt.Errorf("Cannot retrieve player \"%s\" to verify action (err: %v)", planet.PlayerID, err)
+	}
+
+	// Convert the resources into usable data.
+	availableResources := make(map[string]float32)
+
+	for _, res := range planet.Resources {
+		existing, ok := availableResources[res.ID]
+
+		if ok {
+			return fmt.Errorf("Overriding resource \"%s\" amount in planet \"%s\" from %f to %f", res.ID, planet.ID, existing, res.Amount)
+		}
+
+		availableResources[res.ID] = res.Amount
+	}
+
+	// Populate the validation tool.
+	vt := validationTools{
+		pCosts:       p.pCosts,
+		fCosts:       p.fCosts,
+		techTree:     p.techTree,
+		available:    availableResources,
+		buildings:    planet.Buildings,
+		technologies: player.Technologies,
+	}
+
+	// Perform the validation.
+	valid, err := a.Validate(vt)
+	if err != nil {
+		return fmt.Errorf("Could not validate action on \"%s\" (err: %v)", planet.ID, err)
+	}
+
+	if !valid {
+		return fmt.Errorf("Action cannot be performed on planet \"%s\"", a.GetPlanet())
+	}
+
+	return nil
 }
 
 // CreateBuildingAction :
@@ -513,7 +776,7 @@ func (p *ActionProxy) verifyAction(action UpgradeAction) error {
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
 // `nil`.
-func (p *ActionProxy) CreateBuildingAction(action *BuildingUpgradeAction) error {
+func (p *ActionProxy) CreateBuildingAction(action ProgressAction) error {
 	// Assign a valid identifier if this is not already the case.
 	if action.ID == "" {
 		action.ID = uuid.New().String()
@@ -529,14 +792,14 @@ func (p *ActionProxy) CreateBuildingAction(action *BuildingUpgradeAction) error 
 	// upgrade that will be brought by this building if it finishes. It
 	// will be registered in the DB alongside the upgrade action and we
 	// need it for the import script.
-	prodEffects, err := p.fetchBuildingProductionEffects(action)
+	prodEffects, err := p.fetchBuildingProductionEffects(&action)
 	if err != nil {
-		return fmt.Errorf("Could not import upgrade action for %s (err: %v)", *action, err)
+		return fmt.Errorf("Could not import upgrade action for %s (err: %v)", &action, err)
 	}
 
-	storageEffects, err := p.fetchBuildingStorageEffects(action)
+	storageEffects, err := p.fetchBuildingStorageEffects(&action)
 	if err != nil {
-		return fmt.Errorf("Could not import upgrade action for %s (err: %v)", *action, err)
+		return fmt.Errorf("Could not import upgrade action for %s (err: %v)", &action, err)
 	}
 
 	// Marshal the input building action to pass it to the import script.
@@ -556,7 +819,7 @@ func (p *ActionProxy) CreateBuildingAction(action *BuildingUpgradeAction) error 
 		return fmt.Errorf("Could not import upgrade action for \"%s\" (err: %s)", action.PlanetID, err)
 	}
 
-	p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d on \"%s\"", action.BuildingID, action.DesiredLevel, action.PlanetID))
+	p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d on \"%s\"", action.ElementID, action.DesiredLevel, action.PlanetID))
 
 	// All is well.
 	return nil
@@ -572,7 +835,7 @@ func (p *ActionProxy) CreateBuildingAction(action *BuildingUpgradeAction) error 
 // production effects should be created.
 //
 // Returns the production effects along with any error.
-func (p *ActionProxy) fetchBuildingProductionEffects(action *BuildingUpgradeAction) ([]ProductionEffect, error) {
+func (p *ActionProxy) fetchBuildingProductionEffects(action *ProgressAction) ([]ProductionEffect, error) {
 	// Make sure that the action is valid.
 	if action == nil || !action.valid() {
 		return []ProductionEffect{}, fmt.Errorf("Cannot fetch building upgrade action production effects for invalid action")
@@ -583,7 +846,7 @@ func (p *ActionProxy) fetchBuildingProductionEffects(action *BuildingUpgradeActi
 	// corresponding effect.
 	prodEffects := make([]ProductionEffect, 0)
 
-	rules, ok := p.pRules[action.BuildingID]
+	rules, ok := p.pRules[action.ElementID]
 
 	if !ok {
 		// No production rule, nothing to add.
@@ -627,7 +890,7 @@ func (p *ActionProxy) fetchBuildingProductionEffects(action *BuildingUpgradeActi
 // storage effects should be created.
 //
 // Returns the storage effects along with any error.
-func (p *ActionProxy) fetchBuildingStorageEffects(action *BuildingUpgradeAction) ([]StorageEffect, error) {
+func (p *ActionProxy) fetchBuildingStorageEffects(action *ProgressAction) ([]StorageEffect, error) {
 	// Make sure that the action is valid.
 	if action == nil || !action.valid() {
 		return []StorageEffect{}, fmt.Errorf("Cannot fetch building upgrade action storage effects for invalid action")
@@ -638,7 +901,7 @@ func (p *ActionProxy) fetchBuildingStorageEffects(action *BuildingUpgradeAction)
 	// corresponding effect.
 	storageEffects := make([]StorageEffect, 0)
 
-	rules, ok := p.sRules[action.BuildingID]
+	rules, ok := p.sRules[action.ElementID]
 
 	if !ok {
 		// No storage rule, nothing to add.
@@ -696,6 +959,38 @@ func (p *ActionProxy) fetchPlanet(id string) (Planet, error) {
 	return planets[0], nil
 }
 
+// fetchPlayer :
+// Used to fetch the player described by the input identifier in
+// the internal DB. It is mostly used to check consistency when
+// performing the creation of a new action on a planet.
+//
+// The `id` defines the identifier of the player to fetch.
+//
+// Returns the player corresponding to the identifier along with
+// any error.
+func (p *ActionProxy) fetchPlayer(id string) (Player, error) {
+	// Create the db filters from the input identifier.
+	filters := make([]DBFilter, 1)
+
+	filters[0] = DBFilter{
+		"id",
+		[]string{id},
+	}
+
+	players, err := p.plProxy.Players(filters)
+
+	// Check for errors and cases where we retrieve several
+	// players.
+	if err != nil {
+		return Player{}, err
+	}
+	if len(players) != 1 {
+		return Player{}, fmt.Errorf("Retrieved %d players for id \"%s\" (expected 1)", len(players), id)
+	}
+
+	return players[0], nil
+}
+
 // CreateTechnologyAction :
 // Used to perform the creation of the technology upgrade
 // action described by the input data to the DB. In case
@@ -709,7 +1004,7 @@ func (p *ActionProxy) fetchPlanet(id string) (Planet, error) {
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
 // `nil`.
-func (p *ActionProxy) CreateTechnologyAction(action *TechnologyUpgradeAction) error {
+func (p *ActionProxy) CreateTechnologyAction(action ProgressAction) error {
 	// Assign a valid identifier if this is not already the case.
 	if action.ID == "" {
 		action.ID = uuid.New().String()
@@ -720,7 +1015,7 @@ func (p *ActionProxy) CreateTechnologyAction(action *TechnologyUpgradeAction) er
 	err := p.createAction(action, "create_technology_upgrade_action")
 
 	if err == nil {
-		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d for \"%s\"", action.TechnologyID, action.DesiredLevel, action.PlayerID))
+		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d for \"%s\"", action.ElementID, action.DesiredLevel, action.PlanetID))
 	}
 
 	return err
@@ -739,7 +1034,7 @@ func (p *ActionProxy) CreateTechnologyAction(action *TechnologyUpgradeAction) er
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
 // `nil`.
-func (p *ActionProxy) CreateShipAction(action *ShipUpgradeAction) error {
+func (p *ActionProxy) CreateShipAction(action FixedAction) error {
 	// Assign a valid identifier if this is not already the case.
 	if action.ID == "" {
 		action.ID = uuid.New().String()
@@ -754,7 +1049,7 @@ func (p *ActionProxy) CreateShipAction(action *ShipUpgradeAction) error {
 	err := p.createAction(action, "create_ship_upgrade_action")
 
 	if err == nil {
-		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to build \"%s\" on \"%s\"", action.ShipID, action.PlanetID))
+		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to build \"%s\" on \"%s\"", action.ElementID, action.PlanetID))
 	}
 
 	return err
@@ -773,7 +1068,7 @@ func (p *ActionProxy) CreateShipAction(action *ShipUpgradeAction) error {
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
 // `nil`.
-func (p *ActionProxy) CreateDefenseAction(action *DefenseUpgradeAction) error {
+func (p *ActionProxy) CreateDefenseAction(action FixedAction) error {
 	// Assign a valid identifier if this is not already the case.
 	if action.ID == "" {
 		action.ID = uuid.New().String()
@@ -788,7 +1083,7 @@ func (p *ActionProxy) CreateDefenseAction(action *DefenseUpgradeAction) error {
 	err := p.createAction(action, "create_defense_upgrade_action")
 
 	if err == nil {
-		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to build \"%s\" on \"%s\"", action.DefenseID, action.PlanetID))
+		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to build \"%s\" on \"%s\"", action.ElementID, action.PlanetID))
 	}
 
 	return err

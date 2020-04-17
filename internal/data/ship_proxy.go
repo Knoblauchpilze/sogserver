@@ -57,7 +57,6 @@ func (p *ShipProxy) Ships(filters []DBFilter) ([]ShipDesc, error) {
 		filters: filters,
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 
@@ -141,14 +140,13 @@ func (p *ShipProxy) fetchRapidFires(ship string, table string) ([]RapidFire, err
 		},
 		table: table,
 		filters: []DBFilter{
-			DBFilter{
+			{
 				"ship",
 				[]string{ship},
 			},
 		},
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 

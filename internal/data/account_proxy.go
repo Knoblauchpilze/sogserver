@@ -63,7 +63,6 @@ func (p *AccountProxy) Accounts(filters []DBFilter) ([]Account, error) {
 		filters: filters,
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 

@@ -239,7 +239,7 @@ func newCommonProxy(dbase *db.DB, log logger.Logger) commonProxy {
 func (cp commonProxy) performWithLock(resource string, query string) error {
 	// Prevent invalid resource identifier.
 	if resource == "" {
-		return fmt.Errorf("Cannot perform query \"%s\" for invalid empty resource ID")
+		return fmt.Errorf("Cannot perform query \"%s\" for invalid empty resource ID", query)
 	}
 
 	// Acquire a lock on this resource.

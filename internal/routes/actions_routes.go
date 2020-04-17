@@ -91,7 +91,7 @@ func (s *server) registerBuildingAction() http.HandlerFunc {
 		func(input string, routeTokens []string) (string, error) {
 			// Unmarshal the input data into a building upgrade action
 			// and perform the registration through the dedicated func.
-			var action data.BuildingUpgradeAction
+			var action data.ProgressAction
 
 			err := json.Unmarshal([]byte(input), &action)
 			if err != nil {
@@ -106,7 +106,7 @@ func (s *server) registerBuildingAction() http.HandlerFunc {
 			}
 
 			// Create the upgrade action.
-			err = s.upgradeAction.CreateBuildingAction(&action)
+			err = s.upgradeAction.CreateBuildingAction(action)
 
 			// Build the path to access to the resource: we need to
 			// include the planet's identifier in the route.
@@ -128,7 +128,7 @@ func (s *server) registerTechnologyAction() http.HandlerFunc {
 		func(input string, routeTokens []string) (string, error) {
 			// Unmarshal the input data into a technology upgrade action
 			// and perform the registration through the dedicated func.
-			var action data.TechnologyUpgradeAction
+			var action data.ProgressAction
 
 			err := json.Unmarshal([]byte(input), &action)
 			if err != nil {
@@ -139,15 +139,15 @@ func (s *server) registerTechnologyAction() http.HandlerFunc {
 			// so we can override any value provided in the upgrade
 			// action.
 			if len(routeTokens) > 0 {
-				action.PlayerID = routeTokens[0]
+				action.PlanetID = routeTokens[0]
 			}
 
 			// Create the upgrade action.
-			err = s.upgradeAction.CreateTechnologyAction(&action)
+			err = s.upgradeAction.CreateTechnologyAction(action)
 
 			// Build the path to access to the resource: we need to
 			// include the player's identifier in the route.
-			res := fmt.Sprintf("%s/actions/technologies/%s", action.PlayerID, action.ID)
+			res := fmt.Sprintf("%s/actions/technologies/%s", action.PlanetID, action.ID)
 
 			return res, err
 		},
@@ -166,7 +166,7 @@ func (s *server) registerShipAction() http.HandlerFunc {
 			// Unmarshal the input data into a ship upgrade action
 			// and perform the registration through the dedicated
 			// function.
-			var action data.ShipUpgradeAction
+			var action data.FixedAction
 
 			err := json.Unmarshal([]byte(input), &action)
 			if err != nil {
@@ -181,7 +181,7 @@ func (s *server) registerShipAction() http.HandlerFunc {
 			}
 
 			// Create the upgrade action.
-			err = s.upgradeAction.CreateShipAction(&action)
+			err = s.upgradeAction.CreateShipAction(action)
 
 			// Build the path to access to the resource: we need to
 			// include the planet's identifier in the route.
@@ -204,7 +204,7 @@ func (s *server) registerDefenseAction() http.HandlerFunc {
 			// Unmarshal the input data into a defense upgrade
 			// action and perform the registration through the
 			// dedicated function.
-			var action data.DefenseUpgradeAction
+			var action data.FixedAction
 
 			err := json.Unmarshal([]byte(input), &action)
 			if err != nil {
@@ -219,7 +219,7 @@ func (s *server) registerDefenseAction() http.HandlerFunc {
 			}
 
 			// Create the upgrade action.
-			err = s.upgradeAction.CreateDefenseAction(&action)
+			err = s.upgradeAction.CreateDefenseAction(action)
 
 			// Build the path to access to the resource: we need to
 			// include the planet's identifier in the route.

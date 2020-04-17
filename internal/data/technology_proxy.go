@@ -58,7 +58,6 @@ func (p *TechnologyProxy) Technologies(filters []DBFilter) ([]TechnologyDesc, er
 		filters: filters,
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 

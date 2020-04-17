@@ -58,7 +58,6 @@ func (p *DefenseProxy) Defenses(filters []DBFilter) ([]DefenseDesc, error) {
 		filters: filters,
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 

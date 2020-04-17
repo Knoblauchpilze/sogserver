@@ -14,15 +14,13 @@ func (s *server) routes() {
 	s.route("GET", "/universes", s.listUniverses())
 	s.route("GET", "/accounts", s.listAccounts())
 	s.route("GET", "/players", s.listPlayers())
-	// TODO: Maybe change that because a technology should be launched from
-	// a planet anyway.
-	s.route("GET", "/players/[a-zA-Z0-9-]+/actions/technologies", s.listPlayerTechnologies())
 	s.route("GET", "/buildings", s.listBuildings())
 	s.route("GET", "/technologies", s.listTechnologies())
 	s.route("GET", "/ships", s.listShips())
 	s.route("GET", "/defenses", s.listDefenses())
 	// TODO: Update upgrade actions (from fleets) for *this* planet.
 	s.route("GET", "/planets", s.listPlanets())
+	s.route("GET", "/planets/[a-zA-Z0-9-]+/actions/technologies", s.listPlayerTechnologies())
 	s.route("GET", "/planets/[a-zA-Z0-9-]+/actions/buildings", s.listPlanetBuildings())
 	s.route("GET", "/planets/[a-zA-Z0-9-]+/actions/ships", s.listPlanetShips())
 	s.route("GET", "/planets/[a-zA-Z0-9-]+/actions/defenses", s.listPlanetDefenses())
@@ -32,7 +30,7 @@ func (s *server) routes() {
 	s.route("POST", "/universes", s.createUniverse())
 	s.route("POST", "/accounts", s.createAccount())
 	s.route("POST", "/players", s.createPlayer())
-	s.route("POST", "/players/[a-zA-Z0-9-]+/actions/technologies", s.registerTechnologyAction())
+	s.route("POST", "/planets/[a-zA-Z0-9-]+/actions/technologies", s.registerTechnologyAction())
 	s.route("POST", "/planets/[a-zA-Z0-9-]+/actions/buildings", s.registerBuildingAction())
 	s.route("POST", "/planets/[a-zA-Z0-9-]+/actions/ships", s.registerShipAction())
 	s.route("POST", "/planets/[a-zA-Z0-9-]+/actions/defenses", s.registerDefenseAction())

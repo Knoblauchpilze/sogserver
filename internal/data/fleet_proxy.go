@@ -110,7 +110,6 @@ func (p *FleetProxy) Fleets(filters []DBFilter) ([]Fleet, error) {
 		filters: filters,
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 
@@ -188,14 +187,13 @@ func (p *FleetProxy) FleetComponents(filters []DBFilter) ([]FleetComponent, erro
 		},
 		table: "fleet_elements",
 		filters: []DBFilter{
-			DBFilter{
+			{
 				Key:    "fleet",
 				Values: []string{fleet.ID},
 			},
 		},
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 
@@ -264,14 +262,13 @@ func (p *FleetProxy) fetchFleetComponentData(comp *FleetComponent) error {
 		},
 		table: "fleet_ships",
 		filters: []DBFilter{
-			DBFilter{
+			{
 				Key:    "fleet_element",
 				Values: []string{comp.ID},
 			},
 		},
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 

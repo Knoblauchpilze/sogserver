@@ -170,7 +170,7 @@ func (p PlanetProxy) buildQuery(props []string, table string, filterName string,
 		props: props,
 		table: table,
 		filters: []DBFilter{
-			DBFilter{
+			{
 				Key:    filterName,
 				Values: []string{filter},
 			},
@@ -211,7 +211,6 @@ func (p *PlanetProxy) Planets(filters []DBFilter) ([]Planet, error) {
 		filters: filters,
 	}
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 
@@ -374,7 +373,6 @@ func (p *PlanetProxy) fetchPlanetResources(planet *Planet) error {
 		planet.ID,
 	)
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 
@@ -434,7 +432,6 @@ func (p *PlanetProxy) fetchPlanetBuildings(planet *Planet) error {
 		planet.ID,
 	)
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 
@@ -509,7 +506,6 @@ func (p *PlanetProxy) fetchPlanetShips(planet *Planet) error {
 		planet.ID,
 	)
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 
@@ -569,7 +565,6 @@ func (p *PlanetProxy) fetchPlanetDefenses(planet *Planet) error {
 		planet.ID,
 	)
 
-	// Create the query and execute it.
 	res, err := p.fetchDB(query)
 	defer res.Close()
 

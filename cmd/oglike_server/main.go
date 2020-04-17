@@ -30,6 +30,9 @@ import (
 // connect for a long time.
 // TODO: The completion time for most actions should be computed by the
 // server and not provided from the input request.
+// https://ogame.fandom.com/wiki/Buildings
+// https://ogame.fandom.com/wiki/Research
+// https://ogame.fandom.com/wiki/Shipyard
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

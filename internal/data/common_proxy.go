@@ -160,7 +160,7 @@ func (q queryResult) next() bool {
 //
 // Returns any error.
 func (q queryResult) scan(dest ...interface{}) error {
-	return q.rows.Scan(dest)
+	return q.rows.Scan(dest...)
 }
 
 // Close :
@@ -340,7 +340,7 @@ func (cp commonProxy) insertToDB(req insertReq) error {
 	}
 
 	// Create the DB request.
-	query := fmt.Sprintf("select * from %s()", strings.Join(argsAsStr, ", "))
+	query := fmt.Sprintf("select * from %s(%s)", req.script, strings.Join(argsAsStr, ", "))
 	_, err := cp.dbase.DBExecute(query)
 
 	return err

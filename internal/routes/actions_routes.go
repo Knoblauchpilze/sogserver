@@ -137,6 +137,9 @@ func (s *server) registerTechnologyAction() http.HandlerFunc {
 				action.PlanetID = routeTokens[0]
 			}
 
+			// The technology can only be upgraded.
+			action.IsStrictlyUpgradable = true
+
 			// Create the upgrade action.
 			err = s.upgradeAction.CreateTechnologyAction(action)
 

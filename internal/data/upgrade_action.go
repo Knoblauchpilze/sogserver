@@ -20,6 +20,7 @@ type validationTools struct {
 	available    map[string]float32
 	buildings    []Building
 	technologies []Technology
+	fields       int
 }
 
 // enoughRes :
@@ -265,6 +266,27 @@ func (a ProgressAction) computeCost(costs map[string]ConstructionCost) ([]Resour
 // Returns `true` if the action can be launched given
 // the information provided in input.
 func (a ProgressAction) Validate(tools validationTools) (bool, error) {
+	// Make sure that there are some remaining fields on
+	// the planet: this is only relevant in case the action
+	// *does* require an action.
+	if a.CurrentLevel < a.DesiredLevel {
+		// Only buildings require a field in the planet so
+		// we will first check whether this action concerns
+		// a building.
+		isBuilding := false
+		for id := 0; id < len(tools.buildings) && !isBuilding; id++ {
+			if tools.buildings[id].ID == a.ElementID {
+				isBuilding = true
+			}
+		}
+
+		if isBuilding && tools.fields == 0 {
+			// There are no more fields available on the planet
+			// while we need one: this is not possible.
+			return false, nil
+		}
+	}
+
 	// We need to make sure that there are enough resources
 	// available given the cost of this action.
 	needed, err := a.computeCost(tools.pCosts)

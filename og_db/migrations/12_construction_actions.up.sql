@@ -10,7 +10,8 @@ CREATE TABLE construction_actions_buildings (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   FOREIGN KEY (planet) REFERENCES planets(id),
-  FOREIGN KEY (building) REFERENCES buildings(id)
+  FOREIGN KEY (building) REFERENCES buildings(id),
+  UNIQUE (planet)
 );
 
 -- Create the table describing the effects of the building
@@ -51,7 +52,8 @@ CREATE TABLE construction_actions_technologies (
   PRIMARY KEY (id),
   FOREIGN KEY (player) REFERENCES players(id),
   FOREIGN KEY (technology) REFERENCES technologies(id),
-  FOREIGN KEY (planet) REFERENCES planets(id)
+  FOREIGN KEY (planet) REFERENCES planets(id),
+  UNIQUE (player)
 );
 
 -- Create the trigger on the table to update the `created_at` field.

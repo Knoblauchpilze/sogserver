@@ -830,6 +830,7 @@ func (p *ActionProxy) verifyAction(a UpgradeAction) error {
 		available:    availableResources,
 		buildings:    planet.Buildings,
 		technologies: player.Technologies,
+		fields:       planet.remainingFields(),
 	}
 
 	// Perform the validation.

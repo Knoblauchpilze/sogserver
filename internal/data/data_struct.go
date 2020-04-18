@@ -217,36 +217,6 @@ type StorageRule struct {
 	Progress    float32
 }
 
-// ResourceDesc :
-// Defines the abstract representation of a resource which
-// is bascially an identifier and the actual name of the
-// resource.
-//
-// The `ID` defines the identifier of the resource in the
-// table gathering all the in-game resources. This is used
-// in most of the other operations referencing resources.
-//
-// The `Name` defines the human-readable name of the res
-// as displayed to the user.
-//
-// The `BaseProd` defines the production without modifiers
-// for this resource on each planet. It represents a way
-// for the user to get resources without building anything
-// else.
-//
-// The `BaseStorage` defines the base capacity to store
-// the resource without any modifiers (usually hangars).
-//
-// The `BaseAmount` defines the base amount for this res
-// that can be found on any new planet in the game.
-type ResourceDesc struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	BaseProd    int    `json:"base_production"`
-	BaseStorage int    `json:"base_storage"`
-	BaseAmount  int    `json:"base_amount"`
-}
-
 // Resource :
 // Defines a substance that can be produced or consumed by
 // any element of the game. It is typically used to build

@@ -1,11 +1,11 @@
-package data
+package db
 
 import (
 	"fmt"
 	"strings"
 )
 
-// DBFilter :
+// Filter :
 // Generic filter that can be used to restrain the number
 // of results returned by a query. This allows to narrow
 // a search and keep only relevant information.
@@ -24,7 +24,7 @@ import (
 // The `Values` represents the specific instances of the
 // key that should be kept. Anything that is not part of
 // the list of value will be ignored.
-type DBFilter struct {
+type Filter struct {
 	Key    string
 	Values []string
 }
@@ -35,7 +35,7 @@ type DBFilter struct {
 // use in a SQL query.
 //
 // Returns the equivalent string for this filter.
-func (f DBFilter) String() string {
+func (f Filter) String() string {
 	// We need to quote the values first and then join them.
 	quoted := make([]string, len(f.Values))
 	for id, str := range f.Values {

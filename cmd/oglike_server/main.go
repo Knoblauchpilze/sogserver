@@ -28,11 +28,24 @@ import (
 // night (or another duration which would be consistent with the maximum
 // interval with no issues) to perform update for players that didn't
 // connect for a long time.
-// TODO: The completion time for most actions should be computed by the
-// server and not provided from the input request.
-// https://ogame.fandom.com/wiki/Buildings
-// https://ogame.fandom.com/wiki/Research
-// https://ogame.fandom.com/wiki/Shipyard
+// TODO: We should maybe load all the data model from the DB in a single
+// object that would then be passed around to proxies to perform various
+// validations.
+// We could add methods like `isBuilding`, `isTechnology`, `getFromName`
+// etc. and all relevant methods to access the data anywhere.
+// We could go ahead and maybe fetch some information about the planet
+// and player in a similar way: basically wrap it in some sort of object
+// that would allow high-level functions to be mutualized when needed.
+// This could also maybe play well with the fact that for now we didn't
+// extend a lot the lock and thus we don't really guarantee anything as
+// several clients can access the planets of a players independently etc.
+// Typically to fetch the amount of metal on a planet, we can't do it
+// easily now: we need to access the planet, but also the map between the
+// resources identifiers and their name (which is not contained in the
+// map). This could be solved by providing first a data model (where one
+// could access the id of the metal resource from its identifier) and then
+// some wrapper on the planet which would use the data model to interpret
+// the quantities.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

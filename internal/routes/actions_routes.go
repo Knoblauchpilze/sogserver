@@ -87,7 +87,7 @@ func (s *server) registerBuildingAction() http.HandlerFunc {
 		func(input string, routeTokens []string) (string, error) {
 			// Unmarshal the input data into a building upgrade action
 			// and perform the registration through the dedicated func.
-			var action data.ProgressAction
+			var action data.BuildingAction
 
 			err := json.Unmarshal([]byte(input), &action)
 			if err != nil {
@@ -123,7 +123,7 @@ func (s *server) registerTechnologyAction() http.HandlerFunc {
 		func(input string, routeTokens []string) (string, error) {
 			// Unmarshal the input data into a technology upgrade action
 			// and perform the registration through the dedicated func.
-			var action data.ProgressAction
+			var action data.TechnologyAction
 
 			err := json.Unmarshal([]byte(input), &action)
 			if err != nil {
@@ -136,9 +136,6 @@ func (s *server) registerTechnologyAction() http.HandlerFunc {
 			if len(routeTokens) > 0 {
 				action.PlanetID = routeTokens[0]
 			}
-
-			// The technology can only be upgraded.
-			action.IsStrictlyUpgradable = true
 
 			// Create the upgrade action.
 			err = s.upgradeAction.CreateTechnologyAction(action)

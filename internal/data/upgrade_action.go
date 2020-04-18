@@ -13,6 +13,29 @@ import (
 // action. It contains some information about the costs
 // of each element in the game along with some dependencies
 // that need to be met for each element.
+//
+// The `pCosts` represents the list of construction costs
+// for elements that have a notion of progression (like
+// buildings or technologies).
+//
+// The `fCosts` defines the list of production cost for
+// unit-like elements (typically ships and defenses).
+//
+// The `techTree` defines the list of dependencies of any
+// element of the game to any other.
+//
+// The `available` represents the amount of each resource
+// available at the place of the validation (typically on
+// a given planet).
+//
+// The `buildings` defines the list of buildings that are
+// available at the place of validation.
+//
+// The `technologies` defines the list of all the techs
+// that the player already researched.
+//
+// The `fields` defines the remaining fields count at
+// the place of validation.
 type validationTools struct {
 	pCosts       map[string]ConstructionCost
 	fCosts       map[string]FixedCost
@@ -121,6 +144,7 @@ func (vt validationTools) meetTechCriteria(element string) (bool, error) {
 type UpgradeAction interface {
 	Validate(tools validationTools) (bool, error)
 	GetPlanet() string
+	UpdateCompletionTime(bm buildingModule) error
 }
 
 // BaseUpgradeAction :
@@ -154,7 +178,7 @@ type BaseUpgradeAction struct {
 // are at least not obviously wrong.
 //
 // Returns `true` if the action seems valid.
-func (a BaseUpgradeAction) valid() bool {
+func (a *BaseUpgradeAction) valid() bool {
 	return validUUID(a.ID) &&
 		validUUID(a.PlanetID) &&
 		validUUID(a.ElementID)
@@ -166,7 +190,7 @@ func (a BaseUpgradeAction) valid() bool {
 //
 // Returns a string representing the identifier of the
 // planet onto which this action should be launched.
-func (a BaseUpgradeAction) GetPlanet() string {
+func (a *BaseUpgradeAction) GetPlanet() string {
 	return a.PlanetID
 }
 
@@ -175,7 +199,7 @@ func (a BaseUpgradeAction) GetPlanet() string {
 // easily display this action if needed.
 //
 // Returns the strig describing this action.
-func (a BaseUpgradeAction) String() string {
+func (a *BaseUpgradeAction) String() string {
 	return fmt.Sprintf("\"%s\"", a.PlanetID)
 }
 
@@ -196,16 +220,10 @@ func (a BaseUpgradeAction) String() string {
 // The `CompletionTime` will be computed from the cost of
 // the action and the facilities existing on the planet
 // where the action is triggered.
-//
-// The `IsStrictlyUpgradable` defines whether the progress
-// action can reference requests to downgrade the element
-// referred to by this action (so typically allowing the
-// `CurrentLevel` to be greater than the `DesiredLevel`).
 type ProgressAction struct {
-	CurrentLevel         int       `json:"current_level"`
-	DesiredLevel         int       `json:"desired_level"`
-	CompletionTime       time.Time `json:"completion_time"`
-	IsStrictlyUpgradable bool
+	CurrentLevel   int       `json:"current_level"`
+	DesiredLevel   int       `json:"desired_level"`
+	CompletionTime time.Time `json:"completion_time"`
 
 	BaseUpgradeAction
 }
@@ -216,12 +234,10 @@ type ProgressAction struct {
 // are correct.
 //
 // Returns `true` if this action is not obviously wrong.
-func (a ProgressAction) valid() bool {
+func (a *ProgressAction) valid() bool {
 	return a.BaseUpgradeAction.valid() &&
 		a.CurrentLevel >= 0 &&
-		a.DesiredLevel >= 0 &&
-		((a.IsStrictlyUpgradable && a.DesiredLevel == a.CurrentLevel+1) ||
-			(!a.IsStrictlyUpgradable && math.Abs(float64(a.DesiredLevel)-float64(a.CurrentLevel)) == 1))
+		a.DesiredLevel >= 0
 }
 
 // computeCost :
@@ -238,7 +254,7 @@ func (a ProgressAction) valid() bool {
 // is needed for this action the amount necessary. In
 // case the input map does not define anything for the
 // action an error is returned.
-func (a ProgressAction) computeCost(costs map[string]ConstructionCost) ([]ResourceAmount, error) {
+func (a *ProgressAction) computeCost(costs map[string]ConstructionCost) ([]ResourceAmount, error) {
 	// Find this action in the input table.
 	cost, ok := costs[a.ElementID]
 
@@ -265,28 +281,7 @@ func (a ProgressAction) computeCost(costs map[string]ConstructionCost) ([]Resour
 //
 // Returns `true` if the action can be launched given
 // the information provided in input.
-func (a ProgressAction) Validate(tools validationTools) (bool, error) {
-	// Make sure that there are some remaining fields on
-	// the planet: this is only relevant in case the action
-	// *does* require an action.
-	if a.CurrentLevel < a.DesiredLevel {
-		// Only buildings require a field in the planet so
-		// we will first check whether this action concerns
-		// a building.
-		isBuilding := false
-		for id := 0; id < len(tools.buildings) && !isBuilding; id++ {
-			if tools.buildings[id].ID == a.ElementID {
-				isBuilding = true
-			}
-		}
-
-		if isBuilding && tools.fields == 0 {
-			// There are no more fields available on the planet
-			// while we need one: this is not possible.
-			return false, nil
-		}
-	}
-
+func (a *ProgressAction) Validate(tools validationTools) (bool, error) {
 	// We need to make sure that there are enough resources
 	// available given the cost of this action.
 	needed, err := a.computeCost(tools.pCosts)
@@ -307,6 +302,139 @@ func (a ProgressAction) Validate(tools validationTools) (bool, error) {
 	}
 
 	return meet, nil
+}
+
+// BuildingAction :
+// Used as a way to refine the `ProgressAction` for the
+// specific case of buildings. It mostly add the info to
+// compute the completion time for a building.
+type BuildingAction struct {
+	ProgressAction
+}
+
+// valid :
+// Used to refine the behavior of the progress action to
+// make sure that the levels provided for this action are
+// correct.
+//
+// Returns `true` if this action is not obviously wrong.
+func (a *BuildingAction) valid() bool {
+	return a.ProgressAction.valid() &&
+		math.Abs(float64(a.DesiredLevel)-float64(a.CurrentLevel)) == 1
+}
+
+// Validate :
+// Refinement of the `ProgressAction` method in order
+// to add the verification that the number of fields
+// of the planet where the building should be built
+// still allows to build one more level of anything.
+//
+// The `tools` allow to define the technological deps
+// between elements and some resources that are present
+// on the place where the action should be launched.
+//
+// Returns `true` if the action can be launched given
+// the information provided in input.
+func (a *BuildingAction) Validate(tools validationTools) (bool, error) {
+	// Make sure that there are some remaining fields on
+	// the planet.
+	if a.CurrentLevel < a.DesiredLevel && tools.fields == 0 {
+		// No more fields available.
+		return false, nil
+	}
+
+	return a.ProgressAction.Validate(tools)
+}
+
+// UpdateCompletionTime :
+// Implementation of the `UpgradeAction` to allow the
+// computation of a valid completion time for the item
+// represented by this upgrade action.
+//
+// The `bm` defines the building module containing info
+// about the levels of some buildings (like the robotics
+// factory) which are used to determine the completion
+// time.
+func (a *BuildingAction) UpdateCompletionTime(bm buildingModule) error {
+	// Retrieve the level of the robotics factory and the
+	// nanite factory: both have an influence on the time
+	// to complete the action.
+	robotics, err := bm.getLevelOf("robotics factory")
+	if err != nil {
+		return fmt.Errorf("Cannot update building action completion time (err: %v)", err)
+	}
+
+	nanite, err := bm.getLevelOf("nanite factory")
+	if err != nil {
+		return fmt.Errorf("Cannot update building action completion time (err: %v)", err)
+	}
+
+	// TODO: Get the amount of metal and crystal required.
+	m := 1000.0
+	c := 1000.0
+
+	hours := (m + c) / (2500.0 * (1.0 + float64(robotics)) * math.Pow(2.0, float64(nanite)))
+
+	t, err := time.ParseDuration(fmt.Sprintf("%fh", hours))
+	if err != nil {
+		return fmt.Errorf("Cannot convert completion time for building action (err: %v)", err)
+	}
+
+	a.CompletionTime = time.Now().Add(t)
+
+	return nil
+}
+
+// TechnologyAction :
+// Used as a way to refine the `ProgressAction` for the
+// specific case of technologies. It mostly add the info
+// to compute the completion time for a technology.
+type TechnologyAction struct {
+	ProgressAction
+}
+
+// valid :
+// Used to refine the behavior of the progress action to
+// make sure that the levels provided for this action are
+// correct.
+//
+// Returns `true` if this action is not obviously wrong.
+func (a *TechnologyAction) valid() bool {
+	return a.ProgressAction.valid() &&
+		a.DesiredLevel == a.CurrentLevel+1
+}
+
+// UpdateCompletionTime :
+// Implementation of the `UpgradeAction` to allow the
+// computation of a valid completion time for the tech
+// represented by this upgrade action.
+//
+// The `bm` defines the building module containing info
+// about the levels of some buildings (like the research
+// lab) which are used to determine the completion time.
+func (a *TechnologyAction) UpdateCompletionTime(bm buildingModule) error {
+	// Retrieve the level of the research lab: it is the
+	// only building that has an influence on the total
+	// time to complete the action.
+	research, err := bm.getLevelOf("research lab")
+	if err != nil {
+		return fmt.Errorf("Cannot update technology action completion time (err: %v)", err)
+	}
+
+	// TODO: Get the amount of metal and crystal required.
+	m := 1000.0
+	c := 1000.0
+
+	hours := (m + c) / (1000.0 * (1.0 + float64(research)))
+
+	t, err := time.ParseDuration(fmt.Sprintf("%fh", hours))
+	if err != nil {
+		return fmt.Errorf("Cannot convert completion time for technology action (err: %v)", err)
+	}
+
+	a.CompletionTime = time.Now().Add(t)
+
+	return nil
 }
 
 // FixedAction :
@@ -342,7 +470,7 @@ type FixedAction struct {
 // are correct.
 //
 // Returns `true` if this action is not obviously wrong.
-func (a FixedAction) valid() bool {
+func (a *FixedAction) valid() bool {
 	return a.BaseUpgradeAction.valid() &&
 		a.Amount > 0 &&
 		a.Remaining >= 0 &&
@@ -364,7 +492,7 @@ func (a FixedAction) valid() bool {
 // still needed given the `a.Remaining` number to be
 // built. In case the input map does not define anything
 // for the action an error is returned.
-func (a FixedAction) computeTotalCost(costs map[string]FixedCost) ([]ResourceAmount, error) {
+func (a *FixedAction) computeTotalCost(costs map[string]FixedCost) ([]ResourceAmount, error) {
 	// Find this action in the input table.
 	cost, ok := costs[a.ElementID]
 
@@ -388,7 +516,7 @@ func (a FixedAction) computeTotalCost(costs map[string]FixedCost) ([]ResourceAmo
 //
 // Returns `true` if the action can be launched given
 // the information provided in input.
-func (a FixedAction) Validate(tools validationTools) (bool, error) {
+func (a *FixedAction) Validate(tools validationTools) (bool, error) {
 	// We need to make sure that there are enough resources
 	// available given the cost of this action.
 	needed, err := a.computeTotalCost(tools.fCosts)
@@ -409,4 +537,43 @@ func (a FixedAction) Validate(tools validationTools) (bool, error) {
 	}
 
 	return meet, nil
+}
+
+// UpdateCompletionTime :
+// Implementation of the `UpgradeAction` to allow the
+// computation of a valid completion time for each item
+// of this fixed action. This uses the information of the
+// building module.
+//
+// The `bm` defines the building module containing info
+// about the levels of some buildings (like the shipyard)
+// which are used to determine the completion time.
+func (a *FixedAction) UpdateCompletionTime(bm buildingModule) error {
+	// Retrieve the level of the shipyard and the nanite
+	// factory: these are the two buildings that have an
+	// influence on the completion time.
+	shipyard, err := bm.getLevelOf("shipyard")
+	if err != nil {
+		return fmt.Errorf("Cannot update fixed action completion time (err: %v)", err)
+	}
+
+	nanite, err := bm.getLevelOf("nanite factory")
+	if err != nil {
+		return fmt.Errorf("Cannot update fixed action completion time (err: %v)", err)
+	}
+
+	// TODO: Get the amount of metal and crystal required.
+	m := 1000.0
+	c := 1000.0
+
+	hours := (m + c) / (2500.0 * (1.0 + float64(shipyard)) * math.Pow(2.0, float64(nanite)))
+
+	t, err := time.ParseDuration(fmt.Sprintf("%fh", hours))
+	if err != nil {
+		return fmt.Errorf("Cannot convert completion time for fixed action (err: %v)", err)
+	}
+
+	a.CompletionTime = duration.Duration{t}
+
+	return nil
 }

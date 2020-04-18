@@ -48,12 +48,17 @@ import (
 // the item and the values represent a combination of
 // the level of the dependency and the identifier of
 // the element.
+//
+// The `buildings` defines the list of available buildings
+// in the game. It allows to easily associate a building's
+// name with the corresponding DB identifier.
 type ActionProxy struct {
-	pRules   map[string][]ProductionRule
-	sRules   map[string][]StorageRule
-	pCosts   map[string]ConstructionCost
-	fCosts   map[string]FixedCost
-	techTree map[string][]TechDependency
+	pRules    map[string][]ProductionRule
+	sRules    map[string][]StorageRule
+	pCosts    map[string]ConstructionCost
+	fCosts    map[string]FixedCost
+	techTree  map[string][]TechDependency
+	buildings map[string]string
 
 	planetsDependentProxy
 	playersDependentProxy
@@ -83,6 +88,7 @@ func NewActionProxy(dbase *db.DB, log logger.Logger, planets PlanetProxy, player
 		make(map[string]ConstructionCost),
 		make(map[string]FixedCost),
 		make(map[string][]TechDependency),
+		make(map[string]string),
 
 		newPlanetsDependentProxy(planets),
 		newPlayersDependentProxy(players),
@@ -198,6 +204,11 @@ func (p *ActionProxy) init() error {
 		}
 
 		p.techTree = techTree
+	}
+
+	// Fetch buildings' names.
+	if len(p.buildings) == 0 {
+		// TODO: Handlle this.
 	}
 
 	return nil
@@ -822,6 +833,12 @@ func (p *ActionProxy) verifyAction(a UpgradeAction) error {
 		availableResources[res.ID] = res.Amount
 	}
 
+	// Create the building module of the planet.
+	bm := buildingModule{
+		buildings: p.buildings,
+		planet:    planet,
+	}
+
 	// Populate the validation tool.
 	vt := validationTools{
 		pCosts:       p.pCosts,
@@ -845,6 +862,10 @@ func (p *ActionProxy) verifyAction(a UpgradeAction) error {
 
 	// The action is valid, compute the completion time
 	// from the data existing on the planet.
+	err = a.UpdateCompletionTime(bm)
+	if err != nil {
+		return fmt.Errorf("Could not update completion time for action on \"%s\" (err: %v)", a.GetPlanet(), err)
+	}
 
 	return nil
 }
@@ -862,14 +883,14 @@ func (p *ActionProxy) verifyAction(a UpgradeAction) error {
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
 // `nil`.
-func (p *ActionProxy) CreateBuildingAction(action ProgressAction) error {
+func (p *ActionProxy) CreateBuildingAction(action BuildingAction) error {
 	// Assign a valid identifier if this is not already the case.
 	if action.ID == "" {
 		action.ID = uuid.New().String()
 	}
 
 	// Check whether the action is valid.
-	err := p.verifyAction(action)
+	err := p.verifyAction(&action)
 	if err != nil {
 		return fmt.Errorf("Could not create upgrade action (err: %v)", err)
 	}
@@ -921,7 +942,7 @@ func (p *ActionProxy) CreateBuildingAction(action ProgressAction) error {
 // production effects should be created.
 //
 // Returns the production effects along with any error.
-func (p *ActionProxy) fetchBuildingProductionEffects(action *ProgressAction) ([]ProductionEffect, error) {
+func (p *ActionProxy) fetchBuildingProductionEffects(action *BuildingAction) ([]ProductionEffect, error) {
 	// Make sure that the action is valid.
 	if action == nil || !action.valid() {
 		return []ProductionEffect{}, fmt.Errorf("Cannot fetch building upgrade action production effects for invalid action")
@@ -976,7 +997,7 @@ func (p *ActionProxy) fetchBuildingProductionEffects(action *ProgressAction) ([]
 // storage effects should be created.
 //
 // Returns the storage effects along with any error.
-func (p *ActionProxy) fetchBuildingStorageEffects(action *ProgressAction) ([]StorageEffect, error) {
+func (p *ActionProxy) fetchBuildingStorageEffects(action *BuildingAction) ([]StorageEffect, error) {
 	// Make sure that the action is valid.
 	if action == nil || !action.valid() {
 		return []StorageEffect{}, fmt.Errorf("Cannot fetch building upgrade action storage effects for invalid action")
@@ -1026,7 +1047,7 @@ func (p *ActionProxy) fetchBuildingStorageEffects(action *ProgressAction) ([]Sto
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
 // `nil`.
-func (p *ActionProxy) CreateTechnologyAction(action ProgressAction) error {
+func (p *ActionProxy) CreateTechnologyAction(action TechnologyAction) error {
 	// Assign a valid identifier if this is not already the case.
 	if action.ID == "" {
 		action.ID = uuid.New().String()
@@ -1034,7 +1055,7 @@ func (p *ActionProxy) CreateTechnologyAction(action ProgressAction) error {
 
 	// Perform the creation of the action through the
 	// dedicated handler.
-	err := p.createAction(action, "create_technology_upgrade_action")
+	err := p.createAction(&action, "create_technology_upgrade_action")
 
 	if err == nil {
 		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to upgrade \"%s\" to level %d for \"%s\"", action.ElementID, action.DesiredLevel, action.PlanetID))
@@ -1068,7 +1089,7 @@ func (p *ActionProxy) CreateShipAction(action FixedAction) error {
 
 	// Perform the creation of the action through the
 	// dedicated handler.
-	err := p.createAction(action, "create_ship_upgrade_action")
+	err := p.createAction(&action, "create_ship_upgrade_action")
 
 	if err == nil {
 		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to build \"%s\" on \"%s\"", action.ElementID, action.PlanetID))
@@ -1102,7 +1123,7 @@ func (p *ActionProxy) CreateDefenseAction(action FixedAction) error {
 
 	// Perform the creation of the action through the
 	// dedicated handler.
-	err := p.createAction(action, "create_defense_upgrade_action")
+	err := p.createAction(&action, "create_defense_upgrade_action")
 
 	if err == nil {
 		p.log.Trace(logger.Notice, fmt.Sprintf("Registered action to build \"%s\" on \"%s\"", action.ElementID, action.PlanetID))

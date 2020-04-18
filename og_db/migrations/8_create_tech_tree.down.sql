@@ -18,7 +18,7 @@ DROP TABLE tech_tree_technologies_vs_buildings;
 DROP TABLE tech_tree_buildings_vs_technologies;
 
 -- Drop the table referencing dependencies between technologies.
-DROP TABLE tech_tree_technologies_dependencies;
+DROP TABLE tech_tree_technologies_vs_technologies;
 
 -- Drop the table referencing dependencies between buildings.
-DROP TABLE tech_tree_buildings_dependencies;
+DROP TABLE tech_tree_buildings_vs_buildings;

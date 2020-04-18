@@ -273,8 +273,8 @@ func (rm *ResourcesModule) GetResourceFromID(id string) (ResourceDesc, error) {
 }
 
 // GetResourceFromName :
-// Calls internally the `getIDFromName` in order to
-// forward the call to the above method. Failures
+// Calls internally the `GetResourceFromID` in order
+// to forward the call to the above method. Failures
 // happen in similar cases.
 //
 // The `name` defines the name of the resource for

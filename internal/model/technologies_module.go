@@ -36,14 +36,18 @@ type TechnologiesModule struct {
 //
 // The `TechnologiesDeps` fills a similar purpose but
 // register dependencies on technologies.
+//
+// The `Cost` allows to compute the cost of this item
+// at any level.
 type TechnologyDesc struct {
 	ID               string       `json:"id"`
 	Name             string       `json:"name"`
 	BuildingsDeps    []Dependency `json:"buildings_dependencies"`
 	TechnologiesDeps []Dependency `json:"technologies_dependencies"`
+	Cost             ProgressCost `json:"cost"`
 }
 
-// newTechnologiesModule :
+// NewTechnologiesModule :
 // Creates a new module allowing to handle technologies
 // defined in the game. Progression rules and initial
 // costs are fetched in a way consistent with what is
@@ -53,7 +57,7 @@ type TechnologyDesc struct {
 //
 // The `log` defines the logging layer to forward to the
 // base `progressCostsModule` element.
-func newTechnologiesModule(log logger.Logger) *TechnologiesModule {
+func NewTechnologiesModule(log logger.Logger) *TechnologiesModule {
 	return &TechnologiesModule{
 		progressCostsModule: *newProgressCostsModule(log, Technology, "technology"),
 	}
@@ -99,7 +103,7 @@ func (tm *TechnologiesModule) Init(dbase *db.DB, force bool) error {
 	// and various data from the base handlers.
 	err = tm.progressCostsModule.Init(dbase, force)
 	if err != nil {
-		tm.trace(logger.Error, fmt.Sprintf("Failed to initialize base progression module (err: %v)", err))
+		tm.trace(logger.Error, fmt.Sprintf("Failed to initialize base module (err: %v)", err))
 		return err
 	}
 
@@ -159,7 +163,7 @@ func (tm *TechnologiesModule) initNames(proxy db.Proxy) error {
 
 		// Check whether a technology with this identifier exists.
 		if tm.existsID(ID) {
-			tm.trace(logger.Error, fmt.Sprintf("Overriding technology \"%s\"", ID))
+			tm.trace(logger.Error, fmt.Sprintf("Prevented override of technology \"%s\"", ID))
 			override = true
 
 			continue

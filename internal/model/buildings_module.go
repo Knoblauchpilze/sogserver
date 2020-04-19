@@ -178,7 +178,7 @@ func newStorageRule(res string) StorageRule {
 	}
 }
 
-// newBuildingsModule :
+// NewBuildingsModule :
 // Creates a new module allowing to handle buildings
 // defined in the game. It applies the abstract set
 // of functions for upgradable and progress costs
@@ -188,7 +188,7 @@ func newStorageRule(res string) StorageRule {
 //
 // The `log` defines the logging layer to forward to the
 // base `progressCostsModule` element.
-func newBuildingsModule(log logger.Logger) *BuildingsModule {
+func NewBuildingsModule(log logger.Logger) *BuildingsModule {
 	return &BuildingsModule{
 		progressCostsModule: *newProgressCostsModule(log, Building, "buildings"),
 		production:          nil,
@@ -252,7 +252,7 @@ func (bm *BuildingsModule) Init(dbase *db.DB, force bool) error {
 	// and various data from the base handlers.
 	err = bm.progressCostsModule.Init(dbase, force)
 	if err != nil {
-		bm.trace(logger.Error, fmt.Sprintf("Failed to initialize base progression module (err: %v)", err))
+		bm.trace(logger.Error, fmt.Sprintf("Failed to initialize base module (err: %v)", err))
 		return err
 	}
 
@@ -325,7 +325,7 @@ func (bm *BuildingsModule) initNames(proxy db.Proxy) error {
 
 		// Check whether a building with this identifier exists.
 		if bm.existsID(ID) {
-			bm.trace(logger.Error, fmt.Sprintf("Overriding building \"%s\"", ID))
+			bm.trace(logger.Error, fmt.Sprintf("Prevented override of building \"%s\"", ID))
 			override = true
 
 			continue

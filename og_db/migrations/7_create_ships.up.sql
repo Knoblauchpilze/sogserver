@@ -3,6 +3,7 @@
 CREATE TABLE ships (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
+  -- TODO: The propulsion could be define in a separate table with a range for the propulsion tech.
   propulsion uuid NOT NULL,
   speed integer NOT NULL,
   cargo integer NOT NULL,

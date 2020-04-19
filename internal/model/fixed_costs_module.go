@@ -87,7 +87,7 @@ func (fcm *fixedCostsModule) valid() bool {
 // new table in the DB where such costs are defined.
 //
 // The `dbase` represents the main data source to use
-// to initialize the resources data.
+// to initialize the fixed costs data.
 //
 // The `force` allows to erase any existing information
 // and reload everything from the DB.

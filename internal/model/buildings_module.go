@@ -215,7 +215,7 @@ func (bm *BuildingsModule) valid() bool {
 // to be attached to the right elements.
 //
 // The `dbase` represents the main data source to use
-// to initialize the resources data.
+// to initialize the buildings data.
 //
 // The `force` allows to erase any existing information
 // and reload everything from the DB.
@@ -223,7 +223,7 @@ func (bm *BuildingsModule) valid() bool {
 // Returns any error.
 func (bm *BuildingsModule) Init(dbase *db.DB, force bool) error {
 	if dbase == nil {
-		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize buildings module from nil DB"))
+		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize module from nil DB"))
 		return db.ErrInvalidDB
 	}
 
@@ -244,7 +244,7 @@ func (bm *BuildingsModule) Init(dbase *db.DB, force bool) error {
 	// buildings that are defined in the game.
 	err := bm.initNames(proxy)
 	if err != nil {
-		bm.trace(logger.Error, fmt.Sprintf("Could not initialize buildings module (err: %v)", err))
+		bm.trace(logger.Error, fmt.Sprintf("Could not initialize module (err: %v)", err))
 		return err
 	}
 
@@ -252,21 +252,21 @@ func (bm *BuildingsModule) Init(dbase *db.DB, force bool) error {
 	// and various data from the base handlers.
 	err = bm.progressCostsModule.Init(dbase, force)
 	if err != nil {
-		bm.trace(logger.Error, fmt.Sprintf("Failed to initialize base progression modules of buildings (err: %v)", err))
+		bm.trace(logger.Error, fmt.Sprintf("Failed to initialize base progression module (err: %v)", err))
 		return err
 	}
 
 	// Perform the initialization of the production rules.
 	err = bm.initProduction(proxy)
 	if err != nil {
-		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize production rules for buildings (err: %v)", err))
+		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize production rules (err: %v)", err))
 		return err
 	}
 
 	// And finally update the storage rules.
 	err = bm.initStorage(proxy)
 	if err != nil {
-		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize storage rules for buildings (err: %v)", err))
+		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize storage rules (err: %v)", err))
 		return err
 	}
 

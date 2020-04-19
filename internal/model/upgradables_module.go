@@ -148,7 +148,7 @@ func (um *upgradablesModule) valid() bool {
 // local memory.
 //
 // The `dbase` represents the main data source to use
-// to initialize the resources data.
+// to initialize the upgradables data.
 //
 // The `force` allows to erase any existing information
 // and reload everything from the DB.

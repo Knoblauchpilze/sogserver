@@ -304,33 +304,6 @@ type Building struct {
 	ProductionIncrease []ResourceAmount `json:"production_increase"`
 }
 
-// TechnologyDesc :
-// Defines the abstract representation of a technology with
-// its name and unique identifier. It might also include a
-// short summary of its purpose retrieved from the database.
-//
-// The `ID` defines the unique identifier for this technology.
-//
-// The `Name` defines a human readable name for the technology.
-//
-// The `Description` defines a short text describing the role
-// of the technology and its applications.
-//
-// The `BuildingDeps` defines a list of identifiers which
-// represent the buildings (and their associated level) which
-// need to be available for this technology to be built. It is
-// some sort of representation of the tech-tree.
-//
-// The `TechnologiesDeps` fills a similar purpose but register
-// dependencies on technologies and not buildings.
-type TechnologyDesc struct {
-	ID               string           `json:"id"`
-	Name             string           `json:"name"`
-	Desc             string           `json:"desc"`
-	BuildingsDeps    []TechDependency `json:"buildings_dependencies"`
-	TechnologiesDeps []TechDependency `json:"technologies_dependencies"`
-}
-
 // Technology :
 // Defines a technology in the og context. It defines the
 // identifier of the technology which allows to access the

@@ -1,19 +1,9 @@
 
--- Create the building types.
-CREATE TABLE building_types (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  name text NOT NULL,
-  PRIMARY KEY (id),
-  UNIQUE (name)
-);
-
 -- Create the table defining buildings.
 CREATE TABLE buildings (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
-  type uuid NOT NULL,
-  PRIMARY KEY (id),
-  FOREIGN KEY (type) REFERENCES building_types(id)
+  PRIMARY KEY (id)
 );
 
 -- Create the table defining the cost of a building.
@@ -55,111 +45,30 @@ CREATE TABLE buildings_storage_progress (
   FOREIGN KEY (res) REFERENCES resources(id)
 );
 
--- Seed the available building types.
-INSERT INTO public.building_types ("name") VALUES('mine');
-INSERT INTO public.building_types ("name") VALUES('hangar');
-INSERT INTO public.building_types ("name") VALUES('none');
-
 -- Seed the available buildings.
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'metal mine',
-    (SELECT id FROM building_types WHERE name='mine')
-  );
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'crystal mine',
-    (SELECT id FROM building_types WHERE name='mine')
-  );
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'deuterium synthetizer',
-    (SELECT id FROM building_types WHERE name='mine')
-  );
+INSERT INTO public.buildings ("name") VALUES('metal mine');
+INSERT INTO public.buildings ("name") VALUES('crystal mine');
+INSERT INTO public.buildings ("name") VALUES('deuterium synthetizer');
 
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'metal storage',
-    (SELECT id FROM building_types WHERE name='hangar')
-  );
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'crystal storage',
-    (SELECT id FROM building_types WHERE name='hangar')
-  );
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'deuterium tank',
-    (SELECT id FROM building_types WHERE name='hangar')
-  );
+INSERT INTO public.buildings ("name") VALUES('metal storage');
+INSERT INTO public.buildings ("name") VALUES('crystal storage');
+INSERT INTO public.buildings ("name") VALUES('deuterium tank');
 
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'solar plant',
-    (SELECT id FROM building_types WHERE name='mine')
-  );
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'fusion reactor',
-    (SELECT id FROM building_types WHERE name='mine')
-  );
+INSERT INTO public.buildings ("name") VALUES('solar plant');
+INSERT INTO public.buildings ("name") VALUES('fusion reactor');
 
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'robotics factory',
-    (SELECT id FROM building_types WHERE name='none')
-  );
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'shipyard',
-    (SELECT id FROM building_types WHERE name='none')
-  );
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'research lab',
-    (SELECT id FROM building_types WHERE name='none')
-  );
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'alliance depot',
-    (SELECT id FROM building_types WHERE name='none')
-  );
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'missile silo',
-    (SELECT id FROM building_types WHERE name='none')
-  );
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'nanite factory',
-    (SELECT id FROM building_types WHERE name='none')
-  );
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'terraformer',
-    (SELECT id FROM building_types WHERE name='none')
-  );
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'space dock',
-    (SELECT id FROM building_types WHERE name='none')
-  );
+INSERT INTO public.buildings ("name") VALUES('robotics factory');
+INSERT INTO public.buildings ("name") VALUES('shipyard');
+INSERT INTO public.buildings ("name") VALUES('research lab');
+INSERT INTO public.buildings ("name") VALUES('alliance depot');
+INSERT INTO public.buildings ("name") VALUES('missile silo');
+INSERT INTO public.buildings ("name") VALUES('nanite factory');
+INSERT INTO public.buildings ("name") VALUES('terraformer');
+INSERT INTO public.buildings ("name") VALUES('space dock');
 
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'moon base',
-    (SELECT id FROM building_types WHERE name='none')
-  );
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'jump gate',
-    (SELECT id FROM building_types WHERE name='none')
-  );
-INSERT INTO public.buildings ("name", "type")
-  VALUES(
-    'sensor phalanx',
-    (SELECT id FROM building_types WHERE name='none')
-  );
+INSERT INTO public.buildings ("name") VALUES('moon base');
+INSERT INTO public.buildings ("name") VALUES('jump gate');
+INSERT INTO public.buildings ("name") VALUES('sensor phalanx');
 
 -- Seed the building costs.
 -- Mines.

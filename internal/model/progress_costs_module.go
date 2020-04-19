@@ -125,7 +125,7 @@ func (pcm *progressCostsModule) Init(dbase *db.DB, force bool) error {
 	// Load the base elements.
 	err := pcm.upgradablesModule.Init(dbase, force)
 	if err != nil {
-		pcm.trace(logger.Error, fmt.Sprintf("Unable to initialize base upgradable module for %s (err: %v)", pcm.uType, err))
+		pcm.trace(logger.Error, fmt.Sprintf("Unable to initialize base upgradable module (err: %v)", err))
 		return err
 	}
 
@@ -145,13 +145,13 @@ func (pcm *progressCostsModule) Init(dbase *db.DB, force bool) error {
 	// any known building we found an inconsistency.
 	err = pcm.initProgressionRules(proxy)
 	if err != nil {
-		pcm.trace(logger.Error, fmt.Sprintf("Failed to initialize progression rules for %s (err: %v)", pcm.uType, err))
+		pcm.trace(logger.Error, fmt.Sprintf("Failed to initialize progression rules (err: %v)", err))
 		return err
 	}
 
 	err = pcm.initCosts(proxy)
 	if err != nil {
-		pcm.trace(logger.Error, fmt.Sprintf("Failed to initialize init costs for %s (err: %v)", pcm.uType, err))
+		pcm.trace(logger.Error, fmt.Sprintf("Failed to initialize init costs (err: %v)", err))
 		return err
 	}
 
@@ -182,11 +182,11 @@ func (pcm *progressCostsModule) initProgressionRules(proxy db.Proxy) error {
 	defer rows.Close()
 
 	if err != nil {
-		pcm.trace(logger.Error, fmt.Sprintf("Unable to initialize %s progression costs rules (err: %v)", pcm.uType, err))
+		pcm.trace(logger.Error, fmt.Sprintf("Unable to initialize progression costs rules (err: %v)", err))
 		return ErrNotInitialized
 	}
 	if rows.Err != nil {
-		pcm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize %s progression costs rules (err: %v)", pcm.uType, rows.Err))
+		pcm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize progression costs rules (err: %v)", rows.Err))
 		return ErrNotInitialized
 	}
 
@@ -266,11 +266,11 @@ func (pcm *progressCostsModule) initCosts(proxy db.Proxy) error {
 	defer rows.Close()
 
 	if err != nil {
-		pcm.trace(logger.Error, fmt.Sprintf("Unable to initialize %s progression costs (err: %v)", pcm.uType, err))
+		pcm.trace(logger.Error, fmt.Sprintf("Unable to initialize progression costs (err: %v)", err))
 		return ErrNotInitialized
 	}
 	if rows.Err != nil {
-		pcm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize %s progression costs (err: %v)", pcm.uType, rows.Err))
+		pcm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize progression costs (err: %v)", rows.Err))
 		return ErrNotInitialized
 	}
 

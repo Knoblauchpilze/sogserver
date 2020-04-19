@@ -186,13 +186,13 @@ func (um *upgradablesModule) Init(dbase *db.DB, force bool) error {
 	defer rows.Close()
 
 	if err != nil {
-		um.trace(logger.Error, fmt.Sprintf("Unable to initialize upgradables %s module (err: %v)", um.uType, err))
+		um.trace(logger.Error, fmt.Sprintf("Unable to initialize upgradables (err: %v)", err))
 		return err
 	}
 
 	err = um.initDeps(rows, &um.buildingsDeps)
 	if err != nil {
-		um.trace(logger.Error, fmt.Sprintf("Unable to initialize upgradables %s module (err: %v)", um.uType, err))
+		um.trace(logger.Error, fmt.Sprintf("Unable to initialize upgradables (err: %v)", err))
 		return err
 	}
 
@@ -205,7 +205,7 @@ func (um *upgradablesModule) Init(dbase *db.DB, force bool) error {
 
 	err = um.initDeps(rows, &um.techDeps)
 	if err != nil {
-		um.trace(logger.Error, fmt.Sprintf("Unable to initialize upgradables %s module (err: %v)", um.uType, err))
+		um.trace(logger.Error, fmt.Sprintf("Unable to initialize upgradables (err: %v)", err))
 		return err
 	}
 
@@ -225,7 +225,7 @@ func (um *upgradablesModule) Init(dbase *db.DB, force bool) error {
 // Returns any error.
 func (um *upgradablesModule) initDeps(rows db.QueryResult, deps *map[string][]Dependency) error {
 	if rows.Err != nil {
-		um.trace(logger.Error, fmt.Sprintf("Invalid query to initialize upgradables %s module (err: %v)", um.uType, rows.Err))
+		um.trace(logger.Error, fmt.Sprintf("Invalid query to initialize upgradables (err: %v)", rows.Err))
 		return ErrNotInitialized
 	}
 

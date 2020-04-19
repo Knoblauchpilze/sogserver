@@ -107,7 +107,7 @@ func (fcm *fixedCostsModule) Init(dbase *db.DB, force bool) error {
 	// Load the base elements.
 	err := fcm.upgradablesModule.Init(dbase, force)
 	if err != nil {
-		fcm.trace(logger.Error, fmt.Sprintf("Unable to initialize base upgradable module for %s (err: %v)", fcm.uType, err))
+		fcm.trace(logger.Error, fmt.Sprintf("Unable to initialize base upgradable module (err: %v)", err))
 		return err
 	}
 
@@ -131,11 +131,11 @@ func (fcm *fixedCostsModule) Init(dbase *db.DB, force bool) error {
 	defer rows.Close()
 
 	if err != nil {
-		fcm.trace(logger.Error, fmt.Sprintf("Unable to initialize %s fixed costs (err: %v)", fcm.uType, err))
+		fcm.trace(logger.Error, fmt.Sprintf("Unable to initialize fixed costs (err: %v)", err))
 		return ErrNotInitialized
 	}
 	if rows.Err != nil {
-		fcm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize %s fixed costs (err: %v)", fcm.uType, rows.Err))
+		fcm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize fixed costs (err: %v)", rows.Err))
 		return ErrNotInitialized
 	}
 

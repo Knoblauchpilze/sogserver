@@ -129,20 +129,6 @@ type ConstructionCost struct {
 	ProgressionRule float32
 }
 
-// FixedCost :
-// Used in a similar way to `ConstructionCost` but
-// to define a cost that does not scale with a level.
-// It is typically used to represent the cost of a
-// single unit (like a ship).
-//
-// The `InitCosts` represents the cost of the unit.
-// Each element of the map has a key corresponding
-// to the identifier of the resource needed along
-// with the value needed.
-type FixedCost struct {
-	InitCosts map[string]int
-}
-
 // ProductionRule :
 // Used to define the rule to produce some quantity
 // of a resource for an element (usually a building).
@@ -283,33 +269,6 @@ type TechDependency struct {
 type ResourceAmount struct {
 	Resource string  `json:"resource"`
 	Amount   float32 `json:"amount"`
-}
-
-// BuildingDesc :
-// Defines the abstract representation of a building with its
-// name and unique identifier. It might also include a short
-// summary of its role retrieved from the database.
-//
-// The `ID` defines the unique identifier for this building.
-//
-// The `Name` defines a human readable name for the building.
-//
-// The `Description` defines a short text describing the role
-// of the building and its purpose.
-//
-// The `BuildingDeps` defines a list of identifiers which
-// represent the buildings (and their associated level) which
-// need to be available for this building to be built. It is
-// some sort of representation of the tech-tree.
-//
-// The `TechnologiesDeps` fills a similar purpose but register
-// dependencies on technologies and not buildings.
-type BuildingDesc struct {
-	ID               string           `json:"id"`
-	Name             string           `json:"name"`
-	Desc             string           `json:"desc"`
-	BuildingsDeps    []TechDependency `json:"buildings_dependencies"`
-	TechnologiesDeps []TechDependency `json:"technologies_dependencies"`
 }
 
 // Building :

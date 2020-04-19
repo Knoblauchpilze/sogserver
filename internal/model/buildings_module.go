@@ -284,8 +284,66 @@ func (bm *BuildingsModule) Init(dbase *db.DB, force bool) error {
 //
 // Returns any error.
 func (bm *BuildingsModule) initNames(proxy db.Proxy) error {
-	// TODO: Handle this.
-	return fmt.Errorf("Not implemented")
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+			"name",
+		},
+		Table:   "buildings",
+		Filters: []db.Filter{},
+	}
+
+	rows, err := proxy.FetchFromDB(query)
+	defer rows.Close()
+
+	if err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize buildings (err: %v)", err))
+		return ErrNotInitialized
+	}
+	if rows.Err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize buildings (err: %v)", rows.Err))
+		return ErrNotInitialized
+	}
+
+	// Analyze the query and populate internal values.
+	var ID, name string
+
+	override := false
+	inconsistent := false
+
+	for rows.Next() {
+		err := rows.Scan(
+			&ID,
+			&name,
+		)
+
+		if err != nil {
+			bm.trace(logger.Error, fmt.Sprintf("Failed to initialize building from row (err: %v)", err))
+			continue
+		}
+
+		// Check whether a building with this identifier exists.
+		if bm.existsID(ID) {
+			bm.trace(logger.Error, fmt.Sprintf("Overriding building \"%s\"", ID))
+			override = true
+
+			continue
+		}
+
+		// Register this building in the association table.
+		err = bm.registerAssociation(ID, name)
+		if err != nil {
+			bm.trace(logger.Error, fmt.Sprintf("Cannot register building \"%s\" (id: \"%s\") (err: %v)", name, ID, err))
+			inconsistent = true
+		}
+	}
+
+	if override || inconsistent {
+		return ErrInconsistentDB
+	}
+
+	return nil
 }
 
 // initProduction :

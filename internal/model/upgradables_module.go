@@ -203,7 +203,7 @@ func (um *upgradablesModule) Init(dbase *db.DB, force bool) error {
 	rows, err = proxy.FetchFromDB(query)
 	defer rows.Close()
 
-	err = um.initDeps(rows, &um.buildingsDeps)
+	err = um.initDeps(rows, &um.techDeps)
 	if err != nil {
 		um.trace(logger.Error, fmt.Sprintf("Unable to initialize upgradables %s module (err: %v)", um.uType, err))
 		return err

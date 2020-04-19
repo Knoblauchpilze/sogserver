@@ -96,8 +96,9 @@ func (bm *baseModule) setLogLevel(level logger.Severity) {
 //
 // The `msg` defines the content of the log to display.
 func (bm *baseModule) trace(level logger.Severity, msg string) {
-	// TODO: Implement module.
+	// Log the message only if its severity is greater than
+	// the current authorized log level.
 	if level >= bm.level {
-		bm.log.Trace(level, msg)
+		bm.log.Trace(level, bm.module, msg)
 	}
 }

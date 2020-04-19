@@ -135,6 +135,16 @@ type configuration struct {
 	LockCount int
 }
 
+// getModuleName :
+// Retrieves a unique string defining this module's
+// name. Can be used for logging purposes to make
+// the logs coming from this package stand out.
+//
+// Returns a string identifying this module.
+func getModuleName() string {
+	return "locker"
+}
+
 // parseConfiguration :
 // Used to parse the configuration file and environment
 // variables provided when executing this server to get
@@ -235,7 +245,7 @@ func (cl *ConcurrentLocker) Acquire(resource string) *Lock {
 			l = cl.locks[id]
 			l.use++
 
-			cl.cout.Trace(logger.Debug, fmt.Sprintf("Adding user to resource \"%s\" (id: %d, usage: %d, available: %d)", l.res, l.id, l.use, len(cl.availableLocks)))
+			cl.cout.Trace(logger.Debug, getModuleName(), fmt.Sprintf("Adding user to resource \"%s\" (id: %d, usage: %d, available: %d)", l.res, l.id, l.use, len(cl.availableLocks)))
 		}
 	}()
 
@@ -266,7 +276,7 @@ func (cl *ConcurrentLocker) Acquire(resource string) *Lock {
 		l.res = resource
 		l.use++
 
-		cl.cout.Trace(logger.Debug, fmt.Sprintf("Creating locker on \"%s\" (id: %d, available: %d)", l.res, l.id, len(cl.availableLocks)))
+		cl.cout.Trace(logger.Debug, getModuleName(), fmt.Sprintf("Creating locker on \"%s\" (id: %d, available: %d)", l.res, l.id, len(cl.availableLocks)))
 	}()
 
 	// We can return the lock we obtained.
@@ -309,7 +319,7 @@ func (cl *ConcurrentLocker) Release(lock *Lock) {
 	delete(cl.registered, lock.res)
 	cl.availableLocks <- lock.id
 
-	cl.cout.Trace(logger.Debug, fmt.Sprintf("Releasing locker on \"%s\" at index %d (available: %d)", lock.res, lock.id, len(cl.availableLocks)))
+	cl.cout.Trace(logger.Debug, getModuleName(), fmt.Sprintf("Releasing locker on \"%s\" at index %d (available: %d)", lock.res, lock.id, len(cl.availableLocks)))
 
 	lock.id = -1
 	lock.res = ""

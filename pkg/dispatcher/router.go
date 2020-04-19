@@ -42,6 +42,16 @@ type Router struct {
 	log                     logger.Logger
 }
 
+// getModuleName :
+// Defines the module's name to be used in logging for
+// example. This helps segmenting the logs by modules
+// which might be relevant for some analysis.
+//
+// Returns a string representing this module's name.
+func getModuleName() string {
+	return "router"
+}
+
 // NewRouter :
 // Creates a new router with default handlers for not found
 // and method not allowed and no route to match.
@@ -158,7 +168,7 @@ func (r *Router) Match(req *http.Request, m *routeMatch) bool {
 			// Notify in case we have matches with similar
 			// matched length.
 			if match.length == m.length {
-				r.log.Trace(logger.Warning, fmt.Sprintf("Found two routes with mathced length %d", match.length))
+				r.log.Trace(logger.Warning, getModuleName(), fmt.Sprintf("Found two routes with mathced length %d", match.length))
 			}
 
 			// Select this route.

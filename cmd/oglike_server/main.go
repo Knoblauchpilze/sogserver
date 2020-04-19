@@ -85,7 +85,7 @@ func main() {
 	defer func() {
 		err := recover()
 		if err != nil {
-			log.Trace(logger.Fatal, fmt.Sprintf("App crashed after error: %v", err))
+			log.Trace(logger.Fatal, "main", fmt.Sprintf("App crashed after error: %v", err))
 		}
 
 		log.Release()

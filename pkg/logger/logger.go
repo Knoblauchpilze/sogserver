@@ -8,5 +8,5 @@ package logger
 // The `Trace` allows to log a message with the specified
 // level.
 type Logger interface {
-	Trace(level Severity, message string)
+	Trace(level Severity, module string, message string)
 }

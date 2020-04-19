@@ -93,6 +93,15 @@ type DB struct {
 	config configuration
 }
 
+// getModuleName :
+// Used to retrieve a unique string defining the module's
+// name so as to be used for logging purposes for example.
+//
+// Returns a string defining this module's name.
+func getModuleName() string {
+	return "db"
+}
+
 // parseConfiguration :
 // Attempt to parse the configuration provided to this app
 // to extract connection parameters to use for the DB. It
@@ -215,7 +224,7 @@ func NewPool(logger logger.Logger) *DB {
 // connected to the DB) and `false` otherwise.
 func (dbase *DB) createPoolAttempt() bool {
 	config := dbase.config
-	dbase.logger.Trace(logger.Info, fmt.Sprintf("Attempting to connect to \"%s\" (user: \"%s\", host: \"%s:%d\")", config.name, config.user, config.host, config.port))
+	dbase.logger.Trace(logger.Info, getModuleName(), fmt.Sprintf("Attempting to connect to \"%s\" (user: \"%s\", host: \"%s:%d\")", config.name, config.user, config.host, config.port))
 
 	port := uint16(config.port)
 
@@ -234,11 +243,11 @@ func (dbase *DB) createPoolAttempt() bool {
 
 	// Check whether the connection was successful.
 	if err != nil {
-		dbase.logger.Trace(logger.Warning, fmt.Sprintf("Failed to connect to DB \"%s\" (err : %v)", config.name, err))
+		dbase.logger.Trace(logger.Warning, getModuleName(), fmt.Sprintf("Failed to connect to DB \"%s\" (err : %v)", config.name, err))
 		return false
 	}
 
-	dbase.logger.Trace(logger.Info, fmt.Sprintf("Connection to DB \"%s\" with username \"%s\" succeeded", config.name, config.user))
+	dbase.logger.Trace(logger.Info, getModuleName(), fmt.Sprintf("Connection to DB \"%s\" with username \"%s\" succeeded", config.name, config.user))
 
 	// Assign the database connection to the internal
 	// attribute while maintaining thread safety.
@@ -287,7 +296,7 @@ func (dbase *DB) Healthcheck() {
 	}
 }
 
-// DbExecute :
+// DBExecute :
 // Attempts to perform the input query with the specified arguments on
 // the internal database connection.
 // Note that if the connection has not yet been established with the DB
@@ -319,7 +328,7 @@ func (dbase *DB) DBExecute(query string, args ...interface{}) (*pgx.CommandTag, 
 	return &tag, err
 }
 
-// DbQuery :
+// DBQuery :
 // Attempts to execute the input query with the specified arguments on
 // the internal database connection. This method is very similar to the
 // `DBExecute` but fetch information from the DB rather than inserting

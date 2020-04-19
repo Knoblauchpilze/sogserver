@@ -34,7 +34,7 @@ func filterMethods(methods []string, log logger.Logger) map[string]bool {
 
 		// Filter invalid methods.
 		if !ok {
-			log.Trace(logger.Error, fmt.Sprintf("Filtering invalid HTTP method \"%s\"", method))
+			log.Trace(logger.Error, getModuleName(), fmt.Sprintf("Filtering invalid HTTP method \"%s\"", method))
 			continue
 		}
 

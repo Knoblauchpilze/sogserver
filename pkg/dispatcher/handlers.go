@@ -20,7 +20,7 @@ func NotFound(log logger.Logger) http.HandlerFunc {
 	// The return value is a callable `HTTP` handler.
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Notify from this connection.
-		log.Trace(logger.Warning, fmt.Sprintf("Handling request from \"%v\" in not found handler", r.URL))
+		log.Trace(logger.Warning, getModuleName(), fmt.Sprintf("Handling request from \"%v\" in not found handler", r.URL))
 
 		// Resource not found is the only answer we can provide.
 		http.NotFound(w, r)
@@ -42,7 +42,7 @@ func NotAllowed(log logger.Logger) http.HandlerFunc {
 	// The return value is a callable `HTTP` handler.
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Notify from this connection.
-		log.Trace(logger.Warning, fmt.Sprintf("Handling request from \"%v\" in not allowed handler", r.URL))
+		log.Trace(logger.Warning, getModuleName(), fmt.Sprintf("Handling request from \"%v\" in not allowed handler", r.URL))
 
 		// Method not allowed is the answer we will provide.
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -65,7 +65,7 @@ func NoOp(log logger.Logger) http.HandlerFunc {
 	// The return value is a callable `HTTP` handler.
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Notify from this connection.
-		log.Trace(logger.Warning, fmt.Sprintf("Handling request from \"%v\" in no op handler", r.URL))
+		log.Trace(logger.Warning, getModuleName(), fmt.Sprintf("Handling request from \"%v\" in no op handler", r.URL))
 
 		// The cleanup code of the `HandlerFunc` will automatically
 		// write the headers to indicate a success so we don't have
@@ -100,7 +100,7 @@ func WithSafetyNet(log logger.Logger, next http.HandlerFunc) http.HandlerFunc {
 
 				if err != nil {
 					// Log the error and answer with an internal server error.
-					log.Trace(logger.Error, fmt.Sprintf("Recovering from unexpected panic (err: %v)", err))
+					log.Trace(logger.Error, getModuleName(), fmt.Sprintf("Recovering from unexpected panic (err: %v)", err))
 
 					http.Error(w, "Unexpected error while processing request", http.StatusInternalServerError)
 				}

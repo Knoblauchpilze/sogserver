@@ -27,8 +27,8 @@ import (
 type BuildingsModule struct {
 	progressCostsModule
 
-	production map[string]ProductionRule
-	storage    map[string]StorageRule
+	production map[string][]ProductionRule
+	storage    map[string][]StorageRule
 }
 
 // BuildingDesc :
@@ -233,8 +233,8 @@ func (bm *BuildingsModule) Init(dbase *db.DB, force bool) error {
 	}
 
 	// Initialize internal values.
-	bm.production = make(map[string]ProductionRule)
-	bm.storage = make(map[string]StorageRule)
+	bm.production = make(map[string][]ProductionRule)
+	bm.storage = make(map[string][]StorageRule)
 
 	proxy := db.NewProxy(dbase)
 
@@ -297,8 +297,100 @@ func (bm *BuildingsModule) initNames(proxy db.Proxy) error {
 //
 // Returns any error.
 func (bm *BuildingsModule) initProduction(proxy db.Proxy) error {
-	// TODO: Handle this.
-	return fmt.Errorf("Not implemented")
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"element",
+			"res",
+			"base",
+			"progress",
+			"temperature_coeff",
+			"temperature_offset",
+		},
+		Table:   "buildings_gains_progress",
+		Filters: []db.Filter{},
+	}
+
+	rows, err := proxy.FetchFromDB(query)
+	defer rows.Close()
+
+	if err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize production rules (err: %v)", err))
+		return ErrNotInitialized
+	}
+	if rows.Err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize production rules (err: %v)", rows.Err))
+		return ErrNotInitialized
+	}
+
+	// Analyze the query and populate internal values.
+	var ID string
+	var rule ProductionRule
+
+	override := false
+	inconsistent := false
+
+	sanity := make(map[string]map[string]bool)
+
+	for rows.Next() {
+		err := rows.Scan(
+			&ID,
+			&rule.Resource,
+			&rule.InitProd,
+			&rule.ProgressionRule,
+			&rule.TemperatureCoeff,
+			&rule.TemperatureOffset,
+		)
+
+		if err != nil {
+			bm.trace(logger.Error, fmt.Sprintf("Failed to initialize production rules from row (err: %v)", err))
+			continue
+		}
+
+		// Check whether a building with this identifier exists.
+		if !bm.existsID(ID) {
+			bm.trace(logger.Error, fmt.Sprintf("Cannot register production rule for \"%s\" not defined in DB", ID))
+			inconsistent = true
+
+			continue
+		}
+
+		// Check for overrides.
+		eRules, ok := sanity[ID]
+		if !ok {
+			eRules = make(map[string]bool)
+			eRules[rule.Resource] = true
+		} else {
+			_, ok := eRules[rule.Resource]
+
+			if ok {
+				bm.trace(logger.Error, fmt.Sprintf("Prevented override of production rule for resource \"%s\" for \"%s\"", rule.Resource, ID))
+				override = true
+
+				continue
+			}
+
+			eRules[rule.Resource] = true
+		}
+
+		sanity[ID] = eRules
+
+		// Register this value.
+		prodRules, ok := bm.production[ID]
+
+		if !ok {
+			prodRules = make([]ProductionRule, 0)
+		}
+
+		prodRules = append(prodRules, rule)
+		bm.production[ID] = prodRules
+	}
+
+	if override || inconsistent {
+		return ErrInconsistentDB
+	}
+
+	return nil
 }
 
 // initStorage :
@@ -310,6 +402,96 @@ func (bm *BuildingsModule) initProduction(proxy db.Proxy) error {
 //
 // Returns any error.
 func (bm *BuildingsModule) initStorage(proxy db.Proxy) error {
-	// TODO: Handle this.
-	return fmt.Errorf("Not implemented")
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"element",
+			"res",
+			"base",
+			"multiplier",
+			"progress",
+		},
+		Table:   "buildings_storage_progress",
+		Filters: []db.Filter{},
+	}
+
+	rows, err := proxy.FetchFromDB(query)
+	defer rows.Close()
+
+	if err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize storage rules (err: %v)", err))
+		return ErrNotInitialized
+	}
+	if rows.Err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize storage rules (err: %v)", rows.Err))
+		return ErrNotInitialized
+	}
+
+	// Analyze the query and populate internal values.
+	var ID string
+	var rule StorageRule
+
+	override := false
+	inconsistent := false
+
+	sanity := make(map[string]map[string]bool)
+
+	for rows.Next() {
+		err := rows.Scan(
+			&ID,
+			&rule.Resource,
+			&rule.InitStorage,
+			&rule.Multiplier,
+			&rule.Progress,
+		)
+
+		if err != nil {
+			bm.trace(logger.Error, fmt.Sprintf("Failed to initialize storage rules from row (err: %v)", err))
+			continue
+		}
+
+		// Check whether a building with this identifier exists.
+		if !bm.existsID(ID) {
+			bm.trace(logger.Error, fmt.Sprintf("Cannot register stroage rule for \"%s\" not defined in DB", ID))
+			inconsistent = true
+
+			continue
+		}
+
+		// Check for overrides.
+		eRules, ok := sanity[ID]
+		if !ok {
+			eRules = make(map[string]bool)
+			eRules[rule.Resource] = true
+		} else {
+			_, ok := eRules[rule.Resource]
+
+			if ok {
+				bm.trace(logger.Error, fmt.Sprintf("Prevented override of storage rule for resource \"%s\" for \"%s\"", rule.Resource, ID))
+				override = true
+
+				continue
+			}
+
+			eRules[rule.Resource] = true
+		}
+
+		sanity[ID] = eRules
+
+		// Register this value.
+		storageRules, ok := bm.storage[ID]
+
+		if !ok {
+			storageRules = make([]StorageRule, 0)
+		}
+
+		storageRules = append(storageRules, rule)
+		bm.storage[ID] = storageRules
+	}
+
+	if override || inconsistent {
+		return ErrInconsistentDB
+	}
+
+	return nil
 }

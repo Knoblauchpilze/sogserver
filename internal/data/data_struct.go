@@ -186,42 +186,6 @@ type Ship struct {
 	Count int    `json:"count"`
 }
 
-// DefenseDesc :
-// Defines the abstract representation of a defense
-// with its name and unique identifier. It can also
-// include a short summary of its purpose retrieved
-// from the database.
-//
-// The `ID` defines the unique identifier for this
-// defense.
-//
-// The `Name` defines a human readable name for the
-// defense.
-//
-// The `Description` defines a short text describing
-// the role of the defense and its principle.
-//
-// The `BuildingDeps` defines a list of identifiers
-// which represent the buildings (and their associated
-// level) which need to be available for this defense
-// to be built. It is some sort of representation of
-// the tech-tree.
-//
-// The `TechnologiesDeps` fills a similar purpose but
-// register dependencies on technologies and not on
-// buildings.
-//
-// The `Cost` defines how much of each resource is needed
-// to build example of this ship.
-type DefenseDesc struct {
-	ID               string           `json:"id"`
-	Name             string           `json:"name"`
-	Desc             string           `json:"desc"`
-	BuildingsDeps    []TechDependency `json:"buildings_dependencies"`
-	TechnologiesDeps []TechDependency `json:"technologies_dependencies"`
-	Cost             []ResourceAmount `json:"cost"`
-}
-
 // Defense :
 // Defines a defense system that can be built on a planet. The
 // default count is `0` and the user could fetch more info on

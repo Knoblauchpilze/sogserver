@@ -54,7 +54,7 @@ func newFixedCost() FixedCost {
 // A similar behavior to the `upgradablesModule` exists.
 //
 // The `log` defines the logging layer to forward to the
-// base `baseModule` element.
+// base `upgradablesModule` element.
 //
 // The `kind` defines the type of upgradable associated to
 // this module. It will help to determine which tables are
@@ -109,7 +109,7 @@ func (fcm *fixedCostsModule) Init(dbase *db.DB, force bool) error {
 
 	proxy := db.NewProxy(dbase)
 
-	// First update the buildings dependencies.
+	// Create the query to fetch the fixed costs and execute it.
 	query := db.QueryDesc{
 		Props: []string{
 			"element",
@@ -124,11 +124,11 @@ func (fcm *fixedCostsModule) Init(dbase *db.DB, force bool) error {
 	defer rows.Close()
 
 	if err != nil {
-		fcm.trace(logger.Error, fmt.Sprintf("Unable to initialize %s fixed costs module (err: %v)", fcm.uType, err))
+		fcm.trace(logger.Error, fmt.Sprintf("Unable to initialize %s fixed costs (err: %v)", fcm.uType, err))
 		return ErrNotInitialized
 	}
 	if rows.Err != nil {
-		fcm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize %s fixed costs %s module (err: %v)", fcm.uType, rows.Err))
+		fcm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize %s fixed costs (err: %v)", fcm.uType, rows.Err))
 		return ErrNotInitialized
 	}
 
@@ -164,6 +164,8 @@ func (fcm *fixedCostsModule) Init(dbase *db.DB, force bool) error {
 		}
 
 		costs.InitCosts[res] = cost
+
+		fcm.costs[elem] = costs
 	}
 
 	if override {

@@ -15,10 +15,10 @@ CREATE TABLE ships (
 
 -- Create the table defining the cost of a ship.
 CREATE TABLE ships_costs (
-  ship uuid NOT NULL,
+  element uuid NOT NULL,
   res uuid NOT NULL,
   cost integer NOT NULL,
-  FOREIGN KEY (ship) REFERENCES ships(id),
+  FOREIGN KEY (element) REFERENCES ships(id),
   FOREIGN KEY (res) REFERENCES resources(id)
 );
 
@@ -201,218 +201,218 @@ INSERT INTO public.ships ("name", "propulsion", "speed", "cargo", "shield", "wea
   );
 
 -- Seed the ships costs.
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='small cargo ship'),
     (SELECT id FROM resources WHERE name='metal'),
     2000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='small cargo ship'),
     (SELECT id FROM resources WHERE name='crystal'),
     2000
   );
 
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='large cargo ship'),
     (SELECT id FROM resources WHERE name='metal'),
     6000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='large cargo ship'),
     (SELECT id FROM resources WHERE name='crystal'),
     6000
   );
 
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='light fighter'),
     (SELECT id FROM resources WHERE name='metal'),
     3000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='light fighter'),
     (SELECT id FROM resources WHERE name='crystal'),
     1000
   );
 
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='heavy fighter'),
     (SELECT id FROM resources WHERE name='metal'),
     6000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='heavy fighter'),
     (SELECT id FROM resources WHERE name='crystal'),
     4000
   );
 
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='cruiser'),
     (SELECT id FROM resources WHERE name='metal'),
     20000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='cruiser'),
     (SELECT id FROM resources WHERE name='crystal'),
     7000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='cruiser'),
     (SELECT id FROM resources WHERE name='deuterium'),
     2000
   );
 
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='battleship'),
     (SELECT id FROM resources WHERE name='metal'),
     45000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='battleship'),
     (SELECT id FROM resources WHERE name='crystal'),
     15000
   );
 
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='battlecruiser'),
     (SELECT id FROM resources WHERE name='metal'),
     30000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='battlecruiser'),
     (SELECT id FROM resources WHERE name='crystal'),
     40000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='battlecruiser'),
     (SELECT id FROM resources WHERE name='deuterium'),
     15000
   );
 
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='bomber'),
     (SELECT id FROM resources WHERE name='metal'),
     50000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='bomber'),
     (SELECT id FROM resources WHERE name='crystal'),
     25000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='bomber'),
     (SELECT id FROM resources WHERE name='deuterium'),
     15000
   );
 
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='destroyer'),
     (SELECT id FROM resources WHERE name='metal'),
     60000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='destroyer'),
     (SELECT id FROM resources WHERE name='crystal'),
     50000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='destroyer'),
     (SELECT id FROM resources WHERE name='deuterium'),
     15000
   );
 
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='deathstar'),
     (SELECT id FROM resources WHERE name='metal'),
     5000000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='deathstar'),
     (SELECT id FROM resources WHERE name='crystal'),
     4000000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='deathstar'),
     (SELECT id FROM resources WHERE name='deuterium'),
     1000000
   );
 
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='recycler'),
     (SELECT id FROM resources WHERE name='metal'),
     10000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='recycler'),
     (SELECT id FROM resources WHERE name='crystal'),
     6000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='recycler'),
     (SELECT id FROM resources WHERE name='deuterium'),
     2000
   );
 
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='espionage probe'),
     (SELECT id FROM resources WHERE name='crystal'),
     1000
   );
 
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='solar satellite'),
     (SELECT id FROM resources WHERE name='crystal'),
     2000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='solar satellite'),
     (SELECT id FROM resources WHERE name='deuterium'),
     500
   );
 
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='colony ship'),
     (SELECT id FROM resources WHERE name='metal'),
     10000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='colony ship'),
     (SELECT id FROM resources WHERE name='crystal'),
     20000
   );
-INSERT INTO public.ships_costs ("ship", "res", "cost")
+INSERT INTO public.ships_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM ships WHERE name='colony ship'),
     (SELECT id FROM resources WHERE name='deuterium'),

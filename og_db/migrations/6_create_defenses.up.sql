@@ -11,10 +11,10 @@ CREATE TABLE defenses (
 
 -- Create the table defining the cost of a defense.
 CREATE TABLE defenses_costs (
-  defense uuid NOT NULL,
+  element uuid NOT NULL,
   res uuid NOT NULL,
   cost integer NOT NULL,
-  FOREIGN KEY (defense) REFERENCES defenses(id),
+  FOREIGN KEY (element) REFERENCES defenses(id),
   FOREIGN KEY (res) REFERENCES resources(id)
 );
 
@@ -34,84 +34,84 @@ INSERT INTO public.defenses ("name", "shield", "weapon") VALUES('interplanetary 
 
 -- Seed the defenses costs.
 -- Conventional defenses.
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='rocket launcher'),
     (SELECT id FROM resources WHERE name='metal'),
     2000
   );
 
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='light laser'),
     (SELECT id FROM resources WHERE name='metal'),
     1500
   );
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='light laser'),
     (SELECT id FROM resources WHERE name='crystal'),
     500
   );
 
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='heavy laser'),
     (SELECT id FROM resources WHERE name='metal'),
     6000
   );
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='heavy laser'),
     (SELECT id FROM resources WHERE name='crystal'),
     2000
   );
 
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='ion cannon'),
     (SELECT id FROM resources WHERE name='metal'),
     2000
   );
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='ion cannon'),
     (SELECT id FROM resources WHERE name='crystal'),
     6000
   );
 
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='gauss cannon'),
     (SELECT id FROM resources WHERE name='metal'),
     20000
   );
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='gauss cannon'),
     (SELECT id FROM resources WHERE name='crystal'),
     15000
   );
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='gauss cannon'),
     (SELECT id FROM resources WHERE name='deuterium'),
     2000
   );
 
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='plasma turret'),
     (SELECT id FROM resources WHERE name='metal'),
     50000
   );
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='plasma turret'),
     (SELECT id FROM resources WHERE name='crystal'),
     50000
   );
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='plasma turret'),
     (SELECT id FROM resources WHERE name='deuterium'),
@@ -119,26 +119,26 @@ INSERT INTO public.defenses_costs ("defense", "res", "cost")
   );
 
 -- Shield domes.
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='small shield dome'),
     (SELECT id FROM resources WHERE name='metal'),
     10000
   );
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='small shield dome'),
     (SELECT id FROM resources WHERE name='crystal'),
     10000
   );
 
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='large shield dome'),
     (SELECT id FROM resources WHERE name='metal'),
     50000
   );
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='large shield dome'),
     (SELECT id FROM resources WHERE name='crystal'),
@@ -146,32 +146,32 @@ INSERT INTO public.defenses_costs ("defense", "res", "cost")
   );
 
 -- Missiles.
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='anti-ballistic missile'),
     (SELECT id FROM resources WHERE name='metal'),
     8000
   );
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='anti-ballistic missile'),
     (SELECT id FROM resources WHERE name='deuterium'),
     2000
   );
 
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='interplanetary missile'),
     (SELECT id FROM resources WHERE name='metal'),
     12500
   );
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='interplanetary missile'),
     (SELECT id FROM resources WHERE name='crystal'),
     2500
   );
-INSERT INTO public.defenses_costs ("defense", "res", "cost")
+INSERT INTO public.defenses_costs ("element", "res", "cost")
   VALUES(
     (SELECT id FROM defenses WHERE name='interplanetary missile'),
     (SELECT id FROM resources WHERE name='deuterium'),

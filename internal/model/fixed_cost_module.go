@@ -104,6 +104,13 @@ func (fcm *fixedCostsModule) Init(dbase *db.DB, force bool) error {
 		return nil
 	}
 
+	// Load the base elements.
+	err := fcm.upgradablesModule.Init(dbase, force)
+	if err != nil {
+		fcm.trace(logger.Error, fmt.Sprintf("Unable to initialize base upgradable module for %s (err: %v)", fcm.uType, err))
+		return err
+	}
+
 	// Initialize internal values.
 	fcm.costs = make(map[string]FixedCost)
 
@@ -137,6 +144,7 @@ func (fcm *fixedCostsModule) Init(dbase *db.DB, force bool) error {
 	var cost int
 
 	override := false
+	inconsistent := false
 
 	for rows.Next() {
 		err := rows.Scan(
@@ -147,6 +155,14 @@ func (fcm *fixedCostsModule) Init(dbase *db.DB, force bool) error {
 
 		if err != nil {
 			fcm.trace(logger.Error, fmt.Sprintf("Failed to initialize fixed cost from row (err: %v)", err))
+			continue
+		}
+
+		// Check whether an element with this identifier exists.
+		if !fcm.existsID(elem) {
+			fcm.trace(logger.Error, fmt.Sprintf("Cannot register fixed cost for \"%s\" not defined in DB", elem))
+			inconsistent = true
+
 			continue
 		}
 
@@ -168,7 +184,7 @@ func (fcm *fixedCostsModule) Init(dbase *db.DB, force bool) error {
 		fcm.costs[elem] = costs
 	}
 
-	if override {
+	if override || inconsistent {
 		return ErrInconsistentDB
 	}
 

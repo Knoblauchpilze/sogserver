@@ -122,6 +122,13 @@ func (pcm *progressCostsModule) Init(dbase *db.DB, force bool) error {
 		return nil
 	}
 
+	// Load the base elements.
+	err := pcm.upgradablesModule.Init(dbase, force)
+	if err != nil {
+		pcm.trace(logger.Error, fmt.Sprintf("Unable to initialize base upgradable module for %s (err: %v)", pcm.uType, err))
+		return err
+	}
+
 	// Initialize internal values.
 	pcm.costs = make(map[string]ProgressCost)
 
@@ -136,7 +143,7 @@ func (pcm *progressCostsModule) Init(dbase *db.DB, force bool) error {
 	// each one to the set of buildings we already fetched
 	// in the first step. If a cost does not correspond to
 	// any known building we found an inconsistency.
-	err := pcm.initProgressionRules(proxy)
+	err = pcm.initProgressionRules(proxy)
 	if err != nil {
 		pcm.trace(logger.Error, fmt.Sprintf("Failed to initialize progression rules for %s (err: %v)", pcm.uType, err))
 		return err
@@ -188,6 +195,7 @@ func (pcm *progressCostsModule) initProgressionRules(proxy db.Proxy) error {
 	var progress float32
 
 	override := false
+	inconsistent := false
 
 	for rows.Next() {
 		err := rows.Scan(
@@ -197,6 +205,14 @@ func (pcm *progressCostsModule) initProgressionRules(proxy db.Proxy) error {
 
 		if err != nil {
 			pcm.trace(logger.Error, fmt.Sprintf("Failed to initialize progression costs rules from row (err: %v)", err))
+			continue
+		}
+
+		// Check whether an element with this identifier exists.
+		if !pcm.existsID(elem) {
+			pcm.trace(logger.Error, fmt.Sprintf("Cannot register progression rule for \"%s\" not defined in DB", elem))
+			inconsistent = true
+
 			continue
 		}
 
@@ -218,7 +234,7 @@ func (pcm *progressCostsModule) initProgressionRules(proxy db.Proxy) error {
 		pcm.costs[elem] = costs
 	}
 
-	if override {
+	if override || inconsistent {
 		return ErrInconsistentDB
 	}
 

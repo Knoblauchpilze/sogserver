@@ -187,7 +187,7 @@ func (um *upgradablesModule) Init(dbase *db.DB, force bool) error {
 
 	if err != nil {
 		um.trace(logger.Error, fmt.Sprintf("Unable to initialize upgradables %s module (err: %v)", um.uType, err))
-		return ErrNotInitialized
+		return err
 	}
 
 	err = um.initDeps(rows, &um.buildingsDeps)
@@ -234,6 +234,7 @@ func (um *upgradablesModule) initDeps(rows db.QueryResult, deps *map[string][]De
 	var dep int
 
 	override := false
+	inconsistent := false
 	sanity := make(map[string]map[string]int)
 
 	for rows.Next() {
@@ -245,6 +246,14 @@ func (um *upgradablesModule) initDeps(rows db.QueryResult, deps *map[string][]De
 
 		if err != nil {
 			um.trace(logger.Error, fmt.Sprintf("Failed to initialize dependency from row (err: %v)", err))
+			continue
+		}
+
+		// Make sure that this element exists.
+		if !um.existsID(elem) {
+			um.trace(logger.Error, fmt.Sprintf("Cannot register dependency for \"%s\" not defined in DB", elem))
+			inconsistent = true
+
 			continue
 		}
 
@@ -281,7 +290,7 @@ func (um *upgradablesModule) initDeps(rows db.QueryResult, deps *map[string][]De
 		(*deps)[elem] = uDeps
 	}
 
-	if override {
+	if override || inconsistent {
 		return ErrInconsistentDB
 	}
 

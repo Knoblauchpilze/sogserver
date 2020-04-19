@@ -83,7 +83,7 @@ func newProgressCost() ProgressCost {
 func newProgressCostsModule(log logger.Logger, kind upgradable, module string) *progressCostsModule {
 	return &progressCostsModule{
 		upgradablesModule: *newUpgradablesModule(log, kind, module),
-		costs:             make(map[string]ProgressCost),
+		costs:             nil,
 	}
 }
 

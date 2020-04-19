@@ -65,7 +65,7 @@ func newFixedCost() FixedCost {
 func newFixedCostsModule(log logger.Logger, kind upgradable, module string) *fixedCostsModule {
 	return &fixedCostsModule{
 		upgradablesModule: *newUpgradablesModule(log, kind, module),
-		costs:             make(map[string]FixedCost),
+		costs:             nil,
 	}
 }
 

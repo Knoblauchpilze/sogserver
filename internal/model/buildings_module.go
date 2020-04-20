@@ -599,7 +599,10 @@ func (bm *BuildingsModule) Buildings(dbase *db.DB, filters []db.Filter) ([]Build
 		}
 
 		cost, ok := bm.costs[ID]
-		if ok {
+		if !ok {
+			bm.trace(logger.Error, fmt.Sprintf("Unable to fetch costs for building \"%s\"", ID))
+			continue
+		} else {
 			desc.Cost = cost
 		}
 

@@ -46,13 +46,21 @@ type defenseProps struct {
 // capabilities of the system are provided along with a
 // list of costs required to build it.
 //
+// The `Shield` defines the shielding value for this
+// defense system.
+//
+// The `Weapon` defines the weapon value (i.e. attack
+// value) for this defense system.
+//
 // The `Cost` defines how much of each resource needs
 // to be available in a place to build a copy of this
 // defense system.
 type DefenseDesc struct {
 	UpgradableDesc
 
-	Cost FixedCost `json:"cost"`
+	Shield int       `json:"shield"`
+	Weapon int       `json:"weapon"`
+	Cost   FixedCost `json:"cost"`
 }
 
 // NewDefensesModule :
@@ -270,8 +278,20 @@ func (dm *DefensesModule) Defenses(dbase *db.DB, filters []db.Filter) ([]Defense
 		}
 
 		cost, ok := dm.costs[ID]
-		if ok {
+		if !ok {
+			dm.trace(logger.Error, fmt.Sprintf("Unable to fetch costs for defense \"%s\"", ID))
+			continue
+		} else {
 			desc.Cost = cost
+		}
+
+		props, ok := dm.characteristics[ID]
+		if !ok {
+			dm.trace(logger.Error, fmt.Sprintf("Unable to fetch characteristics for defense \"%s\"", ID))
+			continue
+		} else {
+			desc.Shield = props.shield
+			desc.Weapon = props.weapon
 		}
 
 		descs = append(descs, desc)

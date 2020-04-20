@@ -90,11 +90,56 @@ type shipProps struct {
 	consumption map[string]int
 }
 
+// PropulsionDesc :
+// Defines a propulsion system which is basically
+// an aggregate of a propulsion technology and a
+// factor describing the increase in speed that a
+// single level increase brings.
+//
+// The `Propulsion` defines the identifier of the
+// propulsion technology.
+//
+// The `Increase` defines the increase in speed
+// that each level of the propulsion technology
+// brings to the speed of the ship.
+type PropulsionDesc struct {
+	Propulsion string `json:"propulsion"`
+	Increase   int    `json:"increase"`
+}
+
+// ConsumptionValue :
+// Used to describe the amount of some resource
+// that a ship burns to move. It is basically a
+// combination of a resource identifier and of
+// a value (describing the actual consumption).
+//
+// The `Resource` defines the identifier of the
+// resource associated to the consumption.
+//
+// The `Value` defines how much of this resource
+// is consumed by the ship to move of 1 unit.
+type ConsumptionValue struct {
+	Resource string `json:"resource"`
+	Value    int    `json:"value"`
+}
+
 // ShipDesc :
 // Defines the abstract representation of a ship with
 // its name and unique identifier. It can also include
 // a short summary of its purpose retrieved from the
 // database.
+//
+// The `Cargo`  defines the amount of cargo space on
+// this ship. It can be used to store any mix of some
+// resources.
+//
+// The `Shield` define sthe shielding value for this
+// ship.
+//
+// The `Weapon` defines the attack value for this
+// ship.
+//
+// The `Speed` defines the base speed for this ship.
 //
 // The `RFVSShips` defines the rapid fire this ship
 // has against other ships.
@@ -107,9 +152,15 @@ type shipProps struct {
 type ShipDesc struct {
 	UpgradableDesc
 
-	RFVSShips    []RapidFire `json:"rf_against_ships"`
-	RFVSDefenses []RapidFire `json:"rf_against_defenses"`
-	Cost         FixedCost   `json:"cost"`
+	Cargo        int                `json:"cargo"`
+	Shield       int                `json:"shield"`
+	Weapon       int                `json:"weapon"`
+	Speed        int                `json:"speed"`
+	Propulsion   PropulsionDesc     `json:"propulsion"`
+	Consumption  []ConsumptionValue `json:"consumption"`
+	RFVSShips    []RapidFire        `json:"rf_against_ships"`
+	RFVSDefenses []RapidFire        `json:"rf_against_defenses"`
+	Cost         FixedCost          `json:"cost"`
 }
 
 // RapidFire :
@@ -636,7 +687,10 @@ func (sm *ShipsModule) Ships(dbase *db.DB, filters []db.Filter) ([]ShipDesc, err
 		}
 
 		cost, ok := sm.costs[ID]
-		if ok {
+		if !ok {
+			sm.trace(logger.Error, fmt.Sprintf("Unable to fetch costs for ship \"%s\"", ID))
+			continue
+		} else {
 			desc.Cost = cost
 		}
 
@@ -648,6 +702,37 @@ func (sm *ShipsModule) Ships(dbase *db.DB, filters []db.Filter) ([]ShipDesc, err
 		rfDefense, ok := sm.rfVSDefenses[ID]
 		if ok {
 			desc.RFVSDefenses = rfDefense
+		}
+
+		props, ok := sm.characteristics[ID]
+		if !ok {
+			sm.trace(logger.Error, fmt.Sprintf("Unable to fetch characteristics for ship \"%s\"", ID))
+			continue
+		} else {
+			desc.Cargo = props.cargo
+			desc.Shield = props.shield
+			desc.Weapon = props.weapon
+			desc.Speed = props.speed
+		}
+
+		speedIncrease, ok := sm.propulsion[props.propulsion]
+		if !ok {
+			sm.trace(logger.Error, fmt.Sprintf("Unable to fetch propulsion \"%s\" details for ship \"%s\"", props.propulsion, ID))
+			continue
+		} else {
+			desc.Propulsion = PropulsionDesc{
+				Propulsion: props.propulsion,
+				Increase:   speedIncrease,
+			}
+		}
+
+		for res, value := range props.consumption {
+			fuel := ConsumptionValue{
+				Resource: res,
+				Value:    value,
+			}
+
+			desc.Consumption = append(desc.Consumption, fuel)
 		}
 
 		descs = append(descs, desc)

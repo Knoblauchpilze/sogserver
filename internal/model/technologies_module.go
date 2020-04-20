@@ -233,6 +233,14 @@ func (tm *TechnologiesModule) Technologies(dbase *db.DB, filters []db.Filter) ([
 			UpgradableDesc: upgradable,
 		}
 
+		cost, ok := tm.costs[ID]
+		if !ok {
+			tm.trace(logger.Error, fmt.Sprintf("Unable to fetch costs for technology \"%s\"", ID))
+			continue
+		} else {
+			desc.Cost = cost
+		}
+
 		descs = append(descs, desc)
 	}
 

@@ -2,7 +2,7 @@ package routes
 
 import (
 	"net/http"
-	"oglike_server/internal/data"
+	"oglike_server/pkg/db"
 )
 
 // listDefenses :
@@ -10,7 +10,7 @@ import (
 // the requests on defenses.
 //
 // Returns the handler that can be executed to serve said reqs.
-func (s *server) listDefenses() http.HandlerFunc {
+func (s *Server) listDefenses() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewGetResourceEndpoint("defenses")
 
@@ -20,9 +20,9 @@ func (s *server) listDefenses() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithResourceFilter("id")
+	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("defenses")
 	ed.WithDataFunc(
-		func(filters []data.DBFilter) (interface{}, error) {
+		func(filters []db.Filter) (interface{}, error) {
 			return s.defenses.Defenses(filters)
 		},
 	)

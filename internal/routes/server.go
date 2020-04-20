@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/dispatcher"
 	"oglike_server/pkg/logger"
 	"strconv"
 )
 
-// server :
+// Server :
 // Defines a server that can be used to handle the interaction with
 // the OG database. This server handles can be built from the input
 // database and logger and will perform the listening to handle the
@@ -66,15 +67,15 @@ import (
 // done by the server such as logging clients' connections, errors
 // and generally some elements useful to track the activity of the
 // server.
-type server struct {
+type Server struct {
 	port          int
 	router        *dispatcher.Router
 	universes     data.UniverseProxy
 	accounts      data.AccountProxy
-	buildings     data.BuildingProxy
-	technologies  data.TechnologyProxy
-	ships         data.ShipProxy
-	defenses      data.DefenseProxy
+	buildings     *model.BuildingsModule
+	technologies  *model.TechnologiesModule
+	ships         *model.ShipsModule
+	defenses      *model.DefensesModule
 	planets       data.PlanetProxy
 	players       data.PlayerProxy
 	fleets        data.FleetProxy
@@ -95,7 +96,7 @@ type server struct {
 //
 // The `log` is used to notify from various processes in the server
 // and keep track of the activity.
-func NewServer(port int, dbase *db.DB, log logger.Logger) server {
+func NewServer(port int, dbase *db.DB, log logger.Logger) Server {
 	if dbase == nil {
 		panic(fmt.Errorf("Cannot create server from empty database"))
 	}
@@ -104,15 +105,42 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 	playerProxy := data.NewPlayerProxy(dbase, log)
 	planetProxy := data.NewPlanetProxy(dbase, log, uniProxy)
 
-	return server{
+	// Create modules to handle data model and initialize each one
+	// of them.
+	bm := model.NewBuildingsModule(log)
+	tm := model.NewTechnologiesModule(log)
+	sm := model.NewShipsModule(log)
+	dm := model.NewDefensesModule(log)
+
+	err := bm.Init(dbase, false)
+	if err != nil {
+		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+	}
+
+	err = tm.Init(dbase, false)
+	if err != nil {
+		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+	}
+
+	err = sm.Init(dbase, false)
+	if err != nil {
+		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+	}
+
+	err = dm.Init(dbase, false)
+	if err != nil {
+		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+	}
+
+	return Server{
 		port,
 		nil,
 		uniProxy,
 		data.NewAccountProxy(dbase, log),
-		data.NewBuildingProxy(dbase, log),
-		data.NewTechnologyProxy(dbase, log),
-		data.NewShipProxy(dbase, log),
-		data.NewDefenseProxy(dbase, log),
+		bm,
+		tm,
+		sm,
+		dm,
 		planetProxy,
 		playerProxy,
 		data.NewFleetProxy(dbase, log, uniProxy, playerProxy),
@@ -125,7 +153,7 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) server {
 // Used to start listening to the port associated to this server
 // and handle incoming requests. This will return an error in case
 // something went wrong while listening to the port.
-func (s *server) Serve() error {
+func (s *Server) Serve() error {
 	// Create a new router if one is not already started.
 	if s.router != nil {
 		panic(fmt.Errorf("Cannot start serving OG server, process already running"))

@@ -9,7 +9,7 @@ import (
 // Used to setup all the routes able to be served by this server.
 // All the routes are set up with the adequate handler but no
 // actual binding is done.
-func (s *server) routes() {
+func (s *Server) routes() {
 	// Handle known routes.
 	s.route("GET", "/universes", s.listUniverses())
 	s.route("GET", "/accounts", s.listAccounts())
@@ -51,7 +51,7 @@ func (s *server) routes() {
 //
 // The `handler` defines the element that will serve input req
 // and which should be wrapped to provide more security.
-func (s *server) route(method string, name string, handler http.HandlerFunc) {
+func (s *Server) route(method string, name string, handler http.HandlerFunc) {
 	s.router.HandleFunc(
 		name,
 		dispatcher.WithSafetyNet(

@@ -190,10 +190,14 @@ type insertReq struct {
 // when a single one should be updated. Using the structure
 // defined in the `ConcurrentLock` we have a way to lock
 // only some elements which is exactly what we need.
+//
+// The `module` defines a string that will be used to
+// perform some logs with a qualified service.
 type commonProxy struct {
-	dbase *db.DB
-	log   logger.Logger
-	lock  *locker.ConcurrentLocker
+	dbase  *db.DB
+	log    logger.Logger
+	lock   *locker.ConcurrentLocker
+	module string
 }
 
 // newCommonProxy :
@@ -206,18 +210,36 @@ type commonProxy struct {
 // The `log` defines the logger allowing to notify errors
 // or info to the user.
 //
+// The `module` defines a string identtofying the module
+// to associate to this proxy.
+//
 // Returns the created object and panics if something is
 // not right when creating the proxy.
-func newCommonProxy(dbase *db.DB, log logger.Logger) commonProxy {
+func newCommonProxy(dbase *db.DB, log logger.Logger, module string) commonProxy {
 	if dbase == nil {
 		panic(fmt.Errorf("Cannot create common proxy from invalid DB"))
 	}
 
 	return commonProxy{
-		dbase: dbase,
-		log:   log,
-		lock:  locker.NewConcurrentLocker(log),
+		dbase:  dbase,
+		log:    log,
+		lock:   locker.NewConcurrentLocker(log),
+		module: module,
 	}
+}
+
+// trace :
+// Used as a wrapper around the internal logger object to
+// benefit from the module defined for this element along
+// with the log level.
+// Calls that suceed in the log level verification are
+// forwarded to the underlying logging layer.
+//
+// The `level` defines the severity of the message.
+//
+// The `msg` defines the content of the log to display.
+func (cp *commonProxy) trace(level logger.Severity, msg string) {
+	cp.log.Trace(level, cp.module, msg)
 }
 
 // performWithLock :

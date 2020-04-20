@@ -591,3 +591,22 @@ func (sm *ShipsModule) initPropulsions(proxy db.Proxy) error {
 
 	return nil
 }
+
+// Ships :
+// Used to retrieve the ships matching the input filters
+// from the data model. Note that if the DB has not yet
+// been polled to retrieve data, we will return an error.
+// The process will consist in first fetching all the IDs
+// of the ships matching the filters, and then build the
+// rest of the data from the already fetched values.
+//
+// The `filters` represent the list of filters to apply
+// to the data fecthing. This will select only part of
+// all the available ships.
+//
+// Returns the list of ships matching the filters along
+// with any error.
+func (sm *ShipsModule) Ships(filters []db.Filter) ([]ShipDesc, error) {
+	// TODO: Handle this.
+	return nil, fmt.Errorf("Not implemented")
+}

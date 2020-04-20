@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"oglike_server/internal/data"
+	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 
 	"github.com/google/uuid"
@@ -20,7 +20,7 @@ import (
 // This wrapper is used in an `EndpointDesc` to mutualize
 // even more the basic functionalities to fetch data of
 // different kind from the main DB.
-type DataFunc func(filters []data.DBFilter) (interface{}, error)
+type DataFunc func(filters []db.Filter) (interface{}, error)
 
 // GetResourceEndpoint :
 // Defines the information to describe a endpoint. This allows to
@@ -66,12 +66,19 @@ type DataFunc func(filters []data.DBFilter) (interface{}, error)
 // some extra elements *in addition* to its registered path.
 // Note that the path of the route will be checked so that it
 // is at least a valid syntax for a `uuid`.
+//
+// The `module` defines a string that can be used to make the
+// logs display more explicit by specifying this module's id.
+// This string should be unique across the application and is
+// used as a mean to easily distinguish between the different
+// services composing the server.
 type GetResourceEndpoint struct {
 	route     string
 	fetcher   DataFunc
 	filters   map[string]string
 	idFilter  string
 	resFilter string
+	module    string
 }
 
 // NewGetResourceEndpoint :
@@ -153,6 +160,18 @@ func (gre *GetResourceEndpoint) WithDataFunc(f DataFunc) *GetResourceEndpoint {
 	return gre
 }
 
+// WithModule :
+// Assigns a new string as the module name for this object.
+//
+// The `module` defines the name of the module to assign to
+// this object
+//
+// Returns this endpoint to allow chain calling.
+func (gre *GetResourceEndpoint) WithModule(module string) *GetResourceEndpoint {
+	gre.module = module
+	return gre
+}
+
 // ServeRoute :
 // Returns a handler using this endpoint description to be
 // able to serve requests given the data present in this
@@ -188,7 +207,7 @@ func (gre *GetResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFunc {
 
 		data, err := gre.fetcher(filters)
 		if err != nil {
-			log.Trace(logger.Error, fmt.Sprintf("Unexpected error while fetching data for route \"%s\" (err: %v)", gre.route, err))
+			log.Trace(logger.Error, gre.module, fmt.Sprintf("Unexpected error while fetching data for route \"%s\" (err: %v)", gre.route, err))
 			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
 
 			return
@@ -197,7 +216,7 @@ func (gre *GetResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFunc {
 		// Marshal the content of the data.
 		err = marshalAndSend(data, w)
 		if err != nil {
-			log.Trace(logger.Error, fmt.Sprintf("Error while serving route \"%s\" (err: %v)", gre.route, err))
+			log.Trace(logger.Error, gre.module, fmt.Sprintf("Error while serving route \"%s\" (err: %v)", gre.route, err))
 		}
 	}
 }
@@ -214,15 +233,15 @@ func (gre *GetResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFunc {
 // parameters) retrieved from the input request.
 //
 // Returns the list of filters extracted from the input info.
-func (gre *GetResourceEndpoint) extractFilters(vars RouteVars) []data.DBFilter {
-	filters := make([]data.DBFilter, 0)
+func (gre *GetResourceEndpoint) extractFilters(vars RouteVars) []db.Filter {
+	filters := make([]db.Filter, 0)
 
 	for key, values := range vars.Params {
 		// Check whether this filter is allowed.
 		filterName, ok := gre.filters[key]
 
 		if ok && len(values) > 0 {
-			filter := data.DBFilter{
+			filter := db.Filter{
 				Key:    filterName,
 				Values: values,
 			}
@@ -258,7 +277,7 @@ func (gre *GetResourceEndpoint) extractFilters(vars RouteVars) []data.DBFilter {
 			if !found {
 				filters = append(
 					filters,
-					data.DBFilter{
+					db.Filter{
 						Key:    gre.idFilter,
 						Values: []string{filter},
 					},
@@ -289,7 +308,7 @@ func (gre *GetResourceEndpoint) extractFilters(vars RouteVars) []data.DBFilter {
 			if !found {
 				filters = append(
 					filters,
-					data.DBFilter{
+					db.Filter{
 						Key:    gre.resFilter,
 						Values: []string{filter},
 					},

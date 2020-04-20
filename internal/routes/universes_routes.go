@@ -43,7 +43,7 @@ func (s *Server) createUniverse() http.HandlerFunc {
 	ed := NewCreateResourceEndpoint("universes")
 
 	// Configure the endpoint.
-	ed.WithDataKey("universe-data")
+	ed.WithDataKey("universe-data").WithModule("universes")
 	ed.WithCreationFunc(
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and

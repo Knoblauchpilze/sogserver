@@ -44,7 +44,7 @@ func (s *Server) createAccount() http.HandlerFunc {
 	ed := NewCreateResourceEndpoint("accounts")
 
 	// Configure the endpoint.
-	ed.WithDataKey("account-data")
+	ed.WithDataKey("account-data").WithModule("accounts")
 	ed.WithCreationFunc(
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and

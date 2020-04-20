@@ -336,5 +336,7 @@ func (p *PlayerProxy) Create(player *Player) error {
 		}
 	}
 
+	p.trace(logger.Notice, fmt.Sprintf("Created new player \"%s\" with id \"%s\"", player.Name, player.ID))
+
 	return nil
 }

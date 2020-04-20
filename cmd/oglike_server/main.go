@@ -46,6 +46,10 @@ import (
 // could access the id of the metal resource from its identifier) and then
 // some wrapper on the planet which would use the data model to interpret
 // the quantities.
+// TODO: We could create for example a player module, which would fetch
+// *ALL* the info of a player (including its construction actions, and
+// its technologies and planets) and would detain a lock so that no one
+// can access to the data as long as the player structure exists.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

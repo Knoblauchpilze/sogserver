@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
-	"oglike_server/pkg/logger"
+	"oglike_server/pkg/db"
 )
 
 // listPlayers :
@@ -13,7 +13,7 @@ import (
 // the requests on players.
 //
 // Returns the handler that can be executed to serve said reqs.
-func (s *server) listPlayers() http.HandlerFunc {
+func (s *Server) listPlayers() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewGetResourceEndpoint("players")
 
@@ -25,9 +25,9 @@ func (s *server) listPlayers() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithResourceFilter("id")
+	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("players")
 	ed.WithDataFunc(
-		func(filters []data.DBFilter) (interface{}, error) {
+		func(filters []db.Filter) (interface{}, error) {
 			return s.players.Players(filters)
 		},
 	)
@@ -40,12 +40,12 @@ func (s *server) listPlayers() http.HandlerFunc {
 // the requests to create players.
 //
 // Returns the handler to execute to perform said requests.
-func (s *server) createPlayer() http.HandlerFunc {
+func (s *Server) createPlayer() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewCreateResourceEndpoint("players")
 
 	// Configure the endpoint.
-	ed.WithDataKey("player-data")
+	ed.WithDataKey("player-data").WithModule("players")
 	ed.WithCreationFunc(
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and
@@ -62,15 +62,13 @@ func (s *server) createPlayer() http.HandlerFunc {
 				// Try to unmarshal the data into a valid `Player` struct.
 				err := json.Unmarshal([]byte(rawData), &player)
 				if err != nil {
-					s.log.Trace(logger.Error, fmt.Sprintf("Could not create player from data \"%s\" (err: %v)", rawData, err))
-					continue
+					return resources, ErrInvalidData
 				}
 
 				// Create the player.
 				err = s.players.Create(&player)
 				if err != nil {
-					s.log.Trace(logger.Error, fmt.Sprintf("Could not register player from data \"%s\" (err: %v)", rawData, err))
-					continue
+					return resources, ErrDBError
 				}
 
 				// Choose a homeworld for this account and create it.
@@ -84,12 +82,11 @@ func (s *server) createPlayer() http.HandlerFunc {
 					// If it's a problem we can still handle it later. For example by
 					// creating a `deletePlayer` method which will be needed anyways
 					// at some point.
-					s.log.Trace(logger.Error, fmt.Sprintf("Could not create homeworld for player \"%s\" (err: %v)", player.ID, err))
-				} else {
-					// Successfully created a player.
-					s.log.Trace(logger.Notice, fmt.Sprintf("Created new player \"%s\" with id \"%s\"", player.Name, player.ID))
-					resources = append(resources, player.ID)
+					return resources, ErrDBError
 				}
+
+				// Successfully created a player.
+				resources = append(resources, player.ID)
 			}
 
 			// Return the path to the resources created during the process.

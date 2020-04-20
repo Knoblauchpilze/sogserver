@@ -23,7 +23,7 @@ func (s *Server) listTechnologies() http.HandlerFunc {
 	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("technologies")
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
-			return s.technologies.Technologies(filters)
+			return s.technologies.Technologies(s.dbase, filters)
 		},
 	)
 

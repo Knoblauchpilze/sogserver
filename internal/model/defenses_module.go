@@ -220,13 +220,62 @@ func (dm *DefensesModule) initProps(proxy db.Proxy) error {
 // of the defenses matching the filters, and then build the
 // rest of the data from the already fetched values.
 //
+// The `dbase` defines the DB to use to fetch the defenses
+// description.
+//
 // The `filters` represent the list of filters to apply to
 // the data fecthing. This will select only part of all the
 // available defenses.
 //
 // Returns the list of defenses matching the filters along
 // with any error.
-func (dm *DefensesModule) Defenses(filters []db.Filter) ([]DefenseDesc, error) {
-	// TODO: Handle this.
-	return nil, fmt.Errorf("Not implemented")
+func (dm *DefensesModule) Defenses(dbase *db.DB, filters []db.Filter) ([]DefenseDesc, error) {
+	// Try to initialize the module if it is not yet valid.
+	if !dm.valid() {
+		err := dm.Init(dbase, true)
+		if err != nil {
+			return []DefenseDesc{}, err
+		}
+	}
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table:   "defenses",
+		Filters: filters,
+	}
+
+	proxy := db.NewProxy(dbase)
+
+	IDs, err := dm.fetchIDs(query, proxy)
+	if err != nil {
+		dm.trace(logger.Error, fmt.Sprintf("Unable to fetch defenses (err: %v)", err))
+		return []DefenseDesc{}, err
+	}
+
+	// Now build the data from the fetched identifiers.
+	descs := make([]DefenseDesc, 0)
+	for _, ID := range IDs {
+		upgradable, err := dm.getDependencyFromID(ID)
+
+		if err != nil {
+			dm.trace(logger.Error, fmt.Sprintf("Unable to fetch defense \"%s\" (err: %v)", ID, err))
+			continue
+		}
+
+		desc := DefenseDesc{
+			UpgradableDesc: upgradable,
+		}
+
+		cost, ok := dm.costs[ID]
+		if ok {
+			desc.Cost = cost
+		}
+
+		descs = append(descs, desc)
+	}
+
+	return descs, nil
 }

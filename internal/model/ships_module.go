@@ -585,13 +585,73 @@ func (sm *ShipsModule) initPropulsions(proxy db.Proxy) error {
 // of the ships matching the filters, and then build the
 // rest of the data from the already fetched values.
 //
+// The `dbase` defines the DB to use to fetch the ships
+// description.
+//
 // The `filters` represent the list of filters to apply
 // to the data fecthing. This will select only part of
 // all the available ships.
 //
 // Returns the list of ships matching the filters along
 // with any error.
-func (sm *ShipsModule) Ships(filters []db.Filter) ([]ShipDesc, error) {
-	// TODO: Handle this.
-	return nil, fmt.Errorf("Not implemented")
+func (sm *ShipsModule) Ships(dbase *db.DB, filters []db.Filter) ([]ShipDesc, error) {
+	// Initialize the module if for some reasons it is still
+	// not valid.
+	if !sm.valid() {
+		err := sm.Init(dbase, true)
+		if err != nil {
+			return []ShipDesc{}, err
+		}
+	}
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table:   "ships",
+		Filters: filters,
+	}
+
+	proxy := db.NewProxy(dbase)
+
+	IDs, err := sm.fetchIDs(query, proxy)
+	if err != nil {
+		sm.trace(logger.Error, fmt.Sprintf("Unable to fetch ships (err: %v)", err))
+		return []ShipDesc{}, err
+	}
+
+	// Now build the data from the fetched identifiers.
+	descs := make([]ShipDesc, 0)
+	for _, ID := range IDs {
+		upgradable, err := sm.getDependencyFromID(ID)
+
+		if err != nil {
+			sm.trace(logger.Error, fmt.Sprintf("Unable to fetch ship \"%s\" (err: %v)", ID, err))
+			continue
+		}
+
+		desc := ShipDesc{
+			UpgradableDesc: upgradable,
+		}
+
+		cost, ok := sm.costs[ID]
+		if ok {
+			desc.Cost = cost
+		}
+
+		rfShip, ok := sm.rfVSShips[ID]
+		if ok {
+			desc.RFVSShips = rfShip
+		}
+
+		rfDefense, ok := sm.rfVSDefenses[ID]
+		if ok {
+			desc.RFVSDefenses = rfDefense
+		}
+
+		descs = append(descs, desc)
+	}
+
+	return descs, nil
 }

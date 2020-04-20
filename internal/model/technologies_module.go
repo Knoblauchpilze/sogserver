@@ -181,13 +181,60 @@ func (tm *TechnologiesModule) initNames(proxy db.Proxy) error {
 // build the rest of the data from the already fetched
 // values.
 //
+// The `dbase` defines the DB to use to fetch the techs
+// description.
+//
 // The `filters` represent the list of filters to apply
 // to the data fecthing. This will select only part of
 // all the available technologies.
 //
 // Returns the list of technologies matching the filters
 // along with any error.
-func (tm *TechnologiesModule) Technologies(filters []db.Filter) ([]TechnologyDesc, error) {
-	// TODO: Handle this.
-	return nil, fmt.Errorf("Not implemented")
+func (tm *TechnologiesModule) Technologies(dbase *db.DB, filters []db.Filter) ([]TechnologyDesc, error) {
+	// Try to initialize this module if needed: this is
+	// interesting to make sure that we try as hard as
+	// we can to provide relevant data in case we can't
+	// do so yet.
+	if !tm.valid() {
+		err := tm.Init(dbase, true)
+		if err != nil {
+			return []TechnologyDesc{}, err
+		}
+	}
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table:   "technologies",
+		Filters: filters,
+	}
+
+	proxy := db.NewProxy(dbase)
+
+	IDs, err := tm.fetchIDs(query, proxy)
+	if err != nil {
+		tm.trace(logger.Error, fmt.Sprintf("Unable to fetch technologies (err: %v)", err))
+		return []TechnologyDesc{}, err
+	}
+
+	// Now build the data from the fetched identifiers.
+	descs := make([]TechnologyDesc, 0)
+	for _, ID := range IDs {
+		upgradable, err := tm.getDependencyFromID(ID)
+
+		if err != nil {
+			tm.trace(logger.Error, fmt.Sprintf("Unable to fetch technology \"%s\" (err: %v)", ID, err))
+			continue
+		}
+
+		desc := TechnologyDesc{
+			UpgradableDesc: upgradable,
+		}
+
+		descs = append(descs, desc)
+	}
+
+	return descs, nil
 }

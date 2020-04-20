@@ -28,7 +28,7 @@ type AccountProxy struct {
 // Returns the created proxy.
 func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
 	return AccountProxy{
-		newCommonProxy(dbase, log),
+		newCommonProxy(dbase, log, "accounts"),
 	}
 }
 
@@ -49,7 +49,7 @@ func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
 // Returns the list of accounts along with any errors. Note
 // that in case the error is not `nil` the returned list is
 // to be ignored.
-func (p *AccountProxy) Accounts(filters []DBFilter) ([]Account, error) {
+func (p *AccountProxy) Accounts(filters []db.Filter) ([]Account, error) {
 	// Create the query and execute it.
 	query := queryDesc{
 		props: []string{
@@ -83,7 +83,7 @@ func (p *AccountProxy) Accounts(filters []DBFilter) ([]Account, error) {
 		)
 
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for account (err: %v)", err))
+			p.trace(logger.Error, fmt.Sprintf("Could not retrieve info for account (err: %v)", err))
 			continue
 		}
 
@@ -137,6 +137,8 @@ func (p *AccountProxy) Create(acc *Account) error {
 			return fmt.Errorf("Could not import account \"%s\" (err: %s)", acc.Name, msg)
 		}
 	}
+
+	p.trace(logger.Notice, fmt.Sprintf("Created new account \"%s\" with id \"%s\"", acc.Name, acc.ID))
 
 	return nil
 }

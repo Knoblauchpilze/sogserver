@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
-	"oglike_server/pkg/logger"
+	"oglike_server/pkg/db"
 )
 
 // listUniverses :
@@ -13,7 +13,7 @@ import (
 // the requests on universes.
 //
 // Returns the handler that can be executed to serve said reqs.
-func (s *server) listUniverses() http.HandlerFunc {
+func (s *Server) listUniverses() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewGetResourceEndpoint("universes")
 
@@ -23,9 +23,9 @@ func (s *server) listUniverses() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithResourceFilter("id")
+	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("universes")
 	ed.WithDataFunc(
-		func(filters []data.DBFilter) (interface{}, error) {
+		func(filters []db.Filter) (interface{}, error) {
 			return s.universes.Universes(filters)
 		},
 	)
@@ -38,7 +38,7 @@ func (s *server) listUniverses() http.HandlerFunc {
 // the requests to create universes.
 //
 // Returns the handler to execute to perform said requests.
-func (s *server) createUniverse() http.HandlerFunc {
+func (s *Server) createUniverse() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewCreateResourceEndpoint("universes")
 
@@ -60,19 +60,16 @@ func (s *server) createUniverse() http.HandlerFunc {
 				// Try to unmarshal the data into a valid `Universe` struct.
 				err := json.Unmarshal([]byte(rawData), &uni)
 				if err != nil {
-					s.log.Trace(logger.Error, fmt.Sprintf("Could not create universe from data \"%s\" (err: %v)", rawData, err))
-					continue
+					return resources, ErrInvalidData
 				}
 
 				// Create the universe.
 				err = s.universes.Create(&uni)
 				if err != nil {
-					s.log.Trace(logger.Error, fmt.Sprintf("Could not register universe from data \"%s\" (err: %v)", rawData, err))
-					continue
+					return resources, ErrDBError
 				}
 
 				// Successfully created a universe.
-				s.log.Trace(logger.Notice, fmt.Sprintf("Created new universe \"%s\" with id \"%s\"", uni.Name, uni.ID))
 				resources = append(resources, uni.ID)
 			}
 

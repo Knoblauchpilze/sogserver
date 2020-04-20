@@ -38,7 +38,7 @@ import (
 type queryDesc struct {
 	props   []string
 	table   string
-	filters []DBFilter
+	filters []db.Filter
 }
 
 // valid :

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
-	"oglike_server/pkg/logger"
+	"oglike_server/pkg/db"
 )
 
 // listAccounts :
@@ -13,7 +13,7 @@ import (
 // the requests on accounts.
 //
 // Returns the handler that can be executed to serve said reqs.
-func (s *server) listAccounts() http.HandlerFunc {
+func (s *Server) listAccounts() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewGetResourceEndpoint("accounts")
 
@@ -24,9 +24,9 @@ func (s *server) listAccounts() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithResourceFilter("id")
+	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("accounts")
 	ed.WithDataFunc(
-		func(filters []data.DBFilter) (interface{}, error) {
+		func(filters []db.Filter) (interface{}, error) {
 			return s.accounts.Accounts(filters)
 		},
 	)
@@ -39,7 +39,7 @@ func (s *server) listAccounts() http.HandlerFunc {
 // the requests to create accounts.
 //
 // Returns the handler to execute to perform said requests.
-func (s *server) createAccount() http.HandlerFunc {
+func (s *Server) createAccount() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewCreateResourceEndpoint("accounts")
 
@@ -61,19 +61,16 @@ func (s *server) createAccount() http.HandlerFunc {
 				// Try to unmarshal the data into a valid `Account` struct.
 				err := json.Unmarshal([]byte(rawData), &acc)
 				if err != nil {
-					s.log.Trace(logger.Error, fmt.Sprintf("Could not create account from data \"%s\" (err: %v)", rawData, err))
-					continue
+					return resources, ErrInvalidData
 				}
 
 				// Create the account.
 				err = s.accounts.Create(&acc)
 				if err != nil {
-					s.log.Trace(logger.Error, fmt.Sprintf("Could not register account from data \"%s\" (err: %v)", rawData, err))
-					continue
+					return resources, ErrDBError
 				}
 
 				// Successfully created an account.
-				s.log.Trace(logger.Notice, fmt.Sprintf("Created new account \"%s\" with id \"%s\"", acc.Name, acc.ID))
 				resources = append(resources, acc.ID)
 			}
 

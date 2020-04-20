@@ -28,7 +28,7 @@ type UniverseProxy struct {
 // Returns the created proxy.
 func NewUniverseProxy(dbase *db.DB, log logger.Logger) UniverseProxy {
 	return UniverseProxy{
-		newCommonProxy(dbase, log),
+		newCommonProxy(dbase, log, "universes"),
 	}
 }
 
@@ -50,7 +50,7 @@ func NewUniverseProxy(dbase *db.DB, log logger.Logger) UniverseProxy {
 // Returns the list of universes along with any errors. Note
 // that in case the error is not `nil` the returned list is
 // to be ignored.
-func (p *UniverseProxy) Universes(filters []DBFilter) ([]Universe, error) {
+func (p *UniverseProxy) Universes(filters []db.Filter) ([]Universe, error) {
 	// Create the query and execute it.
 	query := queryDesc{
 		props: []string{
@@ -98,7 +98,7 @@ func (p *UniverseProxy) Universes(filters []DBFilter) ([]Universe, error) {
 		)
 
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for universe (err: %v)", err))
+			p.trace(logger.Error, fmt.Sprintf("Could not retrieve info for universe (err: %v)", err))
 			continue
 		}
 
@@ -143,6 +143,8 @@ func (p *UniverseProxy) Create(uni *Universe) error {
 	if err != nil {
 		return fmt.Errorf("Could not import universe \"%s\" (err: %v)", uni.Name, err)
 	}
+
+	p.trace(logger.Notice, fmt.Sprintf("Created new universe \"%s\" with id \"%s\"", uni.Name, uni.ID))
 
 	return nil
 }

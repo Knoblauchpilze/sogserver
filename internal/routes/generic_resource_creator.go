@@ -46,11 +46,28 @@ type CreationFunc func(data RouteData) ([]string, error)
 // The `creator` references the function to use to create the
 // data into the DB once it has been retrieved from the input
 // request and converted into something meaningful.
+//
+// The `module` defines a string that can be used to make the
+// logs display more explicit by specifying this module's id.
+// This string should be unique across the application and is
+// used as a mean to easily distinguish between the different
+// services composing the server.
 type CreateResourceEndpoint struct {
 	route   string
 	key     string
 	creator CreationFunc
+	module  string
 }
+
+// ErrInvalidData :
+// Used as a generic error in case the data provided as input
+// of a creation request could not be read.
+var ErrInvalidData = fmt.Errorf("Unable to parse input data")
+
+// ErrDBError :
+// Used as a generic error in case the data provided as input
+// of a creation request could not be inserted to the DB.
+var ErrDBError = fmt.Errorf("Unable to register input data in DB")
 
 // NewCreateResourceEndpoint :
 // Creates a new empty endpoint description with the provided
@@ -93,6 +110,18 @@ func (cre *CreateResourceEndpoint) WithCreationFunc(f CreationFunc) *CreateResou
 	return cre
 }
 
+// WithModule :
+// Assigns a new string as the module name for this object.
+//
+// The `module` defines the name of the module to assign to
+// this object
+//
+// Returns this endpoint to allow chain calling.
+func (cre *CreateResourceEndpoint) WithModule(module string) *CreateResourceEndpoint {
+	cre.module = module
+	return cre
+}
+
 // ServeRoute :
 // Returns a handler using this endpoint description to be
 // able to serve requests given the data present in this
@@ -119,7 +148,7 @@ func (cre *CreateResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFun
 
 		resNames, err := cre.creator(data)
 		if err != nil {
-			log.Trace(logger.Error, fmt.Sprintf("Could not create resource from route \"%s\" (err: %v)", cre.route, err))
+			log.Trace(logger.Error, cre.module, fmt.Sprintf("Could not create resource from route \"%s\" (err: %v)", cre.route, err))
 			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
 
 			return

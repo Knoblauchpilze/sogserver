@@ -63,6 +63,9 @@ import (
 // the various upgrade actions handled by the game. It handles
 // both the creation of the actions and their fetching.
 //
+//
+// The `dbase` defines the DB to use to access to the data.
+//
 // The `logger` allows to perform most of the logging on any action
 // done by the server such as logging clients' connections, errors
 // and generally some elements useful to track the activity of the
@@ -80,7 +83,9 @@ type Server struct {
 	players       data.PlayerProxy
 	fleets        data.FleetProxy
 	upgradeAction data.ActionProxy
-	log           logger.Logger
+
+	dbase *db.DB
+	log   logger.Logger
 }
 
 // NewServer :
@@ -145,6 +150,7 @@ func NewServer(port int, dbase *db.DB, log logger.Logger) Server {
 		playerProxy,
 		data.NewFleetProxy(dbase, log, uniProxy, playerProxy),
 		data.NewActionProxy(dbase, log, planetProxy, playerProxy),
+		dbase,
 		log,
 	}
 }

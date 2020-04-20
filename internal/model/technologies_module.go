@@ -26,25 +26,12 @@ type TechnologiesModule struct {
 // places in the DB to reference it) and its name that
 // is usually used for display purposes.
 //
-// The `ID` defines the unique ID for this technology.
-//
-// The `Name` defines a display name for the technology.
-//
-// The `BuildingDeps` defines a list of ID which define
-// the dependencies in terms of buildings to be able to
-// research this technology.
-//
-// The `TechnologiesDeps` fills a similar purpose but
-// register dependencies on technologies.
-//
 // The `Cost` allows to compute the cost of this item
 // at any level.
 type TechnologyDesc struct {
-	ID               string       `json:"id"`
-	Name             string       `json:"name"`
-	BuildingsDeps    []Dependency `json:"buildings_dependencies"`
-	TechnologiesDeps []Dependency `json:"technologies_dependencies"`
-	Cost             ProgressCost `json:"cost"`
+	UpgradableDesc
+
+	Cost ProgressCost `json:"cost"`
 }
 
 // NewTechnologiesModule :

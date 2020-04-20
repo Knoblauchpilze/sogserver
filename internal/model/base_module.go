@@ -102,3 +102,48 @@ func (bm *baseModule) trace(level logger.Severity, msg string) {
 		bm.log.Trace(level, bm.module, msg)
 	}
 }
+
+// fetchIDs :
+// Used to perform the query and retrieve all the results
+// in a single slice of strings. This can only be applied
+// to the case where the query returns a single element
+// of type string.
+//
+// The `query` defines the query to perform.
+//
+// The `proxy` defines the proxy to use to perform the
+// query.
+//
+// Returns the list of identifiers fetched from the DB
+// along with any errors.
+func (bm *baseModule) fetchIDs(query db.QueryDesc, proxy db.Proxy) ([]string, error) {
+	// Perform the query.
+	rows, err := proxy.FetchFromDB(query)
+	defer rows.Close()
+
+	if err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Unable to fetch IDs (err: %v)", err))
+		return []string{}, err
+	}
+	if rows.Err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize IDs (err: %v)", rows.Err))
+		return []string{}, fmt.Errorf("Failed to retrieve data from query (err: %v)", err)
+	}
+
+	// Fetch identifiers.
+	var ID string
+	IDs := make([]string, 0)
+
+	for rows.Next() {
+		err := rows.Scan(&ID)
+
+		if err != nil {
+			bm.trace(logger.Error, fmt.Sprintf("Failed to initialize ID from row (err: %v)", err))
+			continue
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	return IDs, nil
+}

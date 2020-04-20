@@ -46,29 +46,13 @@ type defenseProps struct {
 // capabilities of the system are provided along with a
 // list of costs required to build it.
 //
-// The `ID` defines the unique ID for this defense.
-//
-// The `Name` defines a display name for the defense.
-//
-// The `BuildingDeps` defines a list of identifiers
-// which represent the buildings (and their associated
-// level) which need to be available for this defense
-// to be built. It is some sort of representation of
-// the tech-tree.
-//
-// The `TechnologiesDeps` fills a similar purpose but
-// register dependencies on technologies and not on
-// buildings.
-//
 // The `Cost` defines how much of each resource needs
 // to be available in a place to build a copy of this
 // defense system.
 type DefenseDesc struct {
-	ID               string       `json:"id"`
-	Name             string       `json:"name"`
-	BuildingsDeps    []Dependency `json:"buildings_dependencies"`
-	TechnologiesDeps []Dependency `json:"technologies_dependencies"`
-	Cost             FixedCost    `json:"cost"`
+	UpgradableDesc
+
+	Cost FixedCost `json:"cost"`
 }
 
 // NewDefensesModule :

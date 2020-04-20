@@ -96,19 +96,6 @@ type shipProps struct {
 // a short summary of its purpose retrieved from the
 // database.
 //
-// The `ID` defines the unique ID for this ship.
-//
-// The `Name` defines a display name for the ship.
-//
-// The `BuildingDeps` defines a list of ID which can
-// be scanned to find the buildings (and their level)
-// that are needed to be available on a planet to be
-// allowed to build the ship. It is some sort of way
-// to represent the tech-tree.
-//
-// The `TechnologiesDeps` fills a similar purpose but
-// register dependencies on technologies.
-//
 // The `RFVSShips` defines the rapid fire this ship
 // has against other ships.
 //
@@ -118,13 +105,11 @@ type shipProps struct {
 // The `Cost` defines how much of each resource is
 // needed to build one copy of this ship.
 type ShipDesc struct {
-	ID               string       `json:"id"`
-	Name             string       `json:"name"`
-	BuildingsDeps    []Dependency `json:"buildings_dependencies"`
-	TechnologiesDeps []Dependency `json:"technologies_dependencies"`
-	RFVSShips        []RapidFire  `json:"rf_against_ships"`
-	RFVSDefenses     []RapidFire  `json:"rf_against_defenses"`
-	Cost             FixedCost    `json:"cost"`
+	UpgradableDesc
+
+	RFVSShips    []RapidFire `json:"rf_against_ships"`
+	RFVSDefenses []RapidFire `json:"rf_against_defenses"`
+	Cost         FixedCost   `json:"cost"`
 }
 
 // RapidFire :

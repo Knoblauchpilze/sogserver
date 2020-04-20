@@ -37,20 +37,6 @@ type BuildingsModule struct {
 // some info about the effects that this building has
 // on production, storage, etc.
 //
-// The `ID` defines the unique id for this building.
-//
-// The `Name` defines a human readable name for the
-// building.
-//
-// The `BuildingDeps` defines a list of identifiers
-// which represent the buildings (and their associated
-// level) which need to be available for this building
-// to be built. It is some sort of representation of
-// the tech-tree.
-//
-// The `TechnologiesDeps` fills a similar purpose but
-// register dependencies on technologies.
-//
 // The `Cost` allows to compute the cost of this item
 // at any level.
 //
@@ -61,13 +47,11 @@ type BuildingsModule struct {
 // The `Storage` defines how upgrading this building
 // impacts the storage capacities of the planet.
 type BuildingDesc struct {
-	ID               string           `json:"id"`
-	Name             string           `json:"name"`
-	BuildingsDeps    []Dependency     `json:"buildings_dependencies"`
-	TechnologiesDeps []Dependency     `json:"technologies_dependencies"`
-	Cost             ProgressCost     `json:"cost"`
-	Production       []ProductionRule `json:"production"`
-	Storage          []StorageRule    `json:"storage"`
+	UpgradableDesc
+
+	Cost       ProgressCost     `json:"cost"`
+	Production []ProductionRule `json:"production"`
+	Storage    []StorageRule    `json:"storage"`
 }
 
 // ProductionRule :
@@ -562,13 +546,75 @@ func (bm *BuildingsModule) initStorage(proxy db.Proxy) error {
 // of the buildings matching the filters, and then build the
 // rest of the data from the already fetched values.
 //
+// The `dbase` defines the DB to use to fetch the buildings
+// description.
+//
 // The `filters` represent the list of filters to apply to
 // the data fecthing. This will select only part of all the
 // available buildings.
 //
 // Returns the list of buildings matching the filters along
 // with any error.
-func (bm *BuildingsModule) Buildings(filters []db.Filter) ([]BuildingDesc, error) {
-	// TODO: Handle this.
-	return nil, fmt.Errorf("Not implemented")
+func (bm *BuildingsModule) Buildings(dbase *db.DB, filters []db.Filter) ([]BuildingDesc, error) {
+	// We will first perform a query on the DB to get all the
+	// identifiers that matche the input criteria and then use
+	// the returned values to build the buildings description.
+	// We will also try to initialize this module if needed.
+	if !bm.valid() {
+		err := bm.Init(dbase, true)
+		if err != nil {
+			return []BuildingDesc{}, err
+		}
+	}
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table:   "buildings",
+		Filters: filters,
+	}
+
+	proxy := db.NewProxy(dbase)
+
+	IDs, err := bm.fetchIDs(query, proxy)
+	if err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Unable to fetch buildings (err: %v)", err))
+		return []BuildingDesc{}, err
+	}
+
+	// Now build the data from the fetched identifiers.
+	descs := make([]BuildingDesc, 0)
+	for _, ID := range IDs {
+		upgradable, err := bm.getDependencyFromID(ID)
+
+		if err != nil {
+			bm.trace(logger.Error, fmt.Sprintf("Unable to fetch building \"%s\" (err: %v)", ID, err))
+			continue
+		}
+
+		desc := BuildingDesc{
+			UpgradableDesc: upgradable,
+		}
+
+		cost, ok := bm.costs[ID]
+		if ok {
+			desc.Cost = cost
+		}
+
+		prod, ok := bm.production[ID]
+		if ok {
+			desc.Production = prod
+		}
+
+		storage, ok := bm.storage[ID]
+		if ok {
+			desc.Storage = storage
+		}
+
+		descs = append(descs, desc)
+	}
+
+	return descs, nil
 }

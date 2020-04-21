@@ -2,13 +2,10 @@ package data
 
 import (
 	"fmt"
-	"math"
 	"math/rand"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
-
-	"github.com/google/uuid"
 )
 
 // PlanetProxy :
@@ -127,7 +124,7 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
 	planets := make([]model.Planet, 0)
 
 	for _, ID = range IDs {
-		pla, err := model.NewPlanet(p.proxy)
+		pla, err := model.NewPlanetFromDB(ID, p.proxy)
 
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Unable to fetch planet \"%s\" data from DB (err: %v)", ID, err))
@@ -138,6 +135,48 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
 	}
 
 	return planets, nil
+}
+
+// generateResources :
+// Used to perform the creation of the default resources for
+// a planet when it's being created. This translate the fact
+// that a planet is never really `empty` in the game.
+// This function will create all the necessary entries in the
+// planet input object but does not create anything in the DB.
+//
+// The `planet` defines the element for which resources need
+// to be generated.
+//
+// Returns any error.
+func (p *PlanetProxy) generateResources(planet *model.Planet) error {
+	// A planet always has the base amount defined in the DB.
+	resources, err := p.data.Resources.Resources(p.proxy, []db.Filter{})
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Unable to generate resources for planet (err: %v)", err))
+		return err
+	}
+
+	// We will consider that we have a certain number of each
+	// resources readily available on each planet upon its
+	// creation. The values are hard-coded there and we use
+	// the identifier of the resources retrieved from the DB
+	// to populate the planet.
+	if planet.Resources == nil {
+		planet.Resources = make([]model.ResourceInfo, 0)
+	}
+
+	for _, res := range resources {
+		desc := model.ResourceInfo{
+			Resource:   res.ID,
+			Amount:     res.BaseAmount,
+			Storage:    res.BaseStorage,
+			Production: res.BaseProd,
+		}
+
+		planet.Resources = append(planet.Resources, desc)
+	}
+
+	return nil
 }
 
 // fetchPlanetData :
@@ -797,7 +836,7 @@ func (p *PlanetProxy) generateUsedCoords(uni Universe) (map[int]Coordinate, erro
 // Returns an error in case the planet could not be used
 // in the DB (for example because the coordinates already
 // are used).
-func (p *PlanetProxy) createPlanet(planet Planet) error {
+func (p *PlanetProxy) createPlanet(planet *model.Planet) error {
 	// Create the query and execute it.
 	query := db.InsertReq{
 		Script: "create_planet",
@@ -815,303 +854,4 @@ func (p *PlanetProxy) createPlanet(planet Planet) error {
 	}
 
 	return err
-}
-
-// generatePlanet :
-// Used to perform the generation of the properties of a planet
-// based on the input player and coordinates. All the info to
-// actually define the planet will be generated including the
-// resources.
-// The universe in which the planet should be provided in case
-// the coordinates are to be determined by this function. As we
-// will need information as to the positions that are possible
-// for a planet in this case.
-//
-// The `player` defines the identifier of the player to which
-// the planet belongs.
-//
-// The `coord` defines the coordinates of the planet to create.
-// If the value is `nil` no data is generated.
-//
-// The `uni` argument defines the universe in which the planet
-// is to be created. This helps with defining valid coordinates
-// in case none are provided.
-//
-// Returns the created planet.
-func (p *PlanetProxy) generatePlanet(player string, coord *Coordinate, uni Universe) (Planet, error) {
-	trueCoords := Coordinate{0, 0, 0}
-	if coord != nil {
-		trueCoords = *coord
-	}
-
-	// Create the planet and generate base information.
-	planet := Planet{
-		player,
-		uuid.New().String(),
-		trueCoords,
-		getDefaultPlanetName(coord == nil),
-		0,
-		0,
-		0,
-		0,
-		make([]ResourceInfo, 0),
-		make([]BuildingInfo, 0),
-		make([]ShipInfo, 0),
-		make([]DefenseInfo, 0),
-	}
-
-	err := p.generateResources(&planet)
-
-	return planet, err
-}
-
-// generatePlanetSize :
-// Used to generate the size associated to a planet. The size
-// is a general notion including both its actual diameter and
-// also the temperature on the surface of the planet. Both
-// values depend on the actual position of the planet in the
-// parent solar system.
-//
-// The `planet` defines the planet for which the size should
-// be generated.
-func (p *PlanetProxy) generatePlanetSize(planet *Planet) {
-	// Check whether the planet and its coordinates are valid.
-	if planet == nil {
-		return
-	}
-
-	// Create a random source to be used for the generation of
-	// the planet's properties. We will use a procedural algo
-	// which will be based on the position of the planet in its
-	// parent universe.
-	source := rand.NewSource(int64(planet.Coordinates.generateSeed()))
-	rng := rand.New(source)
-
-	// The table of the dimensions of the planet are inspired
-	// from this link:
-	// https://ogame.fandom.com/wiki/Colonizing_in_Redesigned_Universes
-	var min int
-	var max int
-	var stdDev int
-
-	switch planet.Coordinates.Position {
-	case 0:
-		// Range [96; 172], average 134.
-		min = 96
-		max = 172
-		stdDev = max - min
-	case 1:
-		// Range [104; 176], average 140.
-		min = 104
-		max = 176
-		stdDev = max - min
-	case 2:
-		// Range [112; 182], average 147.
-		min = 112
-		max = 182
-		stdDev = max - min
-	case 3:
-		// Range [118; 208], average 163.
-		min = 118
-		max = 208
-		stdDev = max - min
-	case 4:
-		// Range [133; 232], average 182.
-		min = 133
-		max = 232
-		stdDev = max - min
-	case 5:
-		// Range [152; 248], average 200.
-		min = 152
-		max = 248
-		stdDev = max - min
-	case 6:
-		// Range [156; 262], average 204.
-		min = 156
-		max = 262
-		stdDev = max - min
-	case 7:
-		// Range [150; 246], average 198.
-		min = 150
-		max = 246
-		stdDev = max - min
-	case 8:
-		// Range [142; 232], average 187.
-		min = 142
-		max = 232
-		stdDev = max - min
-	case 9:
-		// Range [136; 210], average 173.
-		min = 136
-		max = 210
-		stdDev = max - min
-	case 10:
-		// Range [125; 186], average 156.
-		min = 125
-		max = 186
-		stdDev = max - min
-	case 11:
-		// Range [114; 172], average 143.
-		min = 114
-		max = 172
-		stdDev = max - min
-	case 12:
-		// Range [100; 168], average 134.
-		min = 100
-		max = 168
-		stdDev = max - min
-	case 13:
-		// Range [90; 164], average 127.
-		min = 96
-		max = 164
-		stdDev = max - min
-	case 14:
-		fallthrough
-	default:
-		// Assume default case if the `15th` position
-		// Range [90; 164], average 134.
-		min = 90
-		max = 164
-		stdDev = max - min
-	}
-
-	mean := (max + min) / 2
-	planet.Fields = mean + int(math.Round(rng.NormFloat64()*float64(stdDev)))
-
-	// The diameter is derived from the fields count with a random part.
-	planet.Diameter = 100*planet.Fields + int(math.Round(float64(100.0*rand.Float32())))
-
-	// The temperatures are described in the following link:
-	// https://ogame.fandom.com/wiki/Temperature
-	switch planet.Coordinates.Position {
-	case 0:
-		// Range [220; 260], average 240.
-		min = 220
-		max = 260
-		stdDev = max - min
-	case 1:
-		// Range [170; 210], average 190.
-		min = 170
-		max = 210
-		stdDev = max - min
-	case 2:
-		// Range [120; 160], average 140.
-		min = 120
-		max = 160
-		stdDev = max - min
-	case 3:
-		// Range [70; 110], average 90.
-		min = 70
-		max = 110
-		stdDev = max - min
-	case 4:
-		// Range [60; 100], average 80.
-		min = 60
-		max = 100
-		stdDev = max - min
-	case 5:
-		// Range [50; 90], average 70.
-		min = 50
-		max = 90
-		stdDev = max - min
-	case 6:
-		// Range [40; 80], average 60.
-		min = 40
-		max = 80
-		stdDev = max - min
-	case 7:
-		// Range [30; 70], average 50.
-		min = 30
-		max = 70
-		stdDev = max - min
-	case 8:
-		// Range [20; 60], average 40.
-		min = 20
-		max = 60
-		stdDev = max - min
-	case 9:
-		// Range [10; 50], average 30.
-		min = 10
-		max = 50
-		stdDev = max - min
-	case 10:
-		// Range [0; 40], average 20.
-		min = 0
-		max = 40
-		stdDev = max - min
-	case 11:
-		// Range [-10; 30], average 10.
-		min = -10
-		max = 30
-		stdDev = max - min
-	case 12:
-		// Range [-50; -10], average -30.
-		min = -50
-		max = -10
-		stdDev = max - min
-	case 13:
-		// Range [-90; -50], average -70.
-		min = -90
-		max = -50
-		stdDev = max - min
-	case 14:
-		fallthrough
-	default:
-		// Assume default case if the `15th` position
-		// Range [-130; -90], average -110.
-		min = -130
-		max = -90
-		stdDev = max - min
-	}
-
-	mean = (max + min) / 2
-	planet.MaxTemp = mean + int(math.Round(rng.NormFloat64()*float64(stdDev)))
-	planet.MinTemp = planet.MaxTemp - getPlanetTemperatureAmplitude()
-}
-
-// generateResources :
-// Used to perform the creation of the default resources for
-// a planet when it's being created. This translate the fact
-// that a planet is never really `empty` in the game.
-// This function will create all the necessary entries in the
-// planet input object but does not create anything in the DB.
-//
-// The `planet` defines the planet for which resources should
-// be generated.
-//
-// Returns any error.
-func (p *PlanetProxy) generateResources(planet *Planet) error {
-	// Discard empty planets.
-	if planet == nil {
-		return fmt.Errorf("Unable to generate resources for invalid planet")
-	}
-
-	// A planet always has the base amount defined in the DB.
-	resources, err := p.data.Resources.Resources(p.proxy, []db.Filter{})
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Unable to generate resources for planet (err: %v)", err))
-		return err
-	}
-
-	// We will consider that we have a certain number of each
-	// resources readily available on each planet upon its
-	// creation. The values are hard-coded there and we use
-	// the identifier of the resources retrieved from the DB
-	// to populate the planet.
-	if planet.Resources == nil {
-		planet.Resources = make([]ResourceInfo, 0)
-	}
-
-	for _, res := range resources {
-		desc := ResourceInfo{
-			Resource:   res.ID,
-			Amount:     res.BaseAmount,
-			Storage:    res.BaseStorage,
-			Production: res.BaseProd,
-		}
-
-		planet.Resources = append(planet.Resources, desc)
-	}
-
-	return nil
 }

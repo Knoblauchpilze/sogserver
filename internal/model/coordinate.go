@@ -101,3 +101,10 @@ func (c Coordinate) generateSeed() int {
 	k1 := (c.Position+c.System)*(c.Position+c.System+1)/2 + c.System
 	return (k1+c.Galaxy)*(k1+c.Galaxy+1)/2 + c.Galaxy
 }
+
+// isNull :
+// Returns `true` if all the values of this coordinates are
+// set to `0`.
+func (c Coordinate) isNull() bool {
+	return c.Galaxy == 0 && c.System == 0 && c.Position == 0
+}

@@ -2,7 +2,11 @@ package model
 
 import (
 	"fmt"
+	"math"
+	"math/rand"
 	"oglike_server/pkg/db"
+
+	"github.com/google/uuid"
 )
 
 // Planet :
@@ -182,21 +186,62 @@ func getPlanetTemperatureAmplitude() int {
 	return 50
 }
 
-// NewPlanet :
+// NewPlanetFromDB :
 // Used to fetch the content of the planet from the
 // input DB and populate all internal fields from it.
 // In case the DB cannot be fetched or some errors
 // are encoutered, the return value will include a
 // description of the error.
 //
+// The `ID` defines the identifier of the planet to
+// create. It should be fetched from the DB and is
+// assumed to refer to an existing planet.
+//
 // The `proxy` allows to actually perform the DB
 // requests to fetch the planet's data.
 //
 // Returns the planet as fetched from the DB along
 // with any errors.
-func NewPlanet(proxy db.Proxy) (Planet, error) {
+func NewPlanetFromDB(ID string, proxy db.Proxy) (Planet, error) {
 	// TODO: Handle this.
 	return Planet{}, fmt.Errorf("Not implemented")
+}
+
+// NewPlanet :
+// Used to perform the creation of the planet at
+// the specified coordinates. It will perform the
+// creation of the needed information such as the
+// planet's size and temperature based on input
+// coords.
+//
+// The `player` defines the identifier of the
+// player to which this planet will be assigned.
+//
+// The `coords` represent the desired position of
+// the planet to generate.
+//
+// Returns the generated planet.
+func NewPlanet(player string, coords Coordinate) *Planet {
+	// Create default properties.
+	p := &Planet{
+		player,
+		uuid.New().String(),
+		coords,
+		getDefaultPlanetName(coords.isNull()),
+		0,
+		0,
+		0,
+		0,
+		make([]ResourceInfo, 0),
+		make([]BuildingInfo, 0),
+		make([]ShipInfo, 0),
+		make([]DefenseInfo, 0),
+	}
+
+	// Generate diameter and fields count.
+	p.generateData()
+
+	return p
 }
 
 // AverageTemperature :
@@ -218,4 +263,203 @@ func (p *Planet) RemainingFields() int {
 	}
 
 	return p.Fields - used
+}
+
+// generateData :
+// Used to generate the size associated to a planet. The size
+// is a general notion including both its actual diameter and
+// also the temperature on the surface of the planet. Both
+// values depend on the actual position of the planet in the
+// parent solar system.
+//
+// The `planet` defines the planet for which the size should
+// be generated.
+func (p *Planet) generateData() {
+	// Create a random source to be used for the generation of
+	// the planet's properties. We will use a procedural algo
+	// which will be based on the position of the planet in its
+	// parent universe.
+	source := rand.NewSource(int64(p.Coordinates.generateSeed()))
+	rng := rand.New(source)
+
+	// The table of the dimensions of the planet are inspired
+	// from this link:
+	// https://ogame.fandom.com/wiki/Colonizing_in_Redesigned_Universes
+	var min int
+	var max int
+	var stdDev int
+
+	switch p.Coordinates.Position {
+	case 0:
+		// Range [96; 172], average 134.
+		min = 96
+		max = 172
+		stdDev = max - min
+	case 1:
+		// Range [104; 176], average 140.
+		min = 104
+		max = 176
+		stdDev = max - min
+	case 2:
+		// Range [112; 182], average 147.
+		min = 112
+		max = 182
+		stdDev = max - min
+	case 3:
+		// Range [118; 208], average 163.
+		min = 118
+		max = 208
+		stdDev = max - min
+	case 4:
+		// Range [133; 232], average 182.
+		min = 133
+		max = 232
+		stdDev = max - min
+	case 5:
+		// Range [152; 248], average 200.
+		min = 152
+		max = 248
+		stdDev = max - min
+	case 6:
+		// Range [156; 262], average 204.
+		min = 156
+		max = 262
+		stdDev = max - min
+	case 7:
+		// Range [150; 246], average 198.
+		min = 150
+		max = 246
+		stdDev = max - min
+	case 8:
+		// Range [142; 232], average 187.
+		min = 142
+		max = 232
+		stdDev = max - min
+	case 9:
+		// Range [136; 210], average 173.
+		min = 136
+		max = 210
+		stdDev = max - min
+	case 10:
+		// Range [125; 186], average 156.
+		min = 125
+		max = 186
+		stdDev = max - min
+	case 11:
+		// Range [114; 172], average 143.
+		min = 114
+		max = 172
+		stdDev = max - min
+	case 12:
+		// Range [100; 168], average 134.
+		min = 100
+		max = 168
+		stdDev = max - min
+	case 13:
+		// Range [90; 164], average 127.
+		min = 96
+		max = 164
+		stdDev = max - min
+	case 14:
+		fallthrough
+	default:
+		// Assume default case if the `15th` position
+		// Range [90; 164], average 134.
+		min = 90
+		max = 164
+		stdDev = max - min
+	}
+
+	mean := (max + min) / 2
+	p.Fields = mean + int(math.Round(rng.NormFloat64()*float64(stdDev)))
+
+	// The diameter is derived from the fields count with a random part.
+	p.Diameter = 100*p.Fields + int(math.Round(float64(100.0*rand.Float32())))
+
+	// The temperatures are described in the following link:
+	// https://ogame.fandom.com/wiki/Temperature
+	switch p.Coordinates.Position {
+	case 0:
+		// Range [220; 260], average 240.
+		min = 220
+		max = 260
+		stdDev = max - min
+	case 1:
+		// Range [170; 210], average 190.
+		min = 170
+		max = 210
+		stdDev = max - min
+	case 2:
+		// Range [120; 160], average 140.
+		min = 120
+		max = 160
+		stdDev = max - min
+	case 3:
+		// Range [70; 110], average 90.
+		min = 70
+		max = 110
+		stdDev = max - min
+	case 4:
+		// Range [60; 100], average 80.
+		min = 60
+		max = 100
+		stdDev = max - min
+	case 5:
+		// Range [50; 90], average 70.
+		min = 50
+		max = 90
+		stdDev = max - min
+	case 6:
+		// Range [40; 80], average 60.
+		min = 40
+		max = 80
+		stdDev = max - min
+	case 7:
+		// Range [30; 70], average 50.
+		min = 30
+		max = 70
+		stdDev = max - min
+	case 8:
+		// Range [20; 60], average 40.
+		min = 20
+		max = 60
+		stdDev = max - min
+	case 9:
+		// Range [10; 50], average 30.
+		min = 10
+		max = 50
+		stdDev = max - min
+	case 10:
+		// Range [0; 40], average 20.
+		min = 0
+		max = 40
+		stdDev = max - min
+	case 11:
+		// Range [-10; 30], average 10.
+		min = -10
+		max = 30
+		stdDev = max - min
+	case 12:
+		// Range [-50; -10], average -30.
+		min = -50
+		max = -10
+		stdDev = max - min
+	case 13:
+		// Range [-90; -50], average -70.
+		min = -90
+		max = -50
+		stdDev = max - min
+	case 14:
+		fallthrough
+	default:
+		// Assume default case if the `15th` position
+		// Range [-130; -90], average -110.
+		min = -130
+		max = -90
+		stdDev = max - min
+	}
+
+	mean = (max + min) / 2
+	p.MaxTemp = mean + int(math.Round(rng.NormFloat64()*float64(stdDev)))
+	p.MinTemp = p.MaxTemp - getPlanetTemperatureAmplitude()
 }

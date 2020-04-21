@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 
@@ -12,62 +13,15 @@ import (
 
 // PlanetProxy :
 // Intended as a wrapper to access properties of planets
-// and retrieve data from the database. Internally uses
-// the common proxy defined in this package.
-// The planets usually need to fetch information from a
-// parent universe so that we can make sure that the
-// info to create the planet is consistent.
-//
-// The `rDescs` defines some information fetched from
-// the main DB about resources and their identifier.
-// It is used to create relevant info for planets (so
-// typically when creating the initial stock of res).
-//
-// The `bCosts` defines the rules to compute the cost
-// of a building given a certain level. It is used to
-// enrich information provided to the user when some
-// planet are fetched.
-//
-// The `pRules` defines a way to compute the amount
-// of resources produced by buildings on a planet so
-// that we can refine the info provided on a planet.
+// and retrieve data from the database. In most cases we
+// need to access some properties of the planets for a
+// given identifier. A planet is a set of resources, a
+// set of ships and defenses that are currently built on
+// it and some upgrade actions (meaning that a building
+// will have one more level soon or that there will be
+// more ships deployed on this planet).
 type PlanetProxy struct {
-	rDescs map[string]ResourceDesc
-	bCosts map[string]ConstructionCost
-	pRules map[string][]ProductionRule
-
-	universesDependentProxy
 	commonProxy
-}
-
-// getDefaultPlanetName :
-// Used to retrieve a default name for a planet. The
-// generated name will be different based on whether
-// the planet is a homeworld or no.
-//
-// The `isHomeworld` is `true` if we should generate
-// a name for the homeworld and `false` otherwise.
-//
-// Returns a string corresponding to the name of the
-// planet.
-func getDefaultPlanetName(isHomeWorld bool) string {
-	if isHomeWorld {
-		return "homeworld"
-	}
-
-	return "planet"
-}
-
-// getPlanetTemperatureAmplitude :
-// Used to retrieve the default planet temperature's
-// amplitude. Basically the interval between the min
-// and max temperature will always be equal to this
-// value.
-//
-// Returns the default temperature amplitude for the
-// planets.
-func getPlanetTemperatureAmplitude() int {
-	return 50
 }
 
 // NewPlanetProxy :
@@ -77,71 +31,16 @@ func getPlanetTemperatureAmplitude() int {
 // The `dbase` represents the database to use to fetch
 // data related to planets.
 //
+// The `data` defines the data model to use to fetch
+// information and verify actions.
+//
 // The `log` allows to notify errors and information.
 //
-// The `unis` provides a way to access the universes
-// information from the main DB.
-//
 // Returns the created proxy.
-func NewPlanetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy) PlanetProxy {
-	proxy := PlanetProxy{
-		make(map[string]ResourceDesc),
-		make(map[string]ConstructionCost),
-		make(map[string][]ProductionRule),
-
-		newUniversesDependentProxy(unis),
-		newCommonProxy(dbase, log),
+func NewPlanetProxy(dbase *db.DB, data model.Instance, log logger.Logger) PlanetProxy {
+	return PlanetProxy{
+		commonProxy: newCommonProxy(dbase, data, log, "planets"),
 	}
-
-	err := proxy.init()
-	if err != nil {
-		log.Trace(logger.Error, fmt.Sprintf("Could not fetch planet related information from DB (err: %v)", err))
-	}
-
-	return proxy
-}
-
-// init :
-// Used to perform the initialziation of the needed
-// DB variables for this proxy. This typically means
-// fetching various buildings costs from the DB and
-// production rules.
-//
-// Returns `nil` if the DB info could be fetched from
-// the DB successfully.
-func (p *PlanetProxy) init() error {
-	// Fetch from DB if needed.
-	var err error
-
-	if len(p.rDescs) == 0 {
-		p.rDescs, err = initResourcesFromDB(p.dbase, p.log)
-		if err != nil {
-			return err
-		}
-	}
-
-	if len(p.bCosts) == 0 {
-		p.bCosts, err = initProgressCostsFromDB(
-			p.dbase,
-			p.log,
-			"building",
-			"buildings_costs_progress",
-			"buildings_costs",
-		)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	if len(p.pRules) == 0 {
-		p.pRules, err = initBuildingsProductionRulesFromDB(p.dbase, p.log)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // buildQuery :
@@ -162,11 +61,11 @@ func (p *PlanetProxy) init() error {
 //
 // Returns the description of the query built from
 // the input properties.
-func (p *PlanetProxy) buildQuery(props []string, table string, filterName string, filter string) queryDesc {
-	return queryDesc{
-		props: props,
-		table: table,
-		filters: []DBFilter{
+func (p *PlanetProxy) buildQuery(props []string, table string, filterName string, filter string) db.QueryDesc {
+	return db.QueryDesc{
+		Props: props,
+		Table: table,
+		Filters: []db.Filter{
 			{
 				Key:    filterName,
 				Values: []string{filter},
@@ -911,22 +810,22 @@ func (p *PlanetProxy) generateUsedCoords(uni Universe) (map[int]Coordinate, erro
 // are used).
 func (p *PlanetProxy) createPlanet(planet Planet) error {
 	// Create the query and execute it.
-	query := insertReq{
-		script: "create_planet",
-		args: []interface{}{
+	query := db.InsertReq{
+		Script: "create_planet",
+		Args: []interface{}{
 			planet,
 			planet.Resources,
 		},
 	}
 
-	err := p.insertToDB(query)
+	err := p.proxy.InsertToDB(query)
 
 	// Check for errors.
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("Could not import planet \"%s\" (err: %v)", planet.Name, err))
+		p.trace(logger.Error, fmt.Sprintf("Could not import planet \"%s\" (err: %v)", planet.Name, err))
 	}
 
-	return nil
+	return err
 }
 
 // generatePlanet :
@@ -960,18 +859,16 @@ func (p *PlanetProxy) generatePlanet(player string, coord *Coordinate, uni Unive
 	planet := Planet{
 		player,
 		uuid.New().String(),
-		trueCoords.Galaxy,
-		trueCoords.System,
-		trueCoords.Position,
+		trueCoords,
 		getDefaultPlanetName(coord == nil),
 		0,
 		0,
 		0,
 		0,
-		make([]Resource, 0),
-		make([]Building, 0),
-		make([]Ship, 0),
-		make([]Defense, 0),
+		make([]ResourceInfo, 0),
+		make([]BuildingInfo, 0),
+		make([]ShipInfo, 0),
+		make([]DefenseInfo, 0),
 	}
 
 	err := p.generateResources(&planet)
@@ -998,15 +895,7 @@ func (p *PlanetProxy) generatePlanetSize(planet *Planet) {
 	// the planet's properties. We will use a procedural algo
 	// which will be based on the position of the planet in its
 	// parent universe.
-	source := rand.NewSource(
-		int64(
-			NewCoordinate(
-				planet.Galaxy,
-				planet.System,
-				planet.Position,
-			).generateSeed(),
-		),
-	)
+	source := rand.NewSource(int64(planet.Coordinates.generateSeed()))
 	rng := rand.New(source)
 
 	// The table of the dimensions of the planet are inspired
@@ -1016,7 +905,7 @@ func (p *PlanetProxy) generatePlanetSize(planet *Planet) {
 	var max int
 	var stdDev int
 
-	switch planet.Position {
+	switch planet.Coordinates.Position {
 	case 0:
 		// Range [96; 172], average 134.
 		min = 96
@@ -1105,7 +994,7 @@ func (p *PlanetProxy) generatePlanetSize(planet *Planet) {
 
 	// The temperatures are described in the following link:
 	// https://ogame.fandom.com/wiki/Temperature
-	switch planet.Position {
+	switch planet.Coordinates.Position {
 	case 0:
 		// Range [220; 260], average 240.
 		min = 220
@@ -1208,17 +1097,11 @@ func (p *PlanetProxy) generateResources(planet *Planet) error {
 		return fmt.Errorf("Unable to generate resources for invalid planet")
 	}
 
-	// Prevent creation of planets in case no resources are
-	// available (because none have been retrieved from the
-	// DB).
-	// If this is the case we will first attempt to fetch
-	// the resources from the DB and return an error is it
-	// fails.
-	if len(p.rDescs) == 0 {
-		err := p.init()
-		if err != nil {
-			return fmt.Errorf("Unable to generate resources for planet, none defined")
-		}
+	// A planet always has the base amount defined in the DB.
+	resources, err := p.data.Resources.Resources(p.proxy, []db.Filter{})
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Unable to generate resources for planet (err: %v)", err))
+		return err
 	}
 
 	// We will consider that we have a certain number of each
@@ -1227,16 +1110,15 @@ func (p *PlanetProxy) generateResources(planet *Planet) error {
 	// the identifier of the resources retrieved from the DB
 	// to populate the planet.
 	if planet.Resources == nil {
-		planet.Resources = make([]Resource, 0)
+		planet.Resources = make([]ResourceInfo, 0)
 	}
 
-	for _, res := range p.rDescs {
-		desc := Resource{
-			ID:         res.ID,
-			Planet:     planet.ID,
-			Amount:     float32(res.BaseAmount),
-			Production: float32(res.BaseProd),
-			Storage:    float32(res.BaseStorage),
+	for _, res := range resources {
+		desc := ResourceInfo{
+			Resource:   res.ID,
+			Amount:     res.BaseAmount,
+			Storage:    res.BaseStorage,
+			Production: res.BaseProd,
 		}
 
 		planet.Resources = append(planet.Resources, desc)

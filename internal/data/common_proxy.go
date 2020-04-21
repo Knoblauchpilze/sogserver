@@ -1,153 +1,12 @@
 package data
 
 import (
-	"encoding/json"
 	"fmt"
 	"oglike_server/internal/locker"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
-	"strings"
-
-	"github.com/jackc/pgx"
 )
-
-// queryDesc :
-// Defines an abstract query where some fields can be
-// configured to adapt in a certain extent to various
-// queries.
-// The produced query will be something like below:
-// `select [props] from [table] where [filters]`.
-//
-// The `props` define the list of properties to select
-// by the query. Each property will be listed in order
-// compared to the order defined in this slice. They
-// will be joined by a ',' character and not prefixed
-// by any table.
-//
-// The `table` defines the table into which the props
-// should be queried. Note that it is perfectly valid
-// to have a composed table in here as long as the
-// props account for that (typically if the table is
-// `aTable a inner join anotherTable b on a.id=b.id`
-// the properties should either be unique or prefixed
-// with the name of the table).
-//
-// The `filters` will be appended in the `where` clause
-// of the generated SQL query. Each filter is added
-// as a `and` statement to the others.
-type queryDesc struct {
-	props   []string
-	table   string
-	filters []db.Filter
-}
-
-// valid :
-// Used to determine whether the query is obviously
-// not valid.
-//
-// Returns `true` if the query is not obviously wrong.
-func (q queryDesc) valid() bool {
-	return len(q.props) > 0 && len(q.table) > 0
-}
-
-// generate :
-// Used to perform the generation of a valid SQL query
-// from the data registered in this query. This method
-// assumes that the query is valid (which is verified
-// with the `valid` method of this object) and does not
-// perform additional checks.
-//
-// Returns a string representing the query. The string
-// is only guaranteed to be valid if `q.valid()` is
-// `true`.
-func (q queryDesc) generate() string {
-	// Generate base query.
-	str := fmt.Sprintf("select %s from %s", strings.Join(q.props, ", "), q.table)
-
-	// Append filters if any.
-	if len(q.filters) > 0 {
-		str += " where"
-
-		for id, filter := range q.filters {
-			if id > 0 {
-				str += " and"
-			}
-			str += fmt.Sprintf(" %s", filter)
-		}
-	}
-
-	return str
-}
-
-// queryRows :
-// Defines the result of a query as executed by the
-// main DB. This small wrapper allows to automatically
-// cycle through remaining rows when it goes out of
-// scope through the `Closer` interface.
-//
-// The `rows` defines the low level rows returned by
-// the execution of the query.
-//
-// The `err` defines the error that was associated
-// with the query itself.
-type queryResult struct {
-	rows *pgx.Rows
-	err  error
-}
-
-// next :
-// Forward the call to the internal rows object so
-// that we move to the next row of the result.
-//
-// Returns `true` if there are more rows.
-func (q queryResult) next() bool {
-	return q.rows.Next()
-}
-
-// scan :
-// Forward the call to the internal rows object so
-// that the content of the row is retrieved.
-//
-// The `dest` defines the destination elements where
-// the current row should be queried.
-//
-// Returns any error.
-func (q queryResult) scan(dest ...interface{}) error {
-	return q.rows.Scan(dest...)
-}
-
-// Close :
-// Implementation of the `Closer` interface which will
-// release the remaining rows described by this object
-// if any, making sure that the connection to the DB
-// is released.
-func (q queryResult) Close() {
-	if q.rows != nil {
-		q.rows.Close()
-	}
-}
-
-// insertReq :
-// Used to describe the data to be inserted to the DB
-// through abstract common properties. Just like the
-// `queryDesc` it allows to mutualize most of the code
-// to perform the formatting of the data in order to
-// insert it into the DB.
-//
-// The `script` defines the name of the function that
-// should be called to perform the insertion. This
-// function should accept a number of arguments that
-// matches the number provided in `args`.
-//
-// The `args` represent an array of interface that
-// should be marshalled and send as positionnal params
-// of the insertion script. The arguments will be
-// passed to the script in the order they are defined
-// in this slice.
-type insertReq struct {
-	script string
-	args   []interface{}
-}
 
 // commonProxy :
 // Intended as a common wrapper to access the main DB
@@ -162,9 +21,10 @@ type insertReq struct {
 // the paradigm we're following with this object:
 // https://www.reddit.com/r/golang/comments/9i5cpg/good_approach_to_interacting_with_databases/
 //
-// The `dbase` is the database that is wrapped by this
-// object. It is checked for consistency upon building
-// the wrapper.
+// The `proxy` is a reference to an object allowing
+// to manipulate the main DB. It provides convenience
+// methods to execute a query and insert some data
+// into it.
 //
 // The `log` allows to perform display to the user so as
 // to inform of potential issues and debug information to
@@ -193,12 +53,35 @@ type insertReq struct {
 //
 // The `module` defines a string that will be used to
 // perform some logs with a qualified service.
+//
+// The `data` defines a convenience object which regroups
+// all the data fetched from the main DB in a easy-to-use
+// object: it can be used to fetch information of various
+// kind without needing to worry about how the data is
+// actually fetched. It can be used to verify specific
+// criteria when performing an action for example.
 type commonProxy struct {
-	dbase  *db.DB
+	proxy  db.Proxy
 	log    logger.Logger
 	lock   *locker.ConcurrentLocker
 	module string
+	data   model.Instance
 }
+
+// ErrInvalidResource :
+// Used in case the resource requested to lock is not
+// valid.
+var ErrInvalidResource = fmt.Errorf("Invalid resource provided as lock")
+
+// ErrLock :
+// Used in case an error occurs when interacting with
+// a lock.
+var ErrLock = fmt.Errorf("Error while using resource lock")
+
+// ErrInvalidOperation :
+// Used in case the operation requested to be performed
+// while a lock is held fails.
+var ErrInvalidOperation = fmt.Errorf("Invalid query performed for resource")
 
 // newCommonProxy :
 // Performs the creation of a new common proxy from the
@@ -206,6 +89,9 @@ type commonProxy struct {
 //
 // The `dbase` defines the main DB that should be wrapped
 // by this object.
+//
+// The `data` defines the data model that should be used
+// by this proxy to query information.
 //
 // The `log` defines the logger allowing to notify errors
 // or info to the user.
@@ -215,16 +101,17 @@ type commonProxy struct {
 //
 // Returns the created object and panics if something is
 // not right when creating the proxy.
-func newCommonProxy(dbase *db.DB, log logger.Logger, module string) commonProxy {
+func newCommonProxy(dbase *db.DB, data model.Instance, log logger.Logger, module string) commonProxy {
 	if dbase == nil {
 		panic(fmt.Errorf("Cannot create common proxy from invalid DB"))
 	}
 
 	return commonProxy{
-		dbase:  dbase,
+		proxy:  db.NewProxy(dbase),
 		log:    log,
 		lock:   locker.NewConcurrentLocker(log),
 		module: module,
+		data:   data,
 	}
 }
 
@@ -258,10 +145,10 @@ func (cp *commonProxy) trace(level logger.Severity, msg string) {
 // consist in a valid SQL query.
 //
 // Returns any error occurring during the process.
-func (cp commonProxy) performWithLock(resource string, query string) error {
+func (cp commonProxy) performWithLock(resource string, req db.InsertReq) error {
 	// Prevent invalid resource identifier.
 	if resource == "" {
-		return fmt.Errorf("Cannot perform query \"%s\" for invalid empty resource ID", query)
+		return ErrInvalidResource
 	}
 
 	// Acquire a lock on this resource.
@@ -285,85 +172,22 @@ func (cp commonProxy) performWithLock(resource string, query string) error {
 		}()
 
 		// Perform the update.
-		_, errExec = cp.dbase.DBExecute(query)
+		errExec = cp.proxy.InsertToDB(req)
 	}()
 
 	// Return any error.
 	if errExec != nil {
-		return fmt.Errorf("Could not perform operation on resource \"%s\" (err: %v)", resource, errExec)
+		cp.trace(logger.Error, fmt.Sprintf("Invalid query executed for resource \"%s\" (err: %v)", resource, err))
+		return db.ErrInvalidQuery
 	}
 	if errRelease != nil {
-		return fmt.Errorf("Could not release locker protecting resource \"%s\" (err: %v)", resource, err)
+		cp.trace(logger.Error, fmt.Sprintf("Unable to release locker on \"%s\" propertly (err: %v)", resource, err))
+		return ErrLock
 	}
 	if err != nil {
-		return fmt.Errorf("Could not execute operation on resource \"%s\" (err: %v)", resource, err)
+		cp.trace(logger.Error, fmt.Sprintf("Detected error while performing operation for \"%s\" (err: %v)", resource, err))
+		return ErrInvalidOperation
 	}
 
 	return nil
-}
-
-// fetchDB :
-// Used to perform the query defined by the input argument
-// in the main DB. The return value is described through a
-// local structure allowing to manipulate more easily the
-// results.
-//
-// The `query` defines the query to perform.
-//
-// Returns the rows as fetched from the DB along with any
-// errors. Note that we distinguish any errors that can
-// have occurred during the execution of the query from an
-// error that was returned *before* the execution of the
-// query.
-func (cp commonProxy) fetchDB(query queryDesc) (queryResult, error) {
-	// Check the query to make sure it is valid.
-	if !query.valid() {
-		return queryResult{}, fmt.Errorf("Cannot perform invalid query in DB")
-	}
-
-	// Generate the string from the input query properties.
-	queryStr := query.generate()
-
-	// Execute it and return the produced data.
-	var res queryResult
-	res.rows, res.err = cp.dbase.DBQuery(queryStr)
-
-	return res, nil
-}
-
-// insertToDB :
-// Used to perform the insertion of the input data to the
-// DB by marshalling it and using the provided insertion
-// script to perform the DB request.
-//
-// The `req` defines an abstract description of the req
-// to perform in the DB.
-//
-// Returns any error occuring while performing the DB
-// operation.
-func (cp commonProxy) insertToDB(req insertReq) error {
-	// Marshal all the elements provided as arguments of
-	// the insertion script.
-	argsAsStr := make([]string, 0)
-
-	for _, arg := range req.args {
-		// Marshal the argument
-		raw, err := json.Marshal(arg)
-
-		if err != nil {
-			return fmt.Errorf("Could not import data through \"%s\" (err: %v)", req.script, err)
-		}
-
-		// Quote the string to be consistent with the SQL
-		// syntax and register it.
-		argAsStr := fmt.Sprintf("'%s'", string(raw))
-
-		argsAsStr = append(argsAsStr, argAsStr)
-	}
-
-	// Create the DB request.
-	query := fmt.Sprintf("select * from %s(%s)", req.script, strings.Join(argsAsStr, ", "))
-	_, err := cp.dbase.DBExecute(query)
-
-	return err
 }

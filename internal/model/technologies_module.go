@@ -56,25 +56,18 @@ func NewTechnologiesModule(log logger.Logger) *TechnologiesModule {
 // display names. This will constitute the base from which
 // the upgradable module can attach the progression rules.
 //
-// The `dbase` represents the main data source to use
+// The `proxy` represents the main data source to use
 // to initialize the technologies data.
 //
 // The `force` allows to erase any existing information
 // and reload everything from the DB.
 //
 // Returns any error.
-func (tm *TechnologiesModule) Init(dbase *db.DB, force bool) error {
-	if dbase == nil {
-		tm.trace(logger.Error, fmt.Sprintf("Unable to initialize module from nil DB"))
-		return db.ErrInvalidDB
-	}
-
+func (tm *TechnologiesModule) Init(proxy db.Proxy, force bool) error {
 	// Prevent reload if not needed.
 	if tm.valid() && !force {
 		return nil
 	}
-
-	proxy := db.NewProxy(dbase)
 
 	// Load the names and base information for each technology.
 	// This operation is performed first so that the rest of
@@ -88,7 +81,7 @@ func (tm *TechnologiesModule) Init(dbase *db.DB, force bool) error {
 
 	// Perform the initialization of the progression rules,
 	// and various data from the base handlers.
-	err = tm.progressCostsModule.Init(dbase, force)
+	err = tm.progressCostsModule.Init(proxy, force)
 	if err != nil {
 		tm.trace(logger.Error, fmt.Sprintf("Failed to initialize base module (err: %v)", err))
 		return err
@@ -181,7 +174,7 @@ func (tm *TechnologiesModule) initNames(proxy db.Proxy) error {
 // build the rest of the data from the already fetched
 // values.
 //
-// The `dbase` defines the DB to use to fetch the techs
+// The `proxy` defines the DB to use to fetch the techs
 // description.
 //
 // The `filters` represent the list of filters to apply
@@ -190,13 +183,13 @@ func (tm *TechnologiesModule) initNames(proxy db.Proxy) error {
 //
 // Returns the list of technologies matching the filters
 // along with any error.
-func (tm *TechnologiesModule) Technologies(dbase *db.DB, filters []db.Filter) ([]TechnologyDesc, error) {
+func (tm *TechnologiesModule) Technologies(proxy db.Proxy, filters []db.Filter) ([]TechnologyDesc, error) {
 	// Try to initialize this module if needed: this is
 	// interesting to make sure that we try as hard as
 	// we can to provide relevant data in case we can't
 	// do so yet.
 	if !tm.valid() {
-		err := tm.Init(dbase, true)
+		err := tm.Init(proxy, true)
 		if err != nil {
 			return []TechnologyDesc{}, err
 		}
@@ -210,8 +203,6 @@ func (tm *TechnologiesModule) Technologies(dbase *db.DB, filters []db.Filter) ([
 		Table:   "technologies",
 		Filters: filters,
 	}
-
-	proxy := db.NewProxy(dbase)
 
 	IDs, err := tm.fetchIDs(query, proxy)
 	if err != nil {

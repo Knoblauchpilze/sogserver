@@ -131,19 +131,19 @@ func (q QueryResult) Close() {
 // to perform the formatting of the data in order to
 // insert it into the DB.
 //
-// The `script` defines the name of the function that
+// The `Script` defines the name of the function that
 // should be called to perform the insertion. This
 // function should accept a number of arguments that
 // matches the number provided in `args`.
 //
-// The `args` represent an array of interface that
+// The `Args` represent an array of interface that
 // should be marshalled and send as positionnal params
 // of the insertion script. The arguments will be
 // passed to the script in the order they are defined
 // in this slice.
 type InsertReq struct {
-	script string
-	args   []interface{}
+	Script string
+	Args   []interface{}
 }
 
 // Proxy :
@@ -238,7 +238,7 @@ func (p Proxy) InsertToDB(req InsertReq) error {
 	// the insertion script.
 	argsAsStr := make([]string, 0)
 
-	for _, arg := range req.args {
+	for _, arg := range req.Args {
 		// Marshal the argument
 		raw, err := json.Marshal(arg)
 
@@ -254,7 +254,7 @@ func (p Proxy) InsertToDB(req InsertReq) error {
 	}
 
 	// Create the DB request.
-	query := fmt.Sprintf("select * from %s(%s)", req.script, strings.Join(argsAsStr, ", "))
+	query := fmt.Sprintf("select * from %s(%s)", req.Script, strings.Join(argsAsStr, ", "))
 	_, err := p.dbase.DBExecute(query)
 
 	return err

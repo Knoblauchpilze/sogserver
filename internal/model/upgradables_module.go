@@ -147,19 +147,14 @@ func (um *upgradablesModule) valid() bool {
 // fetching information from the input DB and load to
 // local memory.
 //
-// The `dbase` represents the main data source to use
+// The `proxy` represents the main data source to use
 // to initialize the upgradables data.
 //
 // The `force` allows to erase any existing information
 // and reload everything from the DB.
 //
 // Returns any error.
-func (um *upgradablesModule) Init(dbase *db.DB, force bool) error {
-	if dbase == nil {
-		um.trace(logger.Error, fmt.Sprintf("Unable to initialize upgradables module from nil DB"))
-		return db.ErrInvalidDB
-	}
-
+func (um *upgradablesModule) Init(proxy db.Proxy, force bool) error {
 	// Prevent reload if not needed.
 	if um.valid() && !force {
 		return nil
@@ -168,8 +163,6 @@ func (um *upgradablesModule) Init(dbase *db.DB, force bool) error {
 	// Initialize internal values.
 	um.buildingsDeps = make(map[string][]Dependency)
 	um.techDeps = make(map[string][]Dependency)
-
-	proxy := db.NewProxy(dbase)
 
 	// First update the buildings dependencies.
 	query := db.QueryDesc{

@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"math"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 )
@@ -121,6 +122,39 @@ func newProductionRule(res string) ProductionRule {
 	}
 }
 
+// ComputeProduction :
+// Used to perform the computation of the resources that
+// are produced by the level `level` of the element that
+// is described by the input production rule.
+// The level is clamped to be in the range `[0; +inf[` if
+// this is not already the case.
+//
+// The `level` for which the production should be computed.
+// It is clamped to be positive.
+//
+// The `temperature` defines the average temperature of
+// the planet where the production is evaluated. It is
+// used to determine the temperature dependent part of the
+// resource production.
+//
+// Returns the amount of resource that are produced by the
+// selected rule with the specified level and temperature
+// values.
+func (pr ProductionRule) ComputeProduction(level int, temperature float32) int {
+	// Clamp the input level.
+	fLevel := math.Max(0.0, float64(level))
+	fInitProd := float64(pr.InitProd)
+
+	// Compute both parts of the production (temperature
+	// dependent and independent).
+	tempDep := float64(pr.TemperatureOffset + temperature*pr.TemperatureCoeff)
+	tempIndep := fInitProd * fLevel * math.Pow(float64(pr.ProgressionRule), fLevel)
+
+	rawProd := tempDep * tempIndep
+
+	return int(math.Floor(rawProd))
+}
+
 // StorageRule :
 // Used to define the prgoression rule for a storage.
 // It defines the way storage scale with the level as
@@ -160,6 +194,20 @@ func newStorageRule(res string) StorageRule {
 		Multiplier:  0.0,
 		Progress:    0.0,
 	}
+}
+
+// ComputeStorage :
+// Used to perform the computation of the amount of res
+// that can be held at the specified level.
+//
+// The `level` for which the storage capacity should be
+// computed.
+//
+// Returns the amount of resource that can be held for
+// the specified level by this storage.
+func (sr StorageRule) ComputeStorage(level int) int {
+	factor := float64(sr.Multiplier) * math.Exp(float64(sr.Progress)*float64(level))
+	return sr.InitStorage * int(math.Floor(factor))
 }
 
 // NewBuildingsModule :
@@ -205,12 +253,7 @@ func (bm *BuildingsModule) valid() bool {
 // and reload everything from the DB.
 //
 // Returns any error.
-func (bm *BuildingsModule) Init(dbase *db.DB, force bool) error {
-	if dbase == nil {
-		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize module from nil DB"))
-		return db.ErrInvalidDB
-	}
-
+func (bm *BuildingsModule) Init(proxy db.Proxy, force bool) error {
 	// Prevent reload if not needed.
 	if bm.valid() && !force {
 		return nil
@@ -219,8 +262,6 @@ func (bm *BuildingsModule) Init(dbase *db.DB, force bool) error {
 	// Initialize internal values.
 	bm.production = make(map[string][]ProductionRule)
 	bm.storage = make(map[string][]StorageRule)
-
-	proxy := db.NewProxy(dbase)
 
 	// Load the names and base information for each building.
 	// This operation is performed first so that the rest of
@@ -234,7 +275,7 @@ func (bm *BuildingsModule) Init(dbase *db.DB, force bool) error {
 
 	// Perform the initialization of the progression rules,
 	// and various data from the base handlers.
-	err = bm.progressCostsModule.Init(dbase, force)
+	err = bm.progressCostsModule.Init(proxy, force)
 	if err != nil {
 		bm.trace(logger.Error, fmt.Sprintf("Failed to initialize base module (err: %v)", err))
 		return err
@@ -546,7 +587,7 @@ func (bm *BuildingsModule) initStorage(proxy db.Proxy) error {
 // of the buildings matching the filters, and then build the
 // rest of the data from the already fetched values.
 //
-// The `dbase` defines the DB to use to fetch the buildings
+// The `proxy` defines the DB to use to fetch the buildings
 // description.
 //
 // The `filters` represent the list of filters to apply to
@@ -555,13 +596,13 @@ func (bm *BuildingsModule) initStorage(proxy db.Proxy) error {
 //
 // Returns the list of buildings matching the filters along
 // with any error.
-func (bm *BuildingsModule) Buildings(dbase *db.DB, filters []db.Filter) ([]BuildingDesc, error) {
+func (bm *BuildingsModule) Buildings(proxy db.Proxy, filters []db.Filter) ([]BuildingDesc, error) {
 	// We will first perform a query on the DB to get all the
 	// identifiers that matche the input criteria and then use
 	// the returned values to build the buildings description.
 	// We will also try to initialize this module if needed.
 	if !bm.valid() {
-		err := bm.Init(dbase, true)
+		err := bm.Init(proxy, true)
 		if err != nil {
 			return []BuildingDesc{}, err
 		}
@@ -575,8 +616,6 @@ func (bm *BuildingsModule) Buildings(dbase *db.DB, filters []db.Filter) ([]Build
 		Table:   "buildings",
 		Filters: filters,
 	}
-
-	proxy := db.NewProxy(dbase)
 
 	IDs, err := bm.fetchIDs(query, proxy)
 	if err != nil {

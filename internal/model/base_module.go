@@ -19,7 +19,7 @@ import (
 // the module from the provided DB. Note that the user
 // can force the refresh if needed.
 type DBModule interface {
-	Init(dbase *db.DB, force bool) error
+	Init(proxy db.Proxy, force bool) error
 }
 
 // ErrNotInitialized :

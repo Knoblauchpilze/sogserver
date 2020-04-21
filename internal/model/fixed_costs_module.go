@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"math"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 )
@@ -46,6 +47,30 @@ func newFixedCost() FixedCost {
 	}
 }
 
+// ComputeCost :
+// Used to perform the computation of the amount of
+// resources needed to compute the desired number of
+// elements of this unit.
+//
+// The `count` defines how many unit should be built.
+//
+// Returns a slice describing the amount needed of
+// each resource required by the item.
+func (fc FixedCost) ComputeCost(count int) map[string]int {
+	// Clamp the input level.
+	fCount := math.Max(0.0, float64(count))
+
+	costs := make(map[string]int)
+
+	for res, cost := range fc.InitCosts {
+		rawCost := float64(cost) * fCount
+
+		costs[res] = int(math.Floor(rawCost))
+	}
+
+	return costs
+}
+
 // newFixedCostsModule :
 // Creates a new module allowing to handle elements that
 // have a fixed cost no matter the amount already built.
@@ -86,26 +111,21 @@ func (fcm *fixedCostsModule) valid() bool {
 // associated to this module. This will typically fetch a
 // new table in the DB where such costs are defined.
 //
-// The `dbase` represents the main data source to use
+// The `proxy` represents the main data source to use
 // to initialize the fixed costs data.
 //
 // The `force` allows to erase any existing information
 // and reload everything from the DB.
 //
 // Returns any error.
-func (fcm *fixedCostsModule) Init(dbase *db.DB, force bool) error {
-	if dbase == nil {
-		fcm.trace(logger.Error, fmt.Sprintf("Unable to initialize fixed costs module from nil DB"))
-		return db.ErrInvalidDB
-	}
-
+func (fcm *fixedCostsModule) Init(proxy db.Proxy, force bool) error {
 	// Prevent reload if not needed.
 	if fcm.valid() && !force {
 		return nil
 	}
 
 	// Load the base elements.
-	err := fcm.upgradablesModule.Init(dbase, force)
+	err := fcm.upgradablesModule.Init(proxy, force)
 	if err != nil {
 		fcm.trace(logger.Error, fmt.Sprintf("Unable to initialize base upgradable module (err: %v)", err))
 		return err
@@ -113,8 +133,6 @@ func (fcm *fixedCostsModule) Init(dbase *db.DB, force bool) error {
 
 	// Initialize internal values.
 	fcm.costs = make(map[string]FixedCost)
-
-	proxy := db.NewProxy(dbase)
 
 	// Create the query to fetch the fixed costs and execute it.
 	query := db.QueryDesc{

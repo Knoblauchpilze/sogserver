@@ -221,19 +221,14 @@ func (sm *ShipsModule) valid() bool {
 // of ships so that base implementation can know to which
 // element the costs should be binded.
 //
-// The `dbase` represents the main data source to use
-// to initialize the buildings data.
+// The `proxy` represents the main data source to use to
+// initialize the buildings data.
 //
 // The `force` allows to erase any existing information
 // and reload everything from the DB.
 //
 // Returns any error.
-func (sm *ShipsModule) Init(dbase *db.DB, force bool) error {
-	if dbase == nil {
-		sm.trace(logger.Error, fmt.Sprintf("Unable to initialize module from nil DB"))
-		return db.ErrInvalidDB
-	}
-
+func (sm *ShipsModule) Init(proxy db.Proxy, force bool) error {
 	// Prevent reload if not needed.
 	if sm.valid() && !force {
 		return nil
@@ -244,8 +239,6 @@ func (sm *ShipsModule) Init(dbase *db.DB, force bool) error {
 	sm.rfVSShips = make(map[string][]RapidFire)
 	sm.rfVSDefenses = make(map[string][]RapidFire)
 	sm.propulsion = make(map[string]int)
-
-	proxy := db.NewProxy(dbase)
 
 	// Load the names and base information for each ship.
 	// This operation is performed first so that the rest
@@ -259,7 +252,7 @@ func (sm *ShipsModule) Init(dbase *db.DB, force bool) error {
 
 	// Perform the initialization of the fixed costs, and
 	// various data from the base handlers.
-	err = sm.fixedCostsModule.Init(dbase, force)
+	err = sm.fixedCostsModule.Init(proxy, force)
 	if err != nil {
 		sm.trace(logger.Error, fmt.Sprintf("Failed to initialize base module (err: %v)", err))
 		return err
@@ -636,7 +629,7 @@ func (sm *ShipsModule) initPropulsions(proxy db.Proxy) error {
 // of the ships matching the filters, and then build the
 // rest of the data from the already fetched values.
 //
-// The `dbase` defines the DB to use to fetch the ships
+// The `proxy` defines the DB to use to fetch the ships
 // description.
 //
 // The `filters` represent the list of filters to apply
@@ -645,11 +638,11 @@ func (sm *ShipsModule) initPropulsions(proxy db.Proxy) error {
 //
 // Returns the list of ships matching the filters along
 // with any error.
-func (sm *ShipsModule) Ships(dbase *db.DB, filters []db.Filter) ([]ShipDesc, error) {
+func (sm *ShipsModule) Ships(proxy db.Proxy, filters []db.Filter) ([]ShipDesc, error) {
 	// Initialize the module if for some reasons it is still
 	// not valid.
 	if !sm.valid() {
-		err := sm.Init(dbase, true)
+		err := sm.Init(proxy, true)
 		if err != nil {
 			return []ShipDesc{}, err
 		}
@@ -663,8 +656,6 @@ func (sm *ShipsModule) Ships(dbase *db.DB, filters []db.Filter) ([]ShipDesc, err
 		Table:   "ships",
 		Filters: filters,
 	}
-
-	proxy := db.NewProxy(dbase)
 
 	IDs, err := sm.fetchIDs(query, proxy)
 	if err != nil {

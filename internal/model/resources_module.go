@@ -129,19 +129,14 @@ func (rm *ResourcesModule) valid() bool {
 // fetching information from the input DB and load to
 // local memory.
 //
-// The `dbase` represents the main data source to use
+// The `proxy` represents the main data source to use
 // to initialize the resources data.
 //
 // The `force` allows to erase any existing information
 // and reload everything from the DB.
 //
 // Returns any error.
-func (rm *ResourcesModule) Init(dbase *db.DB, force bool) error {
-	if dbase == nil {
-		rm.trace(logger.Error, fmt.Sprintf("Unable to initialize resources module from nil DB"))
-		return db.ErrInvalidDB
-	}
-
+func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 	// Prevent reload if not needed.
 	if rm.valid() && !force {
 		return nil
@@ -153,8 +148,6 @@ func (rm *ResourcesModule) Init(dbase *db.DB, force bool) error {
 	rm.amount = make(map[string]int)
 
 	// Perform the DB query through a dedicated DB proxy.
-	proxy := db.NewProxy(dbase)
-
 	query := db.QueryDesc{
 		Props: []string{
 			"id",
@@ -291,4 +284,92 @@ func (rm *ResourcesModule) GetResourceFromName(name string) (ResourceDesc, error
 	}
 
 	return rm.GetResourceFromID(id)
+}
+
+// Resources :
+// Used to retrieve the resources matching the input
+// filters from the data model. Note that if the DB
+// has not yet been polled to retrieve data, we will
+// return an error.
+// The process will consist in first fetching all the
+// IDs of the resources matching the filters, and then
+// build the rest of the data from the already fetched
+// values.
+//
+// The `proxy` defines the DB to use to fetch the res
+// description.
+//
+// The `filters` represent the list of filters to apply
+// to the data fecthing. This will select only part of
+// all the available resources.
+//
+// Returns the list of resources matching the filters
+// along with any error.
+func (rm *ResourcesModule) Resources(proxy db.Proxy, filters []db.Filter) ([]ResourceDesc, error) {
+	// Initialize the module if for some reasons it is still
+	// not valid.
+	if !rm.valid() {
+		err := rm.Init(proxy, true)
+		if err != nil {
+			return []ResourceDesc{}, err
+		}
+	}
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table:   "resources",
+		Filters: filters,
+	}
+
+	IDs, err := rm.fetchIDs(query, proxy)
+	if err != nil {
+		rm.trace(logger.Error, fmt.Sprintf("Unable to fetch resources (err: %v)", err))
+		return []ResourceDesc{}, err
+	}
+
+	// Now build the data from the fetched identifiers.
+	descs := make([]ResourceDesc, 0)
+	for _, ID := range IDs {
+		name, err := rm.getNameFromID(ID)
+		if err != nil {
+			rm.trace(logger.Error, fmt.Sprintf("Unable to fetch resource \"%s\" (err: %v)", ID, err))
+			continue
+		}
+
+		desc := ResourceDesc{
+			ID:   ID,
+			Name: name,
+		}
+
+		prod, ok := rm.prod[ID]
+		if !ok {
+			rm.trace(logger.Error, fmt.Sprintf("Unable to fetch base production for resource \"%s\"", ID))
+			continue
+		} else {
+			desc.BaseProd = prod
+		}
+
+		storage, ok := rm.storage[ID]
+		if !ok {
+			rm.trace(logger.Error, fmt.Sprintf("Unable to fetch base storage for resource \"%s\"", ID))
+			continue
+		} else {
+			desc.BaseStorage = storage
+		}
+
+		amount, ok := rm.amount[ID]
+		if !ok {
+			rm.trace(logger.Error, fmt.Sprintf("Unable to fetch base amount for resource \"%s\"", ID))
+			continue
+		} else {
+			desc.BaseAmount = amount
+		}
+
+		descs = append(descs, desc)
+	}
+
+	return descs, nil
 }

@@ -28,28 +28,28 @@ import (
 // night (or another duration which would be consistent with the maximum
 // interval with no issues) to perform update for players that didn't
 // connect for a long time.
-// TODO: We should maybe load all the data model from the DB in a single
-// object that would then be passed around to proxies to perform various
-// validations.
-// We could add methods like `isBuilding`, `isTechnology`, `getFromName`
-// etc. and all relevant methods to access the data anywhere.
-// We could go ahead and maybe fetch some information about the planet
-// and player in a similar way: basically wrap it in some sort of object
-// that would allow high-level functions to be mutualized when needed.
-// This could also maybe play well with the fact that for now we didn't
-// extend a lot the lock and thus we don't really guarantee anything as
-// several clients can access the planets of a players independently etc.
-// Typically to fetch the amount of metal on a planet, we can't do it
-// easily now: we need to access the planet, but also the map between the
-// resources identifiers and their name (which is not contained in the
-// map). This could be solved by providing first a data model (where one
-// could access the id of the metal resource from its identifier) and then
-// some wrapper on the planet which would use the data model to interpret
-// the quantities.
 // TODO: We could create for example a player module, which would fetch
 // *ALL* the info of a player (including its construction actions, and
 // its technologies and planets) and would detain a lock so that no one
-// can access to the data as long as the player structure exists.
+// can access to the data as long as the player structure exists. This
+// structure would contain both the players (with its name, universe,
+// account, etc.), the associated list of planets and the list of techs
+// researched by the player). Fecthing all this data would lock the
+// player's name in the DB (so that other people accessing it would have
+// to wait) and once all data is fetched (i.e. the structure is created)
+// the lock would be released.
+// The planet would also be linked to all the fleets that start from
+// it or reach it (beware of dead lock for fleets moving from one
+// planet of the player to another).
+// Maybe the fleet model is no good because it does not have the
+// intuitive notion of the planet it is attached to. But on the other
+// hand it seems correct because a fleet may not be directed towards
+// a planet.
+// So we need:
+//  - a `Player` struct more refined that what we have. It would include
+//    the planets.
+//  - a `Planet` struct more refined that what we have. It would include
+//    the upgrade actions (and potentially the fleets).
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

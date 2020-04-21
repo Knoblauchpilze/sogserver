@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"math"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 )
@@ -64,6 +65,33 @@ func newProgressCost() ProgressCost {
 	}
 }
 
+// ComputeCost :
+// Used to perform the computation of the resources needed
+// to build the `level`-th level of the element described
+// by these progress costs.
+// The level is clamped to be in the range `[0; +inf[` if
+// this is not already the case.
+//
+// The `level` for which the costs should be computed. It
+// is clamped to be positive.
+//
+// Returns a slice describing the amount needed of each
+// resource needed by the item.
+func (pc ProgressCost) ComputeCost(level int) map[string]int {
+	// Clamp the input level.
+	fLevel := math.Max(0.0, float64(level))
+
+	costs := make(map[string]int)
+
+	for res, cost := range pc.InitCosts {
+		rawCost := float64(cost) * math.Pow(float64(pc.ProgressionRule), fLevel)
+
+		costs[res] = int(math.Floor(rawCost))
+	}
+
+	return costs
+}
+
 // newProgressCostsModule :
 // Creates a new module allowing to handle elements that
 // have a progressive costs with a notion of level.
@@ -104,26 +132,21 @@ func (pcm *progressCostsModule) valid() bool {
 // associated to this module. This will typically fetch a
 // new table in the DB where such costs are defined.
 //
-// The `dbase` represents the main data source to use
+// The `proxy` represents the main data source to use
 // to initialize the progress costs data.
 //
 // The `force` allows to erase any existing information
 // and reload everything from the DB.
 //
 // Returns any error.
-func (pcm *progressCostsModule) Init(dbase *db.DB, force bool) error {
-	if dbase == nil {
-		pcm.trace(logger.Error, fmt.Sprintf("Unable to initialize progress costs module from nil DB"))
-		return db.ErrInvalidDB
-	}
-
+func (pcm *progressCostsModule) Init(proxy db.Proxy, force bool) error {
 	// Prevent reload if not needed.
 	if pcm.valid() && !force {
 		return nil
 	}
 
 	// Load the base elements.
-	err := pcm.upgradablesModule.Init(dbase, force)
+	err := pcm.upgradablesModule.Init(proxy, force)
 	if err != nil {
 		pcm.trace(logger.Error, fmt.Sprintf("Unable to initialize base upgradable module (err: %v)", err))
 		return err
@@ -131,8 +154,6 @@ func (pcm *progressCostsModule) Init(dbase *db.DB, force bool) error {
 
 	// Initialize internal values.
 	pcm.costs = make(map[string]ProgressCost)
-
-	proxy := db.NewProxy(dbase)
 
 	// We need to perform two queries: first to retrieve
 	// the progression rule and then the initial cost of

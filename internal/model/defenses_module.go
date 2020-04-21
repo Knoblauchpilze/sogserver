@@ -96,19 +96,14 @@ func (dm *DefensesModule) valid() bool {
 // the upgradable module can attach the costs and various
 // properties to the systems.
 //
-// The `dbase` represents the main data source to use
+// The `proxy` represents the main data source to use
 // to initialize the defense systems data.
 //
 // The `force` allows to erase any existing information
 // and reload everything from the DB.
 //
 // Returns any error.
-func (dm *DefensesModule) Init(dbase *db.DB, force bool) error {
-	if dbase == nil {
-		dm.trace(logger.Error, fmt.Sprintf("Unable to initialize module from nil DB"))
-		return db.ErrInvalidDB
-	}
-
+func (dm *DefensesModule) Init(proxy db.Proxy, force bool) error {
 	// Prevent reload if not needed.
 	if dm.valid() && !force {
 		return nil
@@ -116,8 +111,6 @@ func (dm *DefensesModule) Init(dbase *db.DB, force bool) error {
 
 	// Initialize internal values.
 	dm.characteristics = make(map[string]defenseProps)
-
-	proxy := db.NewProxy(dbase)
 
 	// Load the names and base information for each defense
 	// system. This operation is performed first so that the
@@ -130,7 +123,7 @@ func (dm *DefensesModule) Init(dbase *db.DB, force bool) error {
 	}
 
 	// Perform the initialization of costs.
-	err = dm.fixedCostsModule.Init(dbase, force)
+	err = dm.fixedCostsModule.Init(proxy, force)
 	if err != nil {
 		dm.trace(logger.Error, fmt.Sprintf("Failed to initialize base module (err: %v)", err))
 		return err
@@ -228,7 +221,7 @@ func (dm *DefensesModule) initProps(proxy db.Proxy) error {
 // of the defenses matching the filters, and then build the
 // rest of the data from the already fetched values.
 //
-// The `dbase` defines the DB to use to fetch the defenses
+// The `proxy` defines the DB to use to fetch the defenses
 // description.
 //
 // The `filters` represent the list of filters to apply to
@@ -237,10 +230,10 @@ func (dm *DefensesModule) initProps(proxy db.Proxy) error {
 //
 // Returns the list of defenses matching the filters along
 // with any error.
-func (dm *DefensesModule) Defenses(dbase *db.DB, filters []db.Filter) ([]DefenseDesc, error) {
+func (dm *DefensesModule) Defenses(proxy db.Proxy, filters []db.Filter) ([]DefenseDesc, error) {
 	// Try to initialize the module if it is not yet valid.
 	if !dm.valid() {
-		err := dm.Init(dbase, true)
+		err := dm.Init(proxy, true)
 		if err != nil {
 			return []DefenseDesc{}, err
 		}
@@ -254,8 +247,6 @@ func (dm *DefensesModule) Defenses(dbase *db.DB, filters []db.Filter) ([]Defense
 		Table:   "defenses",
 		Filters: filters,
 	}
-
-	proxy := db.NewProxy(dbase)
 
 	IDs, err := dm.fetchIDs(query, proxy)
 	if err != nil {

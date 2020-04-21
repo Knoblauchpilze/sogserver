@@ -77,8 +77,8 @@ func (p *PlanetProxy) buildQuery(props []string, table string, filterName string
 // Planets :
 // Return a list of planets registered so far in all the planets
 // defined in the DB. The input filters might help to narrow the
-// search a bit by providing coordinates to look for and a uni to
-// look into.
+// search a bit by providing coordinates to look for and a uni
+// to look into.
 //
 // The `filters` define some filtering property that can be
 // applied to the SQL query to only select part of all the
@@ -88,64 +88,53 @@ func (p *PlanetProxy) buildQuery(props []string, table string, filterName string
 // Returns the list of planets registered in the DB and matching
 // the input list of filters. In case the error is not `nil` the
 // value of the array should be ignored.
-func (p *PlanetProxy) Planets(filters []DBFilter) ([]Planet, error) {
+func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
 	// Create the query and execute it.
-	query := queryDesc{
-		props: []string{
+	query := db.QueryDesc{
+		Props: []string{
 			"p.id",
-			"p.player",
-			"p.name",
-			"p.fields",
-			"p.min_temperature",
-			"p.max_temperature",
-			"p.diameter",
-			"p.galaxy",
-			"p.solar_system",
-			"p.position",
 		},
-		table:   "planets p inner join players pl on p.player=pl.id",
-		filters: filters,
+		Table:   "planets p inner join players pl on p.player=pl.id",
+		Filters: filters,
 	}
 
-	res, err := p.fetchDB(query)
+	res, err := p.proxy.FetchFromDB(query)
 	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
-		return []Planet{}, fmt.Errorf("Could not query DB to fetch planets (err: %v)", err)
+		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch planets (err: %v)", err))
+		return []model.Planet{}, err
 	}
 
-	// Populate the return value.
-	planets := make([]Planet, 0)
-	var planet Planet
+	// We now need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding planets
+	// object for each one of them.
+	var ID string
+	IDs := make([]string, 0)
 
-	for res.next() {
-		err = res.scan(
-			&planet.ID,
-			&planet.PlayerID,
-			&planet.Name,
-			&planet.Fields,
-			&planet.MinTemp,
-			&planet.MaxTemp,
-			&planet.Diameter,
-			&planet.Galaxy,
-			&planet.System,
-			&planet.Position,
-		)
+	for res.Next() {
+		err = res.Scan(&ID)
 
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for planet (err: %v)", err))
+			p.trace(logger.Error, fmt.Sprintf("Error while fetching planet ID (err: %v)", err))
 			continue
 		}
 
-		// Fetch buildings, ships and defenses for this planet.
-		err = p.fetchPlanetData(&planet)
+		IDs = append(IDs, ID)
+	}
+
+	planets := make([]model.Planet, 0)
+
+	for _, ID = range IDs {
+		pla, err := model.NewPlanet(p.proxy)
+
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch data for planet \"%s\" (err: %v)", planet.ID, err))
+			p.trace(logger.Error, fmt.Sprintf("Unable to fetch planet \"%s\" data from DB (err: %v)", ID, err))
 			continue
 		}
 
-		planets = append(planets, planet)
+		planets = append(planets, pla)
 	}
 
 	return planets, nil

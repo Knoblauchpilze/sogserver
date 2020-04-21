@@ -1,5 +1,10 @@
 package model
 
+import (
+	"fmt"
+	"oglike_server/pkg/db"
+)
+
 // Planet :
 // Define a planet which is an object within a certain
 // universe and associated to a certain player. This
@@ -175,4 +180,42 @@ func getDefaultPlanetName(isHomeWorld bool) string {
 // planets.
 func getPlanetTemperatureAmplitude() int {
 	return 50
+}
+
+// NewPlanet :
+// Used to fetch the content of the planet from the
+// input DB and populate all internal fields from it.
+// In case the DB cannot be fetched or some errors
+// are encoutered, the return value will include a
+// description of the error.
+//
+// The `proxy` allows to actually perform the DB
+// requests to fetch the planet's data.
+//
+// Returns the planet as fetched from the DB along
+// with any errors.
+func NewPlanet(proxy db.Proxy) (Planet, error) {
+	// TODO: Handle this.
+	return Planet{}, fmt.Errorf("Not implemented")
+}
+
+// AverageTemperature :
+// Returns the average temperature for this planet.
+func (p *Planet) AverageTemperature() float32 {
+	return float32(p.MinTemp+p.MaxTemp) / 2.0
+}
+
+// RemainingFields :
+// Returns the number of remaining fields on the planet
+// given the current buildings on it. Note that it does
+// not include the potential upgrade actions.
+func (p *Planet) RemainingFields() int {
+	// Accumulate the total used fields.
+	used := 0
+
+	for _, b := range p.Buildings {
+		used += b.Level
+	}
+
+	return p.Fields - used
 }

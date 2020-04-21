@@ -63,30 +63,6 @@ func (a *Account) valid() bool {
 		a.Password != ""
 }
 
-// averageTemp :
-// Returns the average temperature for a planet as a float
-// value.
-//
-// Returns the average temperature.
-func (p *Planet) averageTemp() float32 {
-	return float32((p.MinTemp + p.MaxTemp) / 2)
-}
-
-// remainingFields :
-// Returns the number of remaining fields on the planet
-// given the current buildings on it. Note that it does
-// not include the potential upgrade actions.
-func (p *Planet) remainingFields() int {
-	// Accumulate the total used fields.
-	used := 0
-
-	for _, b := range p.Buildings {
-		used += b.Level
-	}
-
-	return p.Fields - used
-}
-
 // valid :
 // Used to determine whether the parameters defined for this
 // player are consistent with what is expected. We will only

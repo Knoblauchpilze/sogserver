@@ -156,6 +156,11 @@ type DefenseInfo struct {
 	Amount int `json:"amount"`
 }
 
+// ErrInvalidPlanet :
+// Used to indicate an ill-formed planet with no
+// associated identifier.
+var ErrInvalidPlanet = fmt.Errorf("Invalid planet with no identifier")
+
 // getDefaultPlanetName :
 // Used to retrieve a default name for a planet. The
 // generated name will be different based on whether
@@ -197,14 +202,25 @@ func getPlanetTemperatureAmplitude() int {
 // create. It should be fetched from the DB and is
 // assumed to refer to an existing planet.
 //
-// The `proxy` allows to actually perform the DB
+// The `data` allows to actually perform the DB
 // requests to fetch the planet's data.
 //
 // Returns the planet as fetched from the DB along
 // with any errors.
-func NewPlanetFromDB(ID string, proxy db.Proxy) (Planet, error) {
+func NewPlanetFromDB(ID string, data Instance) (Planet, error) {
+	// Create the planet.
+	p := Planet{
+		ID: ID,
+	}
+
+	// Fetch the planet's content.
+	err := p.fetchResources(data)
+	if err != nil {
+		return p, err
+	}
+
 	// TODO: Handle this.
-	return Planet{}, fmt.Errorf("Not implemented")
+	return p, fmt.Errorf("Not implemented")
 }
 
 // NewPlanet :
@@ -462,4 +478,132 @@ func (p *Planet) generateData() {
 	mean = (max + min) / 2
 	p.MaxTemp = mean + int(math.Round(rng.NormFloat64()*float64(stdDev)))
 	p.MinTemp = p.MaxTemp - getPlanetTemperatureAmplitude()
+}
+
+// fetchResources :
+// Used internally when building a planet from the
+// DB to update the resources existing on the planet.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Planet) fetchResources(data Instance) error {
+	// Consistency.
+	if p.ID == "" {
+		return ErrInvalidPlanet
+	}
+
+	p.Resources = make([]ResourceInfo, 0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"res",
+			"amount",
+			"production",
+			"storage_capacity",
+		},
+		Table: "planets_resources",
+		Filters: []db.Filter{
+			{
+				Key:    "planet",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+
+	// Populate the return value.
+	var res ResourceInfo
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&res.Resource,
+			&res.Amount,
+			&res.Production,
+			&res.Storage,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		p.Resources = append(p.Resources, res)
+	}
+
+	return nil
+}
+
+// fetchBuildings :
+// Similar to the `fetchResources` but handles the
+// retrieval of the planet's buildings data.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Planet) fetchBuildings(data Instance) error {
+	// Consistency.
+	if p.ID == "" {
+		return ErrInvalidPlanet
+	}
+
+	p.Buildings = make([]BuildingInfo, 0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"building",
+			"level",
+		},
+		Table: "planets_buildings",
+		Filters: []db.Filter{
+			{
+				Key:    "planet",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+
+	// Populate the return value.
+	var ID string
+	var b BuildingInfo
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&ID,
+			&b.Level,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		desc, err := data.Buildings.getBuildingFromID(ID)
+		if err != nil {
+			return err
+		}
+
+		b.BuildingDesc = desc
+
+		// TODO: Update cost, production and storage.
+
+		p.Buildings = append(p.Buildings, b)
+	}
+
+	return nil
 }

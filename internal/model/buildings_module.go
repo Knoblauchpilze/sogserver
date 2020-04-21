@@ -32,11 +32,6 @@ type BuildingsModule struct {
 	storage    map[string][]StorageRule
 }
 
-// ErrInvalidBuilding :
-// Used to indicate that the provided building identifier
-// is not valid according to the internal data.
-var ErrInvalidBuilding = fmt.Errorf("Invalid building identifier")
-
 // BuildingDesc :
 // Defines the abstract representation of a building
 // with its name and unique identifier. It provides
@@ -658,7 +653,7 @@ func (bm *BuildingsModule) getBuildingFromID(ID string) (BuildingDesc, error) {
 	upgradable, err := bm.getDependencyFromID(ID)
 
 	if err != nil {
-		return BuildingDesc{}, ErrInvalidBuilding
+		return BuildingDesc{}, ErrInvalidID
 	}
 
 	desc := BuildingDesc{
@@ -667,9 +662,8 @@ func (bm *BuildingsModule) getBuildingFromID(ID string) (BuildingDesc, error) {
 
 	cost, ok := bm.costs[ID]
 	if !ok {
-		return desc, ErrInvalidBuilding
+		return desc, ErrInvalidID
 	}
-
 	desc.Cost = cost
 
 	prod, ok := bm.production[ID]

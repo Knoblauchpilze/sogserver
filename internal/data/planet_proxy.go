@@ -124,7 +124,7 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
 	planets := make([]model.Planet, 0)
 
 	for _, ID = range IDs {
-		pla, err := model.NewPlanetFromDB(ID, p.proxy)
+		pla, err := model.NewPlanetFromDB(ID, p.data)
 
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Unable to fetch planet \"%s\" data from DB (err: %v)", ID, err))
@@ -262,122 +262,6 @@ func (p *PlanetProxy) updateConstructionActions(planetID string) error {
 	err = p.performWithLock(planetID, query)
 	if err != nil {
 		return fmt.Errorf("Could not update defenses upgrade actions for \"%s\" (err: %v)", planetID, err)
-	}
-
-	return nil
-}
-
-// fetchPlanetShips :
-// Fills a similar role to `fetchPlanetBuildings` but handles
-// the ships associated to a planet. Note that this does not
-// handle the ships currently directed towards the planet but
-// which do not have reached it yet.
-//
-// The `planet` defines the planet for which ships should be
-// fetched. An invalid value will return an error.
-//
-// Returns any error that happended while fetching ships.
-func (p *PlanetProxy) fetchPlanetShips(planet *Planet) error {
-	// Check consistency.
-	if planet == nil || planet.ID == "" {
-		return fmt.Errorf("Unable to fetch ships from planet with invalid identifier")
-	}
-
-	planet.Ships = make([]Ship, 0)
-
-	// Create the query and execute it.
-	query := p.buildQuery(
-		[]string{
-			"ship",
-			"count",
-		},
-		"planets_ships",
-		"planet",
-		planet.ID,
-	)
-
-	res, err := p.fetchDB(query)
-	defer res.Close()
-
-	// Check for errors.
-	if err != nil {
-		return fmt.Errorf("Could not query DB to fetch ships for planet \"%s\" (err: %v)", planet.ID, err)
-	}
-
-	// Populate the return value.
-	var ship Ship
-
-	for res.next() {
-		err = res.scan(
-			&ship.ID,
-			&ship.Count,
-		)
-
-		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve ship for planet \"%s\" (err: %v)", planet.ID, err))
-			continue
-		}
-
-		planet.Ships = append(planet.Ships, ship)
-	}
-
-	return nil
-}
-
-// fetchPlanetDefenses :
-// Fills a similar role to `fetchPlanetBuildings` but handles
-// the defenses associated to a planet. Note that this does
-// not handle the defenses that are currently being built but
-// nontetheless provide an update of the current construction
-// actions running on the planet so that the count is as close
-// as possible from the current situation.
-//
-// The `planet` defines the planet for which defenses should
-// be fetched. An invalid value will return an error.
-//
-// Returns any error that happended while fetching defenses.
-func (p *PlanetProxy) fetchPlanetDefenses(planet *Planet) error {
-	// Check consistency.
-	if planet == nil || planet.ID == "" {
-		return fmt.Errorf("Unable to fetch defenses from planet with invalid identifier")
-	}
-
-	planet.Defenses = make([]Defense, 0)
-
-	// Create the query and execute it.
-	query := p.buildQuery(
-		[]string{
-			"defense",
-			"count",
-		},
-		"planets_defenses",
-		"planet",
-		planet.ID,
-	)
-
-	res, err := p.fetchDB(query)
-	defer res.Close()
-
-	// Check for errors.
-	if err != nil {
-		return fmt.Errorf("Could not query DB to fetch defenses for planet \"%s\" (err: %v)", planet.ID, err)
-	}
-
-	// Populate the return value.
-	var defense Defense
-
-	for res.next() {
-		err = res.scan(
-			&defense.ID,
-			&defense.Count,
-		)
-
-		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve defense for planet \"%s\" (err: %v)", planet.ID, err))
-			continue
-		}
-
-		planet.Defenses = append(planet.Defenses, defense)
 	}
 
 	return nil

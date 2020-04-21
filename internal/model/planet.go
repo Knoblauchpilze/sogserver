@@ -213,8 +213,25 @@ func NewPlanetFromDB(ID string, data Instance) (Planet, error) {
 		ID: ID,
 	}
 
+	// TODO: Update planet's upgrade action.
+
 	// Fetch the planet's content.
 	err := p.fetchResources(data)
+	if err != nil {
+		return p, err
+	}
+
+	err = p.fetchBuildings(data)
+	if err != nil {
+		return p, err
+	}
+
+	err = p.fetchShips(data)
+	if err != nil {
+		return p, err
+	}
+
+	err = p.fetchDefenses(data)
 	if err != nil {
 		return p, err
 	}
@@ -603,6 +620,136 @@ func (p *Planet) fetchBuildings(data Instance) error {
 		// TODO: Update cost, production and storage.
 
 		p.Buildings = append(p.Buildings, b)
+	}
+
+	return nil
+}
+
+// fetchShips :
+// Similar to the `fetchResources` but handles the
+// retrieval of the planet's ships data.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Planet) fetchShips(data Instance) error {
+	// Consistency.
+	if p.ID == "" {
+		return ErrInvalidPlanet
+	}
+
+	p.Ships = make([]ShipInfo, 0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"ship",
+			"count",
+		},
+		Table: "planets_ships",
+		Filters: []db.Filter{
+			{
+				Key:    "planet",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+
+	// Populate the return value.
+	var ID string
+	var s ShipInfo
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&ID,
+			&s.Amount,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		desc, err := data.Ships.getShipFromID(ID)
+		if err != nil {
+			return err
+		}
+
+		s.ShipDesc = desc
+
+		p.Ships = append(p.Ships, s)
+	}
+
+	return nil
+}
+
+// fetchShips :
+// Similar to the `fetchResources` but handles the
+// retrieval of the planet's defenses data.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Planet) fetchDefenses(data Instance) error {
+	// Consistency.
+	if p.ID == "" {
+		return ErrInvalidPlanet
+	}
+
+	p.Defenses = make([]DefenseInfo, 0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"defense",
+			"count",
+		},
+		Table: "planets_defenses",
+		Filters: []db.Filter{
+			{
+				Key:    "planet",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+
+	// Populate the return value.
+	var ID string
+	var d DefenseInfo
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&ID,
+			&d.Amount,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		desc, err := data.Defenses.getDefenseFromID(ID)
+		if err != nil {
+			return err
+		}
+
+		d.DefenseDesc = desc
+
+		p.Defenses = append(p.Defenses, d)
 	}
 
 	return nil

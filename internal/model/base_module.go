@@ -32,6 +32,11 @@ var ErrNotInitialized = fmt.Errorf("Unable to initialize DB module")
 // detected when loading data from the DB.
 var ErrInconsistentDB = fmt.Errorf("Detected inconsistencies in DB model")
 
+// ErrInvalidID :
+// Used to indicate that the provided identifier is not
+// valid according to the internal data.
+var ErrInvalidID = fmt.Errorf("Invalid identifier")
+
 // baseModule :
 // This module allows to group the logging behavior of
 // the DB modules by providing a concept of prefix that

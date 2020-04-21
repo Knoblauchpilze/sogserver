@@ -666,68 +666,82 @@ func (sm *ShipsModule) Ships(proxy db.Proxy, filters []db.Filter) ([]ShipDesc, e
 	// Now build the data from the fetched identifiers.
 	descs := make([]ShipDesc, 0)
 	for _, ID := range IDs {
-		upgradable, err := sm.getDependencyFromID(ID)
+		desc, err := sm.getShipFromID(ID)
 
 		if err != nil {
 			sm.trace(logger.Error, fmt.Sprintf("Unable to fetch ship \"%s\" (err: %v)", ID, err))
 			continue
 		}
 
-		desc := ShipDesc{
-			UpgradableDesc: upgradable,
-		}
-
-		cost, ok := sm.costs[ID]
-		if !ok {
-			sm.trace(logger.Error, fmt.Sprintf("Unable to fetch costs for ship \"%s\"", ID))
-			continue
-		} else {
-			desc.Cost = cost
-		}
-
-		rfShip, ok := sm.rfVSShips[ID]
-		if ok {
-			desc.RFVSShips = rfShip
-		}
-
-		rfDefense, ok := sm.rfVSDefenses[ID]
-		if ok {
-			desc.RFVSDefenses = rfDefense
-		}
-
-		props, ok := sm.characteristics[ID]
-		if !ok {
-			sm.trace(logger.Error, fmt.Sprintf("Unable to fetch characteristics for ship \"%s\"", ID))
-			continue
-		} else {
-			desc.Cargo = props.cargo
-			desc.Shield = props.shield
-			desc.Weapon = props.weapon
-			desc.Speed = props.speed
-		}
-
-		speedIncrease, ok := sm.propulsion[props.propulsion]
-		if !ok {
-			sm.trace(logger.Error, fmt.Sprintf("Unable to fetch propulsion \"%s\" details for ship \"%s\"", props.propulsion, ID))
-			continue
-		} else {
-			desc.Propulsion = PropulsionDesc{
-				Propulsion: props.propulsion,
-				Increase:   speedIncrease,
-			}
-		}
-
-		for res, value := range props.consumption {
-			fuel := ConsumptionValue{
-				Resource: res,
-				Value:    value,
-			}
-
-			desc.Consumption = append(desc.Consumption, fuel)
-		}
-
 		descs = append(descs, desc)
 	}
 
 	return descs, nil
+}
+
+// getShipFromID :
+// Used to retrieve a single ship by its identifier. It is
+// similar to calling the `Ships` method but is a bit faster
+// as we don't request the DB at all.
+//
+// The `ID` defines the identifier of the ship to fetch.
+//
+// Returns the description of the ship corresponding to
+// the input identifier along with any error.
+func (sm *ShipsModule) getShipFromID(ID string) (ShipDesc, error) {
+	// Attempt to retrieve the ships from its identifier.
+	upgradable, err := sm.getDependencyFromID(ID)
+
+	if err != nil {
+		return ShipDesc{}, ErrInvalidID
+	}
+
+	desc := ShipDesc{
+		UpgradableDesc: upgradable,
+	}
+
+	cost, ok := sm.costs[ID]
+	if !ok {
+		return desc, ErrInvalidID
+	}
+	desc.Cost = cost
+
+	rfShip, ok := sm.rfVSShips[ID]
+	if ok {
+		desc.RFVSShips = rfShip
+	}
+
+	rfDefense, ok := sm.rfVSDefenses[ID]
+	if ok {
+		desc.RFVSDefenses = rfDefense
+	}
+
+	props, ok := sm.characteristics[ID]
+	if !ok {
+		return desc, ErrInvalidID
+	}
+	desc.Cargo = props.cargo
+	desc.Shield = props.shield
+	desc.Weapon = props.weapon
+	desc.Speed = props.speed
+
+	speedIncrease, ok := sm.propulsion[props.propulsion]
+	if !ok {
+		return desc, ErrInvalidID
+	}
+	desc.Propulsion = PropulsionDesc{
+		Propulsion: props.propulsion,
+		Increase:   speedIncrease,
+	}
+
+	for res, value := range props.consumption {
+		fuel := ConsumptionValue{
+			Resource: res,
+			Value:    value,
+		}
+
+		desc.Consumption = append(desc.Consumption, fuel)
+	}
+
+	return desc, nil
 }

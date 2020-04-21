@@ -257,36 +257,52 @@ func (dm *DefensesModule) Defenses(proxy db.Proxy, filters []db.Filter) ([]Defen
 	// Now build the data from the fetched identifiers.
 	descs := make([]DefenseDesc, 0)
 	for _, ID := range IDs {
-		upgradable, err := dm.getDependencyFromID(ID)
+		desc, err := dm.getDefenseFromID(ID)
 
 		if err != nil {
 			dm.trace(logger.Error, fmt.Sprintf("Unable to fetch defense \"%s\" (err: %v)", ID, err))
 			continue
 		}
 
-		desc := DefenseDesc{
-			UpgradableDesc: upgradable,
-		}
-
-		cost, ok := dm.costs[ID]
-		if !ok {
-			dm.trace(logger.Error, fmt.Sprintf("Unable to fetch costs for defense \"%s\"", ID))
-			continue
-		} else {
-			desc.Cost = cost
-		}
-
-		props, ok := dm.characteristics[ID]
-		if !ok {
-			dm.trace(logger.Error, fmt.Sprintf("Unable to fetch characteristics for defense \"%s\"", ID))
-			continue
-		} else {
-			desc.Shield = props.shield
-			desc.Weapon = props.weapon
-		}
-
 		descs = append(descs, desc)
 	}
 
 	return descs, nil
+}
+
+// getDefenseFromID :
+// Used to retrieve a single defense by its identifier. It
+// is similar to calling the `Defenses` method but is quite
+// faster as we don't request the DB at all.
+//
+// The `ID` defines the identifier of the defense to fetch.
+//
+// Returns the description of the defense corresponding to
+// the input identifier along with any error.
+func (dm *DefensesModule) getDefenseFromID(ID string) (DefenseDesc, error) {
+	// Attempt to retrieve the defense from its identifier.
+	upgradable, err := dm.getDependencyFromID(ID)
+
+	if err != nil {
+		return DefenseDesc{}, ErrInvalidID
+	}
+
+	desc := DefenseDesc{
+		UpgradableDesc: upgradable,
+	}
+
+	cost, ok := dm.costs[ID]
+	if !ok {
+		return desc, ErrInvalidID
+	}
+	desc.Cost = cost
+
+	props, ok := dm.characteristics[ID]
+	if !ok {
+		return desc, ErrInvalidID
+	}
+	desc.Shield = props.shield
+	desc.Weapon = props.weapon
+
+	return desc, nil
 }

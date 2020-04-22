@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 
@@ -9,9 +10,10 @@ import (
 )
 
 // AccountProxy :
-// Intended as a wrapper to access properties of accounts
-// and retrieve data from the database. Internally uses the
-// common proxy defined in this package.
+// Intended as a wrapper to access properties of all the
+// accounts and retrieve data from the database. In most
+// cases we need to access some properties of a single
+// account through a provided identifier.
 type AccountProxy struct {
 	commonProxy
 }
@@ -20,70 +22,75 @@ type AccountProxy struct {
 // Create a new proxy allowing to serve the requests
 // related to accounts.
 //
-// The `dbase` represents the database to use to fetch
-// data related to accounts.
+// The `data` defines the data model to use to fetch
+// information and verify actions.
 //
 // The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
-func NewAccountProxy(dbase *db.DB, log logger.Logger) AccountProxy {
+func NewAccountProxy(data model.Instance, log logger.Logger) AccountProxy {
 	return AccountProxy{
-		newCommonProxy(dbase, log, "accounts"),
+		commonProxy: newCommonProxy(data, log, "accounts"),
 	}
 }
 
 // Accounts :
-// Allows to fetch the list of accounts currently registered
-// in the DB. This defines how many unique players already
-// have created at least an account in a universe.
-// The user can choose to filter parts of the accounts using
-// an array of filters that will be applied to the SQL query.
-// No controls is enforced on the filters so one should make
-// sure that it's consistent with the underlying table.
+// Return a list of accounts registered so far in all the
+// values defined in the DB. The input filters might help
+// to narrow the search a bit by providing some properties
+// the accounts to look for should have.
 //
-// The `filters` define some filtering property that can be
-// applied to the SQL query to only select part of all the
-// accounts available. Each one is appended `as-is` to the
-// query.
+// The `filters` define some filtering property that can
+// be applied to the SQL query to only select part of all
+// the accounts available. Each one is appended `as-is`
+// to the query.
 //
-// Returns the list of accounts along with any errors. Note
-// that in case the error is not `nil` the returned list is
-// to be ignored.
-func (p *AccountProxy) Accounts(filters []db.Filter) ([]Account, error) {
+// Returns the list of accounts registered in the DB and
+// matching the input list of filters. In case the error
+// is not `nil` the value of the array should be ignored.
+func (p *AccountProxy) Accounts(filters []db.Filter) ([]model.Account, error) {
 	// Create the query and execute it.
-	query := queryDesc{
-		props: []string{
+	query := db.QueryDesc{
+		Props: []string{
 			"id",
-			"mail",
-			"name",
-			"password",
 		},
-		table:   "accounts",
-		filters: filters,
+		Table:   "accounts",
+		Filters: filters,
 	}
 
-	res, err := p.fetchDB(query)
+	res, err := p.proxy.FetchFromDB(query)
 	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
-		return []Account{}, fmt.Errorf("Could not query DB to fetch accounts (err: %v)", err)
+		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch accounts (err: %v)", err))
+		return []model.Account{}, err
 	}
 
-	// Populate the return value.
-	accounts := make([]Account, 0)
-	var acc Account
+	// We now need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding unis
+	// object for each one of them.
+	var ID string
+	IDs := make([]string, 0)
 
-	for res.next() {
-		err = res.scan(
-			&acc.ID,
-			&acc.Mail,
-			&acc.Name,
-			&acc.Password,
-		)
+	for res.Next() {
+		err = res.Scan(&ID)
 
 		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not retrieve info for account (err: %v)", err))
+			p.trace(logger.Error, fmt.Sprintf("Error while fetching account ID (err: %v)", err))
+			continue
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	accounts := make([]model.Account, 0)
+
+	for _, ID = range IDs {
+		acc, err := model.NewAccountFromDB(ID, p.data)
+
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Unable to fetch account \"%s\" data from DB (err: %v)", ID, err))
 			continue
 		}
 
@@ -105,37 +112,30 @@ func (p *AccountProxy) Accounts(filters []db.Filter) ([]Account, error) {
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
 // `nil`.
-func (p *AccountProxy) Create(acc *Account) error {
+func (p *AccountProxy) Create(acc model.Account) error {
 	// Assign a valid identifier if this is not already the case.
 	if acc.ID == "" {
 		acc.ID = uuid.New().String()
 	}
 
-	// Validate that the input data describe a valid account.
-	if !acc.valid() {
-		return fmt.Errorf("Could not create account \"%s\", some properties are invalid", acc.Name)
+	// Check consistency.
+	if !acc.Valid() {
+		return model.ErrInvalidAccount
 	}
 
 	// Create the query and execute it.
-	query := insertReq{
-		script: "create_account",
-		args:   []interface{}{*acc},
+	query := db.InsertReq{
+		Script: "create_account",
+		Args:   []interface{}{acc},
 	}
 
-	err := p.insertToDB(query)
+	err := p.proxy.InsertToDB(query)
 
+	// TODO: Restore checks to indicate which type of error occurred.
 	// Check for errors.
 	if err != nil {
-		//  Analyze the error through the dedicated handler.
-		msg := fmt.Sprintf("%v", err)
-
-		code := db.GetSQLErrorCode(msg)
-		switch code {
-		case db.DuplicatedElement:
-			return fmt.Errorf("Could not import account \"%s\", mail \"%s\" already exists (err: %s)", acc.Name, acc.Mail, msg)
-		default:
-			return fmt.Errorf("Could not import account \"%s\" (err: %s)", acc.Name, msg)
-		}
+		p.trace(logger.Error, fmt.Sprintf("Could not create account \"%s\" (err: %v)", acc.Name, err))
+		return err
 	}
 
 	p.trace(logger.Notice, fmt.Sprintf("Created new account \"%s\" with id \"%s\"", acc.Name, acc.ID))

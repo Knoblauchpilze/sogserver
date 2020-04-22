@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"oglike_server/internal/data"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 )
 
@@ -49,7 +49,7 @@ func (s *Server) createAccount() http.HandlerFunc {
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and
 			// create accounts from it.
-			var acc data.Account
+			var acc model.Account
 			resources := make([]string, 0)
 
 			// Prevent request with no data.
@@ -65,7 +65,7 @@ func (s *Server) createAccount() http.HandlerFunc {
 				}
 
 				// Create the account.
-				err = s.accounts.Create(&acc)
+				err = s.accounts.Create(acc)
 				if err != nil {
 					return resources, ErrDBError
 				}

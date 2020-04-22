@@ -139,6 +139,7 @@ func (p *PlayerProxy) Create(player model.Player) error {
 
 	err := p.proxy.InsertToDB(query)
 
+	// TODO: Restore checks to indicate which type of error occurred.
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not create player in \"%s\" for \"%s\" (err: %v)", player.Universe, player.Account, err))

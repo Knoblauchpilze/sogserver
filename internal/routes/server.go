@@ -35,9 +35,12 @@ import (
 // use high-level functions that do not rely on the internal
 // schema of the DB to work.
 //
+// The `accounts` is used in a similar way to `universes` but
+// regroups information about the players' account registered
+// so far in the server. Each account can have chidlren item
+// in any number of universe. An account is really the base
+// for a client to use any feature of the server.
 //
-// The `accounts` fills a similar role to `universes` but is related
-// to accounts information.
 //
 // The `players` fills a similar purpose to `accounts` but for the
 // players registered in each universe.
@@ -140,6 +143,7 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 
 	// Create proxies on composite types.
 	up := data.NewUniverseProxy(ogDataModel, log)
+	ap := data.NewAccountProxy(ogDataModel, log)
 	pp := data.NewPlayerProxy(ogDataModel, log)
 	ppp := data.NewPlanetProxy(ogDataModel, log)
 
@@ -148,11 +152,12 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 		router: nil,
 
 		universes: up,
-		accounts:  data.NewAccountProxy(dbase, log),
+		accounts:  ap,
 		planets:   ppp,
 		players:   pp,
-		fleets:    data.NewFleetProxy(dbase, log, up, pp),
-		actions:   data.NewActionProxy(dbase, log, ppp, pp),
+
+		fleets:  data.NewFleetProxy(dbase, log, up, pp),
+		actions: data.NewActionProxy(dbase, log, ppp, pp),
 
 		og:    ogDataModel,
 		proxy: proxy,

@@ -1,30 +1,5 @@
 package data
 
-import (
-	"regexp"
-)
-
-// valid :
-// Used to determine whether the parameters defined for this
-// account are consistent with what is expected. It is mostly
-// used to check that the name is valid and that the e-mail
-// address makes sense.
-func (a *Account) valid() bool {
-	// First check for the identifier.
-	if !validUUID(a.ID) {
-		return false
-	}
-
-	// Note that we *verified* the following regular expression
-	// does compile so we don't check for errors.
-	exp, _ := regexp.Compile("^[a-zA-Z0-9]*[a-zA-Z0-9_.+-][a-zA-Z0-9]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$")
-
-	// Check common properties.
-	return a.Name != "" &&
-		exp.MatchString(a.Mail) &&
-		a.Password != ""
-}
-
 // valid :
 // Used to determine whether the parameters defined for this
 // fleet component are not obviously wrong. This method checks

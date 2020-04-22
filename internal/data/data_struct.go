@@ -4,33 +4,6 @@ import (
 	"time"
 )
 
-// Account :
-// Defines a player's account within the OG context. It is
-// not related to any universe and defines what could be
-// called the root account for each player. It is then used
-// each time the user wants to join a new universe so as to
-// merge all these accounts in a single entity.
-//
-// The `ID` defines the identifier of the player, which is
-// used to uniquely distinguish between two accounts.
-//
-// The `Name` describes the user provided name for this
-// account. It can be duplicated among several accounts
-// as we're using the identifier to guarantee uniqueness.
-//
-// The `Mail` defines the email address associated to the
-// account. It can be used to make sure that no two accounts
-// share the same address.
-//
-// The `Password` defines the password that the user should
-// enter to grant access to the account.
-type Account struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Mail     string `json:"mail"`
-	Password string `json:"password"`
-}
-
 // ShipInFleet :
 // Defines a single ship involved in a fleet component which
 // is an identifier referencing the ship and the amount that

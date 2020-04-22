@@ -178,14 +178,15 @@ func (p *PlanetProxy) CreateFor(player model.Player) error {
 
 	// First we need to fetch the universe related to the
 	// planet to create.
-	uni, err := p.fetchUniverse(player.Universe)
+	uni, err := model.NewUniverseFromDB(player.Universe, p.data)
 	if err != nil {
-		return fmt.Errorf("Could not create planet for \"%s\" (err: %v)", player.ID, err)
+		p.trace(logger.Error, fmt.Sprintf("Unable to fetch universe \"%s\" to create planet (err: %v)", player.Universe, err))
+		return err
 	}
 
 	// Retrieve the list of coordinates that are already
 	// used in the universe the player's in.
-	usedCoords, err := p.generateUsedCoords(uni)
+	usedCoords, err := uni.UsedCoords(p.data.Proxy)
 	totalPlanets := uni.GalaxiesCount * uni.GalaxySize * uni.SolarSystemSize
 
 	// Try to insert the planet in the DB while we have some
@@ -210,7 +211,7 @@ func (p *PlanetProxy) CreateFor(player model.Player) error {
 
 		exists := true
 		for exists {
-			key := coord.Linearize(uni)
+			key := coord.Linearize(uni.GalaxySize, uni.SolarSystemSize)
 
 			if _, ok := usedCoords[key]; !ok {
 				// We found a not yet used coordinate.
@@ -245,7 +246,7 @@ func (p *PlanetProxy) CreateFor(player model.Player) error {
 
 			// Register this coordinate as being used as we can't
 			// successfully use it to create the planet anyways.
-			usedCoords[coord.Linearize(uni)] = coord
+			usedCoords[coord.Linearize(uni.GalaxySize, uni.SolarSystemSize)] = coord
 		}
 
 		trials++
@@ -258,79 +259,6 @@ func (p *PlanetProxy) CreateFor(player model.Player) error {
 	}
 
 	return nil
-}
-
-// generateUsedCoords :
-// Used to find and generate a list of the used coordinates
-// in the corresponding universe. Note that the list is only
-// some snapshot of the state of the coordinates which can
-// evolve through time. Typically if some pending requests to
-// insert a planet are pending or some actions require some
-// action to create/destroy a planet this list will be changed
-// and might not be accurate.
-// We figure it's not really a problem to insert elements in
-// the DB as it's unlikely to ever failed a lot of times in
-// a row. What can maybe happen is that the first try fails
-// to insert a planet but the second one with a different set
-// of coordinates it will most likely succeed.
-//
-// The `uni` defines the universe for which available coords
-// should be fetched. This will be fetched from the DB.
-//
-// The return value includes all the user coordinates in the
-// universe along with any errors.
-func (p *PlanetProxy) generateUsedCoords(uni Universe) (map[int]Coordinate, error) {
-	// Create the query allowing to fetch all the planets of
-	// a specific universe. This will consistute the list of
-	// used planets for this universe.
-	query := p.buildQuery(
-		[]string{
-			"p.galaxy",
-			"p.solar_system",
-			"p.position",
-		},
-		"planets p inner join players pl on p.player=pl.id",
-		"pl.uni",
-		uni.ID,
-	)
-
-	// Create the query and execute it.
-	res, err := p.fetchDB(query)
-	defer res.Close()
-
-	// Check for errors.
-	if err != nil {
-		return map[int]Coordinate{}, fmt.Errorf("Could not fetch used coordinates for universe \"%s\" (err: %v)", uni.ID, err)
-	}
-
-	// Traverse all the coordinates and populate the list.
-	coords := make(map[int]Coordinate)
-	var coord Coordinate
-
-	for res.next() {
-		err = res.scan(
-			&coord.Galaxy,
-			&coord.System,
-			&coord.Position,
-		)
-
-		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for coordinate in universe \"%s\" (err: %v)", uni.ID, err))
-			continue
-		}
-
-		key := coord.Linearize(uni)
-
-		// Check whether it's the first time we encounter
-		// this used location.
-		if _, ok := coords[key]; ok {
-			p.log.Trace(logger.Error, fmt.Sprintf("Overriding used coordinate %v in universe \"%s\"", coord, uni.ID))
-		}
-
-		coords[key] = coord
-	}
-
-	return coords, nil
 }
 
 // createPlanet :

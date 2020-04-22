@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"oglike_server/internal/data"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 )
 
@@ -50,7 +50,7 @@ func (s *Server) createPlayer() http.HandlerFunc {
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and
 			// create players from it.
-			var player data.Player
+			var player model.Player
 			resources := make([]string, 0)
 
 			// Prevent request with no data.
@@ -66,7 +66,7 @@ func (s *Server) createPlayer() http.HandlerFunc {
 				}
 
 				// Create the player.
-				err = s.players.Create(&player)
+				err = s.players.Create(player)
 				if err != nil {
 					return resources, ErrDBError
 				}

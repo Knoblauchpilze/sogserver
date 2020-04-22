@@ -55,7 +55,7 @@ func (s *Server) listPlanetBuildings() http.HandlerFunc {
 	ed.WithFilters(allowed).WithIDFilter("planet").WithResourceFilter("id").WithModule("planets")
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
-			return s.upgradeAction.Buildings(filters)
+			return s.actions.Buildings(filters)
 		},
 	)
 
@@ -83,7 +83,7 @@ func (s *Server) listPlayerTechnologies() http.HandlerFunc {
 	ed.WithFilters(allowed).WithIDFilter("player").WithResourceFilter("id").WithModule("planets")
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
-			return s.upgradeAction.Technologies(filters)
+			return s.actions.Technologies(filters)
 		},
 	)
 
@@ -110,7 +110,7 @@ func (s *Server) listPlanetShips() http.HandlerFunc {
 	ed.WithFilters(allowed).WithIDFilter("planet").WithResourceFilter("id").WithModule("planets")
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
-			return s.upgradeAction.Ships(filters)
+			return s.actions.Ships(filters)
 		},
 	)
 
@@ -137,7 +137,7 @@ func (s *Server) listPlanetDefenses() http.HandlerFunc {
 	ed.WithFilters(allowed).WithIDFilter("planet").WithResourceFilter("id").WithModule("planets")
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
-			return s.upgradeAction.Defenses(filters)
+			return s.actions.Defenses(filters)
 		},
 	)
 

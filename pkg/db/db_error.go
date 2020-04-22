@@ -24,6 +24,11 @@ var ErrInvalidDB = fmt.Errorf("Invalid nil DB")
 // in the DB.
 var ErrInvalidData = fmt.Errorf("Invalid data to insert to DB")
 
+// ErrInvalidScan :
+// Used to indicate that a `Scan` operation on a
+// `QueryResult` has failec.
+var ErrInvalidScan = fmt.Errorf("Invalid scan operation on DB")
+
 // ErrorType :
 // Defines some convenience named values for common SQL
 // errors.

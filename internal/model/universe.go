@@ -68,6 +68,11 @@ var ErrInvalidUniverse = fmt.Errorf("Invalid universe with no identifier")
 // input is not unique in the DB.
 var ErrDuplicatedUniverse = fmt.Errorf("Invalid not unique universe")
 
+// ErrDuplicatedCoordinates :
+// Used to indicate that some coordinates used in a process
+// was actually already existing.
+var ErrDuplicatedCoordinates = fmt.Errorf("Invalid duplicated coordinates")
+
 // Valid :
 // Used to determine whether the parameters defined for this
 // universe are consistent with what is expected. This will
@@ -171,4 +176,77 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 	}
 
 	return u, nil
+}
+
+// UsedCoords :
+// Used to find and generate a list of the used coordinates
+// in this universe. Note that the list is only some snapshot
+// of the state of the coordinates which can evolve through
+// time. Typically if some pending requests to insert a planet
+// are outstanding or some fleets are registered which will
+// ultimately lead to the colonization/destruction of some
+// planet this list will change.
+// In order to be practical the list of used coordinates is
+// returned using a map. The keys correspond to the coords
+// where the `Linearize` method with this universe as param
+// as been called and the values are the raw coordinates.
+//
+// The `proxy` defines a way to access the DB to fetch the
+// used coordinates.
+//
+// Returns the list of used coordinates along with any error.
+func (u *Universe) UsedCoords(proxy db.Proxy) (map[int]Coordinate, error) {
+	// Create the query allowing to fetch all the planets of
+	// a specific universe. This will consistute the list of
+	// used planets for this universe.
+	query := db.QueryDesc{
+		Props: []string{
+			"p.galaxy",
+			"p.solar_system",
+			"p.position",
+		},
+		Table: "planets p inner join players pl on p.player=pl.id",
+		Filters: []db.Filter{
+			{
+				Key:    "pl.uni",
+				Values: []string{u.ID},
+			},
+		},
+	}
+
+	dbRes, err := proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return map[int]Coordinate{}, err
+	}
+
+	// Traverse all the coordinates and populate the list.
+
+	coords := make(map[int]Coordinate)
+	var coord Coordinate
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&coord.Galaxy,
+			&coord.System,
+			&coord.Position,
+		)
+
+		if err != nil {
+			return coords, db.ErrInvalidScan
+		}
+
+		key := coord.Linearize(u.GalaxySize, u.SolarSystemSize)
+
+		// In case these coordinates already exist this is an issue.
+		if _, ok := coords[key]; ok {
+			return coords, ErrDuplicatedCoordinates
+		}
+
+		coords[key] = coord
+	}
+
+	return coords, nil
 }

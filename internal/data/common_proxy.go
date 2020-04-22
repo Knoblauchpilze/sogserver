@@ -101,13 +101,9 @@ var ErrInvalidOperation = fmt.Errorf("Invalid query performed for resource")
 //
 // Returns the created object and panics if something is
 // not right when creating the proxy.
-func newCommonProxy(dbase *db.DB, data model.Instance, log logger.Logger, module string) commonProxy {
-	if dbase == nil {
-		panic(fmt.Errorf("Cannot create common proxy from invalid DB"))
-	}
-
+func newCommonProxy(data model.Instance, log logger.Logger, module string) commonProxy {
 	return commonProxy{
-		proxy:  db.NewProxy(dbase),
+		proxy:  data.Proxy,
 		log:    log,
 		lock:   locker.NewConcurrentLocker(log),
 		module: module,

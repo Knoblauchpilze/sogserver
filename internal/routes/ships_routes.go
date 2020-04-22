@@ -23,7 +23,7 @@ func (s *Server) listShips() http.HandlerFunc {
 	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("ships")
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
-			return s.ships.Ships(s.dbase, filters)
+			return s.og.Ships.Ships(s.proxy, filters)
 		},
 	)
 

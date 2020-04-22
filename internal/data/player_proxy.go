@@ -5,6 +5,8 @@ import (
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
+
+	"github.com/google/uuid"
 )
 
 // PlayerProxy :
@@ -23,18 +25,15 @@ type PlayerProxy struct {
 // Create a new proxy allowing to serve the requests
 // related to players.
 //
-// The `dbase` represents the database to use to fetch
-// data related to players.
-//
 // The `data` defines the data model to use to fetch
 // information and verify actions.
 //
 // The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
-func NewPlayerProxy(dbase *db.DB, data model.Instance, log logger.Logger) PlayerProxy {
+func NewPlayerProxy(data model.Instance, log logger.Logger) PlayerProxy {
 	return PlayerProxy{
-		commonProxy: newCommonProxy(dbase, data, log, "players"),
+		commonProxy: newCommonProxy(data, log, "players"),
 	}
 }
 
@@ -57,9 +56,6 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]model.Player, error) {
 	query := db.QueryDesc{
 		Props: []string{
 			"id",
-			"uni",
-			"account",
-			"name",
 		},
 		Table:   "players",
 		Filters: filters,
@@ -125,6 +121,11 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]model.Player, error) {
 // be created or not (in which case an error describes
 // the failure reason).
 func (p *PlayerProxy) Create(player model.Player) error {
+	// Assign a valid identifier if this is not already the case.
+	if player.ID == "" {
+		player.ID = uuid.New().String()
+	}
+
 	// Check consistency.
 	if player.Valid() {
 		return model.ErrInvalidPlayer
@@ -140,7 +141,7 @@ func (p *PlayerProxy) Create(player model.Player) error {
 
 	// Check for errors.
 	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not import player in \"%s\" for \"%s\" (err: %v)", player.Universe, player.Account, err))
+		p.trace(logger.Error, fmt.Sprintf("Could not create player in \"%s\" for \"%s\" (err: %v)", player.Universe, player.Account, err))
 		return err
 	}
 

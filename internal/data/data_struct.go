@@ -31,59 +31,6 @@ type Account struct {
 	Password string `json:"password"`
 }
 
-// Universe :
-// Define a universe in terms of OG semantic. This is a set
-// of planets gathered in a certain number of galaxies and
-// a set of parameters that configure the economic, combat
-// and technologies available in it.
-//
-// The `ID` defines the unique identifier for this universe.
-//
-// The `Name` defines a human-redable name for it.
-//
-// The `EcoSpeed` is a value in the range `[0; inf]` which
-// defines a multiplication factor that is added to shorten
-// the economy (i.e. building construction time, etc.).
-//
-// The `FleetSpeed` is similar to the `EcoSpeed` but controls
-// the speed boost for fleets travel time.
-//
-// The `ResearchSpeed` controls how researches are shortened
-// compared to the base value.
-//
-// The `FleetsToRuins` defines the percentage of resources
-// that go into a debris fields when a ship is destroyed in
-// a battle.
-//
-// The `DefensesToRuins` defines a similar percentage for
-// defenses in the event of a battle.
-//
-// The `FleetConsumption` is a value in the range `[0; 1]`
-// defining how the consumption is biased compared to the
-// canonical value.
-//
-// The `GalaxiesCount` defines the number of galaxies in
-// the universe.
-//
-// The `GalaxySize` defines the number of solar systems
-// in a single galaxy.
-//
-// The `SolarSystemSize` defines the number of planets in
-// each solar system of each galaxy.
-type Universe struct {
-	ID               string  `json:"id"`
-	Name             string  `json:"name"`
-	EcoSpeed         int     `json:"economic_speed"`
-	FleetSpeed       int     `json:"fleet_speed"`
-	ResearchSpeed    int     `json:"research_speed"`
-	FleetsToRuins    float32 `json:"fleets_to_ruins_ratio"`
-	DefensesToRuins  float32 `json:"defenses_to_ruins_ratio"`
-	FleetConsumption float32 `json:"fleets_consumption_ratio"`
-	GalaxiesCount    int     `json:"galaxies_count"`
-	GalaxySize       int     `json:"galaxy_size"`
-	SolarSystemSize  int     `json:"solar_system_size"`
-}
-
 // ShipInFleet :
 // Defines a single ship involved in a fleet component which
 // is an identifier referencing the ship and the amount that

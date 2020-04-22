@@ -12,79 +12,72 @@ import (
 )
 
 // Server :
-// Defines a server that can be used to handle the interaction with
-// the OG database. This server handles can be built from the input
-// database and logger and will perform the listening to handle the
-// clients' requests.
-// This article helped a bit to set up and describe the data model
-// and structures used to describe the server:
+// Defines a server that can be used to handle the interaction
+// with the OG database. This server handles can be built from
+// the input database and logger and will perform the listening
+// to handle the clients' requests.
+// This article helped to set up and describe some aspects of
+// the data model used by the server:
 // https://pace.dev/blog/2018/05/09/how-I-write-http-services-after-eight-years
 //
-// The `port` allows to determine which port should be used by the
-// server to accept incoming requests. This is usually specified in
-// the configuration so as not to conflict with any other API.
+// The `port` allows to determine which port should be used by
+// the server to accept incoming requests. This is usually set
+// in the configuration so as not to conflict with any other API.
 //
 // The `router` defines the element to use to perform the routing
 // and receive clients requests. This object will be populated to
 // reflect the routes available on this server and started upon
 // calling the `Serve` method.
 //
-// The `universes` represents a proxy object allowing to interact
-// and retrieve properties of universes from the main DB. It is used
-// as a way to hide the complexity of the DB and only use high-level
-// functions that do not rely on the internal schema of the DB to
-// work.
+// The `universes` represents a proxy object allowing to access
+// and modify the properties of universes from the main DB. It
+// is used as a way to hide the complexity of the DB and only
+// use high-level functions that do not rely on the internal
+// schema of the DB to work.
+//
 //
 // The `accounts` fills a similar role to `universes` but is related
 // to accounts information.
 //
-// The `buildings` represents the proxy to use to perform requests
-// concerning buildings and to access information about this topic.
-//
-// The `technologies` fills a similar purpose as `buildings` but
-// for technologies related requests.
-//
-// The `ships` fills a similar purpose as `buildings` but for ships
-// related requests.
-//
-// The `defenses` fills a similar purpose as `buildings` but for
-// defenses related requests.
+// The `players` fills a similar purpose to `accounts` but for the
+// players registered in each universe.
 //
 // The `planets` fills a similar purpose to `universes` but for the
 // planets registered in the game.
 //
-// The `players` fills a similar purpose to `accounts` but for the
-// players registered in each universe.
-//
 // The `fleets` filles a similar purpose to `planets` but for the
 // fleets registered in the game.
 //
-// The `upgradeAction` defines a proxy that can be used to serve
+// The `actions` defines a proxy that can be used to serve
 // the various upgrade actions handled by the game. It handles
 // both the creation of the actions and their fetching.
 //
 //
-// The `dbase` defines the DB to use to access to the data.
+// The `og` defines the data model associated to this server.
+// It helps to serve information and is used by composite
+// types to access base properties of the data model such as
+// the prod level for a building, the cost of a ship, etc.
+// in order to build the more complex processings required
+// by the game.
 //
-// The `logger` allows to perform most of the logging on any action
-// done by the server such as logging clients' connections, errors
-// and generally some elements useful to track the activity of the
-// server.
+// The `proxy` defines the DB to use to access to the data.
+//
+// The `logger` allows to perform most of the logging on any
+// action done by the server such as logging connections or
+// generally any useful information that could be monitored
+// by the execution system of the server.
 type Server struct {
-	port          int
-	router        *dispatcher.Router
-	universes     data.UniverseProxy
-	accounts      data.AccountProxy
-	buildings     *model.BuildingsModule
-	technologies  *model.TechnologiesModule
-	ships         *model.ShipsModule
-	defenses      *model.DefensesModule
-	planets       data.PlanetProxy
-	players       data.PlayerProxy
-	fleets        data.FleetProxy
-	upgradeAction data.ActionProxy
+	port      int
+	router    *dispatcher.Router
+	universes data.UniverseProxy
+	accounts  data.AccountProxy
+	players   data.PlayerProxy
+	planets   data.PlanetProxy
+	fleets    data.FleetProxy
+	actions   data.ActionProxy
 
-	dbase *db.DB
+	og    model.Instance
+	proxy db.Proxy
 	log   logger.Logger
 }
 
@@ -101,57 +94,69 @@ type Server struct {
 //
 // The `log` is used to notify from various processes in the server
 // and keep track of the activity.
-func NewServer(port int, dbase *db.DB, log logger.Logger) Server {
-	if dbase == nil {
-		panic(fmt.Errorf("Cannot create server from empty database"))
-	}
-
-	uniProxy := data.NewUniverseProxy(dbase, log)
-	playerProxy := data.NewPlayerProxy(dbase, log)
-	planetProxy := data.NewPlanetProxy(dbase, log, uniProxy)
-
+func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 	// Create modules to handle data model and initialize each one
 	// of them.
 	bm := model.NewBuildingsModule(log)
 	tm := model.NewTechnologiesModule(log)
 	sm := model.NewShipsModule(log)
 	dm := model.NewDefensesModule(log)
+	rm := model.NewResourcesModule(log)
 
-	err := bm.Init(dbase, false)
+	err := bm.Init(proxy, false)
 	if err != nil {
 		panic(fmt.Errorf("Cannot create server (err: %v)", err))
 	}
 
-	err = tm.Init(dbase, false)
+	err = tm.Init(proxy, false)
 	if err != nil {
 		panic(fmt.Errorf("Cannot create server (err: %v)", err))
 	}
 
-	err = sm.Init(dbase, false)
+	err = sm.Init(proxy, false)
 	if err != nil {
 		panic(fmt.Errorf("Cannot create server (err: %v)", err))
 	}
 
-	err = dm.Init(dbase, false)
+	err = dm.Init(proxy, false)
 	if err != nil {
 		panic(fmt.Errorf("Cannot create server (err: %v)", err))
 	}
+
+	err = rm.Init(proxy, false)
+	if err != nil {
+		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+	}
+
+	// Create the data model from it.
+	ogDataModel := model.Instance{
+		Proxy:        proxy,
+		Buildings:    bm,
+		Technologies: tm,
+		Ships:        sm,
+		Defenses:     dm,
+		Resources:    rm,
+	}
+
+	// Create proxies on composite types.
+	up := data.NewUniverseProxy(ogDataModel, log)
+	pp := data.NewPlayerProxy(ogDataModel, log)
+	ppp := data.NewPlanetProxy(ogDataModel, log)
 
 	return Server{
-		port,
-		nil,
-		uniProxy,
-		data.NewAccountProxy(dbase, log),
-		bm,
-		tm,
-		sm,
-		dm,
-		planetProxy,
-		playerProxy,
-		data.NewFleetProxy(dbase, log, uniProxy, playerProxy),
-		data.NewActionProxy(dbase, log, planetProxy, playerProxy),
-		dbase,
-		log,
+		port:   port,
+		router: nil,
+
+		universes: up,
+		accounts:  data.NewAccountProxy(dbase, log),
+		planets:   ppp,
+		players:   pp,
+		fleets:    data.NewFleetProxy(dbase, log, up, pp),
+		actions:   data.NewActionProxy(dbase, log, ppp, pp),
+
+		og:    ogDataModel,
+		proxy: proxy,
+		log:   log,
 	}
 }
 

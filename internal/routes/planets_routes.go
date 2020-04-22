@@ -2,7 +2,7 @@ package routes
 
 import (
 	"net/http"
-	"oglike_server/internal/data"
+	"oglike_server/pkg/db"
 )
 
 // listPlanets :
@@ -10,7 +10,7 @@ import (
 // the requests on planets.
 //
 // Returns the handler that can be executed to serve said reqs.
-func (s *server) listPlanets() http.HandlerFunc {
+func (s *Server) listPlanets() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewGetResourceEndpoint("planets")
 
@@ -25,9 +25,9 @@ func (s *server) listPlanets() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithResourceFilter("p.id")
+	ed.WithFilters(allowed).WithResourceFilter("p.id").WithModule("planets")
 	ed.WithDataFunc(
-		func(filters []data.DBFilter) (interface{}, error) {
+		func(filters []db.Filter) (interface{}, error) {
 			return s.planets.Planets(filters)
 		},
 	)
@@ -40,7 +40,7 @@ func (s *server) listPlanets() http.HandlerFunc {
 // the requests on building upgrade actions for a planet.
 //
 // Returns the handler that can be executed to serve said reqs.
-func (s *server) listPlanetBuildings() http.HandlerFunc {
+func (s *Server) listPlanetBuildings() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewGetResourceEndpoint("planets")
 
@@ -52,9 +52,9 @@ func (s *server) listPlanetBuildings() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithIDFilter("planet").WithResourceFilter("id")
+	ed.WithFilters(allowed).WithIDFilter("planet").WithResourceFilter("id").WithModule("planets")
 	ed.WithDataFunc(
-		func(filters []data.DBFilter) (interface{}, error) {
+		func(filters []db.Filter) (interface{}, error) {
 			return s.upgradeAction.Buildings(filters)
 		},
 	)
@@ -67,7 +67,7 @@ func (s *server) listPlanetBuildings() http.HandlerFunc {
 // the requests on technologies for a player.
 //
 // Returns the handler that can be executed to serve said reqs.
-func (s *server) listPlayerTechnologies() http.HandlerFunc {
+func (s *Server) listPlayerTechnologies() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewGetResourceEndpoint("planets")
 
@@ -80,9 +80,9 @@ func (s *server) listPlayerTechnologies() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithIDFilter("player").WithResourceFilter("id")
+	ed.WithFilters(allowed).WithIDFilter("player").WithResourceFilter("id").WithModule("planets")
 	ed.WithDataFunc(
-		func(filters []data.DBFilter) (interface{}, error) {
+		func(filters []db.Filter) (interface{}, error) {
 			return s.upgradeAction.Technologies(filters)
 		},
 	)
@@ -95,7 +95,7 @@ func (s *server) listPlayerTechnologies() http.HandlerFunc {
 // the requests on ship upgrade actions for a planet.
 //
 // Returns the handler that can be executed to serve said reqs.
-func (s *server) listPlanetShips() http.HandlerFunc {
+func (s *Server) listPlanetShips() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewGetResourceEndpoint("planets")
 
@@ -107,9 +107,9 @@ func (s *server) listPlanetShips() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithIDFilter("planet").WithResourceFilter("id")
+	ed.WithFilters(allowed).WithIDFilter("planet").WithResourceFilter("id").WithModule("planets")
 	ed.WithDataFunc(
-		func(filters []data.DBFilter) (interface{}, error) {
+		func(filters []db.Filter) (interface{}, error) {
 			return s.upgradeAction.Ships(filters)
 		},
 	)
@@ -122,7 +122,7 @@ func (s *server) listPlanetShips() http.HandlerFunc {
 // the requests on defense upgrade actions for a planet.
 //
 // Returns the handler that can be executed to serve said reqs.
-func (s *server) listPlanetDefenses() http.HandlerFunc {
+func (s *Server) listPlanetDefenses() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewGetResourceEndpoint("planets")
 
@@ -134,9 +134,9 @@ func (s *server) listPlanetDefenses() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithIDFilter("planet").WithResourceFilter("id")
+	ed.WithFilters(allowed).WithIDFilter("planet").WithResourceFilter("id").WithModule("planets")
 	ed.WithDataFunc(
-		func(filters []data.DBFilter) (interface{}, error) {
+		func(filters []db.Filter) (interface{}, error) {
 			return s.upgradeAction.Defenses(filters)
 		},
 	)

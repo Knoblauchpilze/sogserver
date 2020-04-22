@@ -29,12 +29,14 @@ type PlanetProxy struct {
 // possible coordinates. Most of the time it should be sufficient
 var planetGenerationMaxTrials = 10
 
+// ErrTooManyTrials :
+// Used to indicate that the planet was not generated due
+// to too many failure when trying to select cooridnates.
+var ErrTooManyTrials = fmt.Errorf("Could not create planet after %d trial(s)", planetGenerationMaxTrials)
+
 // NewPlanetProxy :
 // Create a new proxy allowing to serve the requests
 // related to planets.
-//
-// The `dbase` represents the database to use to fetch
-// data related to planets.
 //
 // The `data` defines the data model to use to fetch
 // information and verify actions.
@@ -42,9 +44,9 @@ var planetGenerationMaxTrials = 10
 // The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
-func NewPlanetProxy(dbase *db.DB, data model.Instance, log logger.Logger) PlanetProxy {
+func NewPlanetProxy(data model.Instance, log logger.Logger) PlanetProxy {
 	return PlanetProxy{
-		commonProxy: newCommonProxy(dbase, data, log, "planets"),
+		commonProxy: newCommonProxy(data, log, "planets"),
 	}
 }
 
@@ -56,7 +58,7 @@ func NewPlanetProxy(dbase *db.DB, data model.Instance, log logger.Logger) Planet
 //
 // The `filters` define some filtering property that can be
 // applied to the SQL query to only select part of all the
-// accounts available. Each one is appended `as-is` to the
+// planets available. Each one is appended `as-is` to the
 // query.
 //
 // Returns the list of planets registered in the DB and matching
@@ -252,7 +254,7 @@ func (p *PlanetProxy) CreateFor(player model.Player) error {
 	// Check whether we could insert the element in the DB: if
 	// this is not the case we couldn't create the planet.
 	if !inserted {
-		return fmt.Errorf("Could not insert planet for player \"%s\" in DB after %d trial(s)", player.ID, trials)
+		return ErrTooManyTrials
 	}
 
 	return nil

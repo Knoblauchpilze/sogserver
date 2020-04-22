@@ -23,7 +23,7 @@ func (s *Server) listBuildings() http.HandlerFunc {
 	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("buildings")
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
-			return s.buildings.Buildings(s.dbase, filters)
+			return s.og.Buildings.Buildings(s.proxy, filters)
 		},
 	)
 

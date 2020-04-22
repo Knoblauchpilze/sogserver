@@ -23,7 +23,7 @@ func (s *Server) listDefenses() http.HandlerFunc {
 	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("defenses")
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
-			return s.defenses.Defenses(s.dbase, filters)
+			return s.og.Defenses.Defenses(s.proxy, filters)
 		},
 	)
 

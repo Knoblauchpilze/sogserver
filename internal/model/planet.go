@@ -26,7 +26,7 @@ import (
 // The `ID` defines the identifier of the planet within
 // all the planets registered in og.
 //
-// The `PlayerID` defines the identifier of the player
+// The `Player` defines the identifier of the player
 // who owns this planet. It is relative to an account
 // and a universe.
 //
@@ -67,7 +67,7 @@ import (
 // *being* built.
 type Planet struct {
 	ID          string         `json:"id"`
-	PlayerID    string         `json:"player"`
+	Player      string         `json:"player"`
 	Coordinates Coordinate     `json:"coordinate"`
 	Name        string         `json:"name"`
 	Fields      int            `json:"fields"`
@@ -261,18 +261,18 @@ func NewPlanetFromDB(ID string, data Instance) (Planet, error) {
 func NewPlanet(player string, coords Coordinate) *Planet {
 	// Create default properties.
 	p := &Planet{
-		player,
-		uuid.New().String(),
-		coords,
-		getDefaultPlanetName(coords.isNull()),
-		0,
-		0,
-		0,
-		0,
-		make([]ResourceInfo, 0),
-		make([]BuildingInfo, 0),
-		make([]ShipInfo, 0),
-		make([]DefenseInfo, 0),
+		ID:          uuid.New().String(),
+		Player:      player,
+		Coordinates: coords,
+		Name:        getDefaultPlanetName(coords.isNull()),
+		Fields:      0,
+		MinTemp:     0,
+		MaxTemp:     0,
+		Diameter:    0,
+		Resources:   make([]ResourceInfo, 0),
+		Buildings:   make([]BuildingInfo, 0),
+		Ships:       make([]ShipInfo, 0),
+		Defenses:    make([]DefenseInfo, 0),
 	}
 
 	// Generate diameter and fields count.

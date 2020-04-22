@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"oglike_server/internal/data"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 )
 
@@ -48,7 +48,7 @@ func (s *Server) createUniverse() http.HandlerFunc {
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and
 			// create universes from it.
-			var uni data.Universe
+			var uni model.Universe
 			resources := make([]string, 0)
 
 			// Prevent request with no data.
@@ -64,7 +64,7 @@ func (s *Server) createUniverse() http.HandlerFunc {
 				}
 
 				// Create the universe.
-				err = s.universes.Create(&uni)
+				err = s.universes.Create(uni)
 				if err != nil {
 					return resources, ErrDBError
 				}

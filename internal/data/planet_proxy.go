@@ -21,6 +21,14 @@ type PlanetProxy struct {
 	commonProxy
 }
 
+// planetGenerationMaxTrials :
+// Used to define the maximum number of trials that can
+// be performed to create a planet. This is used as a
+// way to rapidly exhaust possibilities when trying to
+// create a new player and not cycle through all the
+// possible coordinates. Most of the time it should be sufficient
+var planetGenerationMaxTrials = 10
+
 // NewPlanetProxy :
 // Create a new proxy allowing to serve the requests
 // related to planets.
@@ -37,37 +45,6 @@ type PlanetProxy struct {
 func NewPlanetProxy(dbase *db.DB, data model.Instance, log logger.Logger) PlanetProxy {
 	return PlanetProxy{
 		commonProxy: newCommonProxy(dbase, data, log, "planets"),
-	}
-}
-
-// buildQuery :
-// Used to assemble a query description struct from
-// the input properties.
-//
-// The `props` define the properties that should be
-// Used for the query.
-//
-// The `table` defines the table in which the query
-// should be executed.
-//
-// The `filterName` defines the name of the column
-// to filter.
-//
-// The `filter` defines the value which should be
-// kept in the `filterName` column.
-//
-// Returns the description of the query built from
-// the input properties.
-func (p *PlanetProxy) buildQuery(props []string, table string, filterName string, filter string) db.QueryDesc {
-	return db.QueryDesc{
-		Props: props,
-		Table: table,
-		Filters: []db.Filter{
-			{
-				Key:    filterName,
-				Values: []string{filter},
-			},
-		},
 	}
 }
 
@@ -179,250 +156,29 @@ func (p *PlanetProxy) generateResources(planet *model.Planet) error {
 	return nil
 }
 
-// fetchPlanetData :
-// Used to fetch data built on the planet provided in input.
-// This typically include the buildings, the ships deployed
-// and the defenses installed.
-//
-// The `planet` references the planet for which data should
-// be fetched. We assume that the internal fields (and more
-// specifically the identifier) are already populated.
-//
-// Returns any error.
-func (p *PlanetProxy) fetchPlanetData(planet *Planet) error {
-	// Check whether the planet has an identifier assigned.
-	if planet.ID == "" {
-		return fmt.Errorf("Unable to fetch data from planet with invalid identifier")
-	}
-
-	// Update upgrade actions.
-	err := p.updateConstructionActions(planet.ID)
-	if err != nil {
-		return fmt.Errorf("Unable to update upgrade actions for planet \"%s\" (err: %v)", planet.ID, err)
-	}
-
-	// Fetch resources.
-	err = p.fetchPlanetResources(planet)
-	if err != nil {
-		return fmt.Errorf("Could not fetch resources for planet \"%s\" (err: %v)", planet.ID, err)
-	}
-
-	// Fetch buildings.
-	err = p.fetchPlanetBuildings(planet)
-	if err != nil {
-		return fmt.Errorf("Could not fetch buildings for planet \"%s\" (err: %v)", planet.ID, err)
-	}
-
-	// Fetch ships.
-	err = p.fetchPlanetShips(planet)
-	if err != nil {
-		return fmt.Errorf("Could not fetch ships for planet \"%s\" (err: %v)", planet.ID, err)
-	}
-
-	// Fetch defenses.
-	err = p.fetchPlanetDefenses(planet)
-	if err != nil {
-		return fmt.Errorf("Could not fetch defenses for planet \"%s\" (err: %v)", planet.ID, err)
-	}
-
-	return nil
-}
-
-// updateConstructionActions :
-// Used to perform the update of the construction actions for
-// the planet described by the input identifier. It will call
-// the corresponding DB script to get up-to-date values for
-// the planet.
-//
-// The `planetID` defines the identifier of the planet which
-// should be updated.
-//
-// Returns any error that occurred during the update.
-func (p *PlanetProxy) updateConstructionActions(planetID string) error {
-	// Update resources.
-	query := fmt.Sprintf("SELECT update_resources_for_planet('%s')", planetID)
-	err := p.performWithLock(planetID, query)
-	if err != nil {
-		return fmt.Errorf("Could not update resources for \"%s\" (err: %v)", planetID, err)
-	}
-
-	query = fmt.Sprintf("SELECT update_building_upgrade_action('%s')", planetID)
-	err = p.performWithLock(planetID, query)
-	if err != nil {
-		return fmt.Errorf("Could not update buildings upgrade actions for \"%s\" (err: %v)", planetID, err)
-	}
-
-	query = fmt.Sprintf("SELECT update_ship_upgrade_action('%s')", planetID)
-	err = p.performWithLock(planetID, query)
-	if err != nil {
-		return fmt.Errorf("Could not update ships upgrade actions for \"%s\" (err: %v)", planetID, err)
-	}
-
-	query = fmt.Sprintf("SELECT update_defense_upgrade_action('%s')", planetID)
-	err = p.performWithLock(planetID, query)
-	if err != nil {
-		return fmt.Errorf("Could not update defenses upgrade actions for \"%s\" (err: %v)", planetID, err)
-	}
-
-	return nil
-}
-
-// updateBuildingCosts :
-// Used to perform the computation of the costs for the
-// next level of the building described in argument. The
-// output values will be saved directly in the input
-// object.
-//
-// The `building` defines the object for which the costs
-// should be computed. A `nil` value will raise an error.
-//
-// Returns any error.
-func (p *PlanetProxy) updateBuildingCosts(building *Building) error {
-	// Check consistency.
-	if building == nil || building.ID == "" {
-		return fmt.Errorf("Cannot update building costs from invalid building")
-	}
-
-	// In case the costs for building are not populated try
-	// to update it.
-	if len(p.bCosts) == 0 {
-		err := p.init()
-		if err != nil {
-			return fmt.Errorf("Unable to generate buildings costs for building \"%s\", none defined", building.ID)
-		}
-	}
-
-	// Find the building in the costs table.
-	info, ok := p.bCosts[building.ID]
-	if !ok {
-		return fmt.Errorf("Could not compute costs for unknown building \"%s\"", building.ID)
-	}
-
-	// Compute the cost for each resource.
-	building.Cost = info.ComputeCosts(building.Level)
-
-	return nil
-}
-
-// updateBuildingProduction :
-// Used to perform the computation of the production for
-// the current level of the building. We will also update
-// the production increase for the next level. The output
-// values will be saved directly in the input building.
-//
-// The `building` defines the object for which the prod
-// should be computed. A `nil` value will raise an error.
-//
-// The `planet` is used to provide information relative
-// to the temperature on the place of production as some
-// buildings are dependent on the temperature to provide
-// the final amount produced.
-//
-// Returns any error.
-func (p *PlanetProxy) updateBuildingProduction(building *Building, planet *Planet) error {
-	// Check consistency.
-	if building == nil || building.ID == "" {
-		return fmt.Errorf("Cannot update building production from invalid building")
-	}
-
-	// In case the production rules for buildings are not
-	// populated try to update it.
-	if len(p.pRules) == 0 {
-		err := p.init()
-		if err != nil {
-			return fmt.Errorf("Unable to generate buildings production rules for building \"%s\", none defined", building.ID)
-		}
-	}
-
-	// Find the building in the production table.
-	rules, ok := p.pRules[building.ID]
-	if !ok {
-		// The building does not seem to produce any resource. That
-		// or the rules do not have been updated but we can't do
-		// much about this anyways so we can safely return an empty
-		// production for this building.
-		building.Production = make([]ResourceAmount, 0)
-		building.ProductionIncrease = make([]ResourceAmount, 0)
-
-		return nil
-	}
-
-	// Compute the production and production increase for
-	// each resource this building is associated to.
-	building.Production = make([]ResourceAmount, 0)
-	building.ProductionIncrease = make([]ResourceAmount, 0)
-
-	for _, rule := range rules {
-		prodCurLevel := rule.ComputeProduction(building.Level, planet.averageTemp())
-		prodNextLevel := rule.ComputeProduction(building.Level+1, planet.averageTemp())
-
-		prodIncrease := ResourceAmount{
-			Resource: rule.Resource,
-			Amount:   prodNextLevel.Amount - prodCurLevel.Amount,
-		}
-
-		building.Production = append(building.Production, prodCurLevel)
-		building.ProductionIncrease = append(building.ProductionIncrease, prodIncrease)
-	}
-
-	return nil
-}
-
 // CreateFor :
 // Used to handle the creation of a planet for the specified
-// player at the input coordinate. In case the coordinates are
-// `nil` we will assume that we are creating the homeworld for
-// the player and thus we can choose the coordinates randomly.
-// Otherwise we will try to create the planet at the specified
-// coordinates and fail if the coordinates are not available.
-// The universe to create the planet in is described by the
-// `UniverseID` of the player.
+// player. This method is only used when a new player needs
+// to be registered in the universe so the coordinates of the
+// new planet to create are determine directly in this method.
 //
 // The `player` represents the account for which the planet is
 // to be created. We assume that the universe and the player's
 // identifiers are valid (otherwise we won't be able to attach
 // the planet to a valid account).
 //
-// The `coord` represents the desired coordinates where the
-// planet should be created. In case this value is `nil` we
-// assume that the homeworld of the player should be created
-// and thus we will choose randomly some coordinates among
-// the available locations.
-//
 // Returns any error arised during the creation process.
-func (p *PlanetProxy) CreateFor(player Player, coord *Coordinate) error {
+func (p *PlanetProxy) CreateFor(player model.Player) error {
 	// Check consistency.
-	if player.ID == "" {
-		return fmt.Errorf("Cannot create planet for invalid player")
-	}
-	if player.UniverseID == "" {
-		return fmt.Errorf("Cannot create planet for player \"%s\" in invalid universe", player.ID)
+	if player.Valid() {
+		return model.ErrInvalidPlayer
 	}
 
 	// First we need to fetch the universe related to the
 	// planet to create.
-	uni, err := p.fetchUniverse(player.UniverseID)
+	uni, err := p.fetchUniverse(player.Universe)
 	if err != nil {
 		return fmt.Errorf("Could not create planet for \"%s\" (err: %v)", player.ID, err)
-	}
-
-	// Create the planet from the available data.
-	planet, err := p.generatePlanet(player.ID, coord, uni)
-	if err != nil {
-		return fmt.Errorf("Could not create planet for \"%s\" (err: %v)", player.ID, err)
-	}
-
-	// We will now try to insert the planet into the DB if
-	// we have valid coordinates. Note that the process is
-	// quite different depending on whether we have a list
-	// of coordinates to pick from or a single one. List
-	// can occurs when we want to create the homeworld for
-	// a player, in which case we want to select a random
-	// location to insert it whereas when the coordinate
-	// is provided by the user we want to create a planet
-	// at *this* location and no where else.
-	if coord != nil {
-		return p.createPlanet(planet)
 	}
 
 	// Retrieve the list of coordinates that are already
@@ -436,7 +192,7 @@ func (p *PlanetProxy) CreateFor(player Player, coord *Coordinate) error {
 	inserted := false
 	trials := 0
 
-	for !inserted && len(usedCoords) < totalPlanets && trials < 10 {
+	for !inserted && len(usedCoords) < totalPlanets && trials < planetGenerationMaxTrials {
 		// Pick a random coordinate and check whether it belongs
 		// to the already used coordinates. If this is the case
 		// we will try to pick a new one. Otherwise we will try
@@ -444,10 +200,10 @@ func (p *PlanetProxy) CreateFor(player Player, coord *Coordinate) error {
 		// In case the insertion fails we will add the selected
 		// coordinates to the list of used one so as not to try
 		// to use it again.
-		coord := Coordinate{
-			rand.Int() % uni.GalaxiesCount,
-			rand.Int() % uni.GalaxySize,
-			rand.Int() % uni.SolarSystemSize,
+		coord := model.Coordinate{
+			Galaxy:   rand.Int() % uni.GalaxiesCount,
+			System:   rand.Int() % uni.GalaxySize,
+			Position: rand.Int() % uni.SolarSystemSize,
 		}
 
 		exists := true
@@ -459,31 +215,31 @@ func (p *PlanetProxy) CreateFor(player Player, coord *Coordinate) error {
 				exists = false
 			} else {
 				// Pick some new coordinates.
-				coord = Coordinate{
-					rand.Int() % uni.GalaxiesCount,
-					rand.Int() % uni.GalaxySize,
-					rand.Int() % uni.SolarSystemSize,
+				coord = model.Coordinate{
+					Galaxy:   rand.Int() % uni.GalaxiesCount,
+					System:   rand.Int() % uni.GalaxySize,
+					Position: rand.Int() % uni.SolarSystemSize,
 				}
 			}
 		}
 
-		planet.Galaxy = coord.Galaxy
-		planet.System = coord.System
-		planet.Position = coord.Position
-
-		// Whenever we update the coordinates of the planet we
-		// need to generate new temperature and size.
-		p.generatePlanetSize(&planet)
+		// Generate a new planet. We also need to associate
+		// some resources to it.
+		planet := model.NewPlanet(player.ID, coord)
+		err := p.generateResources(planet)
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Unable to generate resources for planet at %s for \"%s\" (err: %v)", coord, player.ID, err))
+		}
 
 		// Try to create the planet at the specified coordinates.
 		err = p.createPlanet(planet)
 
 		// Check for errors.
 		if err == nil {
-			p.log.Trace(logger.Notice, fmt.Sprintf("Created planet at %v for \"%s\" in \"%s\" with %d field(s)", coord, player.ID, player.UniverseID, planet.Fields))
+			p.trace(logger.Notice, fmt.Sprintf("Created planet at %s for \"%s\" in \"%s\" with %d field(s)", coord, player.ID, player.Universe, planet.Fields))
 			inserted = true
 		} else {
-			p.log.Trace(logger.Warning, fmt.Sprintf("Could not import planet \"%s\" for \"%s\" (err: %v)", planet.Name, player.ID, err))
+			p.trace(logger.Warning, fmt.Sprintf("Could not import planet at %s for \"%s\" (err: %v)", coord, player.ID, err))
 
 			// Register this coordinate as being used as we can't
 			// successfully use it to create the planet anyways.

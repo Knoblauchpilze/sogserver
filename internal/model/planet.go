@@ -213,7 +213,12 @@ func NewPlanetFromDB(ID string, data Instance) (Planet, error) {
 		ID: ID,
 	}
 
-	// TODO: Update planet's upgrade action.
+	// TODO: Update planet's upgrade action. It used to be done
+	// this way in the planets' prody:
+	// query := fmt.Sprintf("SELECT update_resources_for_planet('%s')", planetID)
+	// query = fmt.Sprintf("SELECT update_building_upgrade_action('%s')", planetID)
+	// query = fmt.Sprintf("SELECT update_ship_upgrade_action('%s')", planetID)
+	// query = fmt.Sprintf("SELECT update_defense_upgrade_action('%s')", planetID)
 
 	// Fetch the planet's content.
 	err := p.fetchResources(data)
@@ -236,8 +241,7 @@ func NewPlanetFromDB(ID string, data Instance) (Planet, error) {
 		return p, err
 	}
 
-	// TODO: Handle this.
-	return p, fmt.Errorf("Not implemented")
+	return p, nil
 }
 
 // NewPlanet :

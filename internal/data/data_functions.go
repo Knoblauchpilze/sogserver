@@ -2,17 +2,7 @@ package data
 
 import (
 	"regexp"
-
-	"github.com/google/uuid"
 )
-
-// validUUID :
-// Used to check whether the input string can be interpreted
-// as a valid identifier.
-func validUUID(id string) bool {
-	_, err := uuid.Parse(id)
-	return err == nil
-}
 
 // valid :
 // Used to determine whether the parameters defined for this

@@ -72,7 +72,7 @@ func (s *Server) createPlayer() http.HandlerFunc {
 				}
 
 				// Choose a homeworld for this account and create it.
-				err = s.planets.CreateFor(player, nil)
+				err = s.planets.CreateFor(player)
 				if err != nil {
 					// Indicate that we could not create the planet for the player. It
 					// is not ideal because we should probably delete the player entry

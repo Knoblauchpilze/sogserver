@@ -257,5 +257,6 @@ func (p Proxy) InsertToDB(req InsertReq) error {
 	query := fmt.Sprintf("select * from %s(%s)", req.Script, strings.Join(argsAsStr, ", "))
 	_, err := p.dbase.DBExecute(query)
 
+	// TODO: Perform formatting like `ErrDuplicatedForeignKey` etc.
 	return err
 }

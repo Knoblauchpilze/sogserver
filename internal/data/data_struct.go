@@ -84,37 +84,6 @@ type Universe struct {
 	SolarSystemSize  int     `json:"solar_system_size"`
 }
 
-// Player :
-// Define a player which is basically a name in a universe.
-// We also provide both the identifier of this player along
-// with its account index.
-//
-// The `AccountID` represents the identifier of the accounts
-// associated with this player. An account can be registered
-// on any number of universes (with a limit of `1` pseudo
-// per universe).
-//
-// The `UniverseID` is the identifier of the universe in which
-// this player is registered. This determines where it can
-// perform actions.
-//
-// The `ID` represents the identifier of the player's current
-// instance in this universe.
-//
-// The `Name` represents the in-game display for this player.
-// It is distinct from the account's name.
-//
-// The `Technologies` defines the level of each in-game tech
-// already researched by the player. Note that technologies
-// with a level of `0` are not included in the output list.
-type Player struct {
-	AccountID    string       `json:"account"`
-	UniverseID   string       `json:"uni"`
-	ID           string       `json:"id"`
-	Name         string       `json:"name"`
-	Technologies []Technology `json:"technologies"`
-}
-
 // ShipInFleet :
 // Defines a single ship involved in a fleet component which
 // is an identifier referencing the ship and the amount that

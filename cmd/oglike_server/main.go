@@ -97,7 +97,9 @@ func main() {
 
 	// Create the server and set it up.
 	DB := db.NewPool(log)
-	server := routes.NewServer(metadata.Port, DB, log)
+	proxy := db.NewProxy(DB)
+
+	server := routes.NewServer(metadata.Port, proxy, log)
 
 	err := server.Serve()
 	if err != nil {

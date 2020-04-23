@@ -308,9 +308,6 @@ func (p *Planet) RemainingFields() int {
 // also the temperature on the surface of the planet. Both
 // values depend on the actual position of the planet in the
 // parent solar system.
-//
-// The `planet` defines the planet for which the size should
-// be generated.
 func (p *Planet) generateData() {
 	// Create a random source to be used for the generation of
 	// the planet's properties. We will use a procedural algo

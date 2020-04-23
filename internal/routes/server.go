@@ -41,15 +41,20 @@ import (
 // in any number of universe. An account is really the base
 // for a client to use any feature of the server.
 //
+// The `players` is used similarly to the `universes` but is
+// handling the players data. A player is the instance of an
+// account in a specific universe and is usually associated
+// to planets and fleets.
 //
-// The `players` fills a similar purpose to `accounts` but for the
-// players registered in each universe.
+// The `planets` defins a similar proxy to all the others and
+// handles the planets data. Planets are linked to universes
+// and players and most of the actions are related to at least
+// a single planet.
 //
-// The `planets` fills a similar purpose to `universes` but for the
-// planets registered in the game.
+// The `fleets` handles the fleets' data. Fleets are the way
+// to make planets communicate and send info (resources and
+// ships) in the game.
 //
-// The `fleets` filles a similar purpose to `planets` but for the
-// fleets registered in the game.
 //
 // The `actions` defines a proxy that can be used to serve
 // the various upgrade actions handled by the game. It handles
@@ -77,7 +82,8 @@ type Server struct {
 	players   data.PlayerProxy
 	planets   data.PlanetProxy
 	fleets    data.FleetProxy
-	actions   data.ActionProxy
+
+	actions data.ActionProxy
 
 	og    model.Instance
 	proxy db.Proxy
@@ -146,6 +152,7 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 	ap := data.NewAccountProxy(ogDataModel, log)
 	pp := data.NewPlayerProxy(ogDataModel, log)
 	ppp := data.NewPlanetProxy(ogDataModel, log)
+	fp := data.NewFleetProxy(ogDataModel, log)
 
 	return Server{
 		port:   port,
@@ -155,8 +162,8 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 		accounts:  ap,
 		planets:   ppp,
 		players:   pp,
+		fleets:    fp,
 
-		fleets:  data.NewFleetProxy(dbase, log, up, pp),
 		actions: data.NewActionProxy(dbase, log, ppp, pp),
 
 		og:    ogDataModel,

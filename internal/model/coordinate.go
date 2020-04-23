@@ -108,3 +108,23 @@ func (c Coordinate) generateSeed() int {
 func (c Coordinate) isNull() bool {
 	return c.Galaxy == 0 && c.System == 0 && c.Position == 0
 }
+
+// valid :
+// Used to determine whether this set of coordinates is valid
+// given the input bounds for each element. Note that we also
+// assume that a negative coordinate is not valid.
+//
+// The `galaxyCount` defines the maximum number of galaxies.
+//
+// The `galaxySize` defines how many solar system exists in
+// each galaxy.
+//
+// The `solarSystemSize` defines how many planet can be found
+// in each solar system.
+//
+// Returns `true` if the coordinate is valid.
+func (c Coordinate) valid(galaxyCount int, galaxySize int, solarSystemSize int) bool {
+	return c.Galaxy >= 0 && c.Galaxy < galaxyCount &&
+		c.System >= 0 && c.System < galaxySize &&
+		c.Position >= 0 && c.Position < solarSystemSize
+}

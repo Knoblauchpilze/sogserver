@@ -2,298 +2,112 @@ package data
 
 import (
 	"fmt"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 
 	"github.com/google/uuid"
 )
 
-// shipInFleetForDB :
-// Specialization of the `ShipInFleet` data structure which
-// allows to append the missing info to be easily inserted
-// into the DB.
-// We basically add an identifier for the fleet component
-// of this ship and an identifier.
-//
-// The `ID` defines the identifier of this fleet component
-// ship.
-//
-// The `FleetCompID` defines the identifier of the fleet
-// component describing this ship.
-type shipInFleetForDB struct {
-	ID          string `json:"id"`
-	FleetCompID string `json:"fleet_element"`
-	ShipInFleet
-}
-
 // FleetProxy :
-// Intended as a wrapper to access properties of fleets and
-// their components and retrieve data from the database. It
-// uses the common proxy defined in this package.
-// In addition to the base properties the fleet proxy also
-// needs to have access to the universes (so as to verify
-// that fleets are not going outside of the bounds provided
-// by a universe) and the players (to make sure that owners
-// actually exist).
-//
-// The `uProxy` represents a reference to the proxy allowing
-// to access to universes.
-//
-// The `pProxy` represents a reference to the proxy allowing
-// to access to players.
+// Intended as a wrapper to access properties of the fleets
+// registered in the DB. Usually the user only wants to see
+// some specific fleets and thus we provide ways to filter
+// the results to only select some of the fleets.
+// A fleet's main interest is its destination: it might be
+// the case that a fleet does not have any planet as target
+// in case of a colony mission for example. In this case it
+// makes more sense to refer to a fleet through its target
+// rather than a planet.
+// As a fleet can also be composed of ships of various
+// players it also don't make much sense to link it to a
+// specific player.
 type FleetProxy struct {
-	universesDependentProxy
-	playersDependentProxy
 	commonProxy
 }
 
 // NewFleetProxy :
 // Create a new proxy allowing to serve the requests
-// related to fleets. It uses two other proxies: one
-// to access to the universes and the other one to
-// access the players. This is used to make sure that
-// creating a fleet is consistent with the properties
-// of each element.
+// related to fleets.
 //
-// The `dbase` represents the database to use to fetch
-// data related to fleets.
+// The `data` defines the data model to use to fetch
+// information and verify actions.
 //
 // The `log` allows to notify errors and information.
 //
-// The `unis` defines a way to access to universes as
-// registered in the DB.
-//
-// The `players` defines a way to access to players
-// as defined in the DB.
-//
 // Returns the created proxy.
-func NewFleetProxy(dbase *db.DB, log logger.Logger, unis UniverseProxy, players PlayerProxy) FleetProxy {
+func NewFleetProxy(data model.Instance, log logger.Logger) FleetProxy {
 	return FleetProxy{
-		newUniversesDependentProxy(unis),
-		newPlayersDependentProxy(players),
-		newCommonProxy(dbase, log),
+		commonProxy: newCommonProxy(data, log, "fleets"),
 	}
 }
 
 // Fleets :
-// Allows to fetch the list of fleets currently registered in
-// the server
-// The user can choose to filter parts of the fleets using an
-// array of filters that will be applied to the SQL query.
-// No controls is enforced on the filters so one should make
-// sure that it's consistent with the underlying table.
+// Return a list of fleets registered so far in the DB.
+// The returned list take into account the filters that
+// are provided as input to only include the fleets
+// matching all the criteria. A full description of the
+// fleets is returned, including all its components and
+// the ships associated to each one.
 //
-// The `filters` define some filtering property that can be
-// applied to the SQL query to only select part of all the
-// fleets available. Each one is appended `as-is` to the SQL
-// query.
+// The `filters` define some filtering property that can
+// be applied to the SQL query to only select part of all
+// the fleets available. Each one is appended `as-is` to
+// the query.
 //
-// Returns the list of fleets along with any errors. Note that
-// in case the error is not `nil` the returned list is to be
-// ignored.
-func (p *FleetProxy) Fleets(filters []DBFilter) ([]Fleet, error) {
+// Returns the list of fleets registered in the DB and
+// matching the input list of filters. In case the error
+// is not `nil` the value of the array should be ignored.
+func (p *FleetProxy) Fleets(filters []db.Filter) ([]model.Fleet, error) {
 	// Create the query and execute it.
-	query := queryDesc{
-		props: []string{
+	query := db.QueryDesc{
+		Props: []string{
 			"id",
-			"name",
-			"uni",
-			"objective",
-			"arrival_time",
-			"target_galaxy",
-			"target_solar_system",
-			"target_position",
 		},
-		table:   "fleets",
-		filters: filters,
+		Table:   "fleets",
+		Filters: filters,
 	}
 
-	res, err := p.fetchDB(query)
+	res, err := p.proxy.FetchFromDB(query)
 	defer res.Close()
 
 	// Check for errors.
 	if err != nil {
-		return []Fleet{}, fmt.Errorf("Could not query DB to fetch fleets (err: %v)", err)
+		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch fleets (err: %v)", err))
+		return []model.Fleet{}, err
 	}
 
-	// Populate the return value.
-	fleets := make([]Fleet, 0)
-	var fleet Fleet
+	// We now need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding unis
+	// object for each one of them.
+	var ID string
+	IDs := make([]string, 0)
 
-	for res.next() {
-		err = res.scan(
-			&fleet.ID,
-			&fleet.Name,
-			&fleet.UniverseID,
-			&fleet.Objective,
-			&fleet.ArrivalTime,
-			&fleet.Galaxy,
-			&fleet.System,
-			&fleet.Position,
-		)
+	for res.Next() {
+		err = res.Scan(&ID)
 
 		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for fleet (err: %v)", err))
+			p.trace(logger.Error, fmt.Sprintf("Error while fetching fleet ID (err: %v)", err))
 			continue
 		}
 
-		fleets = append(fleets, fleet)
+		IDs = append(IDs, ID)
+	}
+
+	fleets := make([]model.Fleet, 0)
+
+	for _, ID = range IDs {
+		uni, err := model.NewFleetFromDB(ID, p.data)
+
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" data from DB (err: %v)", ID, err))
+			continue
+		}
+
+		fleets = append(fleets, uni)
 	}
 
 	return fleets, nil
-}
-
-// FleetComponents :
-// Used to fetch data related to a fleet: this includes the
-// individual components of the fleet (which is mostly used
-// in the case of group attacks).
-//
-// The `filters` define some properties that are used when
-// fetching the parent fleet for which components should be
-// retrieved. It is assumed that these filteres allow to
-// fetch a single fleet. If this is not the case an error
-// is returned.
-//
-// Returns the components associated to the fleet along with
-// any error.
-func (p *FleetProxy) FleetComponents(filters []DBFilter) ([]FleetComponent, error) {
-	// Fetch the fleet from the filters.
-	fleets, err := p.Fleets(filters)
-	if err != nil {
-		return []FleetComponent{}, fmt.Errorf("Could not fetch components for fleet (err: %v)", err)
-	}
-
-	// Check that we only found a single fleet matching the
-	// input filters: this will be the fleet for which the
-	// components should be retrieved.
-	if len(fleets) != 1 {
-		return []FleetComponent{}, fmt.Errorf("Found %d fleet(s) matching filters, cannot fetch components", len(fleets))
-	}
-
-	fleet := fleets[0]
-
-	// Create the query and execute it.
-	query := queryDesc{
-		props: []string{
-			"id",
-			"player",
-			"start_galaxy",
-			"start_solar_system",
-			"start_position",
-			"speed",
-			"joined_at",
-		},
-		table: "fleet_elements",
-		filters: []DBFilter{
-			{
-				Key:    "fleet",
-				Values: []string{fleet.ID},
-			},
-		},
-	}
-
-	res, err := p.fetchDB(query)
-	defer res.Close()
-
-	// Check for errors.
-	if err != nil {
-		return []FleetComponent{}, fmt.Errorf("Could not query DB to fetch fleet \"%s\" details (err: %v)", fleet.ID, err)
-	}
-
-	// Populate the return value.
-	components := make([]FleetComponent, 0)
-	comp := FleetComponent{
-		FleetID: fleet.ID,
-	}
-
-	for res.next() {
-		err = res.scan(
-			&comp.ID,
-			&comp.PlayerID,
-			&comp.Galaxy,
-			&comp.System,
-			&comp.Position,
-			&comp.Speed,
-			&comp.JoinedAt,
-		)
-
-		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for fleet \"%s\" component (err: %v)", fleet.ID, err))
-			continue
-		}
-
-		err = p.fetchFleetComponentData(&comp)
-		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not fetch data for fleet \"%s\" (component \"%s\" failed, err: %v)", fleet.ID, comp.PlayerID, err))
-			continue
-		}
-
-		components = append(components, comp)
-	}
-
-	return components, nil
-}
-
-// fetchFleetComponentData :
-// Used to fetch data related to a fleet component. It includes
-// the actual ship involved in the component and their actual
-// amount.
-// individual components of the fleet (which is mostly used
-// in the case of group attacks).
-//
-// The `com` references the fleet component for which the data
-// should be fetched. We assume that the internal fields (and
-// more specifically the identifier) are already populated.
-//
-// Returns any error.
-func (p *FleetProxy) fetchFleetComponentData(comp *FleetComponent) error {
-	// Check whether the fleet component has an identifier assigned.
-	if comp.ID == "" {
-		return fmt.Errorf("Unable to fetch data from fleet component with invalid identifier")
-	}
-
-	// Create the query and execute it.
-	query := queryDesc{
-		props: []string{
-			"ship",
-			"amount",
-		},
-		table: "fleet_ships",
-		filters: []DBFilter{
-			{
-				Key:    "fleet_element",
-				Values: []string{comp.ID},
-			},
-		},
-	}
-
-	res, err := p.fetchDB(query)
-	defer res.Close()
-
-	// Check for errors.
-	if err != nil {
-		return fmt.Errorf("Could not query DB to fetch fleet component \"%s\" details (err: %v)", comp.ID, err)
-	}
-
-	// Populate the return value.
-	comp.Ships = make([]ShipInFleet, 0)
-	var ship ShipInFleet
-
-	for res.next() {
-		err = res.scan(
-			&ship.ShipID,
-			&ship.Amount,
-		)
-
-		if err != nil {
-			p.log.Trace(logger.Error, fmt.Sprintf("Could not retrieve info for fleet component \"%s\" (err: %v)", comp.ID, err))
-			continue
-		}
-
-		comp.Ships = append(comp.Ships, ship)
-	}
-
-	return nil
 }
 
 // Create :
@@ -419,37 +233,4 @@ func (p *FleetProxy) CreateComponent(comp *FleetComponent) error {
 	}
 
 	return nil
-}
-
-// fetchFleet :
-// Used to fetch the fleet described by the input identifier in
-// the DB. It is used when a fleet component should be added to
-// an existing fleet. We will check that there is one and only
-// one fleet matching the input identifier to return it.
-//
-// The `id` defines the identifier of the fleet to fetch.
-//
-// Returns the fleet corresponding to the identifier along with
-// any error.
-func (p *FleetProxy) fetchFleet(id string) (Fleet, error) {
-	// Create the db filters from the input identifier.
-	filters := make([]DBFilter, 1)
-
-	filters[0] = DBFilter{
-		"id",
-		[]string{id},
-	}
-
-	fleets, err := p.Fleets(filters)
-
-	// Check for errors and cases where we retrieve several
-	// fleets.
-	if err != nil {
-		return Fleet{}, err
-	}
-	if len(fleets) != 1 {
-		return Fleet{}, fmt.Errorf("Retrieved %d fleets for id \"%s\" (expected 1)", len(fleets), id)
-	}
-
-	return fleets[0], nil
 }

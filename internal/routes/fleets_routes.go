@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
+	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 )
 
@@ -13,7 +14,7 @@ import (
 // the requests on fleets.
 //
 // Returns the handler that can be executed to serve said reqs.
-func (s *server) listFleets() http.HandlerFunc {
+func (s *Server) listFleets() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewGetResourceEndpoint("fleets")
 
@@ -26,30 +27,10 @@ func (s *server) listFleets() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithResourceFilter("id")
+	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("fleets")
 	ed.WithDataFunc(
-		func(filters []data.DBFilter) (interface{}, error) {
+		func(filters []db.Filter) (interface{}, error) {
 			return s.fleets.Fleets(filters)
-		},
-	)
-
-	return ed.ServeRoute(s.log)
-}
-
-// listFleetComponents :
-// Used to perform the creation of a handler allowing to serve
-// the requests on fleet components.
-//
-// Returns the handler that can be executed to serve said reqs.
-func (s *server) listFleetComponents() http.HandlerFunc {
-	// Create the endpoint with the suited route.
-	ed := NewGetResourceEndpoint("fleets")
-
-	// Configure the endpoint.
-	ed.WithIDFilter("id")
-	ed.WithDataFunc(
-		func(filters []data.DBFilter) (interface{}, error) {
-			return s.fleets.FleetComponents(filters)
 		},
 	)
 

@@ -66,13 +66,13 @@ func (s *Server) createPlayer() http.HandlerFunc {
 				}
 
 				// Create the player.
-				err = s.players.Create(player)
+				res, err := s.players.Create(player)
 				if err != nil {
 					return resources, ErrDBError
 				}
 
 				// Choose a homeworld for this account and create it.
-				err = s.planets.CreateFor(player)
+				_, err = s.planets.CreateFor(player)
 				if err != nil {
 					// Indicate that we could not create the planet for the player. It
 					// is not ideal because we should probably delete the player entry
@@ -86,7 +86,7 @@ func (s *Server) createPlayer() http.HandlerFunc {
 				}
 
 				// Successfully created a player.
-				resources = append(resources, player.ID)
+				resources = append(resources, res)
 			}
 
 			// Return the path to the resources created during the process.

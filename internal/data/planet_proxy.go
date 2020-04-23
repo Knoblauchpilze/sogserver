@@ -169,11 +169,14 @@ func (p *PlanetProxy) generateResources(planet *model.Planet) error {
 // identifiers are valid (otherwise we won't be able to attach
 // the planet to a valid account).
 //
-// Returns any error arised during the creation process.
-func (p *PlanetProxy) CreateFor(player model.Player) error {
+// Returns any error arised during the creation process along
+// with the identifier of the planet that was created. The
+// identifier might be empty in case the planet could not be
+// created.
+func (p *PlanetProxy) CreateFor(player model.Player) (string, error) {
 	// Check consistency.
 	if player.Valid() {
-		return model.ErrInvalidPlayer
+		return "", model.ErrInvalidPlayer
 	}
 
 	// First we need to fetch the universe related to the
@@ -181,7 +184,7 @@ func (p *PlanetProxy) CreateFor(player model.Player) error {
 	uni, err := model.NewUniverseFromDB(player.Universe, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Unable to fetch universe \"%s\" to create planet (err: %v)", player.Universe, err))
-		return err
+		return "", err
 	}
 
 	// Retrieve the list of coordinates that are already
@@ -192,6 +195,7 @@ func (p *PlanetProxy) CreateFor(player model.Player) error {
 	// Try to insert the planet in the DB while we have some
 	// untested coordinates and we didn't suceed in inserting
 	// it.
+	id := ""
 	inserted := false
 	trials := 0
 
@@ -241,6 +245,7 @@ func (p *PlanetProxy) CreateFor(player model.Player) error {
 		if err == nil {
 			p.trace(logger.Notice, fmt.Sprintf("Created planet at %s for \"%s\" in \"%s\" with %d field(s)", coord, player.ID, player.Universe, planet.Fields))
 			inserted = true
+			id = planet.ID
 		} else {
 			p.trace(logger.Warning, fmt.Sprintf("Could not import planet at %s for \"%s\" (err: %v)", coord, player.ID, err))
 
@@ -255,10 +260,10 @@ func (p *PlanetProxy) CreateFor(player model.Player) error {
 	// Check whether we could insert the element in the DB: if
 	// this is not the case we couldn't create the planet.
 	if !inserted {
-		return ErrTooManyTrials
+		return "", ErrTooManyTrials
 	}
 
-	return nil
+	return id, nil
 }
 
 // createPlanet :

@@ -65,13 +65,13 @@ func (s *Server) createAccount() http.HandlerFunc {
 				}
 
 				// Create the account.
-				err = s.accounts.Create(acc)
+				res, err := s.accounts.Create(acc)
 				if err != nil {
 					return resources, ErrDBError
 				}
 
 				// Successfully created an account.
-				resources = append(resources, acc.ID)
+				resources = append(resources, res)
 			}
 
 			// Return the path to the resources created during the process.

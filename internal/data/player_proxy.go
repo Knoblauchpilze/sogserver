@@ -119,8 +119,9 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]model.Player, error) {
 //
 // The return status indicates whether the player could
 // be created or not (in which case an error describes
-// the failure reason).
-func (p *PlayerProxy) Create(player model.Player) error {
+// the failure reason). Also returns the identifier of
+// the player that was created.
+func (p *PlayerProxy) Create(player model.Player) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if player.ID == "" {
 		player.ID = uuid.New().String()
@@ -128,7 +129,7 @@ func (p *PlayerProxy) Create(player model.Player) error {
 
 	// Check consistency.
 	if player.Valid() {
-		return model.ErrInvalidPlayer
+		return player.ID, model.ErrInvalidPlayer
 	}
 
 	// Create the query and execute it.
@@ -143,10 +144,10 @@ func (p *PlayerProxy) Create(player model.Player) error {
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not create player in \"%s\" for \"%s\" (err: %v)", player.Universe, player.Account, err))
-		return err
+		return player.ID, err
 	}
 
 	p.trace(logger.Notice, fmt.Sprintf("Created new player \"%s\" with id \"%s\"", player.Name, player.ID))
 
-	return nil
+	return player.ID, nil
 }

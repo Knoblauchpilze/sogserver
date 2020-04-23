@@ -64,15 +64,13 @@ func (s *Server) createUniverse() http.HandlerFunc {
 				}
 
 				// Create the universe.
-				err = s.universes.Create(uni)
+				res, err := s.universes.Create(uni)
 				if err != nil {
 					return resources, ErrDBError
 				}
 
 				// Successfully created a universe.
-				// TODO: We should restore the fact that the `uni.ID` might be changed by the
-				// `Create` method and thus refer to invalid data at this point.
-				resources = append(resources, uni.ID)
+				resources = append(resources, res)
 			}
 
 			// Return the path to the resources created during the process.

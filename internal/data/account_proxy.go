@@ -109,10 +109,12 @@ func (p *AccountProxy) Accounts(filters []db.Filter) ([]model.Account, error) {
 // value may be modified by the function mainly to update
 // the identifier of the account if none have been set.
 //
-// The return status indicates whether the creation could
-// be performed: if this is not the case the error is not
-// `nil`.
-func (p *AccountProxy) Create(acc model.Account) error {
+// The return status indicates the identifier of the acc
+// that was created (in case none was provided it is a
+// generated value otherwise it corresponds to the input
+// string) and whether the creation could be performed:
+// if this is not the case the error is not `nil`.
+func (p *AccountProxy) Create(acc model.Account) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if acc.ID == "" {
 		acc.ID = uuid.New().String()
@@ -120,7 +122,7 @@ func (p *AccountProxy) Create(acc model.Account) error {
 
 	// Check consistency.
 	if !acc.Valid() {
-		return model.ErrInvalidAccount
+		return acc.ID, model.ErrInvalidAccount
 	}
 
 	// Create the query and execute it.
@@ -135,10 +137,10 @@ func (p *AccountProxy) Create(acc model.Account) error {
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not create account \"%s\" (err: %v)", acc.Name, err))
-		return err
+		return acc.ID, err
 	}
 
 	p.trace(logger.Notice, fmt.Sprintf("Created new account \"%s\" with id \"%s\"", acc.Name, acc.ID))
 
-	return nil
+	return acc.ID, nil
 }

@@ -111,8 +111,10 @@ func (p *UniverseProxy) Universes(filters []db.Filter) ([]model.Universe, error)
 //
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
-// `nil`.
-func (p *UniverseProxy) Create(uni model.Universe) error {
+// `nil`. It also returns the identifier of the universe
+// that was created: this is helpful in case there is no
+// input identifier provided.
+func (p *UniverseProxy) Create(uni model.Universe) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if uni.ID == "" {
 		uni.ID = uuid.New().String()
@@ -120,7 +122,7 @@ func (p *UniverseProxy) Create(uni model.Universe) error {
 
 	// Check consistency.
 	if !uni.Valid() {
-		return model.ErrInvalidUniverse
+		return uni.ID, model.ErrInvalidUniverse
 	}
 
 	// Create the query and execute it.
@@ -134,10 +136,10 @@ func (p *UniverseProxy) Create(uni model.Universe) error {
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not create universe \"%s\" (err: %v)", uni.Name, err))
-		return err
+		return uni.ID, err
 	}
 
 	p.trace(logger.Notice, fmt.Sprintf("Created new universe \"%s\" with id \"%s\"", uni.Name, uni.ID))
 
-	return nil
+	return uni.ID, nil
 }

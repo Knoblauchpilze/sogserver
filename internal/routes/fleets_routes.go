@@ -69,13 +69,13 @@ func (s *Server) createFleet() http.HandlerFunc {
 				}
 
 				// Create the fleet.
-				err = s.fleets.Create(fleet)
+				res, err := s.fleets.Create(fleet)
 				if err != nil {
 					return resources, ErrDBError
 				}
 
 				// Successfully created a fleet.
-				resources = append(resources, fleet.ID)
+				resources = append(resources, res)
 			}
 
 			// Return the path to the resources created during the process.
@@ -126,7 +126,7 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 				}
 
 				// Create the fleet component.
-				err = s.fleets.CreateComponent(fleetID, comp)
+				res, err := s.fleets.CreateComponent(fleetID, comp)
 				if err != nil {
 					return resources, ErrDBError
 				}
@@ -135,7 +135,7 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 				// the resource by a `components/` string in order to have
 				// consistency with the input route. We should also prefix
 				// with the fleet's identifier.
-				fullRes := fmt.Sprintf("%s/components/%s", fleetID, comp.ID)
+				fullRes := fmt.Sprintf("%s/components/%s", fleetID, res)
 				resources = append(resources, fullRes)
 			}
 

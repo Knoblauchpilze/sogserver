@@ -26,6 +26,30 @@ type FleetProxy struct {
 	commonProxy
 }
 
+// shipInFleetForDB :
+// Specialization of the `model.ShipInFleet` data structure
+// which allows to append the missing info to perform the
+// insertion of the data to the DB. We basically need to
+// add the identifier of the component and the identifier
+// of the fleet element.
+//
+// The `ID` defines the identifier of this fleet component
+// ship.
+//
+// The `FleetCompID` defines the identifier of the fleet
+// component describing this ship.
+type shipInFleetForDB struct {
+	ID          string `json:"id"`
+	FleetCompID string `json:"fleet_element"`
+	model.ShipInFleet
+}
+
+// ErrPlayerNotInUniverse :
+// Used to indicate that the player's identifier associated
+// to a fleet component is not consistent with the universe
+// associated to the fleet.
+var ErrPlayerNotInUniverse = fmt.Errorf("Invalid player identifier compared to universe")
+
 // NewFleetProxy :
 // Create a new proxy allowing to serve the requests
 // related to fleets.
@@ -122,35 +146,40 @@ func (p *FleetProxy) Fleets(filters []db.Filter) ([]model.Fleet, error) {
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
 // `nil`.
-func (p *FleetProxy) Create(fleet *Fleet) error {
+func (p *FleetProxy) Create(fleet model.Fleet) error {
 	// Assign a valid identifier if this is not already the case.
 	if fleet.ID == "" {
 		fleet.ID = uuid.New().String()
 	}
 
-	// Fetch the universe related to the fleet to create.
-	uni, err := p.fetchUniverse(fleet.UniverseID)
+	// First we need to fetch the universe related to the
+	// planet to create.
+	uni, err := model.NewUniverseFromDB(fleet.Universe, p.data)
 	if err != nil {
-		return fmt.Errorf("Could not create fleet \"%s\", unable to fetch universe (err: %v)", fleet.ID, err)
+		p.trace(logger.Error, fmt.Sprintf("Unable to fetch universe \"%s\" to create fleet (err: %v)", fleet.Universe, err))
+		return err
 	}
 
-	// Validate that the input data describe a valid universe.
-	if !fleet.valid(uni) {
-		return fmt.Errorf("Could not create fleet \"%s\", some properties are invalid", fleet.ID)
+	// Check consistency.
+	if !fleet.Valid(uni) {
+		return model.ErrInvalidFleet
 	}
 
 	// Create the query and execute it.
-	query := insertReq{
-		script: "create_fleet",
-		args:   []interface{}{*fleet},
+	query := db.InsertReq{
+		Script: "create_fleet",
+		Args:   []interface{}{fleet},
 	}
 
-	err = p.insertToDB(query)
+	err = p.proxy.InsertToDB(query)
 
 	// Check for errors.
 	if err != nil {
-		return fmt.Errorf("Could not import universe \"%s\" (err: %v)", uni.Name, err)
+		p.trace(logger.Error, fmt.Sprintf("Could not create fleet in \"%s\" (err: %v)", fleet.Universe, err))
+		return err
 	}
+
+	p.trace(logger.Notice, fmt.Sprintf("Created new fleet \"%s\" in \"%s\" targetting \"%s\"", fleet.ID, uni.ID, fleet.Target))
 
 	return nil
 }
@@ -164,43 +193,49 @@ func (p *FleetProxy) Create(fleet *Fleet) error {
 // that the starting position is valid compared to the actual
 // dimensions of the universe and that the fleet exists.
 //
+// The `fleetID` fleet describes the identifier of the fleet
+// to which this component should be assigned.
+//
 // The `comp` defines the fleet component to create.
 //
 // Returns any error in case the component cannot be added to
 // the fleet for some reasons.
-func (p *FleetProxy) CreateComponent(comp *FleetComponent) error {
+func (p *FleetProxy) CreateComponent(fleetID string, comp model.Component) error {
 	// Assign a valid identifier if this is not already the case.
 	if comp.ID == "" {
 		comp.ID = uuid.New().String()
 	}
 
 	// Fetch the fleet related to this component.
-	fleet, err := p.fetchFleet(comp.FleetID)
+	fleet, err := model.NewFleetFromDB(fleetID, p.data)
 	if err != nil {
-		return fmt.Errorf("Could not create fleet component for fleet \"%s\" (err: %v)", comp.FleetID, err)
+		p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" to create component for \"%s\" (err: %v)", fleetID, comp.Player, err))
+		return err
 	}
 
-	// Fetch the player related to the fleet component.
-	player, err := p.fetchPlayer(comp.PlayerID)
+	// Fetch the universe related to this fleet.
+	uni, err := model.NewUniverseFromDB(fleet.Universe, p.data)
 	if err != nil {
-		return fmt.Errorf("Could not create fleet component for fleet \"%s\" (err: %v)", comp.FleetID, err)
-	}
-
-	// Fetch the universe related to the fleet to create.
-	uni, err := p.fetchUniverse(fleet.UniverseID)
-	if err != nil {
-		return fmt.Errorf("Could not create fleet component for fleet \"%s\" (err: %v)", comp.ID, err)
+		p.trace(logger.Error, fmt.Sprintf("Unable to fetch universe \"%s\" to create component for \"%s\" in \"%s\"", fleet.Universe, comp.Player, fleetID, err))
+		return err
 	}
 
 	// Check validity of the input fleet component.
-	if !comp.valid(uni) {
-		return fmt.Errorf("Could not create fleet component for fleet \"%s\", some properties are invalid", comp.FleetID)
+	if !comp.Valid(uni) {
+		return model.ErrInvalidFleetComponent
+	}
+
+	// Fetch the player related to the component.
+	player, err := model.NewPlayerFromDB(comp.Player, p.data)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Unable to fetch player \"%s\" to create component for \"%s\" err: %v)", comp.Player, fleetID, err))
+		return err
 	}
 
 	// In case the player does not belong to the same universe
 	// as the fleet, this is a problem.
-	if uni.ID != player.UniverseID {
-		return fmt.Errorf("Could not create fleet component for fleet \"%s\", player belongs to \"%s\" but fleet is in \"%s\"", comp.FleetID, player.UniverseID, uni.ID)
+	if uni.ID != player.Universe {
+		return ErrPlayerNotInUniverse
 	}
 
 	// Convert the input ships to something that can be directly
@@ -217,20 +252,23 @@ func (p *FleetProxy) CreateComponent(comp *FleetComponent) error {
 	}
 
 	// Create the query and execute it.
-	query := insertReq{
-		script: "create_fleet_component",
-		args: []interface{}{
+	query := db.InsertReq{
+		Script: "create_fleet_component",
+		Args: []interface{}{
 			comp,
 			shipsForDB,
 		},
 	}
 
-	err = p.insertToDB(query)
+	err = p.proxy.InsertToDB(query)
 
 	// Check for errors.
 	if err != nil {
-		return fmt.Errorf("Could not import fleet component for fleet \"%s\" (err: %s)", comp.FleetID, err)
+		p.trace(logger.Error, fmt.Sprintf("Could not create component for \"%s\" in \"%s\" (err: %v)", comp.Player, fleet.ID, err))
+		return err
 	}
+
+	p.trace(logger.Notice, fmt.Sprintf("Created new fleet component \"%s\" for \"%s\" in \"%s\"", comp.ID, comp.Player, fleet.ID))
 
 	return nil
 }

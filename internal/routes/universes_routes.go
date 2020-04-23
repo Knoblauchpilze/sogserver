@@ -70,6 +70,8 @@ func (s *Server) createUniverse() http.HandlerFunc {
 				}
 
 				// Successfully created a universe.
+				// TODO: We should restore the fact that the `uni.ID` might be changed by the
+				// `Create` method and thus refer to invalid data at this point.
 				resources = append(resources, uni.ID)
 			}
 

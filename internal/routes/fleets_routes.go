@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"oglike_server/internal/data"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
-	"oglike_server/pkg/logger"
 )
 
 // listFleets :
@@ -42,16 +41,17 @@ func (s *Server) listFleets() http.HandlerFunc {
 // the requests to create fleets.
 //
 // Returns the handler to execute to perform said requests.
-func (s *server) createFleet() http.HandlerFunc {
+func (s *Server) createFleet() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewCreateResourceEndpoint("fleets")
 
 	// Configure the endpoint.
-	ed.WithDataKey("fleet-data")
+	ed.WithDataKey("fleet-data").WithModule("fleets")
 	ed.WithCreationFunc(
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and
 			// create fleets from it.
+			var fleet model.Fleet
 			resources := make([]string, 0)
 
 			// Prevent request with no data.
@@ -62,16 +62,20 @@ func (s *server) createFleet() http.HandlerFunc {
 			// Iterate over the provided data to create the corresponding
 			// fleets in the main DB.
 			for _, rawData := range input.Data {
-				res, err := createFleet(rawData, s.fleets)
-
+				// Try to unmarshal the data into a valid `Fleet` struct.
+				err := json.Unmarshal([]byte(rawData), &fleet)
 				if err != nil {
-					s.log.Trace(logger.Error, fmt.Sprintf("Caught error while creating fleet (err: %v)", err))
-					continue
+					return resources, ErrInvalidData
+				}
+
+				// Create the fleet.
+				err = s.fleets.Create(fleet)
+				if err != nil {
+					return resources, ErrDBError
 				}
 
 				// Successfully created a fleet.
-				s.log.Trace(logger.Notice, fmt.Sprintf("Created new fleet \"%s\"", res))
-				resources = append(resources, res)
+				resources = append(resources, fleet.ID)
 			}
 
 			// Return the path to the resources created during the process.
@@ -87,16 +91,17 @@ func (s *server) createFleet() http.HandlerFunc {
 // the requests to create fleet components.
 //
 // Returns the handler to execute to perform said requests.
-func (s *server) createFleetComponent() http.HandlerFunc {
+func (s *Server) createFleetComponent() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewCreateResourceEndpoint("fleets")
 
 	// Configure the endpoint.
-	ed.WithDataKey("fleet-data")
+	ed.WithDataKey("fleet-data").WithModule("fleets")
 	ed.WithCreationFunc(
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and
 			// create fleets from it.
+			var comp model.Component
 			resources := make([]string, 0)
 
 			// Prevent request with no data.
@@ -114,20 +119,23 @@ func (s *server) createFleetComponent() http.HandlerFunc {
 			fleetID := input.RouteElems[0]
 
 			for _, rawData := range input.Data {
-				res, err := createFleetComponent(rawData, fleetID, s.fleets)
-
+				// Try to unmarshal the data into a valid `Component` struct.
+				err := json.Unmarshal([]byte(rawData), &comp)
 				if err != nil {
-					s.log.Trace(logger.Error, fmt.Sprintf("Caught error while creating fleet component (err: %v)", err))
-					continue
+					return resources, ErrInvalidData
+				}
+
+				// Create the fleet component.
+				err = s.fleets.CreateComponent(fleetID, comp)
+				if err != nil {
+					return resources, ErrDBError
 				}
 
 				// Successfully created a fleet component: we should prefix
 				// the resource by a `components/` string in order to have
 				// consistency with the input route. We should also prefix
 				// with the fleet's identifier.
-				fullRes := fmt.Sprintf("%s/components/%s", fleetID, res)
-
-				s.log.Trace(logger.Notice, fmt.Sprintf("Created new fleet component \"%s\" for \"%s\"", res, fleetID))
+				fullRes := fmt.Sprintf("%s/components/%s", fleetID, comp.ID)
 				resources = append(resources, fullRes)
 			}
 
@@ -137,81 +145,4 @@ func (s *server) createFleetComponent() http.HandlerFunc {
 	)
 
 	return ed.ServeRoute(s.log)
-}
-
-// createFleet :
-// Used to perform the creation of a fleet from the data described
-// in input. We will unmarshal the input data into a fleet and then
-// call the dedicated handler on the `proxy` to perform the creation
-// of the fleet.
-// In case the creation cannot be performed an empty string is used
-// as return value.
-//
-// The `raw` represents the data assumed to be a fleet. We will try
-// to unmarshal it into a `Fleet` structure and perform the insertion
-// in the DB.
-//
-// The `proxy` defines the fleets proxy to use to request the DB to
-// insert the data.
-//
-// Returns the identifier of the fleet that was created along with
-// any errors.
-func createFleet(raw string, proxy data.FleetProxy) (string, error) {
-	// Try to unmarshal the data into a valid `Fleet` struct.
-	var fleet data.Fleet
-
-	err := json.Unmarshal([]byte(raw), &fleet)
-	if err != nil {
-		return "", fmt.Errorf("Could not create fleet from data \"%s\" (err: %v)", raw, err)
-	}
-
-	// Create the fleet.
-	err = proxy.Create(&fleet)
-	if err != nil {
-		return "", fmt.Errorf("Could not register fleet from data \"%s\" (err: %v)", raw, err)
-	}
-
-	return fleet.ID, nil
-}
-
-// createFleetComponent :
-// Similar to the `createFleet` but used to create a fleet component
-// rather than a complete fleet. The component should refer to an
-// existing fleet which will be verified before inserting the input
-// data into the DB.
-// The user should provide the fleet identifier linked to this comp
-// so as to force it in the input data.
-//
-// The `raw` represents the data assumed to be a fleet component. We
-// will try to unmarshal it into the relevant structure and perform
-// the insertion in the DB.
-//
-// The `fleetID` defines the identifier of the fleet for which this
-// component should be created. This will be forced in the data to
-// retrieve from the route.
-//
-// The `proxy` defines the fleets proxy to use to request the DB to
-// insert the data.
-//
-// Returns the identifier of the fleet component that was created
-// along with any errors.
-func createFleetComponent(raw string, fleetID string, proxy data.FleetProxy) (string, error) {
-	// Try to unmarshal the data into a valid `FleetComponent` struct.
-	var comp data.FleetComponent
-
-	err := json.Unmarshal([]byte(raw), &comp)
-	if err != nil {
-		return "", fmt.Errorf("Could not create fleet component from data \"%s\" (err: %v)", raw, err)
-	}
-
-	// Force the fleet's identifier.
-	comp.FleetID = fleetID
-
-	// Create the fleet component.
-	err = proxy.CreateComponent(&comp)
-	if err != nil {
-		return "", fmt.Errorf("Could not register fleet component from data \"%s\" (err: %v)", raw, err)
-	}
-
-	return comp.ID, nil
 }

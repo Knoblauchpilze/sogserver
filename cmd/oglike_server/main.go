@@ -50,6 +50,9 @@ import (
 //    the planets.
 //  - a `Planet` struct more refined that what we have. It would include
 //    the upgrade actions (and potentially the fleets).
+// TODO: Some scripts might not work anymore due to changes in the way
+// we have some Coordinates in the structure rather than some actual
+// `Galaxy`, `System` and `Position` values.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

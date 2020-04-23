@@ -156,7 +156,7 @@ func (f *Fleet) Valid(uni Universe) bool {
 		f.Comps.valid(uni)
 }
 
-// valid :
+// Valid :
 // Used to determine whether the fleet component defined
 // by this element is valid or not. We will check that
 // the starting coordinate are valid and the each ship
@@ -166,7 +166,7 @@ func (f *Fleet) Valid(uni Universe) bool {
 // used to verify the starting position of this element.
 //
 // Returns `true` if the component is valid.
-func (fc Component) valid(uni Universe) bool {
+func (fc Component) Valid(uni Universe) bool {
 	return validUUID(fc.ID) &&
 		validUUID(fc.Player) &&
 		fc.Origin.valid(uni.GalaxiesCount, uni.GalaxySize, uni.SolarSystemSize) &&
@@ -185,7 +185,7 @@ func (fc Component) valid(uni Universe) bool {
 // valid.
 func (fcs Components) valid(uni Universe) bool {
 	for _, comp := range fcs {
-		if !comp.valid(uni) {
+		if !comp.Valid(uni) {
 			return false
 		}
 	}

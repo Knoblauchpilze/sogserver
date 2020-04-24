@@ -277,7 +277,6 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"id",
 			"name",
 			"uni",
 			"objective",
@@ -307,7 +306,6 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 	var g, s, p int
 
 	err = dbRes.Scan(
-		&f.ID,
 		&f.Name,
 		&f.Universe,
 		&f.Objective,

@@ -126,7 +126,6 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"id",
 			"name",
 			"economic_speed",
 			"fleet_speed",
@@ -157,7 +156,6 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 
 	// Scan the universe's data.
 	err = dbRes.Scan(
-		&u.ID,
 		&u.Name,
 		&u.EcoSpeed,
 		&u.FleetSpeed,
@@ -223,7 +221,6 @@ func (u *Universe) UsedCoords(proxy db.Proxy) (map[int]Coordinate, error) {
 	}
 
 	// Traverse all the coordinates and populate the list.
-
 	coords := make(map[int]Coordinate)
 	var coord Coordinate
 

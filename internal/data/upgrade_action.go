@@ -147,99 +147,6 @@ type UpgradeAction interface {
 	UpdateCompletionTime(bm buildingModule) error
 }
 
-// BaseUpgradeAction :
-// Provide the base building block for an action in the game.
-// Such an action always has a planet associated to it where
-// it will take place along with some way of identifying it.
-//
-// The `ID` defines an identifier for this action. It is used
-// to populate the `ID` field when inserting the action in
-// the DB.
-//
-// The `PlanetID` defines an identifier for the planet this
-// action is related to. Basically any construction action
-// should be started from somewhere and this is defined by
-// this attribute.
-//
-// The `ElementID` defines the element on which this action
-// is meant to have an effect. Typically it can refer to the
-// ID of an in-game building, technology, etc. which needs
-// to be upgraded. Depending on the precise type of this
-// element the related DB table will vary.
-type BaseUpgradeAction struct {
-	ID        string `json:"id"`
-	PlanetID  string `json:"planet"`
-	ElementID string `json:"element"`
-}
-
-// valid :
-// Allows to make sure that the upgrade action is valid by
-// checking that all the internal fields have values that
-// are at least not obviously wrong.
-//
-// Returns `true` if the action seems valid.
-func (a *BaseUpgradeAction) valid() bool {
-	return validUUID(a.ID) &&
-		validUUID(a.PlanetID) &&
-		validUUID(a.ElementID)
-}
-
-// GetPlanet :
-// Implementation of part of the `UpgradeAction` interface
-// to provide the planet related to this action.
-//
-// Returns a string representing the identifier of the
-// planet onto which this action should be launched.
-func (a *BaseUpgradeAction) GetPlanet() string {
-	return a.PlanetID
-}
-
-// String :
-// Implementation of the `Stringer` interface to allow to
-// easily display this action if needed.
-//
-// Returns the strig describing this action.
-func (a *BaseUpgradeAction) String() string {
-	return fmt.Sprintf("\"%s\"", a.PlanetID)
-}
-
-// ProgressAction :
-// Specialization of the `UpgradeAction` to handle the case
-// of action related to an element that can be upgraded. It
-// typically applies to buildings and technologies. Compared
-// to the base upgrade action this type of element has two
-// levels (the current one and the desired one) and a way to
-// compute the total cost needed for the upgrade.
-//
-// The `CurrentLevel` represents the current level of the
-// element to upgrade.
-//
-// The `DesiredLevel` represents the desired level of the
-// element after the upgrade action is complete.
-//
-// The `CompletionTime` will be computed from the cost of
-// the action and the facilities existing on the planet
-// where the action is triggered.
-type ProgressAction struct {
-	CurrentLevel   int       `json:"current_level"`
-	DesiredLevel   int       `json:"desired_level"`
-	CompletionTime time.Time `json:"completion_time"`
-
-	BaseUpgradeAction
-}
-
-// valid :
-// Used to refine the behavior of the base upgrade action
-// to make sure that the levels provided for this action
-// are correct.
-//
-// Returns `true` if this action is not obviously wrong.
-func (a *ProgressAction) valid() bool {
-	return a.BaseUpgradeAction.valid() &&
-		a.CurrentLevel >= 0 &&
-		a.DesiredLevel >= 0
-}
-
 // computeCost :
 // Used to compute the construction cost of the action
 // based on the level it aims at reaching and the total
@@ -304,25 +211,6 @@ func (a *ProgressAction) Validate(tools validationTools) (bool, error) {
 	return meet, nil
 }
 
-// BuildingAction :
-// Used as a way to refine the `ProgressAction` for the
-// specific case of buildings. It mostly add the info to
-// compute the completion time for a building.
-type BuildingAction struct {
-	ProgressAction
-}
-
-// valid :
-// Used to refine the behavior of the progress action to
-// make sure that the levels provided for this action are
-// correct.
-//
-// Returns `true` if this action is not obviously wrong.
-func (a *BuildingAction) valid() bool {
-	return a.ProgressAction.valid() &&
-		math.Abs(float64(a.DesiredLevel)-float64(a.CurrentLevel)) == 1
-}
-
 // Validate :
 // Refinement of the `ProgressAction` method in order
 // to add the verification that the number of fields
@@ -385,25 +273,6 @@ func (a *BuildingAction) UpdateCompletionTime(bm buildingModule) error {
 	return nil
 }
 
-// TechnologyAction :
-// Used as a way to refine the `ProgressAction` for the
-// specific case of technologies. It mostly add the info
-// to compute the completion time for a technology.
-type TechnologyAction struct {
-	ProgressAction
-}
-
-// valid :
-// Used to refine the behavior of the progress action to
-// make sure that the levels provided for this action are
-// correct.
-//
-// Returns `true` if this action is not obviously wrong.
-func (a *TechnologyAction) valid() bool {
-	return a.ProgressAction.valid() &&
-		a.DesiredLevel == a.CurrentLevel+1
-}
-
 // UpdateCompletionTime :
 // Implementation of the `UpgradeAction` to allow the
 // computation of a valid completion time for the tech
@@ -435,46 +304,6 @@ func (a *TechnologyAction) UpdateCompletionTime(bm buildingModule) error {
 	a.CompletionTime = time.Now().Add(t)
 
 	return nil
-}
-
-// FixedAction :
-// Specialization of the `UpgradeAction` to provide an
-// action that concerns a unit-like element. This type
-// of element cannot be upgraded and is rather built
-// in a certain amount on a planet.
-//
-// The `Amount` defines the number of the unit to be
-// produced by this action.
-//
-// The `Remaining` defines how many elements are still
-// to be built at the moment of the analysis.
-//
-// The `CompletionTime`  defines the time it takes to
-// complete the construction of a single unit of this
-// element. The remaining time is thus given by the
-// following: `Remaining * CompletionTime`. Note that
-// it is a bit different to what is provided by the
-// `ProgressAction` where the completion time is some
-// absolute time at which the action is finished.
-type FixedAction struct {
-	Amount         int               `json:"amount"`
-	Remaining      int               `json:"remaining"`
-	CompletionTime duration.Duration `json:"completion_time"`
-
-	BaseUpgradeAction
-}
-
-// valid :
-// Used to refine the behavior of the base upgrade action
-// to make sure that the amounts provided for this action
-// are correct.
-//
-// Returns `true` if this action is not obviously wrong.
-func (a *FixedAction) valid() bool {
-	return a.BaseUpgradeAction.valid() &&
-		a.Amount > 0 &&
-		a.Remaining >= 0 &&
-		a.Remaining <= a.Amount
 }
 
 // computeTotalCost :

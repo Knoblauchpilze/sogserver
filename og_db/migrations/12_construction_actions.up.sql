@@ -42,9 +42,9 @@ CREATE TRIGGER update_buildings_action_creation BEFORE INSERT ON construction_ac
 -- Create the table defining technologies research actions.
 CREATE TABLE construction_actions_technologies (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  planet uuid NOT NULL,
   player uuid NOT NULL,
   technology uuid NOT NULL,
-  planet uuid NOT NULL,
   current_level integer NOT NULL,
   desired_level integer NOT NULL,
   completion_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

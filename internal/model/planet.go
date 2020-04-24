@@ -755,3 +755,23 @@ func (p *Planet) fetchDefenses(data Instance) error {
 
 	return nil
 }
+
+// GetBuilding :
+// Retrieves the building from the input identifier.
+//
+// The `ID` defines the identifier of the building
+// to fetch from the planet.
+//
+// Returns the building description corresponding
+// to the input identifier along with any error.
+func (p *Planet) GetBuilding(ID string) (BuildingInfo, error) {
+	// Traverse the list of buildings attached to the
+	// planet and search for the input ID.
+	for _, b := range p.Buildings {
+		if b.ID == ID {
+			return b, nil
+		}
+	}
+
+	return BuildingInfo{}, ErrInvalidID
+}

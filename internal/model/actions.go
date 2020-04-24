@@ -48,6 +48,11 @@ var ErrInvalidAction = fmt.Errorf("Invalid action with no identifier")
 // input is not unique in the DB.
 var ErrDuplicatedAction = fmt.Errorf("Invalid not unique action")
 
+// ErrInvalidDuration :
+// Used indicate that the duration for the completion time
+// of an action is not valid.
+var ErrInvalidDuration = fmt.Errorf("Cannot convert completion time to duration")
+
 // Valid :
 // Used to deterimne whether this action is obviously
 // not valid or not. This allows to prevent some basic
@@ -55,7 +60,7 @@ var ErrDuplicatedAction = fmt.Errorf("Invalid not unique action")
 // an action in the DB.
 //
 // Returns `true` if the action is valid.
-func (a Action) Valid() bool {
+func (a *Action) Valid() bool {
 	return validUUID(a.ID) &&
 		validUUID(a.Planet) &&
 		validUUID(a.Element)
@@ -93,7 +98,7 @@ type ProgressAction struct {
 // that both levels are at least positive.
 //
 // Returns `true` if this action is valid.
-func (a ProgressAction) valid() bool {
+func (a *ProgressAction) valid() bool {
 	return a.Action.Valid() &&
 		a.CurrentLevel >= 0 &&
 		a.DesiredLevel >= 0
@@ -132,7 +137,7 @@ type FixedAction struct {
 // for this action are valid.
 //
 // Returns `true` if this action is not obviously wrong.
-func (a FixedAction) Valid() bool {
+func (a *FixedAction) Valid() bool {
 	return a.Action.Valid() &&
 		a.Amount > 0 &&
 		a.Remaining >= 0 &&
@@ -205,7 +210,7 @@ type StorageEffect struct {
 // correct.
 //
 // Returns `true` if this action is not obviously wrong.
-func (a BuildingAction) Valid() bool {
+func (a *BuildingAction) Valid() bool {
 	return a.ProgressAction.valid() &&
 		math.Abs(float64(a.DesiredLevel)-float64(a.CurrentLevel)) == 1
 }
@@ -224,7 +229,7 @@ type TechnologyAction struct {
 // correct.
 //
 // Returns `true` if this action is not obviously wrong.
-func (a TechnologyAction) Valid() bool {
+func (a *TechnologyAction) Valid() bool {
 	return a.ProgressAction.Valid() &&
 		a.DesiredLevel == a.CurrentLevel+1
 }
@@ -582,6 +587,80 @@ func NewShipActionFromDB(ID string, data Instance) (ShipAction, error) {
 	a.FixedAction, err = newFixedActionFromDB(ID, data, "construction_actions_ships")
 
 	return a, err
+}
+
+// ConsolidateCompletion :
+// Used to update the completion time required for this
+// action to complete based on the amount of unit to be
+// produced.
+//
+// The `data` allows to get information on the buildings
+// that will be used to compute the completion time.
+//
+// The `planet` represents the planet from
+//
+// Returns any error.
+func (sa *ShipAction) ConsolidateCompletion(data Instance) error {
+	// First, we need to determine the cost for each of
+	// the individual unit to produce.
+	sd, err := data.Ships.getShipFromID(sa.Element)
+	if err != nil {
+		return err
+	}
+
+	// Retrieve the planet associated to this action.
+	planet, err := NewPlanetFromDB(sa.Element, data)
+	if err != nil {
+		return err
+	}
+
+	costs := sd.Cost.ComputeCost(sa.Remaining)
+
+	// Retrieve the level of the shipyard and the nanite
+	// factory: these are the two buildings that have an
+	// influence on the completion time.
+	shipyardID, err := data.Buildings.getIDFromName("shipyard")
+	if err != nil {
+		return err
+	}
+	naniteID, err := data.Buildings.getIDFromName("nanite factory")
+	if err != nil {
+		return err
+	}
+
+	shipyard, err := planet.GetBuilding(shipyardID)
+	if err != nil {
+		return err
+	}
+	nanite, err := planet.GetBuilding(naniteID)
+	if err != nil {
+		return err
+	}
+
+	// Retrieve the cost in metal and crystal as it is
+	// the only costs that matters.
+	metalDesc, err := data.Resources.GetResourceFromName("metal")
+	if err != nil {
+		return err
+	}
+	crystalDesc, err := data.Resources.GetResourceFromName("crystal")
+	if err != nil {
+		return err
+	}
+
+	m := costs[metalDesc.ID]
+	c := costs[crystalDesc.ID]
+
+	hours := float64(m+c) / (2500.0 * (1.0 + float64(shipyard.Level)) * math.Pow(2.0, float64(nanite.Level)))
+
+	t, err := time.ParseDuration(fmt.Sprintf("%fh", hours))
+	if err != nil {
+		return ErrInvalidDuration
+	}
+
+	sa.CompletionTime = duration.Duration{t}
+
+	return nil
 }
 
 // NewDefenseActionFromDB :

@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"math"
+	"oglike_server/pkg/db"
 	"oglike_server/pkg/duration"
 	"time"
 )
@@ -36,6 +37,16 @@ type Action struct {
 	Planet  string `json:"planet"`
 	Element string `json:"element"`
 }
+
+// ErrInvalidAction :
+// Used to indicate that the action provided in input is
+// not valid.
+var ErrInvalidAction = fmt.Errorf("Invalid action with no identifier")
+
+// ErrDuplicatedAction :
+// Used to indicate that the action's identifier provided
+// input is not unique in the DB.
+var ErrDuplicatedAction = fmt.Errorf("Invalid not unique action")
 
 // Valid :
 // Used to deterimne whether this action is obviously
@@ -132,8 +143,60 @@ func (a FixedAction) Valid() bool {
 // Used as a way to refine the `ProgressAction` for the
 // specific case of buildings. It mostly add the info
 // to compute the completion time for a building.
+//
+// The `ProdEffects` describes the production changes
+// to apply in case this action completes. It will used
+// to add this value to the production of said resource
+// on the planet where this action is performed.
+//
+// The `StorageEffects` are similar to the production
+// effects except it applies to the storage capacities
+// of a resource on a planet.
 type BuildingAction struct {
 	ProgressAction
+
+	Production []ProductionEffect `json:"production_effects"`
+	Storage    []StorageEffect    `json:"storage_effects"`
+}
+
+// ProductionEffect :
+// Defines a production effect that a building upgrade
+// action can have on the production of a planet. It is
+// used to regroup the resource and the value of the
+// change brought by the building upgrade action.
+//
+// The `Action` defines the identifier of the action to
+// which this effect is linked.
+//
+// The `Resource` defines the resource which is changed
+// by the building upgrade action.
+//
+// The `Production` defines the actual effect of the
+// upgrade action. This value should be added to the
+// existing production for the resource on the planet
+// in case the action completes.
+type ProductionEffect struct {
+	Resource   string  `json:"resource"`
+	Production float32 `json:"production_change"`
+}
+
+// StorageEffect :
+// Defines a storage effect that a building upgrade
+// action can have on the capacity of a resource that
+// can be stored on a planet. It is used to regroup
+// the resource and the value of the change brought
+// by the building upgrade action.
+//
+// The `Resource` defines the resource which is changed
+// by the building upgrade action.
+//
+// The `Storage` defines the actual effect of the
+// upgrade action. This value should be added to the
+// existing storage capacity for the resource if the
+// upgrade action completes.
+type StorageEffect struct {
+	Resource string  `json:"res"`
+	Storage  float32 `json:"capacity_change"`
 }
 
 // Valid :
@@ -181,6 +244,148 @@ type DefenseAction struct {
 	FixedAction
 }
 
+// newProgressActionFromDB :
+// Used to query the progress action referred by the
+// input identifier assuming it is contained in the
+// provided table.
+//
+// The `ID` defines the identifier of the action to
+// fetch from the DB.
+//
+// The `data` allows to actually access to the data
+// in the DB.
+//
+// The `table` defines the name of the table to be
+// queried for this action.
+//
+// Returns the progress action along with any error.
+func newProgressActionFromDB(ID string, data Instance, table string) (ProgressAction, error) {
+	// Create the action.
+	a := ProgressAction{
+		Action: Action{
+			ID: ID,
+		},
+	}
+
+	// Consistency.
+	if a.ID == "" {
+		return a, ErrInvalidAction
+	}
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"planet",
+			"element",
+			"current_level",
+			"desired_level",
+			"completion_time",
+		},
+		Table: table,
+		Filters: []db.Filter{
+			{
+				Key:    "id",
+				Values: []string{a.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return a, err
+	}
+
+	// Scan the action's data.
+	err = dbRes.Scan(
+		&a.Planet,
+		&a.Element,
+		&a.CurrentLevel,
+		&a.DesiredLevel,
+		&a.CompletionTime,
+	)
+
+	// Make sure that it's the only action.
+	if dbRes.Next() {
+		return a, ErrDuplicatedAction
+	}
+
+	return a, nil
+}
+
+// newFixedActionFromDB :
+// Similar to the `newProgressActionFromDB` but it
+// is used to initialize the fields defined by a
+// `FixedAction` data structure.
+//
+// The `ID` defines the identifier of the action to
+// fetch from the DB.
+//
+// The `data` allows to actually access to the data
+// in the DB.
+//
+// The `table` defines the name of the table to be
+// queried for this action.
+//
+// Returns the progress action along with any error.
+func newFixedActionFromDB(ID string, data Instance, table string) (FixedAction, error) {
+	// Create the action.
+	a := FixedAction{
+		Action: Action{
+			ID: ID,
+		},
+	}
+
+	// Consistency.
+	if a.ID == "" {
+		return a, ErrInvalidAction
+	}
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"planet",
+			"element",
+			"amount",
+			"remaining",
+			"completion_time",
+		},
+		Table: table,
+		Filters: []db.Filter{
+			{
+				Key:    "id",
+				Values: []string{a.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return a, err
+	}
+
+	// Scan the action's data.
+	err = dbRes.Scan(
+		&a.Planet,
+		&a.Element,
+		&a.Amount,
+		&a.Remaining,
+		&a.CompletionTime,
+	)
+
+	// Make sure that it's the only action.
+	if dbRes.Next() {
+		return a, ErrDuplicatedAction
+	}
+
+	return a, nil
+}
+
 // NewBuildingActionFromDB :
 // Used to query the building action referred by the
 // input identifier from the DB. It assumes that the
@@ -190,13 +395,143 @@ type DefenseAction struct {
 // fetch from the DB.
 //
 // The `data` allows to actually access to the data
-// in the DD.
+// in the DB.
 //
 // Returns the corresponding building action along
 // with any error.
 func NewBuildingActionFromDB(ID string, data Instance) (BuildingAction, error) {
-	// TODO: Handle this.
-	return BuildingAction{}, fmt.Errorf("Not implemented")
+	// Create the return value and fetch the base
+	// data for this action.
+	ba := BuildingAction{}
+	ba.ID = ID
+
+	var err error
+	ba.ProgressAction, err = newProgressActionFromDB(ID, data, "construction_actions_buildings")
+
+	if err != nil {
+		return ba, err
+	}
+
+	err = ba.fetchProductionEffects(data)
+	if err != nil {
+		return ba, err
+	}
+
+	err = ba.fetchStorageEffects(data)
+
+	return ba, err
+}
+
+// fetchProductionEffects :
+// Used to fetch the effects related to this action
+// regarding production capacities from the DB.
+//
+// The `data` provide a way to access to the DB.
+//
+// Returns any error.
+func (a *BuildingAction) fetchProductionEffects(data Instance) error {
+	// Consistency.
+	if a.ID == "" {
+		return ErrInvalidAction
+	}
+
+	a.Production = make([]ProductionEffect, 0)
+
+	query := db.QueryDesc{
+		Props: []string{
+			"res",
+			"new_production",
+		},
+		Table: "construction_actions_buildings_production_effects",
+		Filters: []db.Filter{
+			{
+				Key:    "action",
+				Values: []string{a.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+
+	// Populate the return value.
+	var pe ProductionEffect
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&pe.Resource,
+			&pe.Production,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		a.Production = append(a.Production, pe)
+	}
+
+	return nil
+}
+
+// fetchStorageEffects :
+// Used to fetch the effects related to this action
+// regarding storage capacities from the DB.
+//
+// The `data` provide a way to access to the DB.
+//
+// Returns any error.
+func (a *BuildingAction) fetchStorageEffects(data Instance) error {
+	// Consistency.
+	if a.ID == "" {
+		return ErrInvalidAction
+	}
+
+	a.Storage = make([]StorageEffect, 0)
+
+	query := db.QueryDesc{
+		Props: []string{
+			"res",
+			"new_storage_capacity",
+		},
+		Table: "construction_actions_buildings_storage_effects",
+		Filters: []db.Filter{
+			{
+				Key:    "action",
+				Values: []string{a.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+
+	// Populate the return value.
+	var se StorageEffect
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&se.Resource,
+			&se.Storage,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		a.Storage = append(a.Storage, se)
+	}
+
+	return nil
 }
 
 // NewTechnologyActionFromDB :
@@ -214,8 +549,15 @@ func NewBuildingActionFromDB(ID string, data Instance) (BuildingAction, error) {
 // Returns the corresponding technology action
 // along with any error.
 func NewTechnologyActionFromDB(ID string, data Instance) (TechnologyAction, error) {
-	// TODO: Handle this.
-	return TechnologyAction{}, fmt.Errorf("Not implemented")
+	// Create the return value and fetch the base
+	// data for this action.
+	ta := TechnologyAction{}
+	ta.ID = ID
+
+	var err error
+	ta.ProgressAction, err = newProgressActionFromDB(ID, data, "construction_actions_technologies")
+
+	return ta, err
 }
 
 // NewShipActionFromDB :
@@ -232,8 +574,14 @@ func NewTechnologyActionFromDB(ID string, data Instance) (TechnologyAction, erro
 // Returns the corresponding ship action along with
 // any error.
 func NewShipActionFromDB(ID string, data Instance) (ShipAction, error) {
-	// TODO: Handle this.
-	return ShipAction{}, fmt.Errorf("Not implemented")
+	// Create the action.
+	a := ShipAction{}
+	a.ID = ID
+
+	var err error
+	a.FixedAction, err = newFixedActionFromDB(ID, data, "construction_actions_ships")
+
+	return a, err
 }
 
 // NewDefenseActionFromDB :
@@ -250,6 +598,12 @@ func NewShipActionFromDB(ID string, data Instance) (ShipAction, error) {
 // Returns the corresponding defense action along
 // with any error.
 func NewDefenseActionFromDB(ID string, data Instance) (DefenseAction, error) {
-	// TODO: Handle this.
-	return DefenseAction{}, fmt.Errorf("Not implemented")
+	// Create the action.
+	a := DefenseAction{}
+	a.ID = ID
+
+	var err error
+	a.FixedAction, err = newFixedActionFromDB(ID, data, "construction_actions_defenses")
+
+	return a, err
 }

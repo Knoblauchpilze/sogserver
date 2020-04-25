@@ -68,16 +68,6 @@ type commonProxy struct {
 	data   model.Instance
 }
 
-// ErrInvalidResource :
-// Used in case the resource requested to lock is not
-// valid.
-var ErrInvalidResource = fmt.Errorf("Invalid resource provided as lock")
-
-// ErrLock :
-// Used in case an error occurs when interacting with
-// a lock.
-var ErrLock = fmt.Errorf("Error while using resource lock")
-
 // ErrInvalidOperation :
 // Used in case the operation requested to be performed
 // while a lock is held fails.
@@ -142,19 +132,19 @@ func (cp *commonProxy) trace(level logger.Severity, msg string) {
 //
 // Returns any error occurring during the process.
 func (cp commonProxy) performWithLock(resource string, req db.InsertReq) error {
-	// Prevent invalid resource identifier.
-	if resource == "" {
-		return ErrInvalidResource
+	// Acquire a lock on this resource.
+	resLock, err := cp.lock.Acquire(resource)
+	if err != nil {
+		cp.trace(logger.Error, fmt.Sprintf("Unable to perform query for resource \"%s\" (err: %v)", resource, err))
+
+		return err
 	}
 
-	// Acquire a lock on this resource.
-	resLock := cp.lock.Acquire(resource)
 	defer cp.lock.Release(resLock)
 
 	// Perform the update: we will wrap the function inside
 	// a dedicated handler to make sure that we don't lock
 	// the resource more than necessary.
-	var err error
 	var errRelease error
 	var errExec error
 
@@ -164,7 +154,7 @@ func (cp commonProxy) performWithLock(resource string, req db.InsertReq) error {
 			if rawErr := recover(); rawErr != nil {
 				err = fmt.Errorf("Error occured while executing query (err: %v)", rawErr)
 			}
-			errRelease = resLock.Release()
+			errRelease = resLock.Unlock()
 		}()
 
 		// Perform the update.
@@ -178,7 +168,7 @@ func (cp commonProxy) performWithLock(resource string, req db.InsertReq) error {
 	}
 	if errRelease != nil {
 		cp.trace(logger.Error, fmt.Sprintf("Unable to release locker on \"%s\" propertly (err: %v)", resource, err))
-		return ErrLock
+		return errRelease
 	}
 	if err != nil {
 		cp.trace(logger.Error, fmt.Sprintf("Detected error while performing operation for \"%s\" (err: %v)", resource, err))

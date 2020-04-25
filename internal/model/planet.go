@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"oglike_server/internal/locker"
 	"oglike_server/pkg/db"
 
 	"github.com/google/uuid"
@@ -75,6 +76,14 @@ import (
 //
 // The `DefensesConstruction` defines a similar list for
 // defense systems on this planet.
+//
+// The `mode` defines whether the locker on the planet's
+// resources should be kept as long as this object exist
+// or only during the acquisition of the resources.
+//
+// The `locker` defines the object to use to prevent a
+// concurrent process to access to the resources of the
+// planet.
 type Planet struct {
 	ID                   string           `json:"id"`
 	Player               string           `json:"player"`
@@ -91,6 +100,8 @@ type Planet struct {
 	BuildingsUpgrade     []BuildingAction `json:"buildings_upgrade"`
 	ShipsConstruction    []ShipAction     `json:"ships_construction"`
 	DefensesConstruction []DefenseAction  `json:"defenses_construction"`
+	mode                 accessMode
+	locker               *locker.Lock
 }
 
 // ResourceInfo :
@@ -169,6 +180,18 @@ type DefenseInfo struct {
 	Amount int `json:"amount"`
 }
 
+// accessMode :
+// Describes the possible ways to access to the
+// resources of a planet. This allows to determine
+// when to release the locker on the planet's data.
+type accessMode int
+
+// Define the possible severity level for a log message.
+const (
+	ReadOnly accessMode = iota
+	ReadWrite
+)
+
 // ErrInvalidPlanet :
 // Used to indicate an ill-formed planet with no
 // associated identifier.
@@ -214,7 +237,7 @@ func getPlanetTemperatureAmplitude() int {
 	return 50
 }
 
-// NewPlanetFromDB :
+// newPlanetFromDB :
 // Used to fetch the content of the planet from the
 // input DB and populate all internal fields from it.
 // In case the DB cannot be fetched or some errors
@@ -228,13 +251,20 @@ func getPlanetTemperatureAmplitude() int {
 // The `data` allows to actually perform the DB
 // requests to fetch the planet's data.
 //
+// The `mode` defines the reading mode for the data
+// access for this planet.
+//
 // Returns the planet as fetched from the DB along
 // with any errors.
-func NewPlanetFromDB(ID string, data Instance) (Planet, error) {
+func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) {
 	// Create the planet.
 	p := Planet{
-		ID: ID,
+		ID:   ID,
+		mode: mode,
 	}
+
+	// Acquire the lock on the planet from the DB.
+	p.locker = data.Locker.Acquire(p.ID)
 
 	// Fetch and update upgrade actions for this planet.
 	err := p.fetchBuildingUpgrades(data)
@@ -273,7 +303,64 @@ func NewPlanetFromDB(ID string, data Instance) (Planet, error) {
 		return p, err
 	}
 
+	// Release the locker if needed.
+	if p.mode == ReadOnly {
+		err = p.locker.Unlock()
+
+		return p, err
+	}
+
 	return p, nil
+}
+
+// NewReadOnlyPlanet :
+// Uses internally the `newPlanetFromDB` specifying
+// that the resources are only used for reading mode.
+// This allows to keep the locker to access to the
+// planet's data only a very limited amount of time.
+//
+// The `ID` defines the identifier of the planet to
+// fetch from the DB.
+//
+// The `data` defines a way to access to the DB.
+//
+// Returns the planet fetched from the DB along with
+// any errors.
+func NewReadOnlyPlanet(ID string, data Instance) (Planet, error) {
+	return newPlanetFromDB(ID, data, ReadOnly)
+}
+
+// NewReadWritePlanet :
+// Defines a planet which will be used to modify some
+// of the data associated to it. It indicates that the
+// locker on the planet's resources should be kept for
+// the existence of the planet.
+//
+// The `ID` defines the identifier of the planet to
+// fetch from the DB.
+//
+// The `data` defines a way to access to the DB.
+//
+// Returns the planet fetched from the DB along with
+// any errors.
+func NewReadWritePlanet(ID string, data Instance) (Planet, error) {
+	return newPlanetFromDB(ID, data, ReadWrite)
+}
+
+// Close :
+// Implementation of the `Closer` interface allowing
+// to release the lock this planet may still detain
+// on the DB resources.
+func (p *Planet) Close() error {
+	// Only release the locker in case the access mode
+	// indicates so.
+	var err error
+
+	if p.mode == ReadWrite {
+		err = p.locker.Unlock()
+	}
+
+	return err
 }
 
 // NewPlanet :

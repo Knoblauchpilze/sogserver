@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
+	"oglike_server/internal/locker"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/dispatcher"
@@ -145,6 +146,7 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 		Ships:        sm,
 		Defenses:     dm,
 		Resources:    rm,
+		Locker:       locker.NewConcurrentLocker(log),
 	}
 
 	// Create proxies on composite types.

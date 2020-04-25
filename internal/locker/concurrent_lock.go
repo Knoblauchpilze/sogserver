@@ -84,6 +84,16 @@ type ConcurrentLocker struct {
 	cout           logger.Logger
 }
 
+// ErrInvalidResource :
+// Used in case the resource requested to lock is not
+// valid.
+var ErrInvalidResource = fmt.Errorf("Invalid resource provided as lock")
+
+// ErrLock :
+// Used in case an error occurs when interacting with
+// a lock.
+var ErrLock = fmt.Errorf("Error while using resource lock")
+
 // Lock :
 // Allows to protect the access to a single resource
 // by providing a way for concurrent clients to wait
@@ -225,11 +235,16 @@ func NewConcurrentLocker(log logger.Logger) *ConcurrentLocker {
 // The `resource` defines the name of the resource for which
 // a locker should be acquired.
 //
-// Returns the locker acquired for this resource.
-func (cl *ConcurrentLocker) Acquire(resource string) *Lock {
+// Returns the locker acquired for this resource along with
+// any error.
+func (cl *ConcurrentLocker) Acquire(resource string) (*Lock, error) {
 	// Acquire the top level lock and make sure that we release
 	// it whatever happens.
 	var l *Lock
+
+	if resource == "" {
+		return nil, ErrInvalidResource
+	}
 
 	// Check whether a lock already exists for this resource: if
 	// this is the case we will increase its use count by one and
@@ -250,7 +265,7 @@ func (cl *ConcurrentLocker) Acquire(resource string) *Lock {
 	}()
 
 	if l != nil {
-		return l
+		return l, nil
 	}
 
 	// No lock already exists for this locker, we need to create
@@ -280,7 +295,7 @@ func (cl *ConcurrentLocker) Acquire(resource string) *Lock {
 	}()
 
 	// We can return the lock we obtained.
-	return l
+	return l, nil
 }
 
 // Release :
@@ -338,7 +353,7 @@ func (l *Lock) Lock() {
 	<-l.waiter
 }
 
-// Release :
+// Unlock :
 // Used to release this locker object so that other clients
 // can access to the resource protected by it. This operation
 // succeeds if no other `Release` call has been made since
@@ -348,10 +363,10 @@ func (l *Lock) Lock() {
 // case the `Release` method has already been called for
 // example). Failure also occur if the `Release` method is
 // called while no `Lock` call has been made before.
-func (l *Lock) Release() error {
+func (l *Lock) Unlock() error {
 	// Check whether we already released the lock.
 	if len(l.waiter) > 0 {
-		return fmt.Errorf("Cannot release locker on resource, seems already released")
+		return ErrLock
 	}
 
 	l.waiter <- struct{}{}

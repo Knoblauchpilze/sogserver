@@ -103,7 +103,7 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
 	planets := make([]model.Planet, 0)
 
 	for _, ID = range IDs {
-		pla, err := model.NewPlanetFromDB(ID, p.data)
+		pla, err := model.NewReadOnlyPlanet(ID, p.data)
 
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Unable to fetch planet \"%s\" data from DB (err: %v)", ID, err))

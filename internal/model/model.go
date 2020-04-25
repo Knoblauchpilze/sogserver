@@ -1,6 +1,9 @@
 package model
 
-import "oglike_server/pkg/db"
+import (
+	"oglike_server/internal/locker"
+	"oglike_server/pkg/db"
+)
 
 // Instance :
 // Defines an instance of the data model which contains
@@ -25,6 +28,13 @@ import "oglike_server/pkg/db"
 //
 // The `Resources` defines the module to access to all
 // available resources in the game.
+//
+// The `Locker` defines an object to use to protect
+// resources of the DB from concurrent accesses. It
+// is used to guarantee that a single process is able
+// for example to update the information of a planet
+// at any time. It helps preventing data races when
+// performing actions on shared elements of a uni.
 type Instance struct {
 	Proxy        db.Proxy
 	Buildings    *BuildingsModule
@@ -32,4 +42,5 @@ type Instance struct {
 	Ships        *ShipsModule
 	Defenses     *DefensesModule
 	Resources    *ResourcesModule
+	Locker       *locker.ConcurrentLocker
 }

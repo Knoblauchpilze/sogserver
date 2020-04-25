@@ -68,7 +68,7 @@ func (p *AccountProxy) Accounts(filters []db.Filter) ([]model.Account, error) {
 	}
 
 	// We now need to retrieve all the identifiers that matched
-	// the input filters and then build the corresponding unis
+	// the input filters and then build the corresponding item
 	// object for each one of them.
 	var ID string
 	IDs := make([]string, 0)

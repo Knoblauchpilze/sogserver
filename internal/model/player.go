@@ -224,10 +224,28 @@ func (p *Player) fetchTechnologies(data Instance) error {
 
 		t.TechnologyDesc = desc
 
-		// TODO: Update cost, production and storage.
-
 		p.Technologies = append(p.Technologies, t)
 	}
 
 	return nil
+}
+
+// GetTechnology :
+// Retrieves the technology from the input identifier.
+//
+// The `ID` defines the identifier of the technology
+// to fetch from the player.
+//
+// Returns the technology description corresponding
+// to the input identifier along with any error.
+func (p *Player) GetTechnology(ID string) (TechnologyInfo, error) {
+	// Traverse the list of technologies attached to the
+	// player and search for the input ID.
+	for _, t := range p.Technologies {
+		if t.ID == ID {
+			return t, nil
+		}
+	}
+
+	return TechnologyInfo{}, ErrInvalidID
 }

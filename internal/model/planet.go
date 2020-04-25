@@ -62,22 +62,35 @@ import (
 // on this planet. It does not include ships currently moving
 // from or towards the planet.
 //
-// The `Defense` defines the list of defenses currently
+// The `Defenses` defines the list of defenses currently
 // built on the planet. This does not include defenses
 // *being* built.
+//
+// The `BuildingsUpgrade` defines the list of upgrade action
+// registered on this planet for buildings. This array might
+// be empty in case no building is being upgraded.
+//
+// The `ShipsConstruction` defines the list of outstanding
+// ships construction actions.
+//
+// The `DefensesConstruction` defines a similar list for
+// defense systems on this planet.
 type Planet struct {
-	ID          string         `json:"id"`
-	Player      string         `json:"player"`
-	Coordinates Coordinate     `json:"coordinate"`
-	Name        string         `json:"name"`
-	Fields      int            `json:"fields"`
-	MinTemp     int            `json:"min_temperature"`
-	MaxTemp     int            `json:"max_temperature"`
-	Diameter    int            `json:"diameter"`
-	Resources   []ResourceInfo `json:"resources"`
-	Buildings   []BuildingInfo `json:"buildings"`
-	Ships       []ShipInfo     `json:"ships"`
-	Defenses    []DefenseInfo  `json:"defenses"`
+	ID                   string           `json:"id"`
+	Player               string           `json:"player"`
+	Coordinates          Coordinate       `json:"coordinate"`
+	Name                 string           `json:"name"`
+	Fields               int              `json:"fields"`
+	MinTemp              int              `json:"min_temperature"`
+	MaxTemp              int              `json:"max_temperature"`
+	Diameter             int              `json:"diameter"`
+	Resources            []ResourceInfo   `json:"resources"`
+	Buildings            []BuildingInfo   `json:"buildings"`
+	Ships                []ShipInfo       `json:"ships"`
+	Defenses             []DefenseInfo    `json:"defenses"`
+	BuildingsUpgrade     []BuildingAction `json:"buildings_upgrade"`
+	ShipsConstruction    []ShipAction     `json:"ships_construction"`
+	DefensesConstruction []DefenseAction  `json:"defenses_construction"`
 }
 
 // ResourceInfo :
@@ -161,6 +174,16 @@ type DefenseInfo struct {
 // associated identifier.
 var ErrInvalidPlanet = fmt.Errorf("Invalid planet with no identifier")
 
+// ErrNotEnoughResources :
+// Used to indicate that an upgrade action cannot be
+// performed due to missing resources.
+var ErrNotEnoughResources = fmt.Errorf("Not enough resources available for action")
+
+// ErrTechDepsNotMet :
+// Used to indicate that an upgrade action cannot be
+// performed due to unmet tech dependencies.
+var ErrTechDepsNotMet = fmt.Errorf("Action dependencies not met")
+
 // getDefaultPlanetName :
 // Used to retrieve a default name for a planet. The
 // generated name will be different based on whether
@@ -213,15 +236,24 @@ func NewPlanetFromDB(ID string, data Instance) (Planet, error) {
 		ID: ID,
 	}
 
-	// TODO: Update planet's upgrade action. It used to be done
-	// this way in the planets' prody:
-	// query := fmt.Sprintf("SELECT update_resources_for_planet('%s')", planetID)
-	// query = fmt.Sprintf("SELECT update_building_upgrade_action('%s')", planetID)
-	// query = fmt.Sprintf("SELECT update_ship_upgrade_action('%s')", planetID)
-	// query = fmt.Sprintf("SELECT update_defense_upgrade_action('%s')", planetID)
+	// Fetch and update upgrade actions for this planet.
+	err := p.fetchBuildingUpgrades(data)
+	if err != nil {
+		return p, err
+	}
+
+	err = p.fetchShipUpgrades(data)
+	if err != nil {
+		return p, err
+	}
+
+	err = p.fetchDefenseUpgrades(data)
+	if err != nil {
+		return p, err
+	}
 
 	// Fetch the planet's content.
-	err := p.fetchResources(data)
+	err = p.fetchResources(data)
 	if err != nil {
 		return p, err
 	}
@@ -498,6 +530,220 @@ func (p *Planet) generateData() {
 	p.MinTemp = p.MaxTemp - getPlanetTemperatureAmplitude()
 }
 
+// fetchBuildingUpgrades :
+// Used internally when building a planet from the
+// DB to update the building upgrade actions that
+// may be outstanding. Allows to get an up-to-date
+// status of the building afterwards.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Planet) fetchBuildingUpgrades(data Instance) error {
+	// Consistency.
+	if p.ID == "" {
+		return ErrInvalidPlanet
+	}
+
+	// TODO: Update planet's upgrade action. It used to be done
+	// this way in the planets' prody:
+	// query = fmt.Sprintf("SELECT update_building_upgrade_action('%s')", planetID)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table: "construction_actions_buildings",
+		Filters: []db.Filter{
+			{
+				Key:    "planet",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+
+	// We now need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding item
+	// object for each one of them.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			return err
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	p.BuildingsUpgrade = make([]BuildingAction, 0)
+
+	for _, ID = range IDs {
+		bu, err := NewBuildingActionFromDB(ID, data)
+
+		if err != nil {
+			return err
+		}
+
+		p.BuildingsUpgrade = append(p.BuildingsUpgrade, bu)
+	}
+
+	return nil
+}
+
+// fetchShipUpgrades :
+// Used in a similar way to `fetchBuildingUpgrades`
+// but to get the ships construction actions that
+// may be registered in the shipyard of this planet.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Planet) fetchShipUpgrades(data Instance) error {
+	// Consistency.
+	if p.ID == "" {
+		return ErrInvalidPlanet
+	}
+
+	// TODO: Update planet's upgrade action. It used to be done
+	// this way in the planets' prody:
+	// query = fmt.Sprintf("SELECT update_ship_upgrade_action('%s')", planetID)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table: "construction_actions_ships",
+		Filters: []db.Filter{
+			{
+				Key:    "planet",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+
+	// We now need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding item
+	// object for each one of them.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			return err
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	p.ShipsConstruction = make([]ShipAction, 0)
+
+	for _, ID = range IDs {
+		su, err := NewShipActionFromDB(ID, data)
+
+		if err != nil {
+			return err
+		}
+
+		p.ShipsConstruction = append(p.ShipsConstruction, su)
+	}
+
+	return nil
+}
+
+// fetchDefenseUpgrades :
+// Used in a similar way to `fetchBuildingUpgrades`
+// but to get the defense construction actions that
+// may be registered in the shipyard of this planet.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Planet) fetchDefenseUpgrades(data Instance) error {
+	// Consistency.
+	if p.ID == "" {
+		return ErrInvalidPlanet
+	}
+
+	// TODO: Update planet's upgrade action. It used to be done
+	// this way in the planets' prody:
+	// query = fmt.Sprintf("SELECT update_defense_upgrade_action('%s')", planetID)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table: "construction_actions_defenses",
+		Filters: []db.Filter{
+			{
+				Key:    "planet",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+
+	// We now need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding item
+	// object for each one of them.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			return err
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	p.DefensesConstruction = make([]DefenseAction, 0)
+
+	for _, ID = range IDs {
+		du, err := NewDefenseActionFromDB(ID, data)
+
+		if err != nil {
+			return err
+		}
+
+		p.DefensesConstruction = append(p.DefensesConstruction, du)
+	}
+
+	return nil
+}
+
 // fetchResources :
 // Used internally when building a planet from the
 // DB to update the resources existing on the planet.
@@ -510,6 +756,10 @@ func (p *Planet) fetchResources(data Instance) error {
 	if p.ID == "" {
 		return ErrInvalidPlanet
 	}
+
+	// TODO: Update planet's upgrade action. It used to be done
+	// this way in the planets' prody:
+	// query := fmt.Sprintf("SELECT update_resources_for_planet('%s')", planetID)
 
 	p.Resources = make([]ResourceInfo, 0)
 
@@ -617,8 +867,6 @@ func (p *Planet) fetchBuildings(data Instance) error {
 		}
 
 		b.BuildingDesc = desc
-
-		// TODO: Update cost, production and storage.
 
 		p.Buildings = append(p.Buildings, b)
 	}
@@ -774,4 +1022,73 @@ func (p *Planet) GetBuilding(ID string) (BuildingInfo, error) {
 	}
 
 	return BuildingInfo{}, ErrInvalidID
+}
+
+// validateAction :
+// Used to make sure that the action described by
+// the costs and tech dependencies in input can be
+// performed given the infrastructure and resources
+// available on the planet.
+//
+// The `costs` defines the costs associated to the
+// action.
+//
+// The `desc` defines a base description of the
+// element attached to the action: it mainly is
+// used to get an idea of the dependencies that
+// need to be met for the element to be built on
+// this planet.
+//
+// The `data` allows to access to the DB if needed.
+//
+// Returns any error. In case the return value is
+// `nil` it means that the action can be performed
+// on this planet.
+func (p *Planet) validateAction(costs map[string]int, desc UpgradableDesc, data Instance) error {
+	// Make sure that there are enough resources on the planet.
+	for res, amount := range costs {
+		// Find the amount existing on the planet.
+		found := false
+		pAmount := 0
+
+		for id := 0; id < len(p.Resources) && !found; id++ {
+			if p.Resources[id].Resource == res {
+				found = true
+				pAmount = p.Resources[id].Amount
+			}
+		}
+
+		if !found || pAmount < amount {
+			return ErrNotEnoughResources
+		}
+	}
+
+	// Make sure that the tech tree is consistent with the
+	// expectations.
+	for _, bDep := range desc.BuildingsDeps {
+		bi, err := p.GetBuilding(bDep.ID)
+
+		if err != nil || bi.Level < bDep.Level {
+			return ErrTechDepsNotMet
+		}
+	}
+
+	// We need the technologies of the player owning the
+	// planet to determine whether the dependencies are
+	// met.
+	player, err := NewPlayerFromDB(p.Player, data)
+	if err != nil {
+		return err
+	}
+
+	for _, tDep := range desc.TechnologiesDeps {
+		ti, err := player.GetTechnology(tDep.ID)
+
+		if err != nil || ti.Level < tDep.Level {
+			return ErrTechDepsNotMet
+		}
+	}
+
+	// Seems like all conditions are valid.
+	return nil
 }

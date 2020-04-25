@@ -534,7 +534,7 @@ func (p *Planet) generateData() {
 // Used internally when building a planet from the
 // DB to update the building upgrade actions that
 // may be outstanding. Allows to get an up-to-date
-// status of the building afterwards.
+// status of the buildings afterwards.
 //
 // The `data` defines the object to access the DB.
 //

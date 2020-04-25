@@ -29,12 +29,16 @@ import (
 // The `Technologies` defines each technology that this
 // player has already researched with their associated
 // level.
+//
+// The `TechnologiesUpgrade` defines the list of upgrade
+// action currently registered for this player.
 type Player struct {
-	ID           string           `json:"id"`
-	Account      string           `json:"account"`
-	Universe     string           `json:"uni"`
-	Name         string           `json:"name"`
-	Technologies []TechnologyInfo `json:"technologies"`
+	ID                  string             `json:"id"`
+	Account             string             `json:"account"`
+	Universe            string             `json:"uni"`
+	Name                string             `json:"name"`
+	Technologies        []TechnologyInfo   `json:"technologies"`
+	TechnologiesUpgrade []TechnologyAction `json:"technologies_upgrade"`
 }
 
 // TechnologyInfo :
@@ -94,12 +98,13 @@ func NewPlayerFromDB(ID string, data Instance) (Player, error) {
 		ID: ID,
 	}
 
-	// TODO: Should upgrade technology actions probably ?
-	// It was done this way previously:
-	// query := fmt.Sprintf("SELECT update_technology_upgrade_action('%s')", player)
-
 	// Fetch the player's data.
 	err := p.fetchGeneralInfo(data)
+	if err != nil {
+		return p, err
+	}
+
+	err = p.fetchTechnologiesUpgrades(data)
 	if err != nil {
 		return p, err
 	}
@@ -160,6 +165,88 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 	// Make sure that it's the only player.
 	if dbRes.Next() {
 		return ErrDuplicatedPlayer
+	}
+
+	return nil
+}
+
+// fetchTechnologiesUpgrades :
+// Used internally when building a player from the
+// DB to update the technology upgrade actions that
+// may be outstanding. Allows to get an up-to-date
+// status of the technologies afterwards.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Player) fetchTechnologiesUpgrades(data Instance) error {
+	// Consistency.
+	if p.ID == "" {
+		return ErrInvalidPlanet
+	}
+
+	p.TechnologiesUpgrade = make([]TechnologyAction, 0)
+
+	// Perform the update of the technology upgrade actions.
+	update := db.InsertReq{
+		Script: "update_technology_upgrade_action",
+		Args: []interface{}{
+			p.ID,
+		},
+		SkipReturn: true,
+	}
+
+	err := data.Proxy.InsertToDB(update)
+	if err != nil {
+		return err
+	}
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table: "construction_actions_technologies",
+		Filters: []db.Filter{
+			{
+				Key:    "player",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+
+	// We now need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding item
+	// object for each one of them.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			return err
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	for _, ID = range IDs {
+		tu, err := NewTechnologyActionFromDB(ID, data)
+
+		if err != nil {
+			return err
+		}
+
+		p.TechnologiesUpgrade = append(p.TechnologiesUpgrade, tu)
 	}
 
 	return nil

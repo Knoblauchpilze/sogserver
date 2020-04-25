@@ -2,9 +2,6 @@ package data
 
 import (
 	"fmt"
-	"math"
-	"oglike_server/pkg/duration"
-	"time"
 )
 
 // validationTools :
@@ -147,33 +144,6 @@ type UpgradeAction interface {
 	UpdateCompletionTime(bm buildingModule) error
 }
 
-// computeCost :
-// Used to compute the construction cost of the action
-// based on the level it aims at reaching and the total
-// cost of various elements defined in the input table.
-//
-// The `costs` defines the initial costs and the rules
-// to make the progress for various in-game elements.
-// The map is indexed by ID key (so one of them should
-// match the `a.ElementID` value).
-//
-// Returns a slice containing for each resource that
-// is needed for this action the amount necessary. In
-// case the input map does not define anything for the
-// action an error is returned.
-func (a *ProgressAction) computeCost(costs map[string]ConstructionCost) ([]ResourceAmount, error) {
-	// Find this action in the input table.
-	cost, ok := costs[a.ElementID]
-
-	if !ok {
-		return []ResourceAmount{}, fmt.Errorf("Cannot compute cost for action \"%s\" defining unknown element \"%s\"", a.ID, a.ElementID)
-	}
-
-	needed := cost.ComputeCosts(a.DesiredLevel)
-
-	return needed, nil
-}
-
 // Validate :
 // Implementation of the `UpgradeAction` interface to
 // perform the validation of the data contained in the
@@ -232,78 +202,6 @@ func (a *BuildingAction) Validate(tools validationTools) (bool, error) {
 	}
 
 	return a.ProgressAction.Validate(tools)
-}
-
-// UpdateCompletionTime :
-// Implementation of the `UpgradeAction` to allow the
-// computation of a valid completion time for the item
-// represented by this upgrade action.
-//
-// The `bm` defines the building module containing info
-// about the levels of some buildings (like the robotics
-// factory) which are used to determine the completion
-// time.
-func (a *BuildingAction) UpdateCompletionTime(bm buildingModule) error {
-	// Retrieve the level of the robotics factory and the
-	// nanite factory: both have an influence on the time
-	// to complete the action.
-	robotics, err := bm.getLevelOf("robotics factory")
-	if err != nil {
-		return fmt.Errorf("Cannot update building action completion time (err: %v)", err)
-	}
-
-	nanite, err := bm.getLevelOf("nanite factory")
-	if err != nil {
-		return fmt.Errorf("Cannot update building action completion time (err: %v)", err)
-	}
-
-	// TODO: Get the amount of metal and crystal required.
-	m := 1000.0
-	c := 1000.0
-
-	hours := (m + c) / (2500.0 * (1.0 + float64(robotics)) * math.Pow(2.0, float64(nanite)))
-
-	t, err := time.ParseDuration(fmt.Sprintf("%fh", hours))
-	if err != nil {
-		return fmt.Errorf("Cannot convert completion time for building action (err: %v)", err)
-	}
-
-	a.CompletionTime = time.Now().Add(t)
-
-	return nil
-}
-
-// UpdateCompletionTime :
-// Implementation of the `UpgradeAction` to allow the
-// computation of a valid completion time for the tech
-// represented by this upgrade action.
-//
-// The `bm` defines the building module containing info
-// about the levels of some buildings (like the research
-// lab) which are used to determine the completion time.
-func (a *TechnologyAction) UpdateCompletionTime(bm buildingModule) error {
-	// Retrieve the level of the research lab: it is the
-	// only building that has an influence on the total
-	// time to complete the action.
-	research, err := bm.getLevelOf("research lab")
-	if err != nil {
-		return fmt.Errorf("Cannot update technology action completion time (err: %v)", err)
-	}
-
-	// TODO: Get the amount of metal and crystal required.
-	m := 1000.0
-	c := 1000.0
-
-	hours := (m + c) / (1000.0 * (1.0 + float64(research)))
-
-	t, err := time.ParseDuration(fmt.Sprintf("%fh", hours))
-	if err != nil {
-		return fmt.Errorf("Cannot convert completion time for technology action (err: %v)", err)
-	}
-
-	a.CompletionTime = time.Now().Add(t)
-
-	return nil
 }
 
 // computeTotalCost :
@@ -366,43 +264,4 @@ func (a *FixedAction) Validate(tools validationTools) (bool, error) {
 	}
 
 	return meet, nil
-}
-
-// UpdateCompletionTime :
-// Implementation of the `UpgradeAction` to allow the
-// computation of a valid completion time for each item
-// of this fixed action. This uses the information of the
-// building module.
-//
-// The `bm` defines the building module containing info
-// about the levels of some buildings (like the shipyard)
-// which are used to determine the completion time.
-func (a *FixedAction) UpdateCompletionTime(bm buildingModule) error {
-	// Retrieve the level of the shipyard and the nanite
-	// factory: these are the two buildings that have an
-	// influence on the completion time.
-	shipyard, err := bm.getLevelOf("shipyard")
-	if err != nil {
-		return fmt.Errorf("Cannot update fixed action completion time (err: %v)", err)
-	}
-
-	nanite, err := bm.getLevelOf("nanite factory")
-	if err != nil {
-		return fmt.Errorf("Cannot update fixed action completion time (err: %v)", err)
-	}
-
-	// TODO: Get the amount of metal and crystal required.
-	m := 1000.0
-	c := 1000.0
-
-	hours := (m + c) / (2500.0 * (1.0 + float64(shipyard)) * math.Pow(2.0, float64(nanite)))
-
-	t, err := time.ParseDuration(fmt.Sprintf("%fh", hours))
-	if err != nil {
-		return fmt.Errorf("Cannot convert completion time for fixed action (err: %v)", err)
-	}
-
-	a.CompletionTime = duration.Duration{t}
-
-	return nil
 }

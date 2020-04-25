@@ -299,12 +299,15 @@ func (a *FixedAction) Valid() bool {
 // The `costs` define the amount of resources needed to
 // build a single unit.
 //
+// The `p` defines the planet attached to this action.
+// It should be fetched beforehand to make concurrency
+// handling easier.
+//
 // Returns any error.
-func (a *FixedAction) computeCompletionTime(data Instance, cost FixedCost) error {
-	// Retrieve the planet associated to this action.
-	planet, err := NewPlanetFromDB(a.Planet, data)
-	if err != nil {
-		return err
+func (a *FixedAction) computeCompletionTime(data Instance, cost FixedCost, p *Planet) error {
+	// Consistency.
+	if a.Planet != p.ID {
+		return ErrInvalidPlanet
 	}
 
 	costs := cost.ComputeCost(a.Remaining)
@@ -321,11 +324,11 @@ func (a *FixedAction) computeCompletionTime(data Instance, cost FixedCost) error
 		return err
 	}
 
-	shipyard, err := planet.GetBuilding(shipyardID)
+	shipyard, err := p.GetBuilding(shipyardID)
 	if err != nil {
 		return err
 	}
-	nanite, err := planet.GetBuilding(naniteID)
+	nanite, err := p.GetBuilding(naniteID)
 	if err != nil {
 		return err
 	}
@@ -583,17 +586,20 @@ func (a *BuildingAction) fetchStorageEffects(data Instance) error {
 // The `data` allows to get information on the data
 // that will be used to compute the completion time.
 //
+// The `p` planet defines the associated planet to this
+// action in order to prevent dead lock. We assume that
+// it should be fetched before validating the action.
+//
 // Returns any error.
-func (a *BuildingAction) ConsolidateCompletionTime(data Instance) error {
+func (a *BuildingAction) ConsolidateCompletionTime(data Instance, p *Planet) error {
+	// Consistency.
+	if a.Planet != p.ID {
+		return ErrInvalidPlanet
+	}
+
 	// First, we need to determine the cost for each of
 	// the individual unit to produce.
 	bd, err := data.Buildings.getBuildingFromID(a.Element)
-	if err != nil {
-		return err
-	}
-
-	// Retrieve the planet associated to this action.
-	planet, err := NewPlanetFromDB(a.Planet, data)
 	if err != nil {
 		return err
 	}
@@ -612,11 +618,11 @@ func (a *BuildingAction) ConsolidateCompletionTime(data Instance) error {
 		return err
 	}
 
-	robotics, err := planet.GetBuilding(roboticsID)
+	robotics, err := p.GetBuilding(roboticsID)
 	if err != nil {
 		return err
 	}
-	nanite, err := planet.GetBuilding(naniteID)
+	nanite, err := p.GetBuilding(naniteID)
 	if err != nil {
 		return err
 	}
@@ -702,17 +708,23 @@ func NewTechnologyActionFromDB(ID string, data Instance) (TechnologyAction, erro
 // The `data` allows to get information on the data
 // that will be used to compute the completion time.
 //
+// The `p` argument defines the planet onto which the
+// action should be performed. Note that we assume it
+// corresponds to the actual planet defined by this
+// action. It is used in order not to dead lock with
+// the planet that has probably already been acquired
+// by the action creation process.
+//
 // Returns any error.
-func (a *TechnologyAction) ConsolidateCompletionTime(data Instance) error {
+func (a *TechnologyAction) ConsolidateCompletionTime(data Instance, p *Planet) error {
+	// Consistency.
+	if a.Planet != p.ID {
+		return ErrInvalidPlanet
+	}
+
 	// First, we need to determine the cost for each of
 	// the individual unit to produce.
 	td, err := data.Technologies.getTechnologyFromID(a.Element)
-	if err != nil {
-		return err
-	}
-
-	// Retrieve the planet associated to this action.
-	planet, err := NewPlanetFromDB(a.Planet, data)
 	if err != nil {
 		return err
 	}
@@ -726,7 +738,7 @@ func (a *TechnologyAction) ConsolidateCompletionTime(data Instance) error {
 	if err != nil {
 		return err
 	}
-	lab, err := planet.GetBuilding(labID)
+	lab, err := p.GetBuilding(labID)
 	if err != nil {
 		return err
 	}
@@ -804,8 +816,12 @@ func NewShipActionFromDB(ID string, data Instance) (ShipAction, error) {
 // The `data` allows to get information on the buildings
 // that will be used to compute the completion time.
 //
+// The `p` defines the planet attached to this action and
+// should be provided as argument to make handling of the
+// concurrency easier.
+//
 // Returns any error.
-func (a *ShipAction) ConsolidateCompletionTime(data Instance) error {
+func (a *ShipAction) ConsolidateCompletionTime(data Instance, p *Planet) error {
 	// First, we need to determine the cost for each of
 	// the individual unit to produce.
 	sd, err := data.Ships.getShipFromID(a.Element)
@@ -814,7 +830,7 @@ func (a *ShipAction) ConsolidateCompletionTime(data Instance) error {
 	}
 
 	// Use the base handler.
-	return a.computeCompletionTime(data, sd.Cost)
+	return a.computeCompletionTime(data, sd.Cost, p)
 }
 
 // NewDefenseActionFromDB :
@@ -850,8 +866,18 @@ func NewDefenseActionFromDB(ID string, data Instance) (DefenseAction, error) {
 //
 // The `data` allows to get information from the DB.
 //
+// The `p` defines the planet attached to this action and
+// should be provided as argument to make handling of the
+// concurrency easier.
+// TODO: Maybe this should be part of the upgrade action
+// itself so that we don't need anything to pass around.
+// It could be added to the action and fetched when we
+// will create an action from scratch (so when we handle
+// the actual creation of an action and not only the fetch
+// from the DB).
+//
 // Returns any error.
-func (a *DefenseAction) ConsolidateCompletionTime(data Instance) error {
+func (a *DefenseAction) ConsolidateCompletionTime(data Instance, p *Planet) error {
 	// First, we need to determine the cost for each of
 	// the individual unit to produce.
 	dd, err := data.Defenses.getDefenseFromID(a.Element)
@@ -859,5 +885,5 @@ func (a *DefenseAction) ConsolidateCompletionTime(data Instance) error {
 		return err
 	}
 	// Use the base handler.
-	return a.computeCompletionTime(data, dd.Cost)
+	return a.computeCompletionTime(data, dd.Cost, p)
 }

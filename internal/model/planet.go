@@ -264,10 +264,14 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 	}
 
 	// Acquire the lock on the planet from the DB.
-	p.locker = data.Locker.Acquire(p.ID)
+	var err error
+	p.locker, err = data.Locker.Acquire(p.ID)
+	if err != nil {
+		return p, err
+	}
 
 	// Fetch and update upgrade actions for this planet.
-	err := p.fetchBuildingUpgrades(data)
+	err = p.fetchBuildingUpgrades(data)
 	if err != nil {
 		return p, err
 	}

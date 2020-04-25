@@ -545,9 +545,21 @@ func (p *Planet) fetchBuildingUpgrades(data Instance) error {
 		return ErrInvalidPlanet
 	}
 
-	// TODO: Update planet's upgrade action. It used to be done
-	// this way in the planets' prody:
-	// query = fmt.Sprintf("SELECT update_building_upgrade_action('%s')", planetID)
+	p.BuildingsUpgrade = make([]BuildingAction, 0)
+
+	// Perform the update of the building upgrade actions.
+	update := db.InsertReq{
+		Script: "update_building_upgrade_action",
+		Args: []interface{}{
+			p.ID,
+		},
+		SkipReturn: true,
+	}
+
+	err := data.Proxy.InsertToDB(update)
+	if err != nil {
+		return err
+	}
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
@@ -587,8 +599,6 @@ func (p *Planet) fetchBuildingUpgrades(data Instance) error {
 		IDs = append(IDs, ID)
 	}
 
-	p.BuildingsUpgrade = make([]BuildingAction, 0)
-
 	for _, ID = range IDs {
 		bu, err := NewBuildingActionFromDB(ID, data)
 
@@ -616,9 +626,21 @@ func (p *Planet) fetchShipUpgrades(data Instance) error {
 		return ErrInvalidPlanet
 	}
 
-	// TODO: Update planet's upgrade action. It used to be done
-	// this way in the planets' prody:
-	// query = fmt.Sprintf("SELECT update_ship_upgrade_action('%s')", planetID)
+	p.ShipsConstruction = make([]ShipAction, 0)
+
+	// Perform the update of the ship upgrade actions.
+	update := db.InsertReq{
+		Script: "update_ship_upgrade_action",
+		Args: []interface{}{
+			p.ID,
+		},
+		SkipReturn: true,
+	}
+
+	err := data.Proxy.InsertToDB(update)
+	if err != nil {
+		return err
+	}
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
@@ -658,8 +680,6 @@ func (p *Planet) fetchShipUpgrades(data Instance) error {
 		IDs = append(IDs, ID)
 	}
 
-	p.ShipsConstruction = make([]ShipAction, 0)
-
 	for _, ID = range IDs {
 		su, err := NewShipActionFromDB(ID, data)
 
@@ -687,9 +707,21 @@ func (p *Planet) fetchDefenseUpgrades(data Instance) error {
 		return ErrInvalidPlanet
 	}
 
-	// TODO: Update planet's upgrade action. It used to be done
-	// this way in the planets' prody:
-	// query = fmt.Sprintf("SELECT update_defense_upgrade_action('%s')", planetID)
+	p.DefensesConstruction = make([]DefenseAction, 0)
+
+	// Perform the update of the ship upgrade actions.
+	update := db.InsertReq{
+		Script: "update_defense_upgrade_action",
+		Args: []interface{}{
+			p.ID,
+		},
+		SkipReturn: true,
+	}
+
+	err := data.Proxy.InsertToDB(update)
+	if err != nil {
+		return err
+	}
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
@@ -729,8 +761,6 @@ func (p *Planet) fetchDefenseUpgrades(data Instance) error {
 		IDs = append(IDs, ID)
 	}
 
-	p.DefensesConstruction = make([]DefenseAction, 0)
-
 	for _, ID = range IDs {
 		du, err := NewDefenseActionFromDB(ID, data)
 
@@ -757,9 +787,19 @@ func (p *Planet) fetchResources(data Instance) error {
 		return ErrInvalidPlanet
 	}
 
-	// TODO: Update planet's upgrade action. It used to be done
-	// this way in the planets' prody:
-	// query := fmt.Sprintf("SELECT update_resources_for_planet('%s')", planetID)
+	// Perform the update of the ship upgrade actions.
+	update := db.InsertReq{
+		Script: "update_resources_for_planet",
+		Args: []interface{}{
+			p.ID,
+		},
+		SkipReturn: true,
+	}
+
+	err := data.Proxy.InsertToDB(update)
+	if err != nil {
+		return err
+	}
 
 	p.Resources = make([]ResourceInfo, 0)
 

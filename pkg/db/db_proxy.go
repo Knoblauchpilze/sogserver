@@ -141,9 +141,15 @@ func (q QueryResult) Close() {
 // of the insertion script. The arguments will be
 // passed to the script in the order they are defined
 // in this slice.
+//
+// The `SkipReturn` boolean indicates whether the
+// insertion request expects a return a value or not.
+// This allows to precise the syntax to use to perform
+// the query.
 type InsertReq struct {
-	Script string
-	Args   []interface{}
+	Script     string
+	Args       []interface{}
+	SkipReturn bool
 }
 
 // Proxy :
@@ -254,7 +260,15 @@ func (p Proxy) InsertToDB(req InsertReq) error {
 	}
 
 	// Create the DB request.
-	query := fmt.Sprintf("select * from %s(%s)", req.Script, strings.Join(argsAsStr, ", "))
+	var query string
+
+	switch req.SkipReturn {
+	case false:
+		query = fmt.Sprintf("SELECT * from %s(%s)", req.Script, strings.Join(argsAsStr, ", "))
+	default: // true
+		query = fmt.Sprintf("SELECT %s(%s)", req.Script, strings.Join(argsAsStr, ", "))
+	}
+
 	_, err := p.dbase.DBExecute(query)
 
 	// TODO: Perform formatting like `ErrDuplicatedForeignKey` etc.

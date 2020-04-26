@@ -64,6 +64,11 @@ type Route struct {
 	log     logger.Logger
 }
 
+// ErrRouteNotValid :
+// Indicates that the expression provided to define a
+// route is not valid.
+var ErrRouteNotValid = fmt.Errorf("Invalid expression provided for route")
+
 // routeMatch :
 // Stores the information about a matched route. Notably
 // it indicates whether the route could be matched or not
@@ -150,7 +155,7 @@ func buildRouteElements(route string) ([]*regexp.Regexp, error) {
 		exp, err := regexp.Compile(str)
 
 		if err != nil {
-			return elems, fmt.Errorf("Could not create regexp for token \"%s\" of route \"%s\" (err: %v)", token, route, err)
+			return elems, ErrRouteNotValid
 		}
 
 		elems = append(elems, exp)
@@ -181,7 +186,9 @@ func NewRoute(path string, log logger.Logger) *Route {
 	// parsed and used to match the requests.
 	tokens, err := buildRouteElements(path)
 	if err != nil {
-		panic(fmt.Errorf("Cannot create route \"%s\" (err: %v)", path, err))
+		log.Trace(logger.Error, "route", fmt.Sprintf("Unable to create route tokens for \"%s\" (err: %v)", path, err))
+
+		panic(ErrRouteNotValid)
 	}
 
 	return &Route{

@@ -2,7 +2,6 @@ package routes
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
@@ -54,7 +53,7 @@ func (s *Server) createAccount() http.HandlerFunc {
 
 			// Prevent request with no data.
 			if len(input.Data) == 0 {
-				return resources, fmt.Errorf("Could not perform creation of account with no data")
+				return resources, ErrNoData
 			}
 
 			for _, rawData := range input.Data {

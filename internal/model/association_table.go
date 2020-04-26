@@ -18,6 +18,11 @@ type associationTable struct {
 	namesToIDs map[string]string
 }
 
+// ErrInvalidTable :
+// Indicates that the association table that is provided
+// to perform an operation is not valid.
+var ErrInvalidTable = fmt.Errorf("Invalid association table")
+
 // ErrDuplicatedID :
 // Indicates that a registration operation could not be
 // performed because the id already exists.
@@ -126,7 +131,7 @@ func (at *associationTable) existsName(name string) bool {
 // the input identifier.
 func (at *associationTable) getNameFromID(ID string) (string, error) {
 	if !at.valid() {
-		return "", fmt.Errorf("Invalid association table to fetch name")
+		return "", ErrInvalidTable
 	}
 
 	name, ok := at.idsToNames[ID]
@@ -149,7 +154,7 @@ func (at *associationTable) getNameFromID(ID string) (string, error) {
 // to the input name.
 func (at *associationTable) getIDFromName(name string) (string, error) {
 	if !at.valid() {
-		return "", fmt.Errorf("Invalid association table to fetch identifier")
+		return "", ErrInvalidTable
 	}
 
 	id, ok := at.namesToIDs[name]

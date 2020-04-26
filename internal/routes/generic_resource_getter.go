@@ -193,7 +193,8 @@ func (gre *GetResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFunc {
 		// and the raw query parameters
 		vars, err := extractRouteVars(route, r)
 		if err != nil {
-			panic(fmt.Errorf("Error while serving route \"%s\" (err: %v)", gre.route, err))
+			log.Trace(logger.Error, gre.module, fmt.Sprintf("Error while serving route \"%s\" (err: %v)", gre.route, err))
+			panic(err)
 		}
 
 		// Parse the filters from the route variables.

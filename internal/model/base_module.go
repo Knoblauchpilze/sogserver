@@ -132,7 +132,7 @@ func (bm *baseModule) fetchIDs(query db.QueryDesc, proxy db.Proxy) ([]string, er
 	}
 	if rows.Err != nil {
 		bm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize IDs (err: %v)", rows.Err))
-		return []string{}, fmt.Errorf("Failed to retrieve data from query (err: %v)", err)
+		return []string{}, rows.Err
 	}
 
 	// Fetch identifiers.

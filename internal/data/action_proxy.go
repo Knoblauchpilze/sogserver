@@ -2,105 +2,39 @@ package data
 
 import (
 	"fmt"
-	"oglike_server/pkg/db"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/logger"
 
 	"github.com/google/uuid"
 )
 
 // ActionProxy :
-// Intended as a wrapper to access properties of upgrade
-// actions and register some new ones on various elements
-// of the game. Internally uses the common proxy defined
-// in this package. Additional information is needed to
-// perform verification when upgrade actions are submitted
-// for creation. Indeed we want to make sure that it is
-// actually possible to request the action on the planet
-// or for the player it is intended to.
-//
-// The `pProxy` allows to fetch information about planets
-// when an action concerning a planet is received.
-//
-// The `plProxy` allows to fetch information about players
-// when data concerning the owner of a planet is needed.
-//
-// The `pRules` allows to create the needed production
-// effects when an upgrade action for a building is set.
-//
-// The `sRules` allows to create the storage effects when
-// a storage buildings (typically a hangar) is requested.
-//
-// The `pCosts` defines the construction costs for an
-// upgradable element (e.g.g a building or a technology)
-// which is used to verify that an upgrade action for an
-// element is possible given the resources on a planet.
-// TODO: We should maybe extend the lock period to the
-// whole verification process and not just the update of
-// the upgrade actions.
-//
-// The `fCosts` should be defines the construction costs
-// for a unit like element (typically a ship or a def) so
-// that it can be checked against the planet's resources
-// when the creation is requested.
-//
-// The `techTree` defines the dependencies for any item
-// in the game using a map where the key is the id of
-// the item and the values represent a combination of
-// the level of the dependency and the identifier of
-// the element.
-//
-// The `buildings` defines the list of available buildings
-// in the game. It allows to easily associate a building's
-// name with the corresponding DB identifier.
+// Provides a way to handle the upgrade actions for the
+// server. Upgrade actions can be attached to buildings
+// technologies, ships or defenses. They are also linked
+// to a planet where the action is actually performed.
+// This proxy intends at providing the necessary checks
+// to make sure that a request to register a new action
+// is possible given the resources and infrastructure
+// currently existing on the planet.
 type ActionProxy struct {
-	pRules    map[string][]ProductionRule
-	sRules    map[string][]StorageRule
-	pCosts    map[string]ConstructionCost
-	fCosts    map[string]FixedCost
-	techTree  map[string][]TechDependency
-	buildings map[string]string
-
-	planetsDependentProxy
-	playersDependentProxy
 	commonProxy
 }
 
 // NewActionProxy :
 // Create a new proxy allowing to serve the requests
-// related to upgrade actions.
+// related to actions.
 //
-// The `dbase` represents the database to use to fetch
-// data related to upgrade actions.
+// The `data` defines the data model to use to fetch
+// information and verify requests.
 //
 // The `log` allows to notify errors and information.
 //
-// The `planets` provides a way to access to planets
-// from the main DB.
-//
-// The `players` provides a way to access to players
-// from the main DB.
-//
 // Returns the created proxy.
-func NewActionProxy(dbase *db.DB, log logger.Logger, planets PlanetProxy, players PlayerProxy) ActionProxy {
-	proxy := ActionProxy{
-		make(map[string][]ProductionRule),
-		make(map[string][]StorageRule),
-		make(map[string]ConstructionCost),
-		make(map[string]FixedCost),
-		make(map[string][]TechDependency),
-		make(map[string]string),
-
-		newPlanetsDependentProxy(planets),
-		newPlayersDependentProxy(players),
-		newCommonProxy(dbase, log),
+func NewActionProxy(data model.Instance, log logger.Logger) ActionProxy {
+	return ActionProxy{
+		commonProxy: newCommonProxy(data, log, "actions"),
 	}
-
-	err := proxy.init()
-	if err != nil {
-		log.Trace(logger.Error, fmt.Sprintf("Could not fetch technologies costs from DB (err: %v)", err))
-	}
-
-	return proxy
 }
 
 // createAction :
@@ -236,8 +170,9 @@ func (p *ActionProxy) verifyAction(a UpgradeAction) error {
 //
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
-// `nil`.
-func (p *ActionProxy) CreateBuildingAction(action BuildingAction) error {
+// `nil`. It also provides the identifier of the action
+// that was created by this method.
+func (p *ActionProxy) CreateBuildingAction(action BuildingAction) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if action.ID == "" {
 		action.ID = uuid.New().String()
@@ -400,8 +335,9 @@ func (p *ActionProxy) fetchBuildingStorageEffects(action *BuildingAction) ([]Sto
 //
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
-// `nil`.
-func (p *ActionProxy) CreateTechnologyAction(action TechnologyAction) error {
+// `nil`. It also indicates the identifier of the action
+// that was created.
+func (p *ActionProxy) CreateTechnologyAction(action TechnologyAction) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if action.ID == "" {
 		action.ID = uuid.New().String()
@@ -430,8 +366,9 @@ func (p *ActionProxy) CreateTechnologyAction(action TechnologyAction) error {
 //
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
-// `nil`.
-func (p *ActionProxy) CreateShipAction(action FixedAction) error {
+// `nil`. It also indicates the identifier of the action
+// that was created.
+func (p *ActionProxy) CreateShipAction(action FixedAction) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if action.ID == "" {
 		action.ID = uuid.New().String()
@@ -464,8 +401,9 @@ func (p *ActionProxy) CreateShipAction(action FixedAction) error {
 //
 // The return status indicates whether the creation could
 // be performed: if this is not the case the error is not
-// `nil`.
-func (p *ActionProxy) CreateDefenseAction(action FixedAction) error {
+// `nil`. It also indicates the identifier of the action
+// that was created.
+func (p *ActionProxy) CreateDefenseAction(action FixedAction) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if action.ID == "" {
 		action.ID = uuid.New().String()

@@ -39,7 +39,7 @@ var ErrTooManyTrials = fmt.Errorf("Could not create planet after %d trial(s)", p
 // related to planets.
 //
 // The `data` defines the data model to use to fetch
-// information and verify actions.
+// information and verify requests.
 //
 // The `log` allows to notify errors and information.
 //

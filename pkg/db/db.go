@@ -211,6 +211,17 @@ func NewPool(logger logger.Logger) *DB {
 	return &dbase
 }
 
+// trace :
+// Used to wrap any logging call with some module describing
+// this element.
+//
+// The `level` defines the severity of the message to log.
+//
+// The `msg` defines the content of the message to log.
+func (dbase *DB) trace(level logger.Severity, msg string) {
+	dbase.logger.Trace(level, getModuleName(), msg)
+}
+
 // createPoolAttempt :
 // Used to try to connect to the database described in the configuration
 // file. The connection is assigned to the internal attribute only if it
@@ -224,7 +235,7 @@ func NewPool(logger logger.Logger) *DB {
 // connected to the DB) and `false` otherwise.
 func (dbase *DB) createPoolAttempt() bool {
 	config := dbase.config
-	dbase.logger.Trace(logger.Info, getModuleName(), fmt.Sprintf("Attempting to connect to \"%s\" (user: \"%s\", host: \"%s:%d\")", config.name, config.user, config.host, config.port))
+	dbase.trace(logger.Info, fmt.Sprintf("Attempting to connect to \"%s\" (user: \"%s\", host: \"%s:%d\")", config.name, config.user, config.host, config.port))
 
 	port := uint16(config.port)
 
@@ -243,11 +254,11 @@ func (dbase *DB) createPoolAttempt() bool {
 
 	// Check whether the connection was successful.
 	if err != nil {
-		dbase.logger.Trace(logger.Warning, getModuleName(), fmt.Sprintf("Failed to connect to DB \"%s\" (err : %v)", config.name, err))
+		dbase.trace(logger.Warning, fmt.Sprintf("Failed to connect to DB \"%s\" (err : %v)", config.name, err))
 		return false
 	}
 
-	dbase.logger.Trace(logger.Info, getModuleName(), fmt.Sprintf("Connection to DB \"%s\" with username \"%s\" succeeded", config.name, config.user))
+	dbase.trace(logger.Info, fmt.Sprintf("Connection to DB \"%s\" with username \"%s\" succeeded", config.name, config.user))
 
 	// Assign the database connection to the internal
 	// attribute while maintaining thread safety.
@@ -314,7 +325,9 @@ func (dbase *DB) DBExecute(query string, args ...interface{}) (*pgx.CommandTag, 
 	dbase.lock.Lock()
 	if dbase.pool == nil {
 		dbase.lock.Unlock()
-		return nil, fmt.Errorf("Cannot execute query on DB \"%s\" (err: connection is invalid)", dbase.config.name)
+		dbase.trace(logger.Error, fmt.Sprintf("Cannot execute query on DB \"%s\" (err: connection is invalid)", dbase.config.name))
+
+		return nil, ErrInvalidDB
 	}
 
 	var tag pgx.CommandTag
@@ -346,7 +359,9 @@ func (dbase *DB) DBQuery(query string, args ...interface{}) (*pgx.Rows, error) {
 	dbase.lock.Lock()
 	if dbase.pool == nil {
 		dbase.lock.Unlock()
-		return nil, fmt.Errorf("Cannot execute query on DB \"%s\" (err: connection is invalid)", dbase.config.name)
+		dbase.trace(logger.Error, fmt.Sprintf("Cannot execute query on DB \"%s\" (err: connection is invalid)", dbase.config.name))
+
+		return nil, ErrInvalidDB
 	}
 
 	var r *pgx.Rows

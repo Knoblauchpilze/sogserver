@@ -56,7 +56,7 @@ func (s *Server) createFleet() http.HandlerFunc {
 
 			// Prevent request with no data.
 			if len(input.Data) == 0 {
-				return resources, fmt.Errorf("Could not perform creation of fleet with no data")
+				return resources, ErrNoData
 			}
 
 			// Iterate over the provided data to create the corresponding
@@ -106,14 +106,14 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 
 			// Prevent request with no data.
 			if len(input.Data) == 0 {
-				return resources, fmt.Errorf("Could not perform creation of fleet component with no data")
+				return resources, ErrNoData
 			}
 
 			// Make sure that we can retrieve the identifier of the
 			// fleet for which the component should be created from
 			// the route's data.
 			if len(input.RouteElems) != 2 || input.RouteElems[1] != "components" {
-				return resources, fmt.Errorf("Could not perform creation of fleet component, invalid input request")
+				return resources, ErrInvalidData
 			}
 
 			fleetID := input.RouteElems[0]

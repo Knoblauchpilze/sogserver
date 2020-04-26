@@ -23,7 +23,7 @@ type AccountProxy struct {
 // related to accounts.
 //
 // The `data` defines the data model to use to fetch
-// information and verify actions.
+// information and verify requests.
 //
 // The `log` allows to notify errors and information.
 //

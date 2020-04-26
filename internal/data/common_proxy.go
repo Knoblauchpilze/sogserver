@@ -152,7 +152,7 @@ func (cp commonProxy) performWithLock(resource string, req db.InsertReq) error {
 		resLock.Lock()
 		defer func() {
 			if rawErr := recover(); rawErr != nil {
-				err = fmt.Errorf("Error occured while executing query (err: %v)", rawErr)
+				err = fmt.Errorf("%v", rawErr)
 			}
 			errRelease = resLock.Unlock()
 		}()

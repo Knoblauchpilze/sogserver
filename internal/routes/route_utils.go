@@ -77,6 +77,18 @@ type RouteData struct {
 	Data       Values
 }
 
+// ErrInvalidRequest :
+// Used to indicate that the request provided in input is not
+// valid (typically `nil`).
+var ErrInvalidRequest = fmt.Errorf("Invalid request provided in input")
+
+// ErrInvalidRoute :
+// Used to indicate that the route provided in input is not
+// consistent with the expected data. Typically it might be
+// used to indicate that the route does not start with the
+// adequate prefix.
+var ErrInvalidRoute = fmt.Errorf("Invalid route provided in input")
+
 // InternalServerErrorString :
 // Used to provide a unique string that can be used in case an
 // error occurs while serving a client request and we need to
@@ -154,13 +166,13 @@ func splitRouteElements(route string) []string {
 // something went wrong.
 func extractRoute(r *http.Request, prefix string) (string, error) {
 	if r == nil {
-		return "", fmt.Errorf("Cannot strip prefix \"%s\" from invalid route", prefix)
+		return "", ErrInvalidRequest
 	}
 
 	route := r.URL.String()
 
 	if !strings.HasPrefix(route, prefix) {
-		return "", fmt.Errorf("Cannot strip prefix \"%s\" from route \"%s\"", prefix, route)
+		return "", ErrInvalidRoute
 	}
 
 	// The route itself is actually the value we want to return.
@@ -188,13 +200,13 @@ func extractRoute(r *http.Request, prefix string) (string, error) {
 // compared to the `route` and the query parameters string.
 func extractExtraPath(r *http.Request, route string) (string, error) {
 	if r == nil {
-		return "", fmt.Errorf("Cannot strip prefix \"%s\" from invalid route", route)
+		return "", ErrInvalidRequest
 	}
 
 	req := r.URL.String()
 
 	if !strings.HasPrefix(req, route) {
-		return "", fmt.Errorf("Cannot strip prefix \"%s\" from route \"%s\"", route, req)
+		return "", ErrInvalidRoute
 	}
 
 	// Return the request without the `route` prefix (note: this will
@@ -257,7 +269,7 @@ func extractRouteVars(route string, r *http.Request) (RouteVars, error) {
 	// Extract the route from the input request.
 	path, err := extractRoute(r, route)
 	if err != nil {
-		return vars, fmt.Errorf("Could not extract vars from route \"%s\" (err: %v)", route, err)
+		return vars, err
 	}
 
 	// The `path` should not contain any query parameters in case there are
@@ -269,7 +281,7 @@ func extractRouteVars(route string, r *http.Request) (RouteVars, error) {
 	// Also extract the addition elements provided in the route.
 	extra, err := extractExtraPath(r, route)
 	if err != nil {
-		return vars, fmt.Errorf("Could not extract vars from route \"%s\" (err: %v)", route, err)
+		return vars, err
 	}
 
 	// The extra path for the route is specified until we reach a '?' character.
@@ -286,7 +298,7 @@ func extractRouteVars(route string, r *http.Request) (RouteVars, error) {
 	// Some query parameters are provided in the input route: analyze them.
 	params, err := url.ParseQuery(queryStr)
 	if err != nil {
-		return vars, fmt.Errorf("Unable to parse query parameters in route \"%s\" (err: %v)", route, err)
+		return vars, ErrInvalidRequest
 	}
 
 	// Analyze the retrieved query parameters.
@@ -332,7 +344,7 @@ func extractRouteData(route string, dataKey string, r *http.Request) (RouteData,
 	// Extract the route from the input request.
 	path, err := extractRoute(r, route)
 	if err != nil {
-		return elems, fmt.Errorf("Could not extract vars from route \"%s\" (err: %v)", route, err)
+		return elems, err
 	}
 
 	// The `path` should not contain any query parameters in case there are
@@ -344,7 +356,7 @@ func extractRouteData(route string, dataKey string, r *http.Request) (RouteData,
 	// Also extract the addition elements provided in the route.
 	extra, err := extractExtraPath(r, route)
 	if err != nil {
-		return elems, fmt.Errorf("Could not extract vars from route \"%s\" (err: %v)", route, err)
+		return elems, err
 	}
 
 	// Fetch the extra elements of the route, but we don't care about the
@@ -357,7 +369,7 @@ func extractRouteData(route string, dataKey string, r *http.Request) (RouteData,
 	// the `FormValue` method).
 	err = r.ParseForm()
 	if err != nil {
-		return elems, fmt.Errorf("Could not parse data for key \"%s\" from route (err: %v)", route, err)
+		return elems, ErrInvalidRequest
 	}
 
 	// Search for the relevant key.

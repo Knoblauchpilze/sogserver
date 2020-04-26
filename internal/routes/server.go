@@ -56,11 +56,12 @@ import (
 // to make planets communicate and send info (resources and
 // ships) in the game.
 //
-//
-// The `actions` defines a proxy that can be used to serve
-// the various upgrade actions handled by the game. It handles
-// both the creation of the actions and their fetching.
-//
+// The `actions` handle the upgrade actions that can be
+// registered to improve the state of buildings on a planet.
+// It also handles the technologies, ships and defenses that
+// can be built on a planet. It makes sure that any request
+// is consistent with the state of the planet where the
+// action should be performed.
 //
 // The `og` defines the data model associated to this server.
 // It helps to serve information and is used by composite
@@ -83,8 +84,7 @@ type Server struct {
 	players   data.PlayerProxy
 	planets   data.PlanetProxy
 	fleets    data.FleetProxy
-
-	actions data.ActionProxy
+	actions   data.ActionProxy
 
 	og    model.Instance
 	proxy db.Proxy
@@ -155,6 +155,7 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 	pp := data.NewPlayerProxy(ogDataModel, log)
 	ppp := data.NewPlanetProxy(ogDataModel, log)
 	fp := data.NewFleetProxy(ogDataModel, log)
+	aap := data.NewActionProxy(ogDataModel, log)
 
 	return Server{
 		port:   port,
@@ -165,8 +166,7 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 		planets:   ppp,
 		players:   pp,
 		fleets:    fp,
-
-		actions: data.NewActionProxy(dbase, log, ppp, pp),
+		actions:   aap,
 
 		og:    ogDataModel,
 		proxy: proxy,

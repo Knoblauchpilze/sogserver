@@ -19,6 +19,11 @@ type Duration struct {
 	time.Duration
 }
 
+// ErrInvalidInput :
+// Indicates that the value provided as input cannot
+// be unmarshalled into a valid duration.
+var ErrInvalidInput = fmt.Errorf("Could not umarshal value to duration")
+
 // MarshalJSON :
 // Imlepementation of the marshaller interface to be
 // able to use this object out-of-the-box with the
@@ -61,6 +66,6 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 		}
 		return nil
 	default:
-		return fmt.Errorf("Could not umarshal value to duration")
+		return ErrInvalidInput
 	}
 }

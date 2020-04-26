@@ -59,6 +59,11 @@ type CreateResourceEndpoint struct {
 	module  string
 }
 
+// ErrNoData :
+// Used to indicate that there is not data provided to perform
+// the creation of the resource.
+var ErrNoData = fmt.Errorf("No data provided to perform resource creation")
+
 // ErrInvalidData :
 // Used as a generic error in case the data provided as input
 // of a creation request could not be read.
@@ -143,7 +148,9 @@ func (cre *CreateResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFun
 		// creation of data in the DB.
 		data, err := extractRouteData(route, cre.key, r)
 		if err != nil {
-			panic(fmt.Errorf("Could not fetch data from request for route \"%s\" (err: %v)", cre.route, err))
+			log.Trace(logger.Error, cre.module, fmt.Sprintf("Could not fetch data from request for route \"%s\" (err: %v)", cre.route, err))
+
+			panic(err)
 		}
 
 		resNames, err := cre.creator(data)
@@ -168,7 +175,9 @@ func (cre *CreateResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFun
 
 		bts, err := json.Marshal(&resources)
 		if err != nil {
-			panic(fmt.Errorf("Could not marshal %d resource(s) returned from creation (err: %v)", len(resNames), err))
+			log.Trace(logger.Error, cre.module, fmt.Sprintf("Could not marshal %d created resource(s) (err; %v)", len(resNames), err))
+
+			panic(ErrInvalidData)
 		}
 
 		notifyCreation(string(bts), w)

@@ -1135,6 +1135,24 @@ func (p *Planet) fetchDefenses(data Instance) error {
 	return nil
 }
 
+// GetResource :
+// Retrieves the resource from the input identifier.
+//
+// The `ID` defines the identifier of the planet to
+// fetch from the planet.
+//
+// Returns the resource description corresponding
+// to the input identifier along with any error.
+func (p *Planet) GetResource(ID string) (ResourceInfo, error) {
+	for _, r := range p.Resources {
+		if r.Resource == ID {
+			return r, nil
+		}
+	}
+
+	return ResourceInfo{}, ErrInvalidID
+}
+
 // GetBuilding :
 // Retrieves the building from the input identifier.
 //
@@ -1179,17 +1197,12 @@ func (p *Planet) validateAction(costs map[string]int, desc UpgradableDesc, data 
 	// Make sure that there are enough resources on the planet.
 	for res, amount := range costs {
 		// Find the amount existing on the planet.
-		found := false
-		pAmount := 0
-
-		for id := 0; id < len(p.Resources) && !found; id++ {
-			if p.Resources[id].Resource == res {
-				found = true
-				pAmount = p.Resources[id].Amount
-			}
+		desc, err := p.GetResource(res)
+		if err != nil {
+			return err
 		}
 
-		if !found || pAmount < amount {
+		if desc.Amount < amount {
 			return ErrNotEnoughResources
 		}
 	}

@@ -732,8 +732,24 @@ func (a *BuildingAction) ConsolidateCompletionTime(data Instance, p *Planet) err
 //
 // Returns any error.
 func (a *BuildingAction) Validate(data Instance, p *Planet) error {
-	// TODO: Handle this.
-	return fmt.Errorf("Not implemented")
+	// Consistency.
+	if a.Planet != p.ID {
+		return ErrInvalidPlanet
+	}
+
+	// Compute the total cost of this action.
+	bd, err := data.Technologies.getTechnologyFromID(a.Element)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Make sure that the building has the `current` level
+	// and that there are remaining fields.
+
+	costs := bd.Cost.ComputeCost(a.DesiredLevel)
+
+	// Validate data.
+	return p.validateAction(costs, bd.UpgradableDesc, data)
 }
 
 // TechnologyAction :
@@ -866,8 +882,23 @@ func (a *TechnologyAction) ConsolidateCompletionTime(data Instance, p *Planet) e
 //
 // Returns any error.
 func (a *TechnologyAction) Validate(data Instance, p *Planet) error {
-	// TODO: Handle this.
-	return fmt.Errorf("Not implemented")
+	// Consistency.
+	if a.Planet != p.ID {
+		return ErrInvalidPlanet
+	}
+
+	// Compute the total cost of this action.
+	td, err := data.Technologies.getTechnologyFromID(a.Element)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Make sure that the technology has the `current` level.
+
+	costs := td.Cost.ComputeCost(a.DesiredLevel)
+
+	// Validate data.
+	return p.validateAction(costs, td.UpgradableDesc, data)
 }
 
 // ShipAction :
@@ -948,8 +979,21 @@ func (a *ShipAction) ConsolidateCompletionTime(data Instance, p *Planet) error {
 //
 // Returns any error.
 func (a *ShipAction) Validate(data Instance, p *Planet) error {
-	// TODO: Handle this.
-	return fmt.Errorf("Not implemented")
+	// Consistency.
+	if a.Planet != p.ID {
+		return ErrInvalidPlanet
+	}
+
+	// Compute the total cost of this action.
+	sd, err := data.Ships.getShipFromID(a.Element)
+	if err != nil {
+		return err
+	}
+
+	costs := sd.Cost.ComputeCost(a.Remaining)
+
+	// Validate data.
+	return p.validateAction(costs, sd.UpgradableDesc, data)
 }
 
 // NewDefenseActionFromDB :
@@ -988,12 +1032,6 @@ func NewDefenseActionFromDB(ID string, data Instance) (DefenseAction, error) {
 // The `p` defines the planet attached to this action and
 // should be provided as argument to make handling of the
 // concurrency easier.
-// TODO: Maybe this should be part of the upgrade action
-// itself so that we don't need anything to pass around.
-// It could be added to the action and fetched when we
-// will create an action from scratch (so when we handle
-// the actual creation of an action and not only the fetch
-// from the DB).
 //
 // Returns any error.
 func (a *DefenseAction) ConsolidateCompletionTime(data Instance, p *Planet) error {
@@ -1021,6 +1059,19 @@ func (a *DefenseAction) ConsolidateCompletionTime(data Instance, p *Planet) erro
 //
 // Returns any error.
 func (a *DefenseAction) Validate(data Instance, p *Planet) error {
-	// TODO: Handle this.
-	return fmt.Errorf("Not implemented")
+	// Consistency.
+	if a.Planet != p.ID {
+		return ErrInvalidPlanet
+	}
+
+	// Compute the total cost of this action.
+	dd, err := data.Defenses.getDefenseFromID(a.Element)
+	if err != nil {
+		return err
+	}
+
+	costs := dd.Cost.ComputeCost(a.Remaining)
+
+	// Validate data.
+	return p.validateAction(costs, dd.UpgradableDesc, data)
 }

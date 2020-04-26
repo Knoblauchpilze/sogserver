@@ -218,7 +218,7 @@ func (p *FleetProxy) CreateComponent(fleetID string, comp model.Component) (stri
 	// Fetch the universe related to this fleet.
 	uni, err := model.NewUniverseFromDB(fleet.Universe, p.data)
 	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Unable to fetch universe \"%s\" to create component for \"%s\" in \"%s\"", fleet.Universe, comp.Player, fleetID, err))
+		p.trace(logger.Error, fmt.Sprintf("Unable to fetch universe \"%s\" to create component for \"%s\" in \"%s\" (err: %v)", fleet.Universe, comp.Player, fleetID, err))
 		return comp.ID, err
 	}
 

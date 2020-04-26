@@ -578,6 +578,71 @@ func (a *BuildingAction) fetchStorageEffects(data Instance) error {
 	return nil
 }
 
+// ConsolidateEffects :
+// Used to make sure that the production and storage
+// effects for this action are consistent with the
+// desired level of the building described by it. It
+// uses the input `data` model to access to needed
+// information.
+// Note that the effects define the difference from
+// the existing level and not the absolute value of
+// the output state of the action.
+//
+// The `data` defines a way to access to the effects
+// for buildings.
+//
+// The `p` defines the parent planet where the action
+// is meant to be performed. It should be passed to
+// this function in order to make locking the resource
+// more easily.
+//
+// Returns any error.
+func (a *BuildingAction) ConsolidateEffects(data Instance, p *Planet) error {
+	// Consistency.
+	if a.Planet != p.ID {
+		return ErrInvalidPlanet
+	}
+
+	// We need to retrieve the building related to this
+	// action.
+	bd, err := data.Buildings.getBuildingFromID(a.Element)
+	if err != nil {
+		return err
+	}
+
+	// Update production effects.
+	a.Production = make([]ProductionEffect, 0)
+
+	for _, rule := range bd.Production {
+		curProd := rule.ComputeProduction(a.CurrentLevel, p.AverageTemperature())
+		desiredProd := rule.ComputeProduction(a.DesiredLevel, p.AverageTemperature())
+
+		e := ProductionEffect{
+			Resource:   rule.Resource,
+			Production: float32(desiredProd - curProd),
+		}
+
+		a.Production = append(a.Production, e)
+	}
+
+	// And storage effects.
+	a.Storage = make([]StorageEffect, 0)
+
+	for _, rule := range bd.Storage {
+		curStorage := rule.ComputeStorage(a.CurrentLevel)
+		desiredStorage := rule.ComputeStorage(a.DesiredLevel)
+
+		e := StorageEffect{
+			Resource: rule.Resource,
+			Storage:  float32(desiredStorage - curStorage),
+		}
+
+		a.Storage = append(a.Storage, e)
+	}
+
+	return nil
+}
+
 // ConsolidateCompletionTime :
 // Used to update the completion time required for this
 // action to complete based on the amount of resources
@@ -651,6 +716,24 @@ func (a *BuildingAction) ConsolidateCompletionTime(data Instance, p *Planet) err
 	a.CompletionTime = time.Now().Add(t)
 
 	return nil
+}
+
+// Validate :
+// Used to make sure that the action can be performed on
+// the planet it is linked to. This will check that the
+// tech tree is consistent with what's expected from the
+// ship, that resources are available etc.
+//
+// The `data` allows to access to the DB if needed.
+//
+// The `p` defines the planet attached to this action:
+// it needs to be provided as input so that resource
+// locking is easier.
+//
+// Returns any error.
+func (a *BuildingAction) Validate(data Instance, p *Planet) error {
+	// TODO: Handle this.
+	return fmt.Errorf("Not implemented")
 }
 
 // TechnologyAction :
@@ -769,6 +852,24 @@ func (a *TechnologyAction) ConsolidateCompletionTime(data Instance, p *Planet) e
 	return nil
 }
 
+// Validate :
+// Used to make sure that the action can be performed on
+// the planet it is linked to. This will check that the
+// tech tree is consistent with what's expected from the
+// ship, that resources are available etc.
+//
+// The `data` allows to access to the DB if needed.
+//
+// The `p` defines the planet attached to this action:
+// it needs to be provided as input so that resource
+// locking is easier.
+//
+// Returns any error.
+func (a *TechnologyAction) Validate(data Instance, p *Planet) error {
+	// TODO: Handle this.
+	return fmt.Errorf("Not implemented")
+}
+
 // ShipAction :
 // Used as a convenience define to refer to the action
 // of creating one or several ships on a planet.
@@ -833,6 +934,24 @@ func (a *ShipAction) ConsolidateCompletionTime(data Instance, p *Planet) error {
 	return a.computeCompletionTime(data, sd.Cost, p)
 }
 
+// Validate :
+// Used to make sure that the action can be performed on
+// the planet it is linked to. This will check that the
+// tech tree is consistent with what's expected from the
+// ship, that resources are available etc.
+//
+// The `data` allows to access to the DB if needed.
+//
+// The `p` defines the planet attached to this action:
+// it needs to be provided as input so that resource
+// locking is easier.
+//
+// Returns any error.
+func (a *ShipAction) Validate(data Instance, p *Planet) error {
+	// TODO: Handle this.
+	return fmt.Errorf("Not implemented")
+}
+
 // NewDefenseActionFromDB :
 // Used similarly to the `NewBuildingActionFromDB`
 // element but to fetch the actions related to the
@@ -886,4 +1005,22 @@ func (a *DefenseAction) ConsolidateCompletionTime(data Instance, p *Planet) erro
 	}
 	// Use the base handler.
 	return a.computeCompletionTime(data, dd.Cost, p)
+}
+
+// Validate :
+// Used to make sure that the action can be performed on
+// the planet it is linked to. This will check that the
+// tech tree is consistent with what's expected from the
+// ship, that resources are available etc.
+//
+// The `data` allows to access to the DB if needed.
+//
+// The `p` defines the planet attached to this action:
+// it needs to be provided as input so that resource
+// locking is easier.
+//
+// Returns any error.
+func (a *DefenseAction) Validate(data Instance, p *Planet) error {
+	// TODO: Handle this.
+	return fmt.Errorf("Not implemented")
 }

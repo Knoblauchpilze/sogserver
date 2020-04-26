@@ -158,7 +158,7 @@ func (s *Server) registerShipAction() http.HandlerFunc {
 			// Unmarshal the input data into a ship upgrade action
 			// and perform the registration through the dedicated
 			// function.
-			var action model.FixedAction
+			var action model.ShipAction
 
 			err := json.Unmarshal([]byte(input), &action)
 			if err != nil {
@@ -195,7 +195,7 @@ func (s *Server) registerDefenseAction() http.HandlerFunc {
 			// Unmarshal the input data into a defense upgrade
 			// action and perform the registration through the
 			// dedicated function.
-			var action model.FixedAction
+			var action model.DefenseAction
 
 			err := json.Unmarshal([]byte(input), &action)
 			if err != nil {

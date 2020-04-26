@@ -204,34 +204,6 @@ func (a *BuildingAction) Validate(tools validationTools) (bool, error) {
 	return a.ProgressAction.Validate(tools)
 }
 
-// computeTotalCost :
-// Used to compute the construction cost of the action
-// based on the total number of unit described by it.
-// It uses the provided table to retrieve the actual
-// cost of a single unit.
-//
-// The `costs` defines the initial costs of a single
-// unit. The map is indexed by ID key (so one of them
-// should match the `a.ElementID` value).
-//
-// Returns a slice containing for each resource that
-// is needed for this action the total amount that is
-// still needed given the `a.Remaining` number to be
-// built. In case the input map does not define anything
-// for the action an error is returned.
-func (a *FixedAction) computeTotalCost(costs map[string]FixedCost) ([]ResourceAmount, error) {
-	// Find this action in the input table.
-	cost, ok := costs[a.ElementID]
-
-	if !ok {
-		return []ResourceAmount{}, fmt.Errorf("Cannot compute cost for action \"%s\" defining unknown element \"%s\"", a.ID, a.ElementID)
-	}
-
-	needed := cost.ComputeCosts(a.Remaining)
-
-	return needed, nil
-}
-
 // Validate :
 // Similar to the equivalent method in the `ProgressAction`
 // method: required to implement the interface defined by

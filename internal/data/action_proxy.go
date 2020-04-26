@@ -80,6 +80,13 @@ func (p *ActionProxy) CreateBuildingAction(a model.BuildingAction) (string, erro
 		return a.ID, ErrInvalidAction
 	}
 
+	defer func() {
+		err := planet.Close()
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Could not release lock on planet \"%s\" (err: %v)", planet.ID, err))
+		}
+	}()
+
 	// Consolidate the action (typically completion time
 	// and effects).
 	err = a.ConsolidateEffects(p.data, &planet)
@@ -153,6 +160,13 @@ func (p *ActionProxy) CreateTechnologyAction(a model.TechnologyAction) (string, 
 		return a.ID, ErrInvalidAction
 	}
 
+	defer func() {
+		err := planet.Close()
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Could not release lock on planet \"%s\" (err: %v)", planet.ID, err))
+		}
+	}()
+
 	// Consolidate the completion time for this technology.
 	err = a.ConsolidateCompletionTime(p.data, &planet)
 	if err != nil {
@@ -213,6 +227,13 @@ func (p *ActionProxy) CreateShipAction(a model.ShipAction) (string, error) {
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch planet related to ship action (err: %v)", err))
 		return a.ID, ErrInvalidAction
 	}
+
+	defer func() {
+		err := planet.Close()
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Could not release lock on planet \"%s\" (err: %v)", planet.ID, err))
+		}
+	}()
 
 	// Consolidate the completion time for this action and
 	// the amount of units to produce.
@@ -277,6 +298,13 @@ func (p *ActionProxy) CreateDefenseAction(a model.DefenseAction) (string, error)
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch planet related to defense action (err: %v)", err))
 		return a.ID, ErrInvalidAction
 	}
+
+	defer func() {
+		err := planet.Close()
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Could not release lock on planet \"%s\" (err: %v)", planet.ID, err))
+		}
+	}()
 
 	// Consolidate the completion time for this action and
 	// the amount of units to produce.

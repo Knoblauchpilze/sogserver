@@ -76,6 +76,15 @@ func (p *Player) Valid() bool {
 	return validUUID(p.ID) && validUUID(p.Account) && validUUID(p.Universe) && len(p.Name) > 0
 }
 
+// String :
+// Implementation of the `Stringer` interface to make
+// sure displaying this player is easy.
+//
+// Returns the corresponding string.
+func (p Player) String() string {
+	return fmt.Sprintf("[id: %s, account: %s, uni: %s, name: \"%s\"]", p.ID, p.Account, p.Universe, p.Name)
+}
+
 // NewPlayerFromDB :
 // Used to fetch the content of the player from the
 // input DB and populate all internal fields from it.

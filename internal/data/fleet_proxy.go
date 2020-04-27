@@ -163,6 +163,7 @@ func (p *FleetProxy) Create(fleet model.Fleet) (string, error) {
 
 	// Check consistency.
 	if !fleet.Valid(uni) {
+		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet's data %s", fleet))
 		return fleet.ID, model.ErrInvalidFleet
 	}
 
@@ -224,6 +225,7 @@ func (p *FleetProxy) CreateComponent(fleetID string, comp model.Component) (stri
 
 	// Check validity of the input fleet component.
 	if !comp.Valid(uni) {
+		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet component's data %s", comp))
 		return comp.ID, model.ErrInvalidFleetComponent
 	}
 

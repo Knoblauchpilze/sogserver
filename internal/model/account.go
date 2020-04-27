@@ -60,6 +60,14 @@ func (a *Account) Valid() bool {
 		a.Password != ""
 }
 
+// Implementation of `Stringer` interface to be able to
+// easily display the data related to this account.
+//
+// Returns the corresponding string.
+func (a Account) String() string {
+	return fmt.Sprintf("[id: %s, name: \"%s\", mail: \"%s\"]", a.ID, a.Name, a.Mail)
+}
+
 // NewAccountFromDB :
 // Used to fetch the content of the account from
 // the input DB and populate all internal fields

@@ -96,6 +96,15 @@ func (u *Universe) Valid() bool {
 		u.SolarSystemSize > 0
 }
 
+// String :
+// Implementation of the `Stringer` interface to make
+// sure displaying this universe is easy.
+//
+// Returns the corresponding string.
+func (u Universe) String() string {
+	return fmt.Sprintf("[id: %s, name: \"%s\"]", u.ID, u.Name)
+}
+
 // NewUniverseFromDB :
 // Used to fetch the content of the universe from
 // the input DB and populate all internal fields

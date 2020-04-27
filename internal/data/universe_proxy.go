@@ -122,6 +122,7 @@ func (p *UniverseProxy) Create(uni model.Universe) (string, error) {
 
 	// Check consistency.
 	if !uni.Valid() {
+		p.trace(logger.Error, fmt.Sprintf("Failed to validate universe's data %s", uni))
 		return uni.ID, model.ErrInvalidUniverse
 	}
 

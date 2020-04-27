@@ -271,6 +271,5 @@ func (p Proxy) InsertToDB(req InsertReq) error {
 
 	_, err := p.dbase.DBExecute(query)
 
-	// TODO: Perform formatting like `ErrDuplicatedForeignKey` etc.
-	return err
+	return formatDBError(err)
 }

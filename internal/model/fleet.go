@@ -156,6 +156,15 @@ func (f *Fleet) Valid(uni Universe) bool {
 		f.Comps.valid(uni)
 }
 
+// String :
+// Implementation of the `Stringer` interface to make
+// sure displaying this fleet is easy.
+//
+// Returns the corresponding string.
+func (f Fleet) String() string {
+	return fmt.Sprintf("[id: %s, uni: %s, target: %s]", f.ID, f.Universe, f.Target)
+}
+
 // Valid :
 // Used to determine whether the fleet component defined
 // by this element is valid or not. We will check that
@@ -172,6 +181,15 @@ func (fc Component) Valid(uni Universe) bool {
 		fc.Origin.valid(uni.GalaxiesCount, uni.GalaxySize, uni.SolarSystemSize) &&
 		fc.Speed >= 0.0 && fc.Speed <= 1.0 &&
 		fc.Ships.valid()
+}
+
+// String :
+// Implementation of the `Stringer` interface to make
+// sure displaying this fleet component is easy.
+//
+// Returns the corresponding string.
+func (fc Component) String() string {
+	return fmt.Sprintf("[id: %s, player: %s, origin: %s]", fc.ID, fc.Player, fc.Origin)
 }
 
 // valid :

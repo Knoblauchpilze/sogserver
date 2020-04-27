@@ -175,7 +175,7 @@ func (p *PlanetProxy) generateResources(planet *model.Planet) error {
 // created.
 func (p *PlanetProxy) CreateFor(player model.Player) (string, error) {
 	// Check consistency.
-	if player.Valid() {
+	if !player.Valid() {
 		return "", model.ErrInvalidPlayer
 	}
 

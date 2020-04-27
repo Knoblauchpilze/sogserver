@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -29,61 +30,267 @@ var ErrInvalidData = fmt.Errorf("Invalid data to insert to DB")
 // `QueryResult` has failec.
 var ErrInvalidScan = fmt.Errorf("Invalid scan operation on DB")
 
-// ErrorType :
-// Defines some convenience named values for common SQL
-// errors.
-type ErrorType int
+// ErrNoSQLCode :
+// Defines that the error message provided in input
+// does not define any SQL error code.
+var ErrNoSQLCode = fmt.Errorf("no SQL code found in error message")
 
-// Defines the possible named SQL errors.
+// Defines the possible error code as returned by
+// the SQL driver.
 const (
-	DuplicatedElement ErrorType = iota
-	ForeignKeyViolation
-	Unknown
+	foreignKeyViolation int = 23503
+	duplicatedElement   int = 23505
 )
 
-// getDuplicatedElementErrorKey :
-// Used to retrieve a string describing part of the error
-// message issued by the database when trying to insert a
-// duplicated element on a unique column. Can be used to
-// standardize the definition of this error.
+// Error :
+// Defines a generic error type which is associated to a
+// SQL error. It basically defines the code that was set
+// as return value for the SQL query along with the init
+// error.
 //
-// Return part of the error string issued when inserting
-// an already existing key.
-func getDuplicatedElementErrorKey() string {
-	return "SQLSTATE 23505"
+// The `SQLCode` defines the SQL error code returned by
+// the query.
+//
+// The `Err` defines the initial error that produced
+// this `DBError`.
+type Error struct {
+	SQLCode int
+	Err     error
 }
 
-// getForeignKeyViolationErrorKey :
-// Used to retrieve a string describing part of the error
-// message issued by the database when trying to insert an
-// element that does not match a foreign key constraint.
-// Can be used to standardize the definition of this error.
-//
-// Return part of the error string issued when violating a
-// foreign key constraint.
-func getForeignKeyViolationErrorKey() string {
-	return "SQLSTATE 23503"
+// Error :
+// Implementation of the `error` interface to provide a
+// description of the error.
+func (e Error) Error() string {
+	return fmt.Sprintf("SQL query failed with code was %d (err: %v)", e.SQLCode, e.Err.Error())
 }
 
-// GetSQLErrorCode :
-// Performs an analysis of the input error string to extract
-// a named error code if possible. In case the error does not
-// seem to match anything known, the `Unknown` code is sent
-// back.
+// DuplicatedElementError :
+// Used to define a duplicated element in a table which
+// lead to a unique key error.
 //
-// The `errStr` defines the error message to analyze.
+// The `Constraint` defines the name of the unique key
+// constraint that was violated by the request.
 //
-// Returns the error code for this error or `Unknown` if it
-// does not match any known error.
-func GetSQLErrorCode(errStr string) ErrorType {
-	// Check for all known keys.
-	if strings.Contains(errStr, getDuplicatedElementErrorKey()) {
-		return DuplicatedElement
+// The `Err` defines the initial error that caused the
+// duplicated element error.
+type DuplicatedElementError struct {
+	Constraint string
+	Err        error
+}
+
+// Error :
+// Implementation of the `error` interface.
+func (e DuplicatedElementError) Error() string {
+	return fmt.Sprintf("Query violates unique constraint \"%s\"", e.Constraint)
+}
+
+// ForeignKeyViolationError :
+// Used to define a foreign key violation in a table
+// which leads to inconsistent data.
+//
+// The `Table` defines the name of the table attached
+// to the error.
+//
+// The `ForeignKey` defines the key that was actually
+// violated by the request.
+//
+// The `Err` defines the initial error that cause the
+// foreign key violation to be raised.
+type ForeignKeyViolationError struct {
+	Table      string
+	ForeignKey string
+	Err        error
+}
+
+// Error :
+// Implementation of the `error` interface.
+func (e ForeignKeyViolationError) Error() string {
+	return fmt.Sprintf("Query violates foreign key \"%s\" existence on table \"%s\"", e.ForeignKey, e.Table)
+}
+
+// newDuplicatedElementError :
+// Used to perform the creation of a duplicated element
+// error from the input error. It will analyze the msg
+// associated to the error and extract the constraint
+// that was violated.
+//
+// The `err` defines the error from which this error is
+// to be built.
+//
+// Returns the created error.
+func newDuplicatedElementError(err error) error {
+	// The error message in case of a duplicated element
+	// looks something like below.
+	msg := err.Error()
+
+	cue := "duplicate key value violates unique constraint \""
+
+	id := strings.Index(msg, cue)
+	if id < 0 {
+		return err
 	}
 
-	if strings.Contains(errStr, getForeignKeyViolationErrorKey()) {
-		return ForeignKeyViolation
+	end := msg[id+len(cue):]
+
+	id = strings.Index(end, "\"")
+	if id < 0 {
+		return err
 	}
 
-	return Unknown
+	dee := Error{
+		SQLCode: duplicatedElement,
+		Err: DuplicatedElementError{
+			Constraint: end[:id],
+			Err:        err,
+		},
+	}
+
+	return dee
+}
+
+// newForeignKeyViolation :
+// Used to perform the creation of a foreign key issue
+// error from the input data. It will analyze the msg
+// associated to the error and extract the foreign key
+// that was violated.
+//
+// The `err` defines the error from which this error
+// is to be built.
+//
+// Returns the created error.
+func newForeignKeyViolation(err error) error {
+	// The error message in case of a duplicated element
+	// looks something like below.
+	msg := err.Error()
+
+	// First fetch the name of the table.
+	cue := "insert or update on table \""
+
+	id := strings.Index(msg, cue)
+	if id < 0 {
+		return err
+	}
+
+	end := msg[id+len(cue):]
+
+	id = strings.Index(end, "\"")
+	if id < 0 {
+		return err
+	}
+
+	table := end[:id]
+
+	// Then analyze the foreign key that was violated.
+	cue = "violates foreign key constraint \""
+
+	id = strings.Index(end, cue)
+	if id < 0 {
+		return err
+	}
+
+	constraint := end[id+len(cue):]
+
+	// The error message is structured like so:
+	// `tableName_field_fkey`.
+	// We want to extract the `field` to provide
+	// the best possible info.
+	if len(constraint) <= len(table) {
+		return err
+	}
+
+	constraint = constraint[len(table)+1:]
+
+	id = strings.Index(constraint, "_fkey")
+	if id < 0 {
+		return err
+	}
+
+	// Build and return the error.
+	fkve := Error{
+		SQLCode: duplicatedElement,
+		Err: ForeignKeyViolationError{
+			Table:      table,
+			ForeignKey: constraint[:id],
+			Err:        err,
+		},
+	}
+
+	return fkve
+}
+
+// parseSQLCode :
+// Used to parse the SQL code defined in an error message
+// assuming it looks something like the following:
+// `error msg (SQLSTATE : CODE)`.
+// In case it cannot parse the corresponding code an error
+// is returned.
+func parseSQLCode(msg string) (int, error) {
+	sqlCue := "SQLSTATE "
+
+	// Analyze the input error to retrieve at least the
+	// SQL error code.
+	codeIndex := strings.Index(msg, sqlCue)
+	if codeIndex < 0 {
+		return 0, ErrNoSQLCode
+	}
+
+	end := msg[codeIndex+len(sqlCue):]
+
+	id := strings.Index(end, ")")
+	if id < 0 {
+		return 0, ErrNoSQLCode
+	}
+
+	codeStr := end[:id]
+
+	code, err := strconv.ParseInt(codeStr, 10, 32)
+	if err != nil {
+		return 0, ErrNoSQLCode
+	}
+
+	return int(code), nil
+}
+
+// formatDBError :
+// Used to extract some information about the DB error
+// provided in input. It will typically define whether
+// the code refer to a foreign key violation, a `null`
+// value where it should not be, etc.
+//
+// The `dbErr` defines the DB error to analyze.
+//
+// Returns the formatted DB error (in case all else
+// fails, the initial error is returned).
+func formatDBError(err error) error {
+	// In case no error occurred, do nothing.
+	if err == nil {
+		return err
+	}
+
+	// Retrieve the SQL code for this request. In case
+	// we can't find a valid code we will return the
+	// input error not to create more errors.
+	code, pErr := parseSQLCode(err.Error())
+	if pErr != nil {
+		return err
+	}
+
+	// Otherwise we can start building the error.
+	var e error
+
+	switch code {
+	case foreignKeyViolation:
+		e = newForeignKeyViolation(err)
+	case duplicatedElement:
+		e = newDuplicatedElementError(err)
+	default:
+		// Base error will do.
+		e = Error{
+			SQLCode: code,
+			Err:     err,
+		}
+	}
+
+	return e
 }

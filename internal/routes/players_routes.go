@@ -70,8 +70,12 @@ func (s *Server) createPlayer() http.HandlerFunc {
 					return resources, ErrDBError
 				}
 
+				// Update the player's identifier.
+				player.ID = res
+
 				// Choose a homeworld for this account and create it.
 				_, err = s.planets.CreateFor(player)
+
 				if err != nil {
 					// Indicate that we could not create the planet for the player. It
 					// is not ideal because we should probably delete the player entry

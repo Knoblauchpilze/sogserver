@@ -122,6 +122,7 @@ func (p *AccountProxy) Create(acc model.Account) (string, error) {
 
 	// Check consistency.
 	if !acc.Valid() {
+		p.trace(logger.Error, fmt.Sprintf("Failed to validate account's data %s", acc))
 		return acc.ID, model.ErrInvalidAccount
 	}
 
@@ -133,7 +134,6 @@ func (p *AccountProxy) Create(acc model.Account) (string, error) {
 
 	err := p.proxy.InsertToDB(query)
 
-	// TODO: Restore checks to indicate which type of error occurred.
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not create account \"%s\" (err: %v)", acc.Name, err))

@@ -43,6 +43,17 @@ var ErrInvalidAssociation = fmt.Errorf("Association has one invalid member")
 // found.
 var ErrNotFound = fmt.Errorf("Element does not exist")
 
+// newAssociationTable :
+// Used to create a new association table.
+//
+// Returns the newly created association table.
+func newAssociationTable() associationTable {
+	return associationTable{
+		idsToNames: make(map[string]string),
+		namesToIDs: make(map[string]string),
+	}
+}
+
 // valid :
 // Used to determine whether this association table is
 // valid or not. We consider that the validity status

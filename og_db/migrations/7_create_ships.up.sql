@@ -37,7 +37,8 @@ CREATE TABLE ships_propulsion_cost (
   res uuid NOT NULL,
   amount integer NOT NULL,
   FOREIGN KEY (ship) REFERENCES ships(id),
-  FOREIGN KEY (res) REFERENCES resources(id)
+  FOREIGN KEY (res) REFERENCES resources(id),
+  UNIQUE (ship, res)
 );
 
 -- Create the table defining the rapid fire between each ship and any
@@ -47,7 +48,8 @@ CREATE TABLE ships_rapid_fire (
   target uuid NOT NULL,
   rapid_fire integer NOT NULL,
   FOREIGN KEY (ship) REFERENCES ships(id),
-  FOREIGN KEY (target) REFERENCES ships(id)
+  FOREIGN KEY (target) REFERENCES ships(id),
+  UNIQUE (ship, target)
 );
 
 -- Create the table defining the rapid fire between ships and any
@@ -57,7 +59,8 @@ CREATE TABLE ships_rapid_fire_defenses (
   target uuid NOT NULL,
   rapid_fire integer NOT NULL,
   FOREIGN KEY (ship) REFERENCES ships(id),
-  FOREIGN KEY (target) REFERENCES defenses(id)
+  FOREIGN KEY (target) REFERENCES defenses(id),
+  UNIQUE (ship, target)
 );
 
 -- Seed the available ships.
@@ -825,14 +828,14 @@ INSERT INTO public.ships_rapid_fire ("ship", "target", "rapid_fire")
 -- Recycler.
 INSERT INTO public.ships_rapid_fire ("ship", "target", "rapid_fire")
   VALUES(
-    (SELECT id FROM ships WHERE name='destroyer'),
+    (SELECT id FROM ships WHERE name='recycler'),
     (SELECT id FROM ships WHERE name='espionage probe'),
     5
   );
 
 INSERT INTO public.ships_rapid_fire ("ship", "target", "rapid_fire")
   VALUES(
-    (SELECT id FROM ships WHERE name='destroyer'),
+    (SELECT id FROM ships WHERE name='recycler'),
     (SELECT id FROM ships WHERE name='solar satellite'),
     5
   );

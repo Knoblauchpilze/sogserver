@@ -164,6 +164,7 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 	}
 
 	// Scan the universe's data.
+	dbRes.Next()
 	err = dbRes.Scan(
 		&u.Name,
 		&u.EcoSpeed,

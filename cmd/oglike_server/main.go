@@ -94,7 +94,6 @@ func main() {
 		err := recover()
 		if err != nil {
 			stack := string(debug.Stack())
-
 			log.Trace(logger.Fatal, "main", fmt.Sprintf("App crashed after error: %v (stack: %s)", err, stack))
 		}
 

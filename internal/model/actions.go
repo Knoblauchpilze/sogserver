@@ -147,6 +147,7 @@ func newProgressActionFromDB(ID string, data Instance, table string) (ProgressAc
 	}
 
 	// Scan the action's data.
+	dbRes.Next()
 	err = dbRes.Scan(
 		&a.Planet,
 		&a.Element,
@@ -257,6 +258,7 @@ func newFixedActionFromDB(ID string, data Instance, table string) (FixedAction, 
 	}
 
 	// Scan the action's data.
+	dbRes.Next()
 	err = dbRes.Scan(
 		&a.Planet,
 		&a.Element,

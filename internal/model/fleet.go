@@ -323,6 +323,7 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 	// Scan the fleet's data.
 	var g, s, p int
 
+	dbRes.Next()
 	err = dbRes.Scan(
 		&f.Name,
 		&f.Universe,

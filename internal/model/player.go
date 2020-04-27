@@ -165,6 +165,7 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 	}
 
 	// Scan the player's data.
+	dbRes.Next()
 	err = dbRes.Scan(
 		&p.Account,
 		&p.Universe,

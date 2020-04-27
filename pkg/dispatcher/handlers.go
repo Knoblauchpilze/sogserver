@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"oglike_server/pkg/logger"
+	"runtime/debug"
 )
 
 // NotFound :
@@ -100,7 +101,8 @@ func WithSafetyNet(log logger.Logger, next http.HandlerFunc) http.HandlerFunc {
 
 				if err != nil {
 					// Log the error and answer with an internal server error.
-					log.Trace(logger.Error, getModuleName(), fmt.Sprintf("Recovering from unexpected panic (err: %v)", err))
+					stack := string(debug.Stack())
+					log.Trace(logger.Error, getModuleName(), fmt.Sprintf("Recovering from unexpected panic (err: %v) (stack: %v)", err, stack))
 
 					http.Error(w, "Unexpected error while processing request", http.StatusInternalServerError)
 				}

@@ -121,6 +121,7 @@ func NewAccountFromDB(ID string, data Instance) (Account, error) {
 	}
 
 	// Scan the account's data.
+	dbRes.Next()
 	err = dbRes.Scan(
 		&a.ID,
 		&a.Mail,

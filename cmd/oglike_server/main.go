@@ -54,6 +54,11 @@ import (
 // TODO: Some scripts might not work anymore due to changes in the way
 // we have some Coordinates in the structure rather than some actual
 // `Galaxy`, `System` and `Position` values.
+// Typically the import of planets does not work anymore. See in line
+// 280 in `planet_proxy`: the planet stores its coordinates into a
+// `Coordinate` object and not as a `galaxy`, `system` and `position`
+// as expected in the DB. We should probably provide a custom marshal
+// process for this type.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

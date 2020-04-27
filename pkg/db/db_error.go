@@ -38,6 +38,7 @@ var ErrNoSQLCode = fmt.Errorf("no SQL code found in error message")
 // Defines the possible error code as returned by
 // the SQL driver.
 const (
+	nonNullConstraint   int = 23502
 	foreignKeyViolation int = 23503
 	duplicatedElement   int = 23505
 )
@@ -63,6 +64,27 @@ type Error struct {
 // description of the error.
 func (e Error) Error() string {
 	return fmt.Sprintf("SQL query failed with code was %d (err: %v)", e.SQLCode, e.Err.Error())
+}
+
+// NonNullConstrainteError :
+// Used to define an error indicating that a non null
+// constraint was violated by an insert request.
+//
+// The `Column` defines the name of the column that
+// was meant to be populated with a null value which
+// was not possible due to a constraint.
+//
+// The `Err` defines the initial error that caused
+// the non null violation error.
+type NonNullConstrainteError struct {
+	Column string
+	Err    error
+}
+
+// Error :
+// Implementation of the `error` interface.
+func (e NonNullConstrainteError) Error() string {
+	return fmt.Sprintf("Query violates non null constraint on column \"%s\"", e.Column)
 }
 
 // DuplicatedElementError :
@@ -107,6 +129,46 @@ type ForeignKeyViolationError struct {
 // Implementation of the `error` interface.
 func (e ForeignKeyViolationError) Error() string {
 	return fmt.Sprintf("Query violates foreign key \"%s\" existence on table \"%s\"", e.ForeignKey, e.Table)
+}
+
+// newNonNullConstraintError :
+// Used to perform the creation of an error describing
+// a non null constraint being violated. It will use
+// the input error to extract information about the
+// actual column that was violated.
+//
+// The `err` defines the error from which this error
+// is to be built.
+//
+// Returns the created error.
+func newNonNullConstraintError(err error) error {
+	// The error message in case of a duplicated element
+	// looks something like below.
+	msg := err.Error()
+
+	cue := "null value in column \""
+
+	id := strings.Index(msg, cue)
+	if id < 0 {
+		return err
+	}
+
+	end := msg[id+len(cue):]
+
+	id = strings.Index(end, "\"")
+	if id < 0 {
+		return err
+	}
+
+	nnce := Error{
+		SQLCode: nonNullConstraint,
+		Err: NonNullConstrainteError{
+			Column: end[:id],
+			Err:    err,
+		},
+	}
+
+	return nnce
 }
 
 // newDuplicatedElementError :
@@ -208,7 +270,7 @@ func newForeignKeyViolation(err error) error {
 
 	// Build and return the error.
 	fkve := Error{
-		SQLCode: duplicatedElement,
+		SQLCode: foreignKeyViolation,
 		Err: ForeignKeyViolationError{
 			Table:      table,
 			ForeignKey: constraint[:id],
@@ -280,6 +342,8 @@ func formatDBError(err error) error {
 	var e error
 
 	switch code {
+	case nonNullConstraint:
+		e = newNonNullConstraintError(err)
 	case foreignKeyViolation:
 		e = newForeignKeyViolation(err)
 	case duplicatedElement:

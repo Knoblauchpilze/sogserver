@@ -192,6 +192,8 @@ func (s *Server) Serve() error {
 	// Register the router as the main listener.
 	http.Handle("/", s.router)
 
+	s.log.Trace(logger.Notice, "server", "Server has started")
+
 	// Serve the root path.
 	return http.ListenAndServe(":"+strconv.FormatInt(int64(s.port), 10), nil)
 }

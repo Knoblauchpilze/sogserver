@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"runtime/debug"
 
 	// Note that this link: https://stackoverflow.com/questions/55442878/organize-local-code-in-packages-using-go-modules
 	// proved helpful when trying to determine which syntax to adopt to use packages defined locally.
@@ -92,7 +93,9 @@ func main() {
 	defer func() {
 		err := recover()
 		if err != nil {
-			log.Trace(logger.Fatal, "main", fmt.Sprintf("App crashed after error: %v", err))
+			stack := string(debug.Stack())
+
+			log.Trace(logger.Fatal, "main", fmt.Sprintf("App crashed after error: %v (stack: %s)", err, stack))
 		}
 
 		log.Release()

@@ -436,6 +436,11 @@ func (sm *ShipsModule) initCharacteristics(proxy db.Proxy) error {
 		// Register this value: note that we know that the props
 		// exist because we checked that `sm.existsID` before.
 		props := sm.characteristics[ID]
+
+		if props.consumption == nil {
+			props.consumption = make(map[string]int)
+		}
+
 		props.consumption[res] = consumption
 		sm.characteristics[ID] = props
 	}

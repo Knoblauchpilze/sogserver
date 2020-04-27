@@ -105,7 +105,7 @@ func getModuleString() string {
 // base `baseModule` element.
 func NewResourcesModule(log logger.Logger) *ResourcesModule {
 	return &ResourcesModule{
-		associationTable: associationTable{},
+		associationTable: newAssociationTable(),
 		baseModule:       newBaseModule(log, getModuleString()),
 		prod:             nil,
 		storage:          nil,

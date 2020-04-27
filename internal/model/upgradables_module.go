@@ -123,7 +123,7 @@ type Dependency struct {
 // to forward to the logging layer.
 func newUpgradablesModule(log logger.Logger, kind upgradable, module string) *upgradablesModule {
 	return &upgradablesModule{
-		associationTable: associationTable{},
+		associationTable: newAssociationTable(),
 		baseModule:       newBaseModule(log, module),
 		uType:            kind,
 		buildingsDeps:    nil,

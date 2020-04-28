@@ -270,6 +270,11 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 	}
 
 	// Acquire the lock on the planet from the DB.
+	// TODO: We should find a way to acquire the
+	// lock on the player that owns this planet.
+	// It would indicate that no update of the
+	// techs should be performed while we access
+	// the planet.
 	var err error
 	p.locker, err = data.Locker.Acquire(p.ID)
 	if err != nil {
@@ -293,6 +298,11 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 	}
 
 	// Fetch the planet's content.
+	err = p.fetchGeneralInfo(data)
+	if err != nil {
+		return p, err
+	}
+
 	err = p.fetchResources(data)
 	if err != nil {
 		return p, err
@@ -878,7 +888,78 @@ func (p *Planet) fetchDefenseUpgrades(data Instance) error {
 
 // fetchResources :
 // Used internally when building a planet from the
-// DB to update the resources existing on the planet.
+// DB to update the general info of the planet such
+// as its temperature, diameter etc.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Planet) fetchGeneralInfo(data Instance) error {
+	// Consistency.
+	if p.ID == "" {
+		return ErrInvalidPlanet
+	}
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"player",
+			"name",
+			"min_temperature",
+			"max_temperature",
+			"fields",
+			"galaxy",
+			"solar_system",
+			"position",
+			"diameter",
+		},
+		Table: "planets",
+		Filters: []db.Filter{
+			{
+				Key:    "id",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+
+	// Populate the return value.
+	var galaxy, system, position int
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&p.Player,
+			&p.Name,
+			&p.MinTemp,
+			&p.MaxTemp,
+			&p.Fields,
+			&galaxy,
+			&system,
+			&position,
+			&p.Diameter,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		p.Coordinates = NewCoordinate(galaxy, system, position)
+	}
+
+	return nil
+}
+
+// fetchResources :
+// fetchBuildings :
+// Similar to the `fetchGeneralInfo` but handles the
+// retrieval of the planet's resources data.
 //
 // The `data` defines the object to access the DB.
 //
@@ -952,7 +1033,7 @@ func (p *Planet) fetchResources(data Instance) error {
 }
 
 // fetchBuildings :
-// Similar to the `fetchResources` but handles the
+// Similar to the `fetchGeneralInfo` but handles the
 // retrieval of the planet's buildings data.
 //
 // The `data` defines the object to access the DB.
@@ -1017,7 +1098,7 @@ func (p *Planet) fetchBuildings(data Instance) error {
 }
 
 // fetchShips :
-// Similar to the `fetchResources` but handles the
+// Similar to the `fetchGeneralInfo` but handles the
 // retrieval of the planet's ships data.
 //
 // The `data` defines the object to access the DB.
@@ -1082,7 +1163,7 @@ func (p *Planet) fetchShips(data Instance) error {
 }
 
 // fetchShips :
-// Similar to the `fetchResources` but handles the
+// Similar to the `fetchGeneralInfo` but handles the
 // retrieval of the planet's defenses data.
 //
 // The `data` defines the object to access the DB.
@@ -1147,7 +1228,7 @@ func (p *Planet) fetchDefenses(data Instance) error {
 }
 
 // fetchTechnologies :
-// Similar to the `fetchResources` but handles the
+// Similar to the `fetchGeneralInfo` but handles the
 // retrieval of the technologies researched by the
 // player owning the planet.
 //

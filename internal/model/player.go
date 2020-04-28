@@ -113,6 +113,12 @@ func NewPlayerFromDB(ID string, data Instance) (Player, error) {
 		return p, err
 	}
 
+	// TODO: Should be moved in the planet because the research
+	// is launched in a planet and not at the player level. This
+	// would allow to resolve the problem with updating technologies.
+	// It would actually be performed by the planet itself when
+	// fetching the technologies level and thus we don't need to lock
+	// the player's resource beforehand.
 	err = p.fetchTechnologiesUpgrades(data)
 	if err != nil {
 		return p, err

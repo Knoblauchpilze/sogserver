@@ -19,7 +19,7 @@ func (s *Server) listPlayers() http.HandlerFunc {
 	allowed := map[string]string{
 		"player_id":   "id",
 		"account_id":  "account",
-		"universe_id": "uni",
+		"universe_id": "universe",
 		"player_name": "name",
 	}
 

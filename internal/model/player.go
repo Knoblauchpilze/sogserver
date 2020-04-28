@@ -47,7 +47,7 @@ import (
 type Player struct {
 	ID           string           `json:"id"`
 	Account      string           `json:"account"`
-	Universe     string           `json:"uni"`
+	Universe     string           `json:"universe"`
 	Name         string           `json:"name"`
 	Technologies []TechnologyInfo `json:"technologies"`
 	mode         accessMode
@@ -95,7 +95,7 @@ func (p *Player) Valid() bool {
 //
 // Returns the corresponding string.
 func (p Player) String() string {
-	return fmt.Sprintf("[id: %s, account: %s, uni: %s, name: \"%s\"]", p.ID, p.Account, p.Universe, p.Name)
+	return fmt.Sprintf("[id: %s, account: %s, universe: %s, name: \"%s\"]", p.ID, p.Account, p.Universe, p.Name)
 }
 
 // newPlayerFromDB :
@@ -204,7 +204,7 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 	query := db.QueryDesc{
 		Props: []string{
 			"account",
-			"uni",
+			"universe",
 			"name",
 		},
 		Table: "players",

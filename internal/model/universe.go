@@ -216,7 +216,7 @@ func (u *Universe) UsedCoords(proxy db.Proxy) (map[int]Coordinate, error) {
 		Table: "planets p inner join players pl on p.player=pl.id",
 		Filters: []db.Filter{
 			{
-				Key:    "pl.uni",
+				Key:    "pl.universe",
 				Values: []string{u.ID},
 			},
 		},

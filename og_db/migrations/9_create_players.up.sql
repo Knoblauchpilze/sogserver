@@ -16,15 +16,15 @@ CREATE TRIGGER update_accounts_creation BEFORE INSERT ON accounts FOR EACH ROW E
 -- Create the table defining players' accounts in various universes.
 CREATE TABLE players (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  uni uuid NOT NULL,
+  universe uuid NOT NULL,
   account uuid NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   name text NOT NULL,
   PRIMARY KEY (id),
   FOREIGN KEY (account) REFERENCES accounts(id),
-  FOREIGN KEY (uni) REFERENCES universes(id),
-  UNIQUE (uni, account),
-  UNIQUE (uni, name)
+  FOREIGN KEY (universe) REFERENCES universes(id),
+  UNIQUE (universe, account),
+  UNIQUE (universe, name)
 );
 
 -- Create the trigger on the table to update the `created_at` field.

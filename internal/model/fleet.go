@@ -162,7 +162,7 @@ func (f *Fleet) Valid(uni Universe) bool {
 //
 // Returns the corresponding string.
 func (f Fleet) String() string {
-	return fmt.Sprintf("[id: %s, uni: %s, target: %s]", f.ID, f.Universe, f.Target)
+	return fmt.Sprintf("[id: %s, universe: %s, target: %s]", f.ID, f.Universe, f.Target)
 }
 
 // Valid :

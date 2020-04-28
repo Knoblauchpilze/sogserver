@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
@@ -1404,6 +1405,70 @@ func (p *Planet) fetchTechnologies(data Instance) error {
 	}
 
 	return nil
+}
+
+// MarshalJSON :
+// Implementation of the `Marshaler` interface which
+// allows to handle the conversion between the coord
+// of the planet from convenience syntax (i.e. using
+// a `Coordinate` representation) to a DB compliant
+// one.
+// Most of the information can be found in here:
+// https://blog.gopheracademy.com/advent-2016/advanced-encoding-decoding/
+// TODO: We could implement a custom marshalled in the
+// `InsertToDB` method which would check for a method
+// name maybe `MarshalToJSONDB` in the elements and
+// use this if it is found. Otherwise we would use the
+// regular `MarshalJSON` interface which would allow
+// to marshal differently to the outside world and to
+// the DB.
+//
+// Returns the marshalled bytes for this object and
+// any error.
+func (p Planet) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(&struct {
+		ID                   string             `json:"id"`
+		Player               string             `json:"player"`
+		Galaxy               int                `json:"galaxy"`
+		System               int                `json:"solar_system"`
+		Position             int                `json:"position"`
+		Name                 string             `json:"name"`
+		Fields               int                `json:"fields"`
+		MinTemp              int                `json:"min_temperature"`
+		MaxTemp              int                `json:"max_temperature"`
+		Diameter             int                `json:"diameter"`
+		Resources            []ResourceInfo     `json:"resources"`
+		Buildings            []BuildingInfo     `json:"buildings"`
+		Ships                []ShipInfo         `json:"ships"`
+		Defenses             []DefenseInfo      `json:"defenses"`
+		BuildingsUpgrade     []BuildingAction   `json:"buildings_upgrade"`
+		TechnologiesUpgrade  []TechnologyAction `json:"technologies_upgrade"`
+		ShipsConstruction    []ShipAction       `json:"ships_construction"`
+		DefensesConstruction []DefenseAction    `json:"defenses_construction"`
+	}{
+		ID:                   p.ID,
+		Player:               p.Player,
+		Galaxy:               p.Coordinates.Galaxy,
+		System:               p.Coordinates.System,
+		Position:             p.Coordinates.Position,
+		Name:                 p.Name,
+		Fields:               p.Fields,
+		MinTemp:              p.MinTemp,
+		MaxTemp:              p.MaxTemp,
+		Diameter:             p.Diameter,
+		Resources:            p.Resources,
+		Buildings:            p.Buildings,
+		Ships:                p.Ships,
+		Defenses:             p.Defenses,
+		BuildingsUpgrade:     p.BuildingsUpgrade,
+		TechnologiesUpgrade:  p.TechnologiesUpgrade,
+		ShipsConstruction:    p.ShipsConstruction,
+		DefensesConstruction: p.DefensesConstruction,
+	})
+
+	fmt.Println(fmt.Sprintf("Marshalling planet to \"%s\"", string(b)))
+
+	return b, err
 }
 
 // GetResource :

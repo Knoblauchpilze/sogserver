@@ -34,7 +34,7 @@ import (
 // is used to guarantee that a single process is able
 // for example to update the information of a planet
 // at any time. It helps preventing data races when
-// performing actions on shared elements of a uni.
+// performing actions on shared elements of the game.
 type Instance struct {
 	Proxy        db.Proxy
 	Buildings    *BuildingsModule

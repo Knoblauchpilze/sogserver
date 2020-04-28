@@ -191,35 +191,32 @@ func (p *FleetProxy) Create(fleet model.Fleet) (string, error) {
 // The component should describe the player willing to join the
 // fleet along with some information about the starting position
 // and the ships involved.
-// We will make sure that the player belongs to the rigth uni,
+// We will make sure that the player belongs to the right uni,
 // that the starting position is valid compared to the actual
 // dimensions of the universe and that the fleet exists.
-//
-// The `fleetID` fleet describes the identifier of the fleet
-// to which this component should be assigned.
 //
 // The `comp` defines the fleet component to create.
 //
 // Returns any error in case the component cannot be added to
 // the fleet for some reasons. Returns the identifier of the
 // component that was created as well.
-func (p *FleetProxy) CreateComponent(fleetID string, comp model.Component) (string, error) {
+func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if comp.ID == "" {
 		comp.ID = uuid.New().String()
 	}
 
 	// Fetch the fleet related to this component.
-	fleet, err := model.NewFleetFromDB(fleetID, p.data)
+	fleet, err := model.NewFleetFromDB(comp.Fleet, p.data)
 	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" to create component for \"%s\" (err: %v)", fleetID, comp.Player, err))
+		p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" to create component for \"%s\" (err: %v)", comp.Fleet, comp.Player, err))
 		return comp.ID, err
 	}
 
 	// Fetch the universe related to this fleet.
 	uni, err := model.NewUniverseFromDB(fleet.Universe, p.data)
 	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Unable to fetch universe \"%s\" to create component for \"%s\" in \"%s\" (err: %v)", fleet.Universe, comp.Player, fleetID, err))
+		p.trace(logger.Error, fmt.Sprintf("Unable to fetch universe \"%s\" to create component for \"%s\" in \"%s\" (err: %v)", fleet.Universe, comp.Player, comp.Fleet, err))
 		return comp.ID, err
 	}
 
@@ -232,7 +229,7 @@ func (p *FleetProxy) CreateComponent(fleetID string, comp model.Component) (stri
 	// Fetch the player related to the component.
 	player, err := model.NewReadWritePlayer(comp.Player, p.data)
 	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Unable to fetch player \"%s\" to create component for \"%s\" err: %v)", comp.Player, fleetID, err))
+		p.trace(logger.Error, fmt.Sprintf("Unable to fetch player \"%s\" to create component for \"%s\" err: %v)", comp.Player, comp.Fleet, err))
 		return comp.ID, err
 	}
 

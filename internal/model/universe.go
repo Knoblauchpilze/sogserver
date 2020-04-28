@@ -164,7 +164,11 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 	}
 
 	// Scan the universe's data.
-	dbRes.Next()
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return u, ErrInvalidUniverse
+	}
+
 	err = dbRes.Scan(
 		&u.Name,
 		&u.EcoSpeed,
@@ -183,7 +187,7 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 		return u, ErrDuplicatedUniverse
 	}
 
-	return u, nil
+	return u, err
 }
 
 // UsedCoords :

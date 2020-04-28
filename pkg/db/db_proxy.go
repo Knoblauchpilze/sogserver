@@ -271,7 +271,17 @@ func (p Proxy) InsertToDB(req InsertReq) error {
 		if ok {
 			raw, err = json.Marshal(cvrt.Convert())
 		} else {
-			raw, err = json.Marshal(arg)
+			// Make sure that the string is not `double quoted`:
+			// this would not work well with the SQL syntax and
+			// can happen in case the argument is a string in
+			// itself.
+			str, ok := arg.(string)
+
+			if ok {
+				raw = []byte(str)
+			} else {
+				raw, err = json.Marshal(arg)
+			}
 		}
 
 		if err != nil {

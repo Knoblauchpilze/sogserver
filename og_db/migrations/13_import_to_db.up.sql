@@ -189,7 +189,7 @@ BEGIN
   FROM update_data AS ud
   WHERE
     pb.planet = planet_id
-    AND pb.building = ud.building
+    AND pb.building = ud.element
     AND pb.level = ud.current_level;
 
   -- 2. Update the resources on this planet based on the
@@ -288,7 +288,7 @@ BEGIN
   FROM update_data AS ud
   WHERE
     pt.player = player_id AND
-    pt.technology = ud.technology AND
+    pt.technology = ud.element AND
     pt.level = ud.current_level;
 
   -- 2. Delete processed actions.
@@ -329,7 +329,7 @@ BEGIN
   FROM update_data AS ud
   WHERE
     ps.planet = planet_id AND
-    ps.ship = ud.ship;
+    ps.ship = ud.element;
 
   -- 2. Update remaining actions with an amount decreased by an amount
   -- consistent with the duration elapsed since the creation.
@@ -378,7 +378,7 @@ BEGIN
   FROM update_data AS ud
   WHERE
     pd.planet = planet_id AND
-    pd.defense = ud.defense;
+    pd.defense = ud.element;
 
   -- 2. Update remaining actions with an amount decreased by an amount
   -- consistent with the duration elapsed since the creation.

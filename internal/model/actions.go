@@ -158,7 +158,11 @@ func newProgressActionFromDB(ID string, data Instance, table string) (ProgressAc
 	}
 
 	// Scan the action's data.
-	dbRes.Next()
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return a, ErrInvalidAction
+	}
+
 	err = dbRes.Scan(
 		&a.Planet,
 		&a.Element,
@@ -172,7 +176,7 @@ func newProgressActionFromDB(ID string, data Instance, table string) (ProgressAc
 		return a, ErrDuplicatedAction
 	}
 
-	return a, nil
+	return a, err
 }
 
 // Valid :
@@ -269,7 +273,11 @@ func newFixedActionFromDB(ID string, data Instance, table string) (FixedAction, 
 	}
 
 	// Scan the action's data.
-	dbRes.Next()
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return a, ErrInvalidAction
+	}
+
 	err = dbRes.Scan(
 		&a.Planet,
 		&a.Element,
@@ -283,7 +291,7 @@ func newFixedActionFromDB(ID string, data Instance, table string) (FixedAction, 
 		return a, ErrDuplicatedAction
 	}
 
-	return a, nil
+	return a, err
 }
 
 // Valid :

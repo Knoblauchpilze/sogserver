@@ -304,8 +304,7 @@ func (um *upgradablesModule) initDeps(rows db.QueryResult, deps *map[string][]De
 // the element along with any errors.
 func (um *upgradablesModule) getDependencyFromID(id string) (UpgradableDesc, error) {
 	// Find this element in the association table.
-	if um.existsID(id) {
-		um.trace(logger.Error, fmt.Sprintf("Cannot retrieve desc for upgradable \"%s\"", id))
+	if !um.existsID(id) {
 		return UpgradableDesc{}, ErrNotFound
 	}
 
@@ -340,7 +339,6 @@ func (um *upgradablesModule) getDependencyFromName(name string) (UpgradableDesc,
 	// Find this element in the association table.
 	id, err := um.getIDFromName(name)
 	if err != nil {
-		um.trace(logger.Error, fmt.Sprintf("Cannot retrieve desc for upgradable \"%s\" (err: %v)", name, err))
 		return UpgradableDesc{}, ErrNotFound
 	}
 

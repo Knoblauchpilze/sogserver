@@ -129,11 +129,8 @@ func newPlayerFromDB(ID string, data Instance, mode accessMode) (Player, error) 
 	}
 
 	err = p.fetchTechnologies(data)
-	if err != nil {
-		return p, err
-	}
 
-	return p, nil
+	return p, err
 }
 
 // NewReadOnlyPlayer :
@@ -225,7 +222,11 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 	}
 
 	// Scan the player's data.
-	dbRes.Next()
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return ErrInvalidPlayer
+	}
+
 	err = dbRes.Scan(
 		&p.Account,
 		&p.Universe,
@@ -237,7 +238,7 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 		return ErrDuplicatedPlayer
 	}
 
-	return nil
+	return err
 }
 
 // fetchTechnologies :

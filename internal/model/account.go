@@ -121,7 +121,11 @@ func NewAccountFromDB(ID string, data Instance) (Account, error) {
 	}
 
 	// Scan the account's data.
-	dbRes.Next()
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return a, ErrInvalidAccount
+	}
+
 	err = dbRes.Scan(
 		&a.ID,
 		&a.Mail,
@@ -134,5 +138,5 @@ func NewAccountFromDB(ID string, data Instance) (Account, error) {
 		return a, ErrDuplicatedAccount
 	}
 
-	return a, nil
+	return a, err
 }

@@ -242,7 +242,7 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 // any errors.
 func (rm *ResourcesModule) GetResourceFromID(id string) (ResourceDesc, error) {
 	// Find this element in the association table.
-	if rm.existsID(id) {
+	if !rm.existsID(id) {
 		rm.trace(logger.Error, fmt.Sprintf("Cannot retrieve desc for resource \"%s\"", id))
 		return ResourceDesc{}, ErrNotFound
 	}

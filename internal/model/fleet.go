@@ -85,7 +85,7 @@ type Fleet struct {
 // The `Ships` define the actual ships involved in this
 // fleet component.
 //
-// The `fleet` is used as an internal value allowing
+// The `Fleet` is used as an internal value allowing
 // to determine to which fleet this component is linked.
 type Component struct {
 	ID       string       `json:"id"`
@@ -94,7 +94,7 @@ type Component struct {
 	Speed    float32      `json:"speed"`
 	JoinedAt time.Time    `json:"joined_at"`
 	Ships    ShipsInFleet `json:"ships"`
-	fleet    string
+	Fleet    string       `json:"-"`
 }
 
 // Components :
@@ -185,7 +185,7 @@ func (fc Component) Valid(uni Universe) bool {
 		fc.Origin.valid(uni.GalaxiesCount, uni.GalaxySize, uni.SolarSystemSize) &&
 		fc.Speed >= 0.0 && fc.Speed <= 1.0 &&
 		fc.Ships.valid() &&
-		validUUID(fc.fleet)
+		validUUID(fc.Fleet)
 }
 
 // String :
@@ -239,7 +239,7 @@ func (sifs ShipsInFleet) valid() bool {
 		}
 	}
 
-	return true
+	return len(sifs) > 0
 }
 
 // NewFleetFromDB :
@@ -328,7 +328,11 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 	// Scan the fleet's data.
 	var g, s, p int
 
-	dbRes.Next()
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return ErrInvalidFleet
+	}
+
 	err = dbRes.Scan(
 		&f.Name,
 		&f.Universe,
@@ -346,7 +350,7 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 		return ErrDuplicatedFleet
 	}
 
-	return nil
+	return err
 }
 
 // fetchComponents :
@@ -415,7 +419,7 @@ func (f *Fleet) fetchComponents(data Instance) error {
 		}
 
 		comp.Origin = NewCoordinate(g, s, p)
-		comp.fleet = f.ID
+		comp.Fleet = f.ID
 
 		err = comp.fetchShips(data)
 		if err != nil {
@@ -480,10 +484,10 @@ func (fc *Component) fetchShips(data Instance) error {
 			"ship",
 			"count",
 		},
-		Table: "fleet_element",
+		Table: "fleet_ships",
 		Filters: []db.Filter{
 			{
-				Key:    "id",
+				Key:    "fleet_element",
 				Values: []string{fc.ID},
 			},
 		},
@@ -536,7 +540,7 @@ func (fc *Component) Convert() interface{} {
 		JoinedAt time.Time `json:"joined_at"`
 	}{
 		ID:       fc.ID,
-		Fleet:    fc.fleet,
+		Fleet:    fc.Fleet,
 		Player:   fc.Player,
 		Galaxy:   fc.Origin.Galaxy,
 		System:   fc.Origin.System,

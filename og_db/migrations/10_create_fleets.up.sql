@@ -52,7 +52,8 @@ CREATE TABLE fleet_ships (
   count integer NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
   FOREIGN KEY (fleet_element) REFERENCES fleet_elements(id),
-  FOREIGN KEY (ship) REFERENCES ships(id)
+  FOREIGN KEY (ship) REFERENCES ships(id),
+  UNIQUE (fleet_element, ship)
 );
 
 -- Create the table for resources transported by each fleet element.

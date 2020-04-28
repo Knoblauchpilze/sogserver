@@ -125,8 +125,11 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 					return resources, ErrInvalidData
 				}
 
+				// Make sure that this component is linked to the fleet.
+				comp.Fleet = fleetID
+
 				// Create the fleet component.
-				res, err := s.fleets.CreateComponent(fleetID, comp)
+				res, err := s.fleets.CreateComponent(comp)
 				if err != nil {
 					return resources, ErrDBError
 				}

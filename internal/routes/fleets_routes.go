@@ -112,11 +112,11 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 			// Make sure that we can retrieve the identifier of the
 			// fleet for which the component should be created from
 			// the route's data.
-			if len(input.RouteElems) != 2 || input.RouteElems[1] != "components" {
+			if len(input.ExtraElems) != 2 || input.ExtraElems[1] != "components" {
 				return resources, ErrInvalidData
 			}
 
-			fleetID := input.RouteElems[0]
+			fleetID := input.ExtraElems[0]
 
 			for _, rawData := range input.Data {
 				// Try to unmarshal the data into a valid `Component` struct.

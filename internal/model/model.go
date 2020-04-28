@@ -44,3 +44,15 @@ type Instance struct {
 	Resources    *ResourcesModule
 	Locker       *locker.ConcurrentLocker
 }
+
+// accessMode :
+// Describes the possible ways to access to the
+// resources of a planet. This allows to determine
+// when to release the locker on the planet's data.
+type accessMode int
+
+// Define the possible severity level for a log message.
+const (
+	ReadOnly accessMode = iota
+	ReadWrite
+)

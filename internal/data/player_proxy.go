@@ -90,7 +90,7 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]model.Player, error) {
 	players := make([]model.Player, 0)
 
 	for _, ID = range IDs {
-		pla, err := model.NewPlayerFromDB(ID, p.data)
+		pla, err := model.NewReadOnlyPlayer(ID, p.data)
 
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Unable to fetch player \"%s\" data from DB (err: %v)", ID, err))

@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"oglike_server/internal/locker"
 	"oglike_server/pkg/db"
 )
 
@@ -30,15 +31,27 @@ import (
 // player has already researched with their associated
 // level.
 //
-// The `TechnologiesUpgrade` defines the list of upgrade
-// action currently registered for this player.
+// The `mode` defines whether the data fetched for this
+// player is meant to be read only or written at some
+// point in the future. This will indicate how long the
+// locker on this resource should be kept: either only
+// during the actual fetching of the data or as long as
+// the object exists (in which case it is necessary to
+// call the `Close` method on this element).
+//
+// The `locker` defines the object to use to prevent a
+// concurrent process to access to the resources of the
+// player. This will enforce that only a single thread
+// can perform the update of the technologies registered
+// for this player.
 type Player struct {
-	ID                  string             `json:"id"`
-	Account             string             `json:"account"`
-	Universe            string             `json:"uni"`
-	Name                string             `json:"name"`
-	Technologies        []TechnologyInfo   `json:"technologies"`
-	TechnologiesUpgrade []TechnologyAction `json:"technologies_upgrade"`
+	ID           string           `json:"id"`
+	Account      string           `json:"account"`
+	Universe     string           `json:"uni"`
+	Name         string           `json:"name"`
+	Technologies []TechnologyInfo `json:"technologies"`
+	mode         accessMode
+	locker       *locker.Lock
 }
 
 // TechnologyInfo :
@@ -85,7 +98,7 @@ func (p Player) String() string {
 	return fmt.Sprintf("[id: %s, account: %s, uni: %s, name: \"%s\"]", p.ID, p.Account, p.Universe, p.Name)
 }
 
-// NewPlayerFromDB :
+// newPlayerFromDB :
 // Used to fetch the content of the player from the
 // input DB and populate all internal fields from it.
 // In case the DB cannot be fetched or some errors
@@ -98,10 +111,12 @@ func (p Player) String() string {
 //
 // The `data` allows to actually perform the DB
 // requests to fetch the player's data.
+// The `mode` defines the reading mode for the data
+// access for this planet.
 //
 // Returns the player as fetched from the DB along
 // with any errors.
-func NewPlayerFromDB(ID string, data Instance) (Player, error) {
+func newPlayerFromDB(ID string, data Instance, mode accessMode) (Player, error) {
 	// Create the player.
 	p := Player{
 		ID: ID,
@@ -113,23 +128,62 @@ func NewPlayerFromDB(ID string, data Instance) (Player, error) {
 		return p, err
 	}
 
-	// TODO: Should be moved in the planet because the research
-	// is launched in a planet and not at the player level. This
-	// would allow to resolve the problem with updating technologies.
-	// It would actually be performed by the planet itself when
-	// fetching the technologies level and thus we don't need to lock
-	// the player's resource beforehand.
-	err = p.fetchTechnologiesUpgrades(data)
-	if err != nil {
-		return p, err
-	}
-
 	err = p.fetchTechnologies(data)
 	if err != nil {
 		return p, err
 	}
 
 	return p, nil
+}
+
+// NewReadOnlyPlayer :
+// Uses internally the `newPlayerFromDB` specifying
+// that the resources are only used for reading mode.
+// This allows to keep the locker to access to the
+// player's data only a very limited amount of time.
+//
+// The `ID` defines the identifier of the player to
+// fetch from the DB.
+//
+// The `data` defines a way to access to the DB.
+//
+// Returns the player fetched from the DB along with
+// any errors.
+func NewReadOnlyPlayer(ID string, data Instance) (Player, error) {
+	return newPlayerFromDB(ID, data, ReadOnly)
+}
+
+// NewReadWritePlayer :
+// Defines a player which will be used to modify some
+// of the data associated to it. It indicates that the
+// locker on the player's resources should be kept for
+// the existence of the player.
+//
+// The `ID` defines the identifier of the player to
+// fetch from the DB.
+//
+// The `data` defines a way to access to the DB.
+//
+// Returns the player fetched from the DB along with
+// any errors.
+func NewReadWritePlayer(ID string, data Instance) (Player, error) {
+	return newPlayerFromDB(ID, data, ReadWrite)
+}
+
+// Close :
+// Implementation of the `Closer` interface allowing
+// to release the lock this player may still detain
+// on the DB resources.
+func (p *Player) Close() error {
+	// Only release the locker in case the access mode
+	// indicates so.
+	var err error
+
+	if p.mode == ReadWrite {
+		err = p.locker.Unlock()
+	}
+
+	return err
 }
 
 // fetchGeneralInfo :
@@ -186,88 +240,6 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 	return nil
 }
 
-// fetchTechnologiesUpgrades :
-// Used internally when building a player from the
-// DB to update the technology upgrade actions that
-// may be outstanding. Allows to get an up-to-date
-// status of the technologies afterwards.
-//
-// The `data` defines the object to access the DB.
-//
-// Returns any error.
-func (p *Player) fetchTechnologiesUpgrades(data Instance) error {
-	// Consistency.
-	if p.ID == "" {
-		return ErrInvalidPlanet
-	}
-
-	p.TechnologiesUpgrade = make([]TechnologyAction, 0)
-
-	// Perform the update of the technology upgrade actions.
-	update := db.InsertReq{
-		Script: "update_technology_upgrade_action",
-		Args: []interface{}{
-			p.ID,
-		},
-		SkipReturn: true,
-	}
-
-	err := data.Proxy.InsertToDB(update)
-	if err != nil {
-		return err
-	}
-
-	// Create the query and execute it.
-	query := db.QueryDesc{
-		Props: []string{
-			"id",
-		},
-		Table: "construction_actions_technologies",
-		Filters: []db.Filter{
-			{
-				Key:    "player",
-				Values: []string{p.ID},
-			},
-		},
-	}
-
-	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
-
-	// Check for errors.
-	if err != nil {
-		return err
-	}
-
-	// We now need to retrieve all the identifiers that matched
-	// the input filters and then build the corresponding item
-	// object for each one of them.
-	var ID string
-	IDs := make([]string, 0)
-
-	for dbRes.Next() {
-		err = dbRes.Scan(&ID)
-
-		if err != nil {
-			return err
-		}
-
-		IDs = append(IDs, ID)
-	}
-
-	for _, ID = range IDs {
-		tu, err := NewTechnologyActionFromDB(ID, data)
-
-		if err != nil {
-			return err
-		}
-
-		p.TechnologiesUpgrade = append(p.TechnologiesUpgrade, tu)
-	}
-
-	return nil
-}
-
 // fetchTechnologies :
 // Similar to the `fetchGeneralInfo` but handles
 // the retrieval of the player's technology data.
@@ -282,6 +254,22 @@ func (p *Player) fetchTechnologies(data Instance) error {
 	}
 
 	p.Technologies = make([]TechnologyInfo, 0)
+
+	// Before fetching the technologies we need to
+	// perform the update of the upgrade actions if
+	// any.
+	update := db.InsertReq{
+		Script: "update_technology_upgrade_action",
+		Args: []interface{}{
+			p.ID,
+		},
+		SkipReturn: true,
+	}
+
+	err := data.Proxy.InsertToDB(update)
+	if err != nil {
+		return err
+	}
 
 	// Create the query and execute it.
 	query := db.QueryDesc{

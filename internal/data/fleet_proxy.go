@@ -230,7 +230,7 @@ func (p *FleetProxy) CreateComponent(fleetID string, comp model.Component) (stri
 	}
 
 	// Fetch the player related to the component.
-	player, err := model.NewPlayerFromDB(comp.Player, p.data)
+	player, err := model.NewReadWritePlayer(comp.Player, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Unable to fetch player \"%s\" to create component for \"%s\" err: %v)", comp.Player, fleetID, err))
 		return comp.ID, err

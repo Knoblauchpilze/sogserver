@@ -71,6 +71,9 @@ import (
 // registered on this planet for buildings. This array might
 // be empty in case no building is being upgraded.
 //
+// The `TechnologiesUpgrade` defines the list of upgrade
+// action currently registered for this player.
+//
 // The `ShipsConstruction` defines the list of outstanding
 // ships construction actions.
 //
@@ -89,25 +92,32 @@ import (
 // The `locker` defines the object to use to prevent a
 // concurrent process to access to the resources of the
 // planet.
+//
+// The `pLocker` defines the object to use to restrict
+// the access to the parent player of the planet. This
+// allows to make sure that no update of the techs is
+// possible while a planet of the player is used.
 type Planet struct {
-	ID                   string           `json:"id"`
-	Player               string           `json:"player"`
-	Coordinates          Coordinate       `json:"coordinate"`
-	Name                 string           `json:"name"`
-	Fields               int              `json:"fields"`
-	MinTemp              int              `json:"min_temperature"`
-	MaxTemp              int              `json:"max_temperature"`
-	Diameter             int              `json:"diameter"`
-	Resources            []ResourceInfo   `json:"resources"`
-	Buildings            []BuildingInfo   `json:"buildings"`
-	Ships                []ShipInfo       `json:"ships"`
-	Defenses             []DefenseInfo    `json:"defenses"`
-	BuildingsUpgrade     []BuildingAction `json:"buildings_upgrade"`
-	ShipsConstruction    []ShipAction     `json:"ships_construction"`
-	DefensesConstruction []DefenseAction  `json:"defenses_construction"`
+	ID                   string             `json:"id"`
+	Player               string             `json:"player"`
+	Coordinates          Coordinate         `json:"coordinate"`
+	Name                 string             `json:"name"`
+	Fields               int                `json:"fields"`
+	MinTemp              int                `json:"min_temperature"`
+	MaxTemp              int                `json:"max_temperature"`
+	Diameter             int                `json:"diameter"`
+	Resources            []ResourceInfo     `json:"resources"`
+	Buildings            []BuildingInfo     `json:"buildings"`
+	Ships                []ShipInfo         `json:"ships"`
+	Defenses             []DefenseInfo      `json:"defenses"`
+	BuildingsUpgrade     []BuildingAction   `json:"buildings_upgrade"`
+	TechnologiesUpgrade  []TechnologyAction `json:"technologies_upgrade"`
+	ShipsConstruction    []ShipAction       `json:"ships_construction"`
+	DefensesConstruction []DefenseAction    `json:"defenses_construction"`
 	technologies         map[string]int
 	mode                 accessMode
 	locker               *locker.Lock
+	pLocker              *locker.Lock
 }
 
 // ResourceInfo :
@@ -186,18 +196,6 @@ type DefenseInfo struct {
 	Amount int `json:"amount"`
 }
 
-// accessMode :
-// Describes the possible ways to access to the
-// resources of a planet. This allows to determine
-// when to release the locker on the planet's data.
-type accessMode int
-
-// Define the possible severity level for a log message.
-const (
-	ReadOnly accessMode = iota
-	ReadWrite
-)
-
 // ErrInvalidPlanet :
 // Used to indicate an ill-formed planet with no
 // associated identifier.
@@ -270,19 +268,45 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 	}
 
 	// Acquire the lock on the planet from the DB.
-	// TODO: We should find a way to acquire the
-	// lock on the player that owns this planet.
-	// It would indicate that no update of the
-	// techs should be performed while we access
-	// the planet.
 	var err error
 	p.locker, err = data.Locker.Acquire(p.ID)
 	if err != nil {
 		return p, err
 	}
 
+	// Fetch general info for this planet. It will
+	// allow to fetch the player's identifier and
+	// be able to update the technologies actions.
+	err = p.fetchGeneralInfo(data)
+	if err != nil {
+		return p, err
+	}
+
+	// We need to acquire the lock on the player
+	// owning this planet now. This will indicate
+	// that no upgrade of the technologies of the
+	// player can be performed while this planet
+	// is in use. Indeed as we perform the update
+	// upon fetching a planet, even if we lock
+	// this planet we can still be perturbed by
+	// threads accessing another planet of this
+	// player: if we require to get the lock on
+	// the player first (i.e. before performing
+	// the update of the technologies actions)
+	// it will mean that only a single planet
+	// can go through and perform the update.
+	p.pLocker, err = data.Locker.Acquire(p.Player)
+	if err != nil {
+		return p, err
+	}
+
 	// Fetch and update upgrade actions for this planet.
 	err = p.fetchBuildingUpgrades(data)
+	if err != nil {
+		return p, err
+	}
+
+	err = p.fetchTechnologiesUpgrades(data)
 	if err != nil {
 		return p, err
 	}
@@ -298,11 +322,6 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 	}
 
 	// Fetch the planet's content.
-	err = p.fetchGeneralInfo(data)
-	if err != nil {
-		return p, err
-	}
-
 	err = p.fetchResources(data)
 	if err != nil {
 		return p, err
@@ -330,9 +349,15 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 
 	// Release the locker if needed.
 	if p.mode == ReadOnly {
-		err = p.locker.Unlock()
+		err1 := p.pLocker.Unlock()
+		err2 := p.locker.Unlock()
 
-		return p, err
+		if err1 != nil {
+			return p, err1
+		}
+		if err2 != nil {
+			return p, err2
+		}
 	}
 
 	return p, nil
@@ -379,13 +404,18 @@ func NewReadWritePlanet(ID string, data Instance) (Planet, error) {
 func (p *Planet) Close() error {
 	// Only release the locker in case the access mode
 	// indicates so.
-	var err error
+	var err1, err2 error
 
 	if p.mode == ReadWrite {
-		err = p.locker.Unlock()
+		err1 = p.pLocker.Unlock()
+		err2 = p.locker.Unlock()
 	}
 
-	return err
+	if err1 != nil {
+		return err1
+	}
+
+	return err2
 }
 
 // NewPlanet :
@@ -719,6 +749,88 @@ func (p *Planet) fetchBuildingUpgrades(data Instance) error {
 		}
 
 		p.BuildingsUpgrade = append(p.BuildingsUpgrade, bu)
+	}
+
+	return nil
+}
+
+// fetchTechnologiesUpgrades :
+// Used in a similar way to `fetchBuildingUpgrades`
+// but to get the technologies construction actions
+// that may be registered in the research lab of
+// this planet.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Planet) fetchTechnologiesUpgrades(data Instance) error {
+	// Consistency.
+	if p.ID == "" {
+		return ErrInvalidPlanet
+	}
+
+	p.TechnologiesUpgrade = make([]TechnologyAction, 0)
+
+	// Perform the update of the technology upgrade actions.
+	update := db.InsertReq{
+		Script: "update_technology_upgrade_action",
+		Args: []interface{}{
+			p.ID,
+		},
+		SkipReturn: true,
+	}
+
+	err := data.Proxy.InsertToDB(update)
+	if err != nil {
+		return err
+	}
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table: "construction_actions_technologies",
+		Filters: []db.Filter{
+			{
+				Key:    "player",
+				Values: []string{p.Player},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+
+	// We now need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding item
+	// object for each one of them.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			return err
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	for _, ID = range IDs {
+		tu, err := NewTechnologyActionFromDB(ID, data)
+
+		if err != nil {
+			return err
+		}
+
+		p.TechnologiesUpgrade = append(p.TechnologiesUpgrade, tu)
 	}
 
 	return nil
@@ -1376,18 +1488,23 @@ func (p *Planet) validateAction(costs map[string]int, desc UpgradableDesc, data 
 		}
 	}
 
-	// We need the technologies of the player owning the
-	// planet to determine whether the dependencies are
-	// met.
-	player, err := NewPlayerFromDB(p.Player, data)
-	if err != nil {
-		return err
-	}
-
 	for _, tDep := range desc.TechnologiesDeps {
-		ti, err := player.GetTechnology(tDep.ID)
+		level, ok := p.technologies[tDep.ID]
 
-		if err != nil || ti.Level < tDep.Level {
+		// If the technology is not defined for this player
+		// we assume it has a level of 0.
+		if !ok && tDep.Level > 0 {
+			return ErrTechDepsNotMet
+		}
+
+		// If the technology exist but has a level inferior
+		// to what is expected by the dependency it means a
+		// failure to meet this criteria.
+		// Note that in case `!ok && tDep.Level == 0` we do
+		// want to skip this test (hence the `ok` part) as
+		// we consider that if the tech dep is `0` it means
+		// we always pass the test.
+		if ok && level < tDep.Level {
 			return ErrTechDepsNotMet
 		}
 	}

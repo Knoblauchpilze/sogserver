@@ -340,3 +340,24 @@ func (p *Player) GetTechnology(ID string) (TechnologyInfo, error) {
 
 	return TechnologyInfo{}, ErrInvalidID
 }
+
+// Convert :
+// Implementation of the `db.Convertible` interface
+// from the DB package in order to only include fields
+// that need to be marshalled in the player's creation.
+//
+// Returns the converted version of the player which
+// only includes relevant fields.
+func (p *Player) Convert() interface{} {
+	return struct {
+		ID       string `json:"id"`
+		Account  string `json:"account"`
+		Universe string `json:"universe"`
+		Name     string `json:"name"`
+	}{
+		ID:       p.ID,
+		Account:  p.Account,
+		Universe: p.Universe,
+		Name:     p.Name,
+	}
+}

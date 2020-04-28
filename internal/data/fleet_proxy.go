@@ -170,7 +170,7 @@ func (p *FleetProxy) Create(fleet model.Fleet) (string, error) {
 	// Create the query and execute it.
 	query := db.InsertReq{
 		Script: "create_fleet",
-		Args:   []interface{}{fleet},
+		Args:   []interface{}{&fleet},
 	}
 
 	err = p.proxy.InsertToDB(query)
@@ -259,7 +259,7 @@ func (p *FleetProxy) CreateComponent(fleetID string, comp model.Component) (stri
 	query := db.InsertReq{
 		Script: "create_fleet_component",
 		Args: []interface{}{
-			comp,
+			&comp,
 			shipsForDB,
 		},
 	}

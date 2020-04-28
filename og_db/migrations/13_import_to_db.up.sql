@@ -37,29 +37,35 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Import planet into the corresponding table.
-CREATE OR REPLACE FUNCTION create_planet(planet json, resources json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_planet(planet_data json, resources json) RETURNS VOID AS $$
 BEGIN
   -- Insert the planet in the planets table.
   INSERT INTO planets
     SELECT *
-    FROM json_populate_record(null::planets, planet);
+    FROM json_populate_record(null::planets, planet_data);
 
   -- Insert the base resources of the planet.
   INSERT INTO planets_resources
-    SELECT *
-    FROM json_populate_recordset(null::planets_resources, resources);
+    SELECT
+      (planet_data->>'id')::uuid,
+      res,
+      amount,
+      production,
+      storage_capacity
+    FROM
+      json_populate_recordset(null::planets_resources, resources);
 
   -- Insert base buildings, ships, defenses on the planet.
   INSERT INTO planets_buildings(planet, building, level)
-    SELECT (planet->>'id')::uuid, b.id, 0
+    SELECT (planet_data->>'id')::uuid, b.id, 0
     FROM buildings b;
 
   INSERT INTO planets_ships(planet, ship, count)
-    SELECT (planet->>'id')::uuid, s.id, 0
+    SELECT (planet_data->>'id')::uuid, s.id, 0
     FROM ships s;
 
   INSERT INTO planets_defenses(planet, defense, count)
-    SELECT (planet->>'id')::uuid, d.id, 0
+    SELECT (planet_data->>'id')::uuid, d.id, 0
     FROM defenses d;
 END
 $$ LANGUAGE plpgsql;

@@ -152,6 +152,20 @@ type InsertReq struct {
 	SkipReturn bool
 }
 
+// Convertible :
+// Used as an interface allowing to convert an element
+// into a specialized version that should be used in a
+// request to insert this data in the DB. Typically it
+// allows for types to define a custom facet when being
+// exported to the DB (by ignoring some field or even
+// restructuring the fields marshalled to the DB).
+// This type will be searched in the input interface
+// and be called before performing the seralization to
+// insert the data in the DB.
+type Convertible interface {
+	Convert() interface{}
+}
+
 // Proxy :
 // Intended as a common wrapper to access the main DB
 // through a convenience way. It holds most of the
@@ -244,9 +258,21 @@ func (p Proxy) InsertToDB(req InsertReq) error {
 	// the insertion script.
 	argsAsStr := make([]string, 0)
 
-	for _, arg := range req.Args {
-		// Marshal the argument
-		raw, err := json.Marshal(arg)
+	for id, arg := range req.Args {
+		// Check whether this argument can be converted
+		// into a more meaningful type.
+		cvrt, ok := arg.(Convertible)
+
+		var raw []byte
+		var err error
+
+		// Marshal the argument using either the converted
+		// value or the base value.
+		if ok {
+			raw, err = json.Marshal(cvrt.Convert())
+		} else {
+			raw, err = json.Marshal(arg)
+		}
 
 		if err != nil {
 			return ErrInvalidData

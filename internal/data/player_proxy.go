@@ -136,7 +136,7 @@ func (p *PlayerProxy) Create(player model.Player) (string, error) {
 	// Create the query and execute it.
 	query := db.InsertReq{
 		Script: "create_player",
-		Args:   []interface{}{player},
+		Args:   []interface{}{&player},
 	}
 
 	err := p.proxy.InsertToDB(query)

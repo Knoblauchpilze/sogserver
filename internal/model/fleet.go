@@ -84,6 +84,9 @@ type Fleet struct {
 //
 // The `Ships` define the actual ships involved in this
 // fleet component.
+//
+// The `fleet` is used as an internal value allowing
+// to determine to which fleet this component is linked.
 type Component struct {
 	ID       string       `json:"id"`
 	Player   string       `json:"player"`
@@ -91,6 +94,7 @@ type Component struct {
 	Speed    float32      `json:"speed"`
 	JoinedAt time.Time    `json:"joined_at"`
 	Ships    ShipsInFleet `json:"ships"`
+	fleet    string
 }
 
 // Components :
@@ -180,7 +184,8 @@ func (fc Component) Valid(uni Universe) bool {
 		validUUID(fc.Player) &&
 		fc.Origin.valid(uni.GalaxiesCount, uni.GalaxySize, uni.SolarSystemSize) &&
 		fc.Speed >= 0.0 && fc.Speed <= 1.0 &&
-		fc.Ships.valid()
+		fc.Ships.valid() &&
+		validUUID(fc.fleet)
 }
 
 // String :
@@ -410,6 +415,7 @@ func (f *Fleet) fetchComponents(data Instance) error {
 		}
 
 		comp.Origin = NewCoordinate(g, s, p)
+		comp.fleet = f.ID
 
 		err = comp.fetchShips(data)
 		if err != nil {
@@ -420,6 +426,35 @@ func (f *Fleet) fetchComponents(data Instance) error {
 	}
 
 	return nil
+}
+
+// Convert :
+// Implementation of the `db.Convertible` interface
+// from the DB package in order to only include fields
+// that need to be marshalled in the fleet's creation.
+//
+// Returns the converted version of the planet which
+// only includes relevant fields.
+func (f *Fleet) Convert() interface{} {
+	return struct {
+		ID          string    `json:"id"`
+		Name        string    `json:"name"`
+		Universe    string    `json:"uni"`
+		Objective   string    `json:"objective"`
+		Galaxy      int       `json:"target_galaxy"`
+		System      int       `json:"target_solar_system"`
+		Position    int       `json:"target_position"`
+		ArrivalTime time.Time `json:"arrival_time"`
+	}{
+		ID:          f.ID,
+		Name:        f.Name,
+		Universe:    f.Universe,
+		Objective:   f.Objective,
+		Galaxy:      f.Target.Galaxy,
+		System:      f.Target.System,
+		Position:    f.Target.Position,
+		ArrivalTime: f.ArrivalTime,
+	}
 }
 
 // fetchShips :
@@ -443,7 +478,7 @@ func (fc *Component) fetchShips(data Instance) error {
 	query := db.QueryDesc{
 		Props: []string{
 			"ship",
-			"amount",
+			"count",
 		},
 		Table: "fleet_element",
 		Filters: []db.Filter{
@@ -479,4 +514,34 @@ func (fc *Component) fetchShips(data Instance) error {
 	}
 
 	return nil
+}
+
+// Convert :
+// Implementation of the `db.Convertible` interface
+// from the DB package in order to only include fields
+// that need to be marshalled in the fleet component's
+// creation.
+//
+// Returns the converted version of the planet which
+// only includes relevant fields.
+func (fc *Component) Convert() interface{} {
+	return struct {
+		ID       string    `json:"id"`
+		Fleet    string    `json:"fleet"`
+		Player   string    `json:"player"`
+		Galaxy   int       `json:"start_galaxy"`
+		System   int       `json:"start_solar_system"`
+		Position int       `json:"start_position"`
+		Speed    float32   `json:"speed"`
+		JoinedAt time.Time `json:"joined_at"`
+	}{
+		ID:       fc.ID,
+		Fleet:    fc.fleet,
+		Player:   fc.Player,
+		Galaxy:   fc.Origin.Galaxy,
+		System:   fc.Origin.System,
+		Position: fc.Origin.Position,
+		Speed:    fc.Speed,
+		JoinedAt: fc.JoinedAt,
+	}
 }

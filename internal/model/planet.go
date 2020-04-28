@@ -77,6 +77,11 @@ import (
 // The `DefensesConstruction` defines a similar list for
 // defense systems on this planet.
 //
+// The `technologies` defines the technologies that have
+// already been researched by the player owning this tech.
+// It helps in various cases to be able to fetch player's
+// info about technology.
+//
 // The `mode` defines whether the locker on the planet's
 // resources should be kept as long as this object exist
 // or only during the acquisition of the resources.
@@ -100,6 +105,7 @@ type Planet struct {
 	BuildingsUpgrade     []BuildingAction `json:"buildings_upgrade"`
 	ShipsConstruction    []ShipAction     `json:"ships_construction"`
 	DefensesConstruction []DefenseAction  `json:"defenses_construction"`
+	technologies         map[string]int
 	mode                 accessMode
 	locker               *locker.Lock
 }
@@ -303,6 +309,11 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 	}
 
 	err = p.fetchDefenses(data)
+	if err != nil {
+		return p, err
+	}
+
+	err = p.fetchTechnologies(data)
 	if err != nil {
 		return p, err
 	}
@@ -1130,6 +1141,73 @@ func (p *Planet) fetchDefenses(data Instance) error {
 		d.DefenseDesc = desc
 
 		p.Defenses = append(p.Defenses, d)
+	}
+
+	return nil
+}
+
+// fetchTechnologies :
+// Similar to the `fetchResources` but handles the
+// retrieval of the technologies researched by the
+// player owning the planet.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Planet) fetchTechnologies(data Instance) error {
+	// Consistency.
+	if p.ID == "" || p.Player == "" {
+		return ErrInvalidPlanet
+	}
+
+	p.technologies = make(map[string]int)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"technology",
+			"level",
+		},
+		Table: "player_technologies",
+		Filters: []db.Filter{
+			{
+				Key:    "player",
+				Values: []string{p.Player},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+
+	// Populate the return value.
+	var tech string
+	var level int
+
+	sanity := make(map[string]int)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&tech,
+			&level,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		_, ok := sanity[tech]
+		if ok {
+			return ErrInconsistentDB
+		}
+		sanity[tech] = level
+
+		p.technologies[tech] = level
 	}
 
 	return nil

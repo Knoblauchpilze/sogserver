@@ -53,6 +53,17 @@ var ErrDuplicatedAction = fmt.Errorf("Invalid not unique action")
 // of an action is not valid.
 var ErrInvalidDuration = fmt.Errorf("Cannot convert completion time to duration")
 
+// ErrLevelIncorrect :
+// Used to indicate that the level provided for the action
+// is not consistent with the level of the element on the
+// parent planet.
+var ErrLevelIncorrect = fmt.Errorf("Invalid level compared to planet for action")
+
+// ErrNoFieldsLeft :
+// Used to indicate that the action requires at least one
+// free field on the planet and that it's not the case.
+var ErrNoFieldsLeft = fmt.Errorf("No remaining fields left for action")
+
 // Valid :
 // Used to deterimne whether this action is obviously
 // not valid or not. This allows to prevent some basic
@@ -740,13 +751,27 @@ func (a *BuildingAction) Validate(data Instance, p *Planet) error {
 	}
 
 	// Compute the total cost of this action.
-	bd, err := data.Technologies.getTechnologyFromID(a.Element)
+	bd, err := data.Buildings.getBuildingFromID(a.Element)
 	if err != nil {
 		return err
 	}
 
-	// TODO: Make sure that the building has the `current` level
-	// and that there are remaining fields.
+	// Make sure that the current level of the building is
+	// consistent with what's desired.
+	bi, err := p.GetBuilding(bd.ID)
+	if err != nil {
+		return err
+	}
+
+	if bi.Level != a.CurrentLevel {
+		return ErrLevelIncorrect
+	}
+
+	// Make sure that if the action requires to use one
+	// more field there is at least one available.
+	if p.RemainingFields() == 0 && a.DesiredLevel > a.CurrentLevel {
+		return ErrNoFieldsLeft
+	}
 
 	costs := bd.Cost.ComputeCost(a.DesiredLevel)
 
@@ -895,7 +920,15 @@ func (a *TechnologyAction) Validate(data Instance, p *Planet) error {
 		return err
 	}
 
-	// TODO: Make sure that the technology has the `current` level.
+	// Make sure that the current level of the technology
+	// is consistent with what's desired.
+	tLevel, ok := p.technologies[td.ID]
+	if !ok && a.CurrentLevel > 0 {
+		return ErrLevelIncorrect
+	}
+	if tLevel != a.CurrentLevel {
+		return ErrLevelIncorrect
+	}
 
 	costs := td.Cost.ComputeCost(a.DesiredLevel)
 

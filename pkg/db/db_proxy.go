@@ -258,7 +258,7 @@ func (p Proxy) InsertToDB(req InsertReq) error {
 	// the insertion script.
 	argsAsStr := make([]string, 0)
 
-	for id, arg := range req.Args {
+	for _, arg := range req.Args {
 		// Check whether this argument can be converted
 		// into a more meaningful type.
 		cvrt, ok := arg.(Convertible)

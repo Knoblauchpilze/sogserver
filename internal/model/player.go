@@ -128,6 +128,7 @@ func newPlayerFromDB(ID string, data Instance, mode accessMode) (Player, error) 
 	if err != nil {
 		return p, err
 	}
+	p.locker.Lock()
 
 	// Fetch the player's data.
 	err = p.fetchGeneralInfo(data)

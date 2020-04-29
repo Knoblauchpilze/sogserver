@@ -148,10 +148,10 @@ type Planet struct {
 // stopped (in case the storage is full for example).
 // The production is given in units per hour.
 type ResourceInfo struct {
-	Resource   string `json:"resource"`
-	Amount     int    `json:"amount"`
-	Storage    int    `json:"storage"`
-	Production int    `json:"production"`
+	Resource   string  `json:"resource"`
+	Amount     float32 `json:"amount"`
+	Storage    float32 `json:"storage"`
+	Production float32 `json:"production"`
 }
 
 // BuildingInfo :
@@ -257,10 +257,10 @@ type Resources []ResourceInfo
 func (r Resources) Convert() interface{} {
 	out := make(
 		[]struct {
-			Resource   string `json:"res"`
-			Amount     int    `json:"amount"`
-			Storage    int    `json:"storage_capacity"`
-			Production int    `json:"production"`
+			Resource   string  `json:"res"`
+			Amount     float32 `json:"amount"`
+			Storage    float32 `json:"storage_capacity"`
+			Production float32 `json:"production"`
 		},
 		0,
 	)
@@ -269,10 +269,10 @@ func (r Resources) Convert() interface{} {
 		out = append(
 			out,
 			struct {
-				Resource   string `json:"res"`
-				Amount     int    `json:"amount"`
-				Storage    int    `json:"storage_capacity"`
-				Production int    `json:"production"`
+				Resource   string  `json:"res"`
+				Amount     float32 `json:"amount"`
+				Storage    float32 `json:"storage_capacity"`
+				Production float32 `json:"production"`
 			}{
 				Resource:   res.Resource,
 				Amount:     res.Amount,
@@ -317,6 +317,7 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 	if err != nil {
 		return p, err
 	}
+	p.locker.Lock()
 
 	// Fetch general info for this planet. It will
 	// allow to fetch the player's identifier and
@@ -343,6 +344,7 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 	if err != nil {
 		return p, err
 	}
+	p.pLocker.Lock()
 
 	// Fetch and update upgrade actions for this planet.
 	err = p.fetchBuildingUpgrades(data)
@@ -475,14 +477,19 @@ func (p *Planet) Close() error {
 // The `coords` represent the desired position of
 // the planet to generate.
 //
+// The `homeworld` defines whether this planet
+// is the homeworld for a player (which indicates
+// that the name should be different from another
+// random planet).
+//
 // Returns the generated planet.
-func NewPlanet(player string, coords Coordinate) *Planet {
+func NewPlanet(player string, coords Coordinate, homeworld bool) *Planet {
 	// Create default properties.
 	p := &Planet{
 		ID:          uuid.New().String(),
 		Player:      player,
 		Coordinates: coords,
-		Name:        getDefaultPlanetName(coords.isNull()),
+		Name:        getDefaultPlanetName(homeworld),
 		Fields:      0,
 		MinTemp:     0,
 		MaxTemp:     0,
@@ -1550,7 +1557,7 @@ func (p *Planet) validateAction(costs map[string]int, desc UpgradableDesc, data 
 			return err
 		}
 
-		if desc.Amount < amount {
+		if desc.Amount < float32(amount) {
 			return ErrNotEnoughResources
 		}
 	}

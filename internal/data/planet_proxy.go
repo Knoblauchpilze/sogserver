@@ -147,9 +147,9 @@ func (p *PlanetProxy) generateResources(planet *model.Planet) error {
 	for _, res := range resources {
 		desc := model.ResourceInfo{
 			Resource:   res.ID,
-			Amount:     res.BaseAmount,
-			Storage:    res.BaseStorage,
-			Production: res.BaseProd,
+			Amount:     float32(res.BaseAmount),
+			Storage:    float32(res.BaseStorage),
+			Production: float32(res.BaseProd),
 		}
 
 		planet.Resources = append(planet.Resources, desc)
@@ -232,7 +232,7 @@ func (p *PlanetProxy) CreateFor(player model.Player) (string, error) {
 
 		// Generate a new planet. We also need to associate
 		// some resources to it.
-		planet := model.NewPlanet(player.ID, coord)
+		planet := model.NewPlanet(player.ID, coord, true)
 		err := p.generateResources(planet)
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Unable to generate resources for planet at %s for \"%s\" (err: %v)", coord, player.ID, err))

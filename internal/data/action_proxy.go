@@ -167,6 +167,10 @@ func (p *ActionProxy) CreateTechnologyAction(a model.TechnologyAction) (string, 
 		return a.ID, ErrInvalidAction
 	}
 
+	// Make sure that the player owning the planet is the
+	// one associated with the action.
+	a.Player = planet.Player
+
 	// Consolidate the completion time for this technology.
 	err = a.ConsolidateCompletionTime(p.data, &planet)
 	if err != nil {

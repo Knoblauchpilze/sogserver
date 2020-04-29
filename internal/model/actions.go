@@ -803,8 +803,16 @@ func (a *BuildingAction) Validate(data Instance, p *Planet) error {
 // Used as a way to refine the `ProgressAction` for the
 // specific case of technologies. It mostly add the info
 // to compute the completion time for a technology.
+//
+// The `Player` defines the identifier of the player
+// that created this action. It is quite redundant with
+// the planet's identifier (which already defines the
+// owner of the action) but it helps enforcing a unique
+// tech upgrade action for a given player.
 type TechnologyAction struct {
 	ProgressAction
+
+	Player string `json:"player"`
 }
 
 // Valid :
@@ -815,7 +823,8 @@ type TechnologyAction struct {
 // Returns `true` if this action is not obviously wrong.
 func (a *TechnologyAction) Valid() bool {
 	return a.ProgressAction.Valid() &&
-		a.DesiredLevel == a.CurrentLevel+1
+		a.DesiredLevel == a.CurrentLevel+1 &&
+		validUUID(a.Player)
 }
 
 // NewTechnologyActionFromDB :
@@ -840,6 +849,50 @@ func NewTechnologyActionFromDB(ID string, data Instance) (TechnologyAction, erro
 
 	var err error
 	ta.ProgressAction, err = newProgressActionFromDB(ID, data, "construction_actions_technologies")
+
+	if err != nil {
+		return ta, err
+	}
+
+	// Fetch the player's identifier for this action.
+	query := db.QueryDesc{
+		Props: []string{
+			"player",
+		},
+		Table: "construction_actions_technologies",
+		Filters: []db.Filter{
+			{
+				Key:    "id",
+				Values: []string{ta.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return ta, err
+	}
+	if dbRes.Err != nil {
+		return ta, err
+	}
+
+	// Scan the players's identififer.
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return ta, ErrInvalidAction
+	}
+
+	err = dbRes.Scan(
+		&ta.Player,
+	)
+
+	// Make sure that it's the only action.
+	if dbRes.Next() {
+		return ta, ErrDuplicatedAction
+	}
 
 	return ta, err
 }
@@ -930,7 +983,7 @@ func (a *TechnologyAction) ConsolidateCompletionTime(data Instance, p *Planet) e
 // Returns any error.
 func (a *TechnologyAction) Validate(data Instance, p *Planet) error {
 	// Consistency.
-	if a.Planet != p.ID {
+	if a.Planet != p.ID || a.Player != p.Player {
 		return ErrInvalidPlanet
 	}
 

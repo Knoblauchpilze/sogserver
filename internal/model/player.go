@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"oglike_server/internal/locker"
 	"oglike_server/pkg/db"
@@ -381,4 +382,52 @@ func (p *Player) Convert() interface{} {
 		Universe: p.Universe,
 		Name:     p.Name,
 	}
+}
+
+// MarshalJSON :
+// Implementation of the `Marshaler` interface to allow
+// only specific information to be marshalled when the
+// player needs to be exported. It fills a similar role
+// to the `Convert` method but only to provide a clean
+// interface to the outside world where only relevant
+// info is provided.
+//
+// Returns the marshalled bytes for this planet along
+// with any error.
+func (p *Player) MarshalJSON() ([]byte, error) {
+	type lightInfo struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Level int    `json:"level"`
+	}
+
+	type lightPlayer struct {
+		ID           string      `json:"id"`
+		Account      string      `json:"account"`
+		Universe     string      `json:"universe"`
+		Name         string      `json:"name"`
+		Technologies []lightInfo `json:"technologies"`
+	}
+
+	// Copy the planet's data.
+	lp := lightPlayer{
+		ID:       p.ID,
+		Account:  p.Account,
+		Universe: p.Universe,
+		Name:     p.Name,
+	}
+
+	// Make shallow copy of the buildings, ships and
+	// defenses without including the tech deps.
+	for _, t := range p.Technologies {
+		lt := lightInfo{
+			ID:    t.ID,
+			Name:  t.Name,
+			Level: t.Level,
+		}
+
+		lp.Technologies = append(lp.Technologies, lt)
+	}
+
+	return json.Marshal(lp)
 }

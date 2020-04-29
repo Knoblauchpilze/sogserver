@@ -58,7 +58,6 @@ import (
 // in the update functions.
 // TODO: Should update the arrival time of the fleet from the server.
 // TODO: The technology upgrade action does not include the player anymore.
-// TODO: The player should probably do the same for technologies.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

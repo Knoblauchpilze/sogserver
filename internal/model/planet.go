@@ -1554,7 +1554,7 @@ func (p *Planet) Convert() interface{} {
 // Most of the info will be marshalled except for deps
 // on various buildings/ships/defenses built on this
 // planet as it's not the place of this struct to be
-// defininf that.
+// defining that.
 // The approach we follow is to define a similar struct
 // to the planet but do not include the tech deps.
 //

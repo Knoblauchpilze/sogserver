@@ -112,6 +112,7 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 	sm := model.NewShipsModule(log)
 	dm := model.NewDefensesModule(log)
 	rm := model.NewResourcesModule(log)
+	om := model.NewFleetObjectivesModule(log)
 
 	err := bm.Init(proxy, false)
 	if err != nil {
@@ -138,6 +139,11 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 		panic(fmt.Errorf("Cannot create server (err: %v)", err))
 	}
 
+	err = om.Init(proxy, false)
+	if err != nil {
+		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+	}
+
 	// Create the data model from it.
 	ogDataModel := model.Instance{
 		Proxy:        proxy,
@@ -146,6 +152,7 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 		Ships:        sm,
 		Defenses:     dm,
 		Resources:    rm,
+		Objectives:   om,
 		Locker:       locker.NewConcurrentLocker(log),
 	}
 

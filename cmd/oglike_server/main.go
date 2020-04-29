@@ -60,7 +60,13 @@ import (
 // TODO: The technology upgrade action does not include the player anymore.
 // TODO: The planet should define a custom MarshalJSON method in order not
 // to embed all the information of tech deps for ships, defenses etc.
-// TODO: Create a route to fetch fleet objectives.
+// TODO: It seems that we don't check for `rows.Err` or `dbRes.Err` all
+// the time.
+// TODO: If we do:
+// `curl http://localhost:3000/fleets/objectives?id=9a9c5df2-5d9e-4d0f-82dc-e633d123766d`
+// we target the `fleets` endpoint while if we do:
+// `curl http://localhost:3000/fleets/objectives/9a9c5df2-5d9e-4d0f-82dc-e633d123766d`
+// we target the `fleets/objectives` endpoint.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

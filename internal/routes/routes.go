@@ -21,6 +21,7 @@ func (s *Server) routes() {
 	// TODO: Update upgrade actions (from fleets) for *this* planet.
 	s.route("GET", "/planets", s.listPlanets())
 	s.route("GET", "/fleets", s.listFleets())
+	s.route("GET", "/fleets/objectives", s.listFleetObjectives())
 
 	s.route("POST", "/universes", s.createUniverse())
 	s.route("POST", "/accounts", s.createAccount())

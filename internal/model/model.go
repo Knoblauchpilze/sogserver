@@ -29,6 +29,9 @@ import (
 // The `Resources` defines the module to access to all
 // available resources in the game.
 //
+// The `Objectives` defines the module to access to all
+// the fleet objectives defined in the game.
+//
 // The `Locker` defines an object to use to protect
 // resources of the DB from concurrent accesses. It
 // is used to guarantee that a single process is able
@@ -42,6 +45,7 @@ type Instance struct {
 	Ships        *ShipsModule
 	Defenses     *DefensesModule
 	Resources    *ResourcesModule
+	Objectives   *FleetObjectivesModule
 	Locker       *locker.ConcurrentLocker
 }
 

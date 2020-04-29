@@ -84,17 +84,6 @@ type ResourceDesc struct {
 	BaseAmount  int    `json:"base_amount"`
 }
 
-// getModuleString :
-// Used to retrieve a unique string characterizing this
-// module to pass to the `baseModule`. This will allow
-// to easily filter log messages coming from this system
-// of the game.
-//
-// Returns the string representing this module.
-func getModuleString() string {
-	return "resources"
-}
-
 // NewResourcesModule :
 // Used to create a new resources module initialized with
 // no content (as no DB is provided yet). The module will
@@ -106,7 +95,7 @@ func getModuleString() string {
 func NewResourcesModule(log logger.Logger) *ResourcesModule {
 	return &ResourcesModule{
 		associationTable: newAssociationTable(),
-		baseModule:       newBaseModule(log, getModuleString()),
+		baseModule:       newBaseModule(log, "resources"),
 		prod:             nil,
 		storage:          nil,
 		amount:           nil,

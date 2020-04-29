@@ -15,8 +15,8 @@ func (s *Server) listBuildings() http.HandlerFunc {
 	ed := NewGetResourceEndpoint("buildings")
 
 	allowed := map[string]string{
-		"building_id":   "id",
-		"building_name": "name",
+		"id":   "id",
+		"name": "name",
 	}
 
 	// Configure the endpoint.

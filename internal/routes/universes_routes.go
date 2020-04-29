@@ -17,8 +17,8 @@ func (s *Server) listUniverses() http.HandlerFunc {
 	ed := NewGetResourceEndpoint("universes")
 
 	allowed := map[string]string{
-		"universe_id":   "id",
-		"universe_name": "name",
+		"id":   "id",
+		"name": "name",
 	}
 
 	// Configure the endpoint.

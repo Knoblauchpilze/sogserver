@@ -15,13 +15,12 @@ func (s *Server) listPlanets() http.HandlerFunc {
 	ed := NewGetResourceEndpoint("planets")
 
 	allowed := map[string]string{
-		"planet_id":    "p.id",
-		"planet_name":  "p.name",
+		"id":           "p.id",
+		"name":         "p.name",
 		"galaxy":       "p.galaxy",
 		"solar_system": "p.solar_system",
-		"universe":     "pl.uni",
-		"player_id":    "p.player",
-		"account_id":   "pl.account",
+		"universe":     "pl.universe",
+		"player":       "p.player",
 	}
 
 	// Configure the endpoint.

@@ -15,8 +15,8 @@ func (s *Server) listTechnologies() http.HandlerFunc {
 	ed := NewGetResourceEndpoint("technologies")
 
 	allowed := map[string]string{
-		"technology_id":   "id",
-		"technology_name": "name",
+		"id":   "id",
+		"name": "name",
 	}
 
 	// Configure the endpoint.

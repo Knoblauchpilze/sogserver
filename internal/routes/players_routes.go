@@ -17,10 +17,10 @@ func (s *Server) listPlayers() http.HandlerFunc {
 	ed := NewGetResourceEndpoint("players")
 
 	allowed := map[string]string{
-		"player_id":   "id",
-		"account_id":  "account",
-		"universe_id": "universe",
-		"player_name": "name",
+		"player":   "id",
+		"account":  "account",
+		"universe": "universe",
+		"name":     "name",
 	}
 
 	// Configure the endpoint.

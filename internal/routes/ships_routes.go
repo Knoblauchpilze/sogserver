@@ -15,8 +15,8 @@ func (s *Server) listShips() http.HandlerFunc {
 	ed := NewGetResourceEndpoint("ships")
 
 	allowed := map[string]string{
-		"ship_id":   "id",
-		"ship_name": "name",
+		"id":   "id",
+		"name": "name",
 	}
 
 	// Configure the endpoint.

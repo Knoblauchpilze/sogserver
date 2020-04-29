@@ -15,8 +15,8 @@ func (s *Server) listDefenses() http.HandlerFunc {
 	ed := NewGetResourceEndpoint("defenses")
 
 	allowed := map[string]string{
-		"defense_id":   "id",
-		"defense_name": "name",
+		"id":   "id",
+		"name": "name",
 	}
 
 	// Configure the endpoint.

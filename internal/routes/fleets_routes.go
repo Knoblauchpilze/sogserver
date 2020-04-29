@@ -18,8 +18,8 @@ func (s *Server) listFleets() http.HandlerFunc {
 	ed := NewGetResourceEndpoint("fleets")
 
 	allowed := map[string]string{
-		"fleet_id":     "id",
-		"fleet_name":   "name",
+		"id":           "id",
+		"name":         "name",
 		"galaxy":       "target_galaxy",
 		"solar_system": "target_solar_system",
 		"position":     "target_position",

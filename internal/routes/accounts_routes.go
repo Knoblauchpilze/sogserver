@@ -17,9 +17,9 @@ func (s *Server) listAccounts() http.HandlerFunc {
 	ed := NewGetResourceEndpoint("accounts")
 
 	allowed := map[string]string{
-		"account_id":   "id",
-		"account_name": "name",
-		"account_mail": "mail",
+		"id":   "id",
+		"name": "name",
+		"mail": "mail",
 	}
 
 	// Configure the endpoint.

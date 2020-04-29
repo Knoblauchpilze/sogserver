@@ -367,6 +367,16 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 		return p, err
 	}
 
+	// Update the resources existing on the planet so
+	// that the rest of the elements have up-to-date
+	// values available.
+	err = p.updateResources(data)
+	if err != nil {
+		return p, err
+	}
+
+	// TODO: This is where we should update the fleets.
+
 	// Fetch the planet's content.
 	err = p.fetchResources(data)
 	if err != nil {
@@ -723,6 +733,34 @@ func (p *Planet) generateData() {
 	p.MinTemp = p.MaxTemp - getPlanetTemperatureAmplitude()
 }
 
+// updateResources :
+// Used to perform the update of the resources existing on
+// this planet so that the rest of the processes can have
+// up-to-date information.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Planet) updateResources(data Instance) error {
+	// Consistency.
+	if p.ID == "" {
+		return ErrInvalidPlanet
+	}
+
+	// Perform the update of the resources for this planet.
+	update := db.InsertReq{
+		Script: "update_resources_for_planet",
+		Args: []interface{}{
+			p.ID,
+		},
+		SkipReturn: true,
+	}
+
+	err := data.Proxy.InsertToDB(update)
+
+	return err
+}
+
 // fetchBuildingUpgrades :
 // Used internally when building a planet from the
 // DB to update the building upgrade actions that
@@ -903,7 +941,7 @@ func (p *Planet) fetchShipUpgrades(data Instance) error {
 
 	p.ShipsConstruction = make([]ShipAction, 0)
 
-	// Perform the update of the ship upgrade actions.
+	// Perform the update of the ships upgrade actions.
 	update := db.InsertReq{
 		Script: "update_ship_upgrade_action",
 		Args: []interface{}{
@@ -984,7 +1022,7 @@ func (p *Planet) fetchDefenseUpgrades(data Instance) error {
 
 	p.DefensesConstruction = make([]DefenseAction, 0)
 
-	// Perform the update of the ship upgrade actions.
+	// Perform the update of the defenses upgrade actions.
 	update := db.InsertReq{
 		Script: "update_defense_upgrade_action",
 		Args: []interface{}{
@@ -1131,20 +1169,6 @@ func (p *Planet) fetchResources(data Instance) error {
 	// Consistency.
 	if p.ID == "" {
 		return ErrInvalidPlanet
-	}
-
-	// Perform the update of the ship upgrade actions.
-	update := db.InsertReq{
-		Script: "update_resources_for_planet",
-		Args: []interface{}{
-			p.ID,
-		},
-		SkipReturn: true,
-	}
-
-	err := data.Proxy.InsertToDB(update)
-	if err != nil {
-		return err
 	}
 
 	p.Resources = make([]ResourceInfo, 0)

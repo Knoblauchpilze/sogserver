@@ -241,7 +241,7 @@ BEGIN
     pr.planet = planet_id
     AND pr.res = ud.res;
 
-  -- 3. Destroy the processed actions effect.
+  -- 3. Destroy the processed actions effects.
   DELETE FROM
     construction_actions_buildings_production_effects cabpe
     USING construction_actions_buildings cab

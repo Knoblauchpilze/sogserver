@@ -122,13 +122,26 @@ func newPlayerFromDB(ID string, data Instance, mode accessMode) (Player, error) 
 		ID: ID,
 	}
 
+	// Acquire the lock on the player from the DB.
+	var err error
+	p.locker, err = data.Locker.Acquire(p.ID)
+	if err != nil {
+		return p, err
+	}
+
 	// Fetch the player's data.
-	err := p.fetchGeneralInfo(data)
+	err = p.fetchGeneralInfo(data)
 	if err != nil {
 		return p, err
 	}
 
 	err = p.fetchTechnologies(data)
+
+	// Release the locker if needed.
+	if p.mode == ReadOnly {
+		err = p.locker.Unlock()
+		return p, err
+	}
 
 	return p, err
 }

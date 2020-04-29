@@ -162,6 +162,9 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 	if err != nil {
 		return u, err
 	}
+	if dbRes.Err != nil {
+		return u, dbRes.Err
+	}
 
 	// Scan the universe's data.
 	atLeastOne := dbRes.Next()
@@ -232,6 +235,9 @@ func (u *Universe) UsedCoords(proxy db.Proxy) (map[int]Coordinate, error) {
 	// Check for errors.
 	if err != nil {
 		return map[int]Coordinate{}, err
+	}
+	if dbRes.Err != nil {
+		return map[int]Coordinate{}, dbRes.Err
 	}
 
 	// Traverse all the coordinates and populate the list.

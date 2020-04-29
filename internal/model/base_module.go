@@ -123,24 +123,24 @@ func (bm *baseModule) trace(level logger.Severity, msg string) {
 // along with any errors.
 func (bm *baseModule) fetchIDs(query db.QueryDesc, proxy db.Proxy) ([]string, error) {
 	// Perform the query.
-	rows, err := proxy.FetchFromDB(query)
-	defer rows.Close()
+	dbRes, err := proxy.FetchFromDB(query)
+	defer dbRes.Close()
 
 	if err != nil {
 		bm.trace(logger.Error, fmt.Sprintf("Unable to fetch IDs (err: %v)", err))
 		return []string{}, err
 	}
-	if rows.Err != nil {
-		bm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize IDs (err: %v)", rows.Err))
-		return []string{}, rows.Err
+	if dbRes.Err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize IDs (err: %v)", dbRes.Err))
+		return []string{}, dbRes.Err
 	}
 
 	// Fetch identifiers.
 	var ID string
 	IDs := make([]string, 0)
 
-	for rows.Next() {
-		err := rows.Scan(&ID)
+	for dbRes.Next() {
+		err := dbRes.Scan(&ID)
 
 		if err != nil {
 			bm.trace(logger.Error, fmt.Sprintf("Failed to initialize ID from row (err: %v)", err))

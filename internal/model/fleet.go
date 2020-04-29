@@ -324,6 +324,9 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 	if err != nil {
 		return err
 	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
 
 	// Scan the fleet's data.
 	var g, s, p int
@@ -397,6 +400,9 @@ func (f *Fleet) fetchComponents(data Instance) error {
 	// Check for errors.
 	if err != nil {
 		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
 	}
 
 	// Populate the return value.
@@ -499,6 +505,9 @@ func (fc *Component) fetchShips(data Instance) error {
 	// Check for errors.
 	if err != nil {
 		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
 	}
 
 	// Populate the return value.

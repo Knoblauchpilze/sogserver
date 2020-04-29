@@ -119,6 +119,9 @@ func NewAccountFromDB(ID string, data Instance) (Account, error) {
 	if err != nil {
 		return a, err
 	}
+	if dbRes.Err != nil {
+		return a, err
+	}
 
 	// Scan the account's data.
 	atLeastOne := dbRes.Next()

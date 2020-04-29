@@ -92,12 +92,16 @@ func (p *FleetProxy) Fleets(filters []db.Filter) ([]model.Fleet, error) {
 		Filters: filters,
 	}
 
-	res, err := p.proxy.FetchFromDB(query)
-	defer res.Close()
+	dbRes, err := p.proxy.FetchFromDB(query)
+	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch fleets (err: %v)", err))
+		return []model.Fleet{}, err
+	}
+	if dbRes.Err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch fleets (err: %v)", dbRes.Err))
 		return []model.Fleet{}, err
 	}
 
@@ -107,8 +111,8 @@ func (p *FleetProxy) Fleets(filters []db.Filter) ([]model.Fleet, error) {
 	var ID string
 	IDs := make([]string, 0)
 
-	for res.Next() {
-		err = res.Scan(&ID)
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
 
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Error while fetching fleet ID (err: %v)", err))

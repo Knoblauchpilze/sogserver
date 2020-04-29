@@ -61,12 +61,16 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]model.Player, error) {
 		Filters: filters,
 	}
 
-	res, err := p.proxy.FetchFromDB(query)
-	defer res.Close()
+	dbRes, err := p.proxy.FetchFromDB(query)
+	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch players (err: %v)", err))
+		return []model.Player{}, err
+	}
+	if dbRes.Err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch players (err: %v)", dbRes.Err))
 		return []model.Player{}, err
 	}
 
@@ -76,8 +80,8 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]model.Player, error) {
 	var ID string
 	IDs := make([]string, 0)
 
-	for res.Next() {
-		err = res.Scan(&ID)
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
 
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Error while fetching player ID (err: %v)", err))

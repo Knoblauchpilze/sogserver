@@ -60,8 +60,6 @@ import (
 // TODO: The technology upgrade action does not include the player anymore.
 // TODO: The planet should define a custom MarshalJSON method in order not
 // to embed all the information of tech deps for ships, defenses etc.
-// TODO: It seems that we don't check for `rows.Err` or `dbRes.Err` all
-// the time.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

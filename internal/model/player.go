@@ -234,6 +234,9 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 	if err != nil {
 		return err
 	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
 
 	// Scan the player's data.
 	atLeastOne := dbRes.Next()
@@ -307,6 +310,9 @@ func (p *Player) fetchTechnologies(data Instance) error {
 	// Check for errors.
 	if err != nil {
 		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
 	}
 
 	// Populate the return value.

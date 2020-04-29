@@ -813,6 +813,9 @@ func (p *Planet) fetchBuildingUpgrades(data Instance) error {
 	if err != nil {
 		return err
 	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
 
 	// We now need to retrieve all the identifiers that matched
 	// the input filters and then build the corresponding item
@@ -895,6 +898,9 @@ func (p *Planet) fetchTechnologiesUpgrades(data Instance) error {
 	if err != nil {
 		return err
 	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
 
 	// We now need to retrieve all the identifiers that matched
 	// the input filters and then build the corresponding item
@@ -975,6 +981,9 @@ func (p *Planet) fetchShipUpgrades(data Instance) error {
 	// Check for errors.
 	if err != nil {
 		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
 	}
 
 	// We now need to retrieve all the identifiers that matched
@@ -1057,6 +1066,9 @@ func (p *Planet) fetchDefenseUpgrades(data Instance) error {
 	if err != nil {
 		return err
 	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
 
 	// We now need to retrieve all the identifiers that matched
 	// the input filters and then build the corresponding item
@@ -1130,6 +1142,9 @@ func (p *Planet) fetchGeneralInfo(data Instance) error {
 	if err != nil {
 		return err
 	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
 
 	// Populate the return value.
 	var galaxy, system, position int
@@ -1197,6 +1212,9 @@ func (p *Planet) fetchResources(data Instance) error {
 	if err != nil {
 		return err
 	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
 
 	// Populate the return value.
 	var res ResourceInfo
@@ -1255,6 +1273,9 @@ func (p *Planet) fetchBuildings(data Instance) error {
 	// Check for errors.
 	if err != nil {
 		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
 	}
 
 	// Populate the return value.
@@ -1321,6 +1342,9 @@ func (p *Planet) fetchShips(data Instance) error {
 	if err != nil {
 		return err
 	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
 
 	// Populate the return value.
 	var ID string
@@ -1385,6 +1409,9 @@ func (p *Planet) fetchDefenses(data Instance) error {
 	// Check for errors.
 	if err != nil {
 		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
 	}
 
 	// Populate the return value.
@@ -1451,6 +1478,9 @@ func (p *Planet) fetchTechnologies(data Instance) error {
 	// Check for errors.
 	if err != nil {
 		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
 	}
 
 	// Populate the return value.

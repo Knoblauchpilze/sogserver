@@ -267,6 +267,12 @@ func (r *Route) match(req *http.Request) routeMatch {
 	// be registered in the route.
 	path := req.URL.String()
 
+	// We need to strip the query parameters from the route.
+	id := strings.Index(path, "?")
+	if id >= 0 {
+		path = path[:id]
+	}
+
 	m := routeMatch{}
 	m.length = r.matchName(path)
 

@@ -402,8 +402,8 @@ func (a *FixedAction) computeCompletionTime(data Instance, cost FixedCost, p *Pl
 type BuildingAction struct {
 	ProgressAction
 
-	Production []ProductionEffect `json:"production_effects"`
-	Storage    []StorageEffect    `json:"storage_effects"`
+	Production []ProductionEffect `json:"production_effects,omitempty"`
+	Storage    []StorageEffect    `json:"storage_effects,omitempty"`
 }
 
 // ProductionEffect :

@@ -152,14 +152,14 @@ type ConsumptionValue struct {
 type ShipDesc struct {
 	UpgradableDesc
 
-	Cargo        int                `json:"cargo"`
-	Shield       int                `json:"shield"`
-	Weapon       int                `json:"weapon"`
-	Speed        int                `json:"speed"`
+	Cargo        int                `json:"cargo,omitempty"`
+	Shield       int                `json:"shield,omitempty"`
+	Weapon       int                `json:"weapon,omitempty"`
+	Speed        int                `json:"speed,omitempty"`
 	Propulsion   PropulsionDesc     `json:"propulsion"`
-	Consumption  []ConsumptionValue `json:"consumption"`
-	RFVSShips    []RapidFire        `json:"rf_against_ships"`
-	RFVSDefenses []RapidFire        `json:"rf_against_defenses"`
+	Consumption  []ConsumptionValue `json:"consumption,omitempty"`
+	RFVSShips    []RapidFire        `json:"rf_against_ships,omitempty"`
+	RFVSDefenses []RapidFire        `json:"rf_against_defenses,omitempty"`
 	Cost         FixedCost          `json:"cost"`
 }
 

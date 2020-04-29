@@ -51,8 +51,8 @@ type BuildingDesc struct {
 	UpgradableDesc
 
 	Cost       ProgressCost     `json:"cost"`
-	Production []ProductionRule `json:"production"`
-	Storage    []StorageRule    `json:"storage"`
+	Production []ProductionRule `json:"production,omitempty"`
+	Storage    []StorageRule    `json:"storage,omitempty"`
 }
 
 // ProductionRule :

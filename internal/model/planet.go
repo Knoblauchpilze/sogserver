@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
@@ -107,9 +108,9 @@ type Planet struct {
 	MaxTemp              int                `json:"max_temperature"`
 	Diameter             int                `json:"diameter"`
 	Resources            Resources          `json:"resources"`
-	Buildings            []BuildingInfo     `json:"buildings"`
-	Ships                []ShipInfo         `json:"ships"`
-	Defenses             []DefenseInfo      `json:"defenses"`
+	Buildings            []BuildingInfo     `json:"buildings,omitempty"`
+	Ships                []ShipInfo         `json:"ships,omitempty"`
+	Defenses             []DefenseInfo      `json:"defenses,omitempty"`
 	BuildingsUpgrade     []BuildingAction   `json:"buildings_upgrade"`
 	TechnologiesUpgrade  []TechnologyAction `json:"technologies_upgrade"`
 	ShipsConstruction    []ShipAction       `json:"ships_construction"`
@@ -1542,6 +1543,105 @@ func (p *Planet) Convert() interface{} {
 		Position: p.Coordinates.Position,
 		Diameter: p.Diameter,
 	}
+}
+
+// MarshalJSON :
+// Implementation of the `Marshaler` interface to allow
+// only specific information to be marshalled when the
+// planet needs to be exported. Indeed we don't want to
+// export all the fields of all the elements defined as
+// members of the planet.
+// Most of the info will be marshalled except for deps
+// on various buildings/ships/defenses built on this
+// planet as it's not the place of this struct to be
+// defininf that.
+// The approach we follow is to define a similar struct
+// to the planet but do not include the tech deps.
+//
+// Returns the marshalled bytes for this planet along
+// with any error.
+func (p *Planet) MarshalJSON() ([]byte, error) {
+	type lightInfo struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Level int    `json:"level"`
+	}
+
+	type lightCount struct {
+		ID     string `json:"id"`
+		Name   string `json:"name"`
+		Amount int    `json:"amount"`
+	}
+
+	type lightPlanet struct {
+		ID                   string             `json:"id"`
+		Player               string             `json:"player"`
+		Coordinates          Coordinate         `json:"coordinate"`
+		Name                 string             `json:"name"`
+		Fields               int                `json:"fields"`
+		MinTemp              int                `json:"min_temperature"`
+		MaxTemp              int                `json:"max_temperature"`
+		Diameter             int                `json:"diameter"`
+		Resources            Resources          `json:"resources"`
+		Buildings            []lightInfo        `json:"buildings,omitempty"`
+		Ships                []lightCount       `json:"ships,omitempty"`
+		Defenses             []lightCount       `json:"defenses,omitempty"`
+		BuildingsUpgrade     []BuildingAction   `json:"buildings_upgrade"`
+		TechnologiesUpgrade  []TechnologyAction `json:"technologies_upgrade"`
+		ShipsConstruction    []ShipAction       `json:"ships_construction"`
+		DefensesConstruction []DefenseAction    `json:"defenses_construction"`
+	}
+
+	// Copy the planet's data.
+	lp := lightPlanet{
+		ID:                   p.ID,
+		Player:               p.Player,
+		Coordinates:          p.Coordinates,
+		Name:                 p.Name,
+		Fields:               p.Fields,
+		MinTemp:              p.MinTemp,
+		MaxTemp:              p.MaxTemp,
+		Diameter:             p.Diameter,
+		Resources:            p.Resources,
+		BuildingsUpgrade:     p.BuildingsUpgrade,
+		TechnologiesUpgrade:  p.TechnologiesUpgrade,
+		ShipsConstruction:    p.ShipsConstruction,
+		DefensesConstruction: p.DefensesConstruction,
+	}
+
+	// Make shallow copy of the buildings, ships and
+	// defenses without including the tech deps.
+	for _, b := range p.Buildings {
+		lb := lightInfo{
+			ID:    b.ID,
+			Name:  b.Name,
+			Level: b.Level,
+		}
+
+		lp.Buildings = append(lp.Buildings, lb)
+	}
+
+	for _, s := range p.Ships {
+		ls := lightCount{
+			ID:     s.ID,
+			Name:   s.Name,
+			Amount: s.Amount,
+		}
+
+		lp.Ships = append(lp.Ships, ls)
+	}
+
+	for _, d := range p.Defenses {
+		ld := lightCount{
+			ID:     d.ID,
+			Name:   d.Name,
+			Amount: d.Amount,
+		}
+
+		lp.Defenses = append(lp.Defenses, ld)
+	}
+
+	return json.Marshal(lp)
 }
 
 // GetResource :

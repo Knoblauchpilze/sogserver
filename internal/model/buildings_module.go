@@ -669,11 +669,15 @@ func (bm *BuildingsModule) getBuildingFromID(ID string) (BuildingDesc, error) {
 	prod, ok := bm.production[ID]
 	if ok {
 		desc.Production = prod
+	} else {
+		desc.Production = make([]ProductionRule, 0)
 	}
 
 	storage, ok := bm.storage[ID]
 	if ok {
 		desc.Storage = storage
+	} else {
+		desc.Storage = make([]StorageRule, 0)
 	}
 
 	return desc, nil

@@ -714,11 +714,15 @@ func (sm *ShipsModule) getShipFromID(ID string) (ShipDesc, error) {
 	rfShip, ok := sm.rfVSShips[ID]
 	if ok {
 		desc.RFVSShips = rfShip
+	} else {
+		desc.RFVSShips = make([]RapidFire, 0)
 	}
 
 	rfDefense, ok := sm.rfVSDefenses[ID]
 	if ok {
 		desc.RFVSDefenses = rfDefense
+	} else {
+		desc.RFVSDefenses = make([]RapidFire, 0)
 	}
 
 	props, ok := sm.characteristics[ID]

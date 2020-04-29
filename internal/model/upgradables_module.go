@@ -277,7 +277,10 @@ func (um *upgradablesModule) initDeps(rows db.QueryResult, deps *map[string][]De
 
 		uDeps = append(
 			uDeps,
-			Dependency{},
+			Dependency{
+				ID:    req,
+				Level: dep,
+			},
 		)
 
 		(*deps)[elem] = uDeps
@@ -320,6 +323,13 @@ func (um *upgradablesModule) getDependencyFromID(id string) (UpgradableDesc, err
 		Name:             name,
 		BuildingsDeps:    um.buildingsDeps[id],
 		TechnologiesDeps: um.techDeps[id],
+	}
+
+	if res.BuildingsDeps == nil {
+		res.BuildingsDeps = make([]Dependency, 0)
+	}
+	if res.TechnologiesDeps == nil {
+		res.TechnologiesDeps = make([]Dependency, 0)
 	}
 
 	return res, nil

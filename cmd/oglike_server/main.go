@@ -7,6 +7,7 @@ import (
 
 	// Note that this link: https://stackoverflow.com/questions/55442878/organize-local-code-in-packages-using-go-modules
 	// proved helpful when trying to determine which syntax to adopt to use packages defined locally.
+
 	"oglike_server/internal/routes"
 	"oglike_server/pkg/arguments"
 	"oglike_server/pkg/db"
@@ -35,7 +36,6 @@ import (
 // This can include the upgrade action scripts along with the actual code
 // in the update functions.
 // TODO: Should update the arrival time of the fleet from the server.
-// TODO: Check planet generation formulas.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

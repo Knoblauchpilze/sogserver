@@ -533,79 +533,64 @@ func (p *Planet) generateData() {
 	// https://ogame.fandom.com/wiki/Colonizing_in_Redesigned_Universes
 	var min int
 	var max int
-	var stdDev int
 
 	switch p.Coordinates.Position {
 	case 0:
 		// Range [96; 172], average 134.
 		min = 96
 		max = 172
-		stdDev = max - min
 	case 1:
 		// Range [104; 176], average 140.
 		min = 104
 		max = 176
-		stdDev = max - min
 	case 2:
 		// Range [112; 182], average 147.
 		min = 112
 		max = 182
-		stdDev = max - min
 	case 3:
 		// Range [118; 208], average 163.
 		min = 118
 		max = 208
-		stdDev = max - min
 	case 4:
 		// Range [133; 232], average 182.
 		min = 133
 		max = 232
-		stdDev = max - min
 	case 5:
 		// Range [152; 248], average 200.
 		min = 152
 		max = 248
-		stdDev = max - min
 	case 6:
 		// Range [156; 262], average 204.
 		min = 156
 		max = 262
-		stdDev = max - min
 	case 7:
 		// Range [150; 246], average 198.
 		min = 150
 		max = 246
-		stdDev = max - min
 	case 8:
 		// Range [142; 232], average 187.
 		min = 142
 		max = 232
-		stdDev = max - min
 	case 9:
 		// Range [136; 210], average 173.
 		min = 136
 		max = 210
-		stdDev = max - min
 	case 10:
 		// Range [125; 186], average 156.
 		min = 125
 		max = 186
-		stdDev = max - min
 	case 11:
 		// Range [114; 172], average 143.
 		min = 114
 		max = 172
-		stdDev = max - min
 	case 12:
 		// Range [100; 168], average 134.
 		min = 100
 		max = 168
-		stdDev = max - min
 	case 13:
 		// Range [90; 164], average 127.
 		min = 96
 		max = 164
-		stdDev = max - min
 	case 14:
 		fallthrough
 	default:
@@ -613,11 +598,30 @@ func (p *Planet) generateData() {
 		// Range [90; 164], average 134.
 		min = 90
 		max = 164
-		stdDev = max - min
 	}
 
+	// Now that we have a valid range we should attempt to pick
+	// random values in it. We would like to use a truncated
+	// normal distribution for this matter. But it is not readily
+	// available in Go so we will try to be clever (and probably
+	// be a bit wrong from a mathematical point of view). We can
+	// use the `rng.NormFloat64` function which generates normally
+	// distributed values: the problem is that these values are
+	// in the range `]-inf; +inf[` as expected from a NDF. However
+	// we know that the range `]-3 * sigma; +3 * sigma[` will be
+	// containing `99.37%` of the values. See here for more info:
+	// https://en.wikipedia.org/wiki/68%E2%80%9395%E2%80%9399.7_rule)
+	// So if we want *almost* all values to lie in the range
+	// `[min; max]` we can use a standard deviation equal to
+	// `(max - min) / 6` and we should be good to go.
+	// A bit of clamping to sharpen the edges and it's close enough
+	// for our purposes.
+	stdDev := (max - min) / 6
 	mean := (max + min) / 2
-	p.Fields = mean + int(math.Round(rng.NormFloat64()*float64(stdDev)))
+
+	fFields := float64(mean) + rng.NormFloat64()*float64(stdDev)
+	clFFields := math.Max(float64(min), math.Min(float64(max), fFields))
+	p.Fields = int(math.Round(clFFields))
 
 	// The diameter is derived from the fields count with a random part.
 	p.Diameter = 100*p.Fields + int(math.Round(float64(100.0*rand.Float32())))
@@ -629,72 +633,58 @@ func (p *Planet) generateData() {
 		// Range [220; 260], average 240.
 		min = 220
 		max = 260
-		stdDev = max - min
 	case 1:
 		// Range [170; 210], average 190.
 		min = 170
 		max = 210
-		stdDev = max - min
 	case 2:
 		// Range [120; 160], average 140.
 		min = 120
 		max = 160
-		stdDev = max - min
 	case 3:
 		// Range [70; 110], average 90.
 		min = 70
 		max = 110
-		stdDev = max - min
 	case 4:
 		// Range [60; 100], average 80.
 		min = 60
 		max = 100
-		stdDev = max - min
 	case 5:
 		// Range [50; 90], average 70.
 		min = 50
 		max = 90
-		stdDev = max - min
 	case 6:
 		// Range [40; 80], average 60.
 		min = 40
 		max = 80
-		stdDev = max - min
 	case 7:
 		// Range [30; 70], average 50.
 		min = 30
 		max = 70
-		stdDev = max - min
 	case 8:
 		// Range [20; 60], average 40.
 		min = 20
 		max = 60
-		stdDev = max - min
 	case 9:
 		// Range [10; 50], average 30.
 		min = 10
 		max = 50
-		stdDev = max - min
 	case 10:
 		// Range [0; 40], average 20.
 		min = 0
 		max = 40
-		stdDev = max - min
 	case 11:
 		// Range [-10; 30], average 10.
 		min = -10
 		max = 30
-		stdDev = max - min
 	case 12:
 		// Range [-50; -10], average -30.
 		min = -50
 		max = -10
-		stdDev = max - min
 	case 13:
 		// Range [-90; -50], average -70.
 		min = -90
 		max = -50
-		stdDev = max - min
 	case 14:
 		fallthrough
 	default:
@@ -702,11 +692,19 @@ func (p *Planet) generateData() {
 		// Range [-130; -90], average -110.
 		min = -130
 		max = -90
-		stdDev = max - min
 	}
 
+	// We will follow a similar process to the one described
+	// for fields generation. Note that the ranges are used
+	// to determine the value of the maximum temperature and
+	// that the minimum one is just computed given a default
+	// temperature amplitude.
+	stdDev = (max - min) / 6
 	mean = (max + min) / 2
-	p.MaxTemp = mean + int(math.Round(rng.NormFloat64()*float64(stdDev)))
+
+	fMaxTemp := float64(mean) + rng.NormFloat64()*float64(stdDev)
+	clFMaxTemp := math.Max(float64(min), math.Min(float64(max), fMaxTemp))
+	p.MaxTemp = int(math.Round(clFMaxTemp))
 	p.MinTemp = p.MaxTemp - getPlanetTemperatureAmplitude()
 }
 

@@ -76,7 +76,7 @@ All the endpoints can be accessed through standard `HTTP` request at the port sp
 
 ## Universes
 
-Provides information related to the universes under the `/universes` route. This will query a list of all the created universes. One can request the information of a specific universe using the `/universes/uni-id` syntax or through query parameters using `/universes?universe_id=id` or `/universes?universe_name=name` or both. This will fetch only universes matching the filters.
+Provides information related to the universes under the `/universes` route. This will query a list of all the created universes. One can request the information of a specific universe using the `/universes/uni-id` syntax or through query parameters using `/universes?id=id` or `/universes?name=name` or both. This will fetch only universes matching the filters.
 
 The user can also request the creation of a universe through the `/universe` endpoint. It requires to provide some data about the properties actually defining the universe under the `universe-data` key where the user needs to specify the following properties:
  * `id`: defines the identifier of the universe (will be auto-generated if left empty).
@@ -96,67 +96,67 @@ The user can also request the creation of a universe through the `/universe` end
 Very similar to the `/universes` endpoint but allows to query information about the accounts. The routes are described below:
  * `/accounts`: queries information about all accounts.
  * `/accounts/account-id`: queries information about a specific account, retrieving its identifier, name and e-mail.
- * `/accounts?account_id=id`: queries information about a specific account (similarly to the above).
- * `/accounts?account_name=name`: queries information about accounts matching the specified name.
- * `/accounts?account_mail=mail`: queries information about accounts matching the specified e-mail.
+ * `/accounts?id=id`: queries information about a specific account (similarly to the above).
+ * `/accounts?name=name`: queries information about accounts matching the specified name.
+ * `/accounts?mail=mail`: queries information about accounts matching the specified e-mail.
 
 The main purpose of an account is to actually represent the instance of a user in the game. One can create a new account through the `/account` endpoint and by providing data under the `account-data` key. The following properties should be defined to be able to successfully create the account:
  * `id`: defines the identifier of the account. Should be unique and will be auto-generated if left empty.
  * `name`: a display name for the account. Does not need to be unique but should not be empty.
  * `mail`: the e-mail address associated to the account. Should be unique among all accounts.
+ * `password`: the password to use to log-in on this account.
 
 ## Buildings
 
-Allows to fetch information about buildings that can be built on planets through the `/buildings` endpoint. Just like the other endpoints one can query a specific building through the query parameters `building_id` and `building_name`.
+Allows to fetch information about buildings that can be built on planets through the `/buildings` endpoint. Just like the other endpoints one can query a specific building through the query parameters `id` and `name`. Each entry in the return value contains the cost of the building, its effects in terms of storage and production, the potential consumption of resources and the tech tree. The tech tree represents the set of technologies that the player should have researched to gain access to this building and the set of buildings that should already exist on a planet before being allowed to build it.
 
 ## Technologies
 
-Exactly the same as `buildings` but for technologies available in the game. The endpoint is `/technologies` and the query parameters to fetch specific information are `technology_id` and `technology_name`.
+Exactly the same as `buildings` but for technologies available in the game. The endpoint is `/technologies` and the query parameters to fetch specific information are `id` and `name`. Similar properties to buildings are returned like the costs and requirements of each technology.
 
 ## Ships
 
-Works the same way as the others. The main endpoint is `/ships` and the properties are `ship_id` and `ship_name`.
+Works the same way as the others. The main endpoint is `/ships` and the properties are `id` and `name`. The returned values include the base armament capacities of each ship along with the definition of the rapid fires eacy ship has on other ships or defense systems. It also include information about the propulsion system used by the ships and their base speed.
 
 ## Defenses
 
-Similar to the rest, the endpoint is `/defenses` and the properties are `defense_id` and `defense_name`.
+Similar to the rest, the endpoint is `/defenses` and the properties are `id` and `name`. The costs along with the armament capacities are returned for each defense matching the filters.
 
 ## Planets
 
 The planets endpoint allows to query planets on a variety of criteria. The main endpoint is accessible through the `/planets` route and serves all the planets registered in the server no matter the universe (thus it's not very helpful). The user can query a particular planet by providing its identifier in the route (e.g. `/planets/planet_id`).
 
 The user also has access to some query parameters:
- * `planet_id`: defines a filter on the player owning the planet.
- * `planet_name`: defines a filter on the name of the planet.
+ * `id`: defines a filter on the player owning the planet.
+ * `name`: defines a filter on the name of the planet.
  * `galaxy` : defines a filter on the galaxy of the planet.
  * `solar_system` : defines a filter on the solar system of the planet.
  * `universe` : defines a filter on the position of the planet.
- * `player_id` : defines a filter on the identifier of the player owning the planet.
- * `account_id` : defines a filter on the identifier of the account owning the planet.
+ * `id` : defines a filter on the identifier of the player owning the planet.
 
-These filters can be combined between each other and it's always the case in a `AND` semantic (meaning that a planet must match all filters to be returned). The individual description of the planet regroups the ships existing on the planet, the buildings built on it, the defenses installed on it and also the resources that are currently present on it.
+These filters can be combined between each other and it's always the case in a `AND` semantic (meaning that a planet must match all filters to be returned). The individual description of the planet regroups the ships existing on the planet, the buildings built on it, the defenses installed on it and also the resources that are currently present on it. It also defines the upgrade actions attached to the planet which are actions that aim at improving the infrastructure available on the planet.
 
 ## Players
 
-The `/players` allows to access the individual instance of accounts in universes. A player is linked to a single account and each player can only be present once in a universe. Most of the functionalities are related to the universe the player belongs to, the account to which it is linked and also the technologies that are associated to the player.
+The `/players` allows to access the individual instance of accounts in universes. A player is linked to a single account and each player can only be present once in a universe. Most of the functionalities are related to the universe the player belongs to, the account to which it is linked and also the technologies that are associated to the player. Note that all the technologies researched by this player are returned by this endpoint.
 
 Here are the available query parameters:
- * `player_id` : defines a filter on the identifier of the player.
- * `account_id` : defines a filter on the account linked to the player: this allows to get all the universes into which an account is registered.
- * `universe_id` : defines a filter on the universe the player belongs to.
- * `player_name` : defines a filter on the name of the player.
+ * `player` : defines a filter on the identifier of the player.
+ * `account` : defines a filter on the account linked to the player: this allows to get all the universes into which an account is registered.
+ * `universe` : defines a filter on the universe the player belongs to.
+ * `name` : defines a filter on the name of the player.
 
 It is possible to create a new player, which represents the instance of an account in a universe. This can be done through the `/player` endpoint and by specifying the data under the `player-data` key. The following properties can be specified:
+ * `id`: an identifier representing this player. It will be auto-generated if left empty. It is automatically generated if not specified.
  * `account`: the identifier of the account linked to this player. Should be matching an existing account.
- * `uni`: the identifier of the universe into which the player should be created. No other `player` linked to the same account should exist in this universe.
- * `id`: an identifier representing this player. It will be auto-generated if left empty.
+ * `universe`: the identifier of the universe into which the player should be created. No other `player` linked to the same account should exist in this universe.
  * `name`: the display name of the player in the universe. Should be unique but does not need to be (maybe we should modify that at some point).
 
 ## Fleets
 
 The `/fleets` endpoint allows to fetch information on the fleet currently moving through the server. There is no real way to distinguish between fleets of different universes but we instead rely on providing the coordinates of the destination of the fleet and thus access the fleet through its target planet. The available query parameters are:
- * `fleet_id` : defines a filter on the identifier of the fleet (can be accessed directly through the route).
- * `fleet_name` : defines a filter on the name of the fleet (if any).
+ * `id` : defines a filter on the identifier of the fleet (can be accessed directly through the route).
+ * `name` : defines a filter on the name of the fleet (if any).
  * `galaxy` : defines a filter on the target galaxy of the fleet.
  * `solar_system` : defines a filter on the target solar system of the fleet.
  * `position` : defines a filter on the target position of the fleet.

@@ -29,34 +29,13 @@ import (
 // night (or another duration which would be consistent with the maximum
 // interval with no issues) to perform update for players that didn't
 // connect for a long time.
-// TODO: We could create for example a player module, which would fetch
-// *ALL* the info of a player (including its construction actions, and
-// its technologies and planets) and would detain a lock so that no one
-// can access to the data as long as the player structure exists. This
-// structure would contain both the players (with its name, universe,
-// account, etc.), the associated list of planets and the list of techs
-// researched by the player). Fecthing all this data would lock the
-// player's name in the DB (so that other people accessing it would have
-// to wait) and once all data is fetched (i.e. the structure is created)
-// the lock would be released.
-// The planet would also be linked to all the fleets that start from
-// it or reach it (beware of dead lock for fleets moving from one
-// planet of the player to another).
-// Maybe the fleet model is no good because it does not have the
-// intuitive notion of the planet it is attached to. But on the other
-// hand it seems correct because a fleet may not be directed towards
-// a planet.
-// So we need:
-//  - a `Player` struct more refined that what we have. It would include
-//    the planets.
-//  - a `Planet` struct more refined that what we have. It would include
-//    the upgrade actions (and potentially the fleets).
 // TODO: Some scripts might not work anymore due to changes in the way
 // we have some Coordinates in the structure rather than some actual
 // `Galaxy`, `System` and `Position` values.
 // This can include the upgrade action scripts along with the actual code
 // in the update functions.
 // TODO: Should update the arrival time of the fleet from the server.
+// TODO: Check planet generation formulas.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

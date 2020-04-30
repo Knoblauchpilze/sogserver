@@ -68,9 +68,9 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"p.id",
+			"id",
 		},
-		Table:   "planets p inner join players pl on p.player=pl.id",
+		Table:   "planets",
 		Filters: filters,
 	}
 

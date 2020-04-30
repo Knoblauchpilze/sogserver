@@ -13,13 +13,13 @@ func (s *Server) routes() {
 	// Handle known routes.
 	s.route("GET", "/universes", s.listUniverses())
 	s.route("GET", "/accounts", s.listAccounts())
-	s.route("GET", "/players", s.listPlayers())
 	s.route("GET", "/buildings", s.listBuildings())
 	s.route("GET", "/technologies", s.listTechnologies())
 	s.route("GET", "/ships", s.listShips())
 	s.route("GET", "/defenses", s.listDefenses())
+	s.route("GET", "/players", s.listPlayers())
 	// TODO: Update upgrade actions (from fleets) for *this* planet.
-	s.route("GET", "/planets", s.listPlanets())
+	s.route("GET", "/players/[a-zA-Z0-9-]+/planets", s.listPlanets())
 	s.route("GET", "/fleets", s.listFleets())
 	s.route("GET", "/fleets/objectives", s.listFleetObjectives())
 

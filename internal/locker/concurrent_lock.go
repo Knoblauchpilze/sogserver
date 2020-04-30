@@ -121,11 +121,17 @@ var ErrLock = fmt.Errorf("Error while using resource lock")
 // secured by this lock at any time. It will contain
 // a single element which will be concurrently used
 // and acquired in order to lock this object.
+//
+// The `cl` allows to automatically notify when a
+// lock is released without the user needing to
+// manually call the `Release` method on the parent
+// object. It helps providing a simple-to-use lock.
 type Lock struct {
 	id     int
 	res    string
 	use    int
 	waiter chan struct{}
+	cl     *ConcurrentLocker
 }
 
 // configuration :
@@ -189,6 +195,13 @@ func NewConcurrentLocker(log logger.Logger) *ConcurrentLocker {
 	// Parse the config.
 	config := parseConfiguration()
 
+	// Build the locker.
+	cl := ConcurrentLocker{
+		locker:     sync.Mutex{},
+		registered: make(map[string]int),
+		cout:       log,
+	}
+
 	// Create the lockers.
 	allLocks := make([]*Lock, config.LockCount)
 	ids := make(chan int, config.LockCount)
@@ -200,6 +213,7 @@ func NewConcurrentLocker(log logger.Logger) *ConcurrentLocker {
 			res:    "",
 			use:    0,
 			waiter: make(chan struct{}, 1),
+			cl:     &cl,
 		}
 		allLocks[id].waiter <- struct{}{}
 
@@ -207,14 +221,9 @@ func NewConcurrentLocker(log logger.Logger) *ConcurrentLocker {
 		ids <- id
 	}
 
-	// Build the locker.
-	cl := ConcurrentLocker{
-		locker:         sync.Mutex{},
-		locks:          allLocks,
-		availableLocks: ids,
-		registered:     make(map[string]int),
-		cout:           log,
-	}
+	// Assign missing fields.
+	cl.locks = allLocks
+	cl.availableLocks = ids
 
 	return &cl
 }
@@ -370,6 +379,10 @@ func (l *Lock) Unlock() error {
 	}
 
 	l.waiter <- struct{}{}
+
+	// Notify the lock manager that this lock has been
+	// released once.
+	l.cl.Release(l)
 
 	return nil
 }

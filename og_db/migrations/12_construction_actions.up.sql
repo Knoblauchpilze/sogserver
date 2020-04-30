@@ -18,22 +18,22 @@ CREATE TABLE construction_actions_buildings (
 -- upgrades on the production capacities.
 CREATE TABLE construction_actions_buildings_production_effects (
   action uuid NOT NULL,
-  res uuid NOT NULL,
-  new_production numeric(15, 5) NOT NULL,
+  resource uuid NOT NULL,
+  production_change numeric(15, 5) NOT NULL,
   FOREIGN KEY (action) REFERENCES construction_actions_buildings(id),
-  FOREIGN KEY (res) REFERENCES resources(id),
-  UNIQUE (action, res)
+  FOREIGN KEY (resource) REFERENCES resources(id),
+  UNIQUE (action, resource)
 );
 
 -- Similar to the above table but describes the effects of
 -- applying an upgrade action on the storage capacities.
 CREATE TABLE construction_actions_buildings_storage_effects (
   action uuid NOT NULL,
-  res uuid NOT NULL,
-  new_storage_capacity numeric(15, 5) NOT NULL,
+  resource uuid NOT NULL,
+  storage_capacity_change numeric(15, 5) NOT NULL,
   FOREIGN KEY (action) REFERENCES construction_actions_buildings(id),
-  FOREIGN KEY (res) REFERENCES resources(id),
-  UNIQUE (action, res)
+  FOREIGN KEY (resource) REFERENCES resources(id),
+  UNIQUE (action, resource)
 );
 
 -- Create the trigger on the table to update the `created_at` field.

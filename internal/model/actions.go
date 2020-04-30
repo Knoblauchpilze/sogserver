@@ -149,7 +149,7 @@ func newProgressActionFromDB(ID string, data Instance, table string) (ProgressAc
 		Table: fmt.Sprintf("%s t inner join planets p on t.planet = p.id", table),
 		Filters: []db.Filter{
 			{
-				Key:    "id",
+				Key:    "t.id",
 				Values: []string{a.ID},
 			},
 		},
@@ -451,8 +451,8 @@ type ProductionEffect struct {
 // existing storage capacity for the resource if the
 // upgrade action completes.
 type StorageEffect struct {
-	Resource string  `json:"res"`
-	Storage  float32 `json:"capacity_change"`
+	Resource string  `json:"resource"`
+	Storage  float32 `json:"storage_capacity_change"`
 }
 
 // Valid :
@@ -519,8 +519,8 @@ func (a *BuildingAction) fetchProductionEffects(data Instance) error {
 
 	query := db.QueryDesc{
 		Props: []string{
-			"res",
-			"new_production",
+			"resource",
+			"production_change",
 		},
 		Table: "construction_actions_buildings_production_effects",
 		Filters: []db.Filter{
@@ -578,8 +578,8 @@ func (a *BuildingAction) fetchStorageEffects(data Instance) error {
 
 	query := db.QueryDesc{
 		Props: []string{
-			"res",
-			"new_storage_capacity",
+			"resource",
+			"storage_capacity_change",
 		},
 		Table: "construction_actions_buildings_storage_effects",
 		Filters: []db.Filter{
@@ -661,7 +661,7 @@ func (a *BuildingAction) ConsolidateEffects(data Instance, p *Planet) error {
 
 		e := ProductionEffect{
 			Resource:   rule.Resource,
-			Production: float32(desiredProd - curProd),
+			Production: desiredProd - curProd,
 		}
 
 		a.Production = append(a.Production, e)
@@ -1004,13 +1004,13 @@ func (a *TechnologyAction) fetchResearchPower(data Instance, planet *Planet) (in
 	// each planet owned by this player.
 	query := db.QueryDesc{
 		Props: []string{
-			"planet",
-			"level",
+			"pb.planet",
+			"pb.level",
 		},
-		Table: "planets_buildings",
+		Table: "planets_buildings pb inner join planets p on pb.planet=p.id",
 		Filters: []db.Filter{
 			{
-				Key:    "player",
+				Key:    "p.player",
 				Values: []string{planet.Player},
 			},
 		},

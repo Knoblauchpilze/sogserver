@@ -79,14 +79,24 @@ BEGIN
     FROM json_populate_record(null::construction_actions_buildings, upgrade);
 
   -- Update the construction action effects (both
-  -- in terms of storage and production).
+  -- in terms of storage and production). We only
+  -- perform the insertion in case at least one
+  -- effect is registered.
   INSERT INTO construction_actions_buildings_production_effects
-    SELECT *
-    FROM json_populate_recordset(null::construction_actions_buildings_production_effects, production_effects);
+    SELECT
+      (upgrade->>'id')::uuid,
+      resource,
+      production_change
+    FROM
+      json_populate_recordset(null::construction_actions_buildings_production_effects, production_effects);
 
   INSERT INTO construction_actions_buildings_storage_effects
-    SELECT *
-    FROM json_populate_recordset(null::construction_actions_buildings_storage_effects, storage_effects);
+    SELECT
+      (upgrade->>'id')::uuid,
+      resource,
+      storage_capacity_change
+    FROM
+      json_populate_recordset(null::construction_actions_buildings_storage_effects, storage_effects);
 END
 $$ LANGUAGE plpgsql;
 
@@ -203,7 +213,7 @@ BEGIN
   -- values.
   WITH update_data
     AS (
-      SELECT res, SUM(new_production) AS prod_change
+      SELECT resource, SUM(production_change) AS prod_change
       FROM
         construction_actions_buildings_production_effects cabpe
         INNER JOIN construction_actions_buildings cab ON cab.id = cabpe.action
@@ -211,20 +221,20 @@ BEGIN
         cab.planet = planet_id AND
         cab.completion_time < processing_time
       GROUP BY
-        cabpe.res
+        cabpe.resource
     )
   UPDATE planets_resources pr
     SET production = production + ud.prod_change
   FROM update_data AS ud
   WHERE
     pr.planet = planet_id
-    AND pr.res = ud.res;
+    AND pr.res = ud.resource;
 
   -- 2.c) Update the storage facilities with their new
   -- values.
   WITH update_data
     AS (
-      SELECT res, SUM(new_storage_capacity) AS capacity_change
+      SELECT resource, SUM(storage_capacity_change) AS capacity_change
       FROM
         construction_actions_buildings_storage_effects cabse
         INNER JOIN construction_actions_buildings cab ON cab.id = cabse.action
@@ -232,14 +242,14 @@ BEGIN
         cab.planet = planet_id AND
         cab.completion_time < processing_time
       GROUP BY
-        cabse.res
+        cabse.resource
     )
   UPDATE planets_resources pr
     SET storage_capacity = storage_capacity + ud.capacity_change
   FROM update_data AS ud
   WHERE
     pr.planet = planet_id
-    AND pr.res = ud.res;
+    AND pr.res = ud.resource;
 
   -- 3. Destroy the processed actions effects.
   DELETE FROM

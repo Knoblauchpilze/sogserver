@@ -107,7 +107,7 @@ func (s *Server) registerBuildingAction() http.HandlerFunc {
 
 			// Build the path to access to the resource: we need to
 			// include the player and planet's identifier in the route.
-			res := fmt.Sprintf("players/%s/planets/%s", action.Player, action.Planet)
+			res := fmt.Sprintf("%s/planets/%s", action.Player, action.Planet)
 
 			return res, err
 		},
@@ -146,7 +146,7 @@ func (s *Server) registerTechnologyAction() http.HandlerFunc {
 
 			// Build the path to access to the resource: we need to
 			// include the player and planet's identifier in the route.
-			res := fmt.Sprintf("players/%s/planets/%s", action.Player, action.Planet)
+			res := fmt.Sprintf("%s/planets/%s", action.Player, action.Planet)
 
 			return res, err
 		},
@@ -186,7 +186,7 @@ func (s *Server) registerShipAction() http.HandlerFunc {
 
 			// Build the path to access to the resource: we need to
 			// include the player and planet's identifier in the route.
-			res := fmt.Sprintf("players/%s/planets/%s", action.Player, action.Planet)
+			res := fmt.Sprintf("%s/planets/%s", action.Player, action.Planet)
 
 			return res, err
 		},
@@ -226,7 +226,7 @@ func (s *Server) registerDefenseAction() http.HandlerFunc {
 
 			// Build the path to access to the resource: we need to
 			// include the player and planet's identifier in the route.
-			res := fmt.Sprintf("players/%s/planets/%s", action.Player, action.Planet)
+			res := fmt.Sprintf("%s/planets/%s", action.Player, action.Planet)
 
 			return res, err
 		},

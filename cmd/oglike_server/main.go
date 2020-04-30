@@ -30,14 +30,11 @@ import (
 // night (or another duration which would be consistent with the maximum
 // interval with no issues) to perform update for players that didn't
 // connect for a long time.
-// TODO: Some scripts might not work anymore due to changes in the way
-// we have some Coordinates in the structure rather than some actual
-// `Galaxy`, `System` and `Position` values.
-// This can include the upgrade action scripts along with the actual code
-// in the update functions.
 // TODO: Should update the arrival time of the fleet from the server.
 // TODO: Should decrease the amount of resources existing when performing
 // the action.
+// TODO: Multiple ships or defenses actions overlaps while they should be
+// added at the end of each other.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

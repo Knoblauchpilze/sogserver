@@ -269,7 +269,7 @@ func newFixedActionFromDB(ID string, data Instance, table string) (FixedAction, 
 		Table: fmt.Sprintf("%s t inner join planets p on t.planet = p.id", table),
 		Filters: []db.Filter{
 			{
-				Key:    "id",
+				Key:    "t.id",
 				Values: []string{a.ID},
 			},
 		},
@@ -292,14 +292,18 @@ func newFixedActionFromDB(ID string, data Instance, table string) (FixedAction, 
 		return a, ErrInvalidAction
 	}
 
+	var t time.Duration
+
 	err = dbRes.Scan(
 		&a.Planet,
 		&a.Element,
 		&a.Amount,
 		&a.Remaining,
-		&a.CompletionTime,
+		&t,
 		&a.Player,
 	)
+
+	a.CompletionTime = duration.Duration{t}
 
 	// Make sure that it's the only action.
 	if dbRes.Next() {
@@ -346,7 +350,7 @@ func (a *FixedAction) computeCompletionTime(data Instance, cost FixedCost, p *Pl
 		return ErrInvalidPlanet
 	}
 
-	costs := cost.ComputeCost(a.Remaining)
+	costs := cost.ComputeCost(1)
 
 	// Retrieve the level of the shipyard and the nanite
 	// factory: these are the two buildings that have an

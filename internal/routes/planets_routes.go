@@ -22,7 +22,7 @@ func (s *Server) listPlanets() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("planets").WithIDFilter("player")
+	ed.WithFilters(allowed).WithResourceFilter("id").WithIDFilter("player").WithModule("planets")
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
 			return s.planets.Planets(filters)

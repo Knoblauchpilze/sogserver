@@ -24,6 +24,20 @@ import (
 // A planet is a complex object which requires a lock
 // to be correctly built so that no other process can
 // temper with the data related to it.
+// In addition to the lock on the planet, we assume in
+// this object that the locker on the player owning the
+// planet is already acquired. This allows to fetch the
+// properties linked to it in a safe way without having
+// to worry whether we should acquire the lock and meet
+// potential dead lock situations as we would have a
+// situation like:
+//  - the player locks itself and then planets.
+//  - the planet locks itself and then the player.
+// In case this assumption is not met we might run in
+// trouble and use incorrect data (typically if another
+// planet finished a technology while a fleet fight is
+// processed on another one, we might use outdated
+// info).
 //
 // The `ID` defines the identifier of the planet within
 // all the planets registered in og.
@@ -93,11 +107,6 @@ import (
 // The `locker` defines the object to use to prevent a
 // concurrent process to access to the resources of the
 // planet.
-//
-// The `pLocker` defines the object to use to restrict
-// the access to the parent player of the planet. This
-// allows to make sure that no update of the techs is
-// possible while a planet of the player is used.
 type Planet struct {
 	ID                   string             `json:"id"`
 	Player               string             `json:"player"`
@@ -118,7 +127,6 @@ type Planet struct {
 	technologies         map[string]int
 	mode                 accessMode
 	locker               *locker.Lock
-	pLocker              *locker.Lock
 }
 
 // ResourceInfo :
@@ -328,25 +336,6 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 		return p, err
 	}
 
-	// We need to acquire the lock on the player
-	// owning this planet now. This will indicate
-	// that no upgrade of the technologies of the
-	// player can be performed while this planet
-	// is in use. Indeed as we perform the update
-	// upon fetching a planet, even if we lock
-	// this planet we can still be perturbed by
-	// threads accessing another planet of this
-	// player: if we require to get the lock on
-	// the player first (i.e. before performing
-	// the update of the technologies actions)
-	// it will mean that only a single planet
-	// can go through and perform the update.
-	p.pLocker, err = data.Locker.Acquire(p.Player)
-	if err != nil {
-		return p, err
-	}
-	p.pLocker.Lock()
-
 	// Fetch and update upgrade actions for this planet.
 	err = p.fetchBuildingUpgrades(data)
 	if err != nil {
@@ -406,18 +395,10 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 
 	// Release the locker if needed.
 	if p.mode == ReadOnly {
-		err1 := p.pLocker.Unlock()
-		err2 := p.locker.Unlock()
-
-		if err1 != nil {
-			return p, err1
-		}
-		if err2 != nil {
-			return p, err2
-		}
+		err = p.locker.Unlock()
 	}
 
-	return p, nil
+	return p, err
 }
 
 // NewReadOnlyPlanet :
@@ -461,18 +442,13 @@ func NewReadWritePlanet(ID string, data Instance) (Planet, error) {
 func (p *Planet) Close() error {
 	// Only release the locker in case the access mode
 	// indicates so.
-	var err1, err2 error
+	var err error
 
 	if p.mode == ReadWrite {
-		err1 = p.pLocker.Unlock()
-		err2 = p.locker.Unlock()
+		err = p.locker.Unlock()
 	}
 
-	if err1 != nil {
-		return err1
-	}
-
-	return err2
+	return err
 }
 
 // NewPlanet :

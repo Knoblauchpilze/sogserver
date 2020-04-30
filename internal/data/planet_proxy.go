@@ -3,6 +3,7 @@ package data
 import (
 	"fmt"
 	"math/rand"
+	"oglike_server/internal/locker"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -90,9 +91,46 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
 	// We now need to retrieve all the identifiers that matched
 	// the input filters and then build the corresponding planets
 	// object for each one of them.
+	// Note that we should protect the access to the players by
+	// using a locker on each player owning a planet to return.
+	// The only way we have at this step to fetch the ids of all
+	// players is through the filters. So we will traverse them
+	// and lock each player.
+	// In order to have some fail-safe mechanism we will surround
+	// this by a dedicated function.
 	var ID string
 	IDs := make([]string, 0)
 
+	locks := make([]*locker.Lock, 0)
+
+	defer func() {
+		for _, l := range locks {
+			err := l.Unlock()
+
+			if err != nil {
+				p.trace(logger.Error, fmt.Sprintf("Could not release lock on player (err: %v)", err))
+			}
+		}
+	}()
+
+	for _, filter := range filters {
+		if filter.Key == "player" {
+			for _, player := range filter.Values {
+				l, err := p.data.Locker.Acquire(player)
+
+				if err != nil {
+					p.trace(logger.Error, fmt.Sprintf("Unable to lock player \"%s\" to fetch planet (err: %v)", player, err))
+					return []model.Planet{}, err
+				}
+
+				l.Lock()
+
+				locks = append(locks, l)
+			}
+		}
+	}
+
+	// Now that players are locked we can fetch and build the planets.
 	for dbRes.Next() {
 		err = dbRes.Scan(&ID)
 
@@ -107,6 +145,9 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
 	planets := make([]model.Planet, 0)
 
 	for _, ID = range IDs {
+		// Protect the fetching of the planet's data with a
+		// lock on the player.
+
 		pla, err := model.NewReadOnlyPlanet(ID, p.data)
 
 		if err != nil {

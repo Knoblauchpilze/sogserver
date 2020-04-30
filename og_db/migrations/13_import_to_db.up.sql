@@ -165,7 +165,7 @@ BEGIN
   -- we need to extract the number of seconds in order to be
   -- able to obtain fractions of an hour to update the value.
   UPDATE planets_resources
-    SET amount = amount + EXTRACT(epoch FROM processing_time - updated_at) * production / 3600.0
+    SET amount = amount + EXTRACT(EPOCH FROM processing_time - updated_at) * production / 3600.0
   WHERE planet = planet_id;
 END
 $$ LANGUAGE plpgsql;
@@ -333,7 +333,7 @@ BEGIN
   UPDATE planets_ships ps
     SET count = count - (ud.amount - ud.remaining) +
       LEAST(
-        EXTRACT(MILLISECONDS FROM processing_time - ud.created_at) / EXTRACT(MILLISECOND FROM ud.completion_time),
+        EXTRACT(EPOCH FROM processing_time - ud.created_at) / EXTRACT(EPOCH FROM ud.completion_time),
         CAST(ud.amount AS DOUBLE PRECISION)
       )
   FROM update_data AS ud
@@ -346,7 +346,7 @@ BEGIN
   UPDATE construction_actions_ships
     SET remaining = amount -
       LEAST(
-        EXTRACT(MILLISECONDS FROM processing_time - created_at) / EXTRACT(MILLISECOND FROM completion_time),
+        EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time),
         CAST(amount AS DOUBLE PRECISION)
       )
   WHERE
@@ -382,7 +382,7 @@ BEGIN
   UPDATE planets_defenses pd
     SET count = count - (ud.amount - ud.remaining) +
       LEAST(
-        EXTRACT(MILLISECONDS FROM processing_time - ud.created_at) / EXTRACT(MILLISECOND FROM ud.completion_time),
+        EXTRACT(EPOCH FROM processing_time - ud.created_at) / EXTRACT(EPOCH FROM ud.completion_time),
         CAST(ud.amount AS DOUBLE PRECISION)
       )
   FROM update_data AS ud
@@ -395,7 +395,7 @@ BEGIN
   UPDATE construction_actions_defenses
     SET remaining = amount -
       LEAST(
-        EXTRACT(MILLISECONDS FROM processing_time - created_at) / EXTRACT(MILLISECOND FROM completion_time),
+        EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time),
         CAST(amount AS DOUBLE PRECISION)
       )
   WHERE

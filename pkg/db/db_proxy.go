@@ -29,13 +29,18 @@ import (
 // the properties should either be unique or prefixed
 // with the name of the table).
 //
-// The `v` will be appended in the `where` clause
-// of the generated SQL query. Each filter is added
-// as a `and` statement to the others.
+// The `filters` will be appended in the `where`
+// clause of the generated SQL query. Each filter is
+// added as a `and` statement to the others.
+//
+// The `Ordering` defines additional properties that
+// will be appended after the filters and which can
+// refer to sort order, count limit, etc.
 type QueryDesc struct {
-	Props   []string
-	Table   string
-	Filters []Filter
+	Props    []string
+	Table    string
+	Filters  []Filter
+	Ordering string
 }
 
 // valid :
@@ -72,6 +77,8 @@ func (q QueryDesc) generate() string {
 			str += fmt.Sprintf(" %s", filter)
 		}
 	}
+
+	str += fmt.Sprintf(" %s", q.Ordering)
 
 	return str
 }

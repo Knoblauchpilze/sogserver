@@ -930,14 +930,10 @@ func (a *TechnologyAction) ConsolidateCompletionTime(data Instance, p *Planet) e
 
 	costs := td.Cost.ComputeCost(a.DesiredLevel)
 
-	// Retrieve the level of the research lab.
-	// TODO: We should aggregate that with the intergalactic
-	// research network at some point.
-	labID, err := data.Buildings.getIDFromName("research lab")
-	if err != nil {
-		return err
-	}
-	lab, err := p.GetBuilding(labID)
+	// Fetch the total research power available for this
+	// action. It will not account for the current planet
+	// research lab so we still have to use it.
+	power, err := a.fetchResearchPower(data, p)
 	if err != nil {
 		return err
 	}
@@ -956,7 +952,7 @@ func (a *TechnologyAction) ConsolidateCompletionTime(data Instance, p *Planet) e
 	m := costs[metalDesc.ID]
 	c := costs[crystalDesc.ID]
 
-	hours := float64(m+c) / (1000.0 * (1.0 + float64(lab.Level)))
+	hours := float64(m+c) / (1000.0 * (1.0 + float64(power)))
 
 	t, err := time.ParseDuration(fmt.Sprintf("%fh", hours))
 	if err != nil {
@@ -1007,6 +1003,105 @@ func (a *TechnologyAction) Validate(data Instance, p *Planet) error {
 
 	// Validate data.
 	return p.validateAction(costs, td.UpgradableDesc, data)
+}
+
+// fetchResearchPower :
+// Used to fetch the research power available for the input
+// planet. It will query the list of research labs on all
+// planets of the player and select the required amount as
+// defined by the level of the galactic research network.
+// It *will* include the level of the planet linked to this
+// action.
+//
+// The `data` allows to access to the DB.
+//
+// The `planet` defines the planet for which the research
+// power should be computed.
+//
+// Returns the research power available including the
+// power brought by this planet along with any error.
+func (a *TechnologyAction) fetchResearchPower(data Instance, planet *Planet) (int, error) {
+	// First, fetch the level of the research lab on the
+	// planet associated to this action: this will be the
+	// base of the research.
+	labID, err := data.Buildings.getIDFromName("research lab")
+	if err != nil {
+		return 0, err
+	}
+	lab, err := planet.GetBuilding(labID)
+	if err != nil {
+		return 0, err
+	}
+
+	// Get the level of the intergalactic research network
+	// technology reached by the player owning this planet.
+	// It will indicate how many elements we should keep
+	// in the list of reserch labs.
+	igrn, err := data.Technologies.getIDFromName("intergalactic research network")
+	if err != nil {
+		return lab.Level, err
+	}
+
+	labCount := planet.technologies[igrn]
+
+	// Perform the query to get the levels of the labs on
+	// each planet owned by this player.
+	query := db.QueryDesc{
+		Props: []string{
+			"planet",
+			"level",
+		},
+		Table: "planets_buildings",
+		Filters: []db.Filter{
+			{
+				Key:    "player",
+				Values: []string{planet.Player},
+			},
+		},
+		// Note that we add `1` to the number of research labs in order
+		// to account for the lab doing the research. Level `1` actually
+		// tells that 1 lab can researching the same techno at the same
+		// time than the one launching the research.
+		Ordering: fmt.Sprintf("order by level desc limit %d", labCount+1),
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return lab.Level, err
+	}
+	if dbRes.Err != nil {
+		return lab.Level, dbRes.Err
+	}
+
+	var pID string
+	var labLevel int
+	power := 0
+	processedLabs := 0
+	planetBelongsToTopLabs := false
+
+	for dbRes.Next() && ((!planetBelongsToTopLabs && processedLabs < labCount) || planetBelongsToTopLabs) {
+		err = dbRes.Scan(
+			&pID,
+			&labLevel,
+		)
+
+		if err != nil {
+			return lab.Level, err
+		}
+
+		if pID == planet.ID {
+			planetBelongsToTopLabs = true
+		} else {
+			power += labLevel
+		}
+
+		processedLabs++
+	}
+
+	return lab.Level + power, nil
 }
 
 // ShipAction :

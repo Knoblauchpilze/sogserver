@@ -140,7 +140,7 @@ func newProductionRule(res string) ProductionRule {
 // Returns the amount of resource that are produced by the
 // selected rule with the specified level and temperature
 // values.
-func (pr ProductionRule) ComputeProduction(level int, temperature float32) int {
+func (pr ProductionRule) ComputeProduction(level int, temperature float32) float32 {
 	// Clamp the input level.
 	fLevel := math.Max(0.0, float64(level))
 	fInitProd := float64(pr.InitProd)
@@ -150,9 +150,9 @@ func (pr ProductionRule) ComputeProduction(level int, temperature float32) int {
 	tempDep := float64(pr.TemperatureOffset + temperature*pr.TemperatureCoeff)
 	tempIndep := fInitProd * fLevel * math.Pow(float64(pr.ProgressionRule), fLevel)
 
-	rawProd := tempDep * tempIndep
+	prod := tempDep * tempIndep
 
-	return int(math.Floor(rawProd))
+	return float32(prod)
 }
 
 // StorageRule :

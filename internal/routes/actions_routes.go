@@ -58,9 +58,6 @@ func (s *Server) registerUpgradeAction(f registerFunc) http.HandlerFunc {
 			for _, rawData := range input.Data {
 				// Unmarshal and perform the creation using the provided
 				// registration function.
-
-				fmt.Println(fmt.Sprintf("Tokens are %v", input.ExtraElems))
-
 				res, err := f(rawData, input.ExtraElems)
 				if err != nil {
 					return resources, err
@@ -98,16 +95,19 @@ func (s *Server) registerBuildingAction() http.HandlerFunc {
 			// The `routeTokens` should provide the planet's id
 			// so we can override any value provided by the act
 			// itself to maintain consistency.
+			if len(routeTokens) > 0 {
+				action.Player = routeTokens[0]
+			}
 			if len(routeTokens) > 3 {
 				action.Planet = routeTokens[2]
 			}
 
 			// Create the upgrade action.
-			id, err := s.actions.CreateBuildingAction(action)
+			_, err = s.actions.CreateBuildingAction(action)
 
 			// Build the path to access to the resource: we need to
-			// include the planet's identifier in the route.
-			res := fmt.Sprintf("%s/actions/buildings/%s", action.Planet, id)
+			// include the player and planet's identifier in the route.
+			res := fmt.Sprintf("players/%s/planets/%s", action.Player, action.Planet)
 
 			return res, err
 		},
@@ -142,11 +142,11 @@ func (s *Server) registerTechnologyAction() http.HandlerFunc {
 			}
 
 			// Create the upgrade action.
-			id, err := s.actions.CreateTechnologyAction(action)
+			_, err = s.actions.CreateTechnologyAction(action)
 
 			// Build the path to access to the resource: we need to
-			// include the player's identifier in the route.
-			res := fmt.Sprintf("%s/actions/technologies/%s", action.Planet, id)
+			// include the player and planet's identifier in the route.
+			res := fmt.Sprintf("players/%s/planets/%s", action.Player, action.Planet)
 
 			return res, err
 		},
@@ -174,16 +174,19 @@ func (s *Server) registerShipAction() http.HandlerFunc {
 			// The `routeTokens` should provide the planet's id
 			// so we can override any value provided by the act
 			// itself to maintain consistency.
+			if len(routeTokens) > 0 {
+				action.Player = routeTokens[0]
+			}
 			if len(routeTokens) > 3 {
 				action.Planet = routeTokens[2]
 			}
 
 			// Create the upgrade action.
-			id, err := s.actions.CreateShipAction(action)
+			_, err = s.actions.CreateShipAction(action)
 
 			// Build the path to access to the resource: we need to
-			// include the planet's identifier in the route.
-			res := fmt.Sprintf("%s/actions/ships/%s", action.Planet, id)
+			// include the player and planet's identifier in the route.
+			res := fmt.Sprintf("players/%s/planets/%s", action.Player, action.Planet)
 
 			return res, err
 		},
@@ -211,16 +214,19 @@ func (s *Server) registerDefenseAction() http.HandlerFunc {
 			// The `routeTokens` should provide the planet's id
 			// so we can override any value provided by the act
 			// itself to maintain consistency.
+			if len(routeTokens) > 0 {
+				action.Player = routeTokens[0]
+			}
 			if len(routeTokens) > 3 {
 				action.Planet = routeTokens[2]
 			}
 
 			// Create the upgrade action.
-			id, err := s.actions.CreateDefenseAction(action)
+			_, err = s.actions.CreateDefenseAction(action)
 
 			// Build the path to access to the resource: we need to
-			// include the planet's identifier in the route.
-			res := fmt.Sprintf("%s/actions/defenses/%s", action.Planet, id)
+			// include the player and planet's identifier in the route.
+			res := fmt.Sprintf("players/%s/planets/%s", action.Player, action.Planet)
 
 			return res, err
 		},

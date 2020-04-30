@@ -28,6 +28,9 @@ import (
 // The `Planet` defines the planet linked to this action.
 // All the action require a parent planet to be scheduled.
 //
+// The `Player` defines the player owning the planet on
+// which this action is performed.
+//
 // The `Element` defines the identifier of the element to
 // link to the action. It can either be the identifier of
 // the building that is built, the identifier of the ship
@@ -35,6 +38,7 @@ import (
 type Action struct {
 	ID      string `json:"id"`
 	Planet  string `json:"planet"`
+	Player  string `json:"player"`
 	Element string `json:"element"`
 }
 
@@ -74,6 +78,7 @@ var ErrNoFieldsLeft = fmt.Errorf("No remaining fields left for action")
 func (a *Action) Valid() bool {
 	return validUUID(a.ID) &&
 		validUUID(a.Planet) &&
+		validUUID(a.Player) &&
 		validUUID(a.Element)
 }
 
@@ -134,13 +139,14 @@ func newProgressActionFromDB(ID string, data Instance, table string) (ProgressAc
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"planet",
-			"element",
-			"current_level",
-			"desired_level",
-			"completion_time",
+			"t.planet",
+			"t.element",
+			"t.current_level",
+			"t.desired_level",
+			"t.completion_time",
+			"p.player",
 		},
-		Table: table,
+		Table: fmt.Sprintf("%s t inner join planets p on t.planet = p.id", table),
 		Filters: []db.Filter{
 			{
 				Key:    "id",
@@ -172,6 +178,7 @@ func newProgressActionFromDB(ID string, data Instance, table string) (ProgressAc
 		&a.CurrentLevel,
 		&a.DesiredLevel,
 		&a.CompletionTime,
+		&a.Player,
 	)
 
 	// Make sure that it's the only action.
@@ -252,13 +259,14 @@ func newFixedActionFromDB(ID string, data Instance, table string) (FixedAction, 
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"planet",
-			"element",
-			"amount",
-			"remaining",
-			"completion_time",
+			"t.planet",
+			"t.element",
+			"t.amount",
+			"t.remaining",
+			"t.completion_time",
+			"p.player",
 		},
-		Table: table,
+		Table: fmt.Sprintf("%s t inner join planets p on t.planet = p.id", table),
 		Filters: []db.Filter{
 			{
 				Key:    "id",
@@ -290,6 +298,7 @@ func newFixedActionFromDB(ID string, data Instance, table string) (FixedAction, 
 		&a.Amount,
 		&a.Remaining,
 		&a.CompletionTime,
+		&a.Player,
 	)
 
 	// Make sure that it's the only action.
@@ -803,16 +812,8 @@ func (a *BuildingAction) Validate(data Instance, p *Planet) error {
 // Used as a way to refine the `ProgressAction` for the
 // specific case of technologies. It mostly add the info
 // to compute the completion time for a technology.
-//
-// The `Player` defines the identifier of the player
-// that created this action. It is quite redundant with
-// the planet's identifier (which already defines the
-// owner of the action) but it helps enforcing a unique
-// tech upgrade action for a given player.
 type TechnologyAction struct {
 	ProgressAction
-
-	Player string `json:"player"`
 }
 
 // Valid :
@@ -823,8 +824,7 @@ type TechnologyAction struct {
 // Returns `true` if this action is not obviously wrong.
 func (a *TechnologyAction) Valid() bool {
 	return a.ProgressAction.Valid() &&
-		a.DesiredLevel == a.CurrentLevel+1 &&
-		validUUID(a.Player)
+		a.DesiredLevel == a.CurrentLevel+1
 }
 
 // NewTechnologyActionFromDB :
@@ -849,50 +849,6 @@ func NewTechnologyActionFromDB(ID string, data Instance) (TechnologyAction, erro
 
 	var err error
 	ta.ProgressAction, err = newProgressActionFromDB(ID, data, "construction_actions_technologies")
-
-	if err != nil {
-		return ta, err
-	}
-
-	// Fetch the player's identifier for this action.
-	query := db.QueryDesc{
-		Props: []string{
-			"player",
-		},
-		Table: "construction_actions_technologies",
-		Filters: []db.Filter{
-			{
-				Key:    "id",
-				Values: []string{ta.ID},
-			},
-		},
-	}
-
-	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
-
-	// Check for errors.
-	if err != nil {
-		return ta, err
-	}
-	if dbRes.Err != nil {
-		return ta, err
-	}
-
-	// Scan the players's identififer.
-	atLeastOne := dbRes.Next()
-	if !atLeastOne {
-		return ta, ErrInvalidAction
-	}
-
-	err = dbRes.Scan(
-		&ta.Player,
-	)
-
-	// Make sure that it's the only action.
-	if dbRes.Next() {
-		return ta, ErrDuplicatedAction
-	}
 
 	return ta, err
 }

@@ -72,6 +72,25 @@ func (p *ActionProxy) CreateBuildingAction(a model.BuildingAction) (string, erro
 		a.ID = uuid.New().String()
 	}
 
+	// Make sure that the action is plausible.
+	if !a.Valid() {
+		return a.ID, ErrInvalidAction
+	}
+
+	// Acquire the lock on the player associated to this action.
+	l, err := p.data.Locker.Acquire(a.Player)
+	if err != nil {
+		return a.ID, err
+	}
+	l.Lock()
+
+	defer func() {
+		err := l.Unlock()
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Could not release lock on player \"%s\" (err: %v)", a.Player, err))
+		}
+	}()
+
 	// Fetch the planet related to this action and use it
 	// as read write access.
 	planet, err := model.NewReadWritePlanet(a.Planet, p.data)
@@ -152,6 +171,25 @@ func (p *ActionProxy) CreateTechnologyAction(a model.TechnologyAction) (string, 
 		a.ID = uuid.New().String()
 	}
 
+	// Make sure that the action is plausible.
+	if !a.Valid() {
+		return a.ID, ErrInvalidAction
+	}
+
+	// Acquire the lock on the player associated to this action.
+	l, err := p.data.Locker.Acquire(a.Player)
+	if err != nil {
+		return a.ID, err
+	}
+	l.Lock()
+
+	defer func() {
+		err := l.Unlock()
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Could not release lock on player \"%s\" (err: %v)", a.Player, err))
+		}
+	}()
+
 	// Fetch the planet related to this action and use it
 	// as read write access.
 	planet, err := model.NewReadWritePlanet(a.Planet, p.data)
@@ -166,10 +204,6 @@ func (p *ActionProxy) CreateTechnologyAction(a model.TechnologyAction) (string, 
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch planet related to technology action (err: %v)", err))
 		return a.ID, ErrInvalidAction
 	}
-
-	// Make sure that the player owning the planet is the
-	// one associated with the action.
-	a.Player = planet.Player
 
 	// Consolidate the completion time for this technology.
 	err = a.ConsolidateCompletionTime(p.data, &planet)
@@ -223,6 +257,25 @@ func (p *ActionProxy) CreateShipAction(a model.ShipAction) (string, error) {
 	if a.ID == "" {
 		a.ID = uuid.New().String()
 	}
+
+	// Make sure that the action is plausible.
+	if !a.Valid() {
+		return a.ID, ErrInvalidAction
+	}
+
+	// Acquire the lock on the player associated to this action.
+	l, err := p.data.Locker.Acquire(a.Player)
+	if err != nil {
+		return a.ID, err
+	}
+	l.Lock()
+
+	defer func() {
+		err := l.Unlock()
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Could not release lock on player \"%s\" (err: %v)", a.Player, err))
+		}
+	}()
 
 	// Fetch the planet related to this action and use it
 	// as read write access.
@@ -294,6 +347,25 @@ func (p *ActionProxy) CreateDefenseAction(a model.DefenseAction) (string, error)
 	if a.ID == "" {
 		a.ID = uuid.New().String()
 	}
+
+	// Make sure that the action is plausible.
+	if !a.Valid() {
+		return a.ID, ErrInvalidAction
+	}
+
+	// Acquire the lock on the player associated to this action.
+	l, err := p.data.Locker.Acquire(a.Player)
+	if err != nil {
+		return a.ID, err
+	}
+	l.Lock()
+
+	defer func() {
+		err := l.Unlock()
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Could not release lock on player \"%s\" (err: %v)", a.Player, err))
+		}
+	}()
 
 	// Fetch the planet related to this action and use it
 	// as read write access.

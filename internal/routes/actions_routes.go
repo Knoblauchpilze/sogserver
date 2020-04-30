@@ -40,7 +40,7 @@ type registerFunc func(input string, routeTokens []string) (string, error)
 // Returns the handler to execute to perform said requests.
 func (s *Server) registerUpgradeAction(f registerFunc) http.HandlerFunc {
 	// Create the endpoint with the suited route.
-	ed := NewCreateResourceEndpoint("planets")
+	ed := NewCreateResourceEndpoint("players")
 
 	// Configure the endpoint.
 	ed.WithDataKey("action-data").WithModule("actions")
@@ -58,6 +58,9 @@ func (s *Server) registerUpgradeAction(f registerFunc) http.HandlerFunc {
 			for _, rawData := range input.Data {
 				// Unmarshal and perform the creation using the provided
 				// registration function.
+
+				fmt.Println(fmt.Sprintf("Tokens are %v", input.ExtraElems))
+
 				res, err := f(rawData, input.ExtraElems)
 				if err != nil {
 					return resources, err
@@ -92,11 +95,11 @@ func (s *Server) registerBuildingAction() http.HandlerFunc {
 				return "", ErrInvalidData
 			}
 
-			// The `routeTokens` should also provide the planet's id
-			// so we can override any value provided in the upgrade
-			// action.
-			if len(routeTokens) > 0 {
-				action.Planet = routeTokens[0]
+			// The `routeTokens` should provide the planet's id
+			// so we can override any value provided by the act
+			// itself to maintain consistency.
+			if len(routeTokens) > 3 {
+				action.Planet = routeTokens[2]
 			}
 
 			// Create the upgrade action.
@@ -128,11 +131,14 @@ func (s *Server) registerTechnologyAction() http.HandlerFunc {
 				return "", ErrInvalidData
 			}
 
-			// The `routeTokens` should also provide the player's id
-			// so we can override any value provided in the upgrade
-			// action.
+			// The `routeTokens` should provide both the player and
+			// the planet's id so we can override any value provided
+			// in the upgrade action.
 			if len(routeTokens) > 0 {
-				action.Planet = routeTokens[0]
+				action.Player = routeTokens[0]
+			}
+			if len(routeTokens) > 3 {
+				action.Planet = routeTokens[2]
 			}
 
 			// Create the upgrade action.
@@ -165,11 +171,11 @@ func (s *Server) registerShipAction() http.HandlerFunc {
 				return "", ErrInvalidData
 			}
 
-			// The `routeTokens` should also provide the planet's id
-			// so we can override any value provided in the upgrade
-			// action.
-			if len(routeTokens) > 0 {
-				action.Planet = routeTokens[0]
+			// The `routeTokens` should provide the planet's id
+			// so we can override any value provided by the act
+			// itself to maintain consistency.
+			if len(routeTokens) > 3 {
+				action.Planet = routeTokens[2]
 			}
 
 			// Create the upgrade action.
@@ -202,11 +208,11 @@ func (s *Server) registerDefenseAction() http.HandlerFunc {
 				return "", ErrInvalidData
 			}
 
-			// The `routeTokens` should also provide the planet's id
-			// so we can override any value provided in the upgrade
-			// action.
-			if len(routeTokens) > 0 {
-				action.Planet = routeTokens[0]
+			// The `routeTokens` should provide the planet's id
+			// so we can override any value provided by the act
+			// itself to maintain consistency.
+			if len(routeTokens) > 3 {
+				action.Planet = routeTokens[2]
 			}
 
 			// Create the upgrade action.

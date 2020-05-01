@@ -78,8 +78,8 @@ INSERT INTO public.ships ("name", "propulsion", "speed", "cargo", "shield", "wea
   VALUES(
     'large cargo ship',
     (SELECT id FROM technologies WHERE name='combustion drive'),
-    25000,
     7500,
+    25000,
     25,
     5
   );
@@ -88,8 +88,8 @@ INSERT INTO public.ships ("name", "propulsion", "speed", "cargo", "shield", "wea
   VALUES(
     'light fighter',
     (SELECT id FROM technologies WHERE name='combustion drive'),
-    50,
     12500,
+    50,
     10,
     50
   );
@@ -98,8 +98,8 @@ INSERT INTO public.ships ("name", "propulsion", "speed", "cargo", "shield", "wea
   VALUES(
     'heavy fighter',
     (SELECT id FROM technologies WHERE name='impulse drive'),
-    100,
     10000,
+    100,
     25,
     150
   );
@@ -108,8 +108,8 @@ INSERT INTO public.ships ("name", "propulsion", "speed", "cargo", "shield", "wea
   VALUES(
     'cruiser',
     (SELECT id FROM technologies WHERE name='impulse drive'),
-    800,
     15000,
+    800,
     50,
     400
   );
@@ -118,8 +118,8 @@ INSERT INTO public.ships ("name", "propulsion", "speed", "cargo", "shield", "wea
   VALUES(
     'battleship',
     (SELECT id FROM technologies WHERE name='hyperspace drive'),
-    1500,
     10000,
+    1500,
     200,
     1000
   );
@@ -128,8 +128,8 @@ INSERT INTO public.ships ("name", "propulsion", "speed", "cargo", "shield", "wea
   VALUES(
     'battlecruiser',
     (SELECT id FROM technologies WHERE name='hyperspace drive'),
-    750,
     10000,
+    750,
     400,
     700
   );
@@ -138,8 +138,8 @@ INSERT INTO public.ships ("name", "propulsion", "speed", "cargo", "shield", "wea
   VALUES(
     'bomber',
     (SELECT id FROM technologies WHERE name='hyperspace drive'),
-    500,
     4000,
+    500,
     500,
     1000
   );
@@ -148,8 +148,8 @@ INSERT INTO public.ships ("name", "propulsion", "speed", "cargo", "shield", "wea
   VALUES(
     'destroyer',
     (SELECT id FROM technologies WHERE name='hyperspace drive'),
-    2000,
     5000,
+    2000,
     500,
     2000
   );
@@ -158,8 +158,8 @@ INSERT INTO public.ships ("name", "propulsion", "speed", "cargo", "shield", "wea
   VALUES(
     'deathstar',
     (SELECT id FROM technologies WHERE name='hyperspace drive'),
-    1000000,
     100,
+    1000000,
     50000,
     200000
   );
@@ -168,8 +168,8 @@ INSERT INTO public.ships ("name", "propulsion", "speed", "cargo", "shield", "wea
   VALUES(
     'recycler',
     (SELECT id FROM technologies WHERE name='combustion drive'),
-    20000,
     2000,
+    20000,
     10,
     1
   );
@@ -178,8 +178,8 @@ INSERT INTO public.ships ("name", "propulsion", "speed", "cargo", "shield", "wea
   VALUES(
     'espionage probe',
     (SELECT id FROM technologies WHERE name='combustion drive'),
-    5,
     100000000,
+    5,
     0.01,
     0.01
   );
@@ -198,8 +198,8 @@ INSERT INTO public.ships ("name", "propulsion", "speed", "cargo", "shield", "wea
   VALUES(
     'colony ship',
     (SELECT id FROM technologies WHERE name='impulse drive'),
-    7500,
     2500,
+    7500,
     100,
     50
   );

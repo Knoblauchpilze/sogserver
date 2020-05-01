@@ -74,11 +74,11 @@ type Component struct {
 	Speed       float32            `json:"speed"`
 	JoinedAt    time.Time          `json:"joined_at"`
 	Ships       ShipsInFleet       `json:"ships"`
-	Fleet       string             `json:"-"`
+	Fleet       string             `json:"fleet"`
 	Consumption []ConsumptionValue `json:"-"`
-	Cargo       []ResourceAmount   `json:"-"`
+	Cargo       []ResourceAmount   `json:"cargo"`
 	ArrivalTime time.Time          `json:"-"`
-	Target      Coordinate         `json:"-"`
+	Target      Coordinate         `json:"target"`
 	flightTime  float64
 }
 
@@ -247,6 +247,7 @@ func (fc *Component) consolidateConsumption(data Instance, p *Planet) error {
 
 		for _, fuel := range sd.Consumption {
 			sk := 35000.0 * math.Sqrt(d*10.0/float64(sd.Speed)) / (fc.flightTime - 10.0)
+			fmt.Println(fmt.Sprintf("Sk is %f", sk))
 			cons := float64(fuel.Amount*float32(ship.Count)) * d * math.Pow(1.0+sk/10.0, 2.0) / 35000.0
 
 			ex := consumption[fuel.Resource]
@@ -266,6 +267,8 @@ func (fc *Component) consolidateConsumption(data Instance, p *Planet) error {
 
 		fc.Consumption = append(fc.Consumption, value)
 	}
+
+	fmt.Println(fmt.Sprintf("Consumption: %v", fc.Consumption))
 
 	return nil
 }
@@ -303,7 +306,7 @@ func (fc *Component) ConsolidateArrivalTime(data Instance, p *Planet) error {
 	// Compute the maximum speed of the fleet. This will
 	// correspond to the speed of the slowest ship in the
 	// component.
-	maxSpeed := 0
+	maxSpeed := math.MaxInt32
 
 	for _, ship := range fc.Ships {
 		sd, err := data.Ships.getShipFromID(ship.ID)
@@ -319,13 +322,18 @@ func (fc *Component) ConsolidateArrivalTime(data Instance, p *Planet) error {
 
 		speed := sd.Propulsion.ComputeSpeed(sd.Speed, level)
 
-		if speed > maxSpeed {
+		if speed < maxSpeed {
 			maxSpeed = speed
 		}
 	}
 
 	// Compute the duration of the flight given the distance.
-	fc.flightTime = 35000.0*float64(fc.Speed)*math.Sqrt(float64(d)*10.0/float64(maxSpeed)) + 10.0
+	// Note that the speed percentage is interpreted as such:
+	//  - 100% -> 10
+	//  -  50% -> 5
+	//  -  10% -> 1
+	speedRatio := fc.Speed * 10.0
+	fc.flightTime = 35000.0/float64(speedRatio)*math.Sqrt(float64(d)*10.0/float64(maxSpeed)) + 10.0
 
 	// The arrival time is just this duration in the future.
 	// We will use the milliseconds in order to keep more
@@ -389,7 +397,8 @@ func (fc *Component) Validate(data Instance, p *Planet, f *Fleet) error {
 	// Check that the arrival time for this component
 	// is consistent with what's expected by the fleet.
 	// TODO: Relax the constraint to allow fleet offset.
-	if fc.ArrivalTime != f.ArrivalTime {
+	// if fc.ArrivalTime != f.ArrivalTime {
+	if true {
 		return ErrArrivalTimeMismatch
 	}
 

@@ -223,21 +223,22 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 	// Note that in case the component does not
 	// yet have a fleet associated to it this is
 	// the moment to create it.
-	fleet, err := p.fetchFleetForComponent(comp)
-	defer func() {
-		err := fleet.Close()
-		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not release lock on fleet \"%s\" (err: %v)", fleet.ID, err))
-		}
-	}()
+	// fleet, err := p.fetchFleetForComponent(comp)
+	// defer func() {
+	// 	err := fleet.Close()
+	// 	if err != nil {
+	// 		p.trace(logger.Error, fmt.Sprintf("Could not release lock on fleet \"%s\" (err: %v)", fleet.ID, err))
+	// 	}
+	// }()
 
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" to create component for \"%s\" (err: %v)", comp.Fleet, comp.Player, err))
-		return comp.ID, ErrInvalidFleet
-	}
+	// if err != nil {
+	// 	p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" to create component for \"%s\" (err: %v)", comp.Fleet, comp.Player, err))
+	// 	return comp.ID, ErrInvalidFleet
+	// }
 
 	// Validate the component against planet's data.
-	err = comp.Validate(p.data, &planet, &fleet)
+	// err = comp.Validate(p.data, &planet, &fleet)
+	err = comp.Validate(p.data, &planet, nil)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Cannot create fleet component for \"%s\" from \"%s\" (err: %v)", comp.Player, planet.ID, err))
 		return comp.ID, ErrImpossibleFleet
@@ -268,12 +269,12 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 	err = p.proxy.InsertToDB(query)
 
 	// Check for errors.
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not create component for \"%s\" in \"%s\" (err: %v)", comp.Player, fleet.ID, err))
-		return comp.ID, err
-	}
+	// if err != nil {
+	// 	p.trace(logger.Error, fmt.Sprintf("Could not create component for \"%s\" in \"%s\" (err: %v)", comp.Player, fleet.ID, err))
+	// 	return comp.ID, err
+	// }
 
-	p.trace(logger.Notice, fmt.Sprintf("Created new fleet component \"%s\" for \"%s\" in \"%s\"", comp.ID, comp.Player, fleet.ID))
+	// p.trace(logger.Notice, fmt.Sprintf("Created new fleet component \"%s\" for \"%s\" in \"%s\"", comp.ID, comp.Player, fleet.ID))
 
 	return comp.ID, nil
 }

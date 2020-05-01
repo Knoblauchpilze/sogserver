@@ -32,6 +32,8 @@ import (
 // connect for a long time.
 // TODO: Multiple ships or defenses actions overlaps while they should be
 // added at the end of each other.
+// TODO: Seems like the formula for computing the consumption is not working
+// as it does not yield half the value for 50% speed.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

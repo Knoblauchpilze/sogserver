@@ -35,6 +35,13 @@ import (
 // fleet. Note that depending on the objective of the fleet
 // it might not always refer to an existing planet.
 //
+// The `Planet` attribute defines the potential identifier
+// of the planet this fleet is targetting. This value is
+// meant to be used in case a planet already exist at the
+// location indicated by the `target` coordinates. It is
+// left empty in case nothing exists there (typically in
+// the case of a colonization mission).
+//
 // The `ArrivalTime` describes the time at which the fleet
 // is meant to reach its destination without taking into
 // account the potential delays.
@@ -48,6 +55,7 @@ type Fleet struct {
 	Universe    string     `json:"universe"`
 	Objective   string     `json:"objective"`
 	Target      Coordinate `json:"target"`
+	Planet      string     `json:"planet,omitempty"`
 	ArrivalTime time.Time  `json:"arrival_time"`
 	Comps       Components `json:"components"`
 }
@@ -184,7 +192,10 @@ func (fc Component) Valid() bool {
 		validUUID(fc.Planet) &&
 		fc.Speed >= 0.0 && fc.Speed <= 1.0 &&
 		fc.Ships.valid() &&
-		validUUID(fc.Fleet)
+		// Allow for either a valid fleet identifier of
+		// no identifier at all in case the fleet for
+		// this component does not exist yet.
+		(fc.Fleet == "" || validUUID(fc.Fleet))
 }
 
 // String :
@@ -299,10 +310,11 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 			"name",
 			"uni",
 			"objective",
-			"arrival_time",
 			"target_galaxy",
 			"target_solar_system",
 			"target_position",
+			"planet",
+			"arrival_time",
 		},
 		Table: "fleets",
 		Filters: []db.Filter{
@@ -336,10 +348,11 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 		&f.Name,
 		&f.Universe,
 		&f.Objective,
-		&f.ArrivalTime,
 		&g,
 		&s,
 		&p,
+		&f.Planet,
+		&f.ArrivalTime,
 	)
 
 	f.Target = NewCoordinate(g, s, p)

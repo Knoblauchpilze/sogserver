@@ -247,7 +247,6 @@ func (fc *Component) consolidateConsumption(data Instance, p *Planet) error {
 
 		for _, fuel := range sd.Consumption {
 			sk := 35000.0 * math.Sqrt(d*10.0/float64(sd.Speed)) / (fc.flightTime - 10.0)
-			fmt.Println(fmt.Sprintf("Sk is %f", sk))
 			cons := float64(fuel.Amount*float32(ship.Count)) * d * math.Pow(1.0+sk/10.0, 2.0) / 35000.0
 
 			ex := consumption[fuel.Resource]
@@ -267,8 +266,6 @@ func (fc *Component) consolidateConsumption(data Instance, p *Planet) error {
 
 		fc.Consumption = append(fc.Consumption, value)
 	}
-
-	fmt.Println(fmt.Sprintf("Consumption: %v", fc.Consumption))
 
 	return nil
 }

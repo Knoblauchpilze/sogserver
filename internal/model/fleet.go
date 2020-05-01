@@ -60,82 +60,6 @@ type Fleet struct {
 	Comps       Components `json:"components"`
 }
 
-// Component :
-// Defines a single element participating to a fleet. This
-// is usually defining a single wave of ship as it was set
-// and joined the fleet. This component is composed of a
-// certain number of ships and travels at a single speed.
-// The most basic fleet has a single component (and must
-// have at least one) but large fleets can benefit from
-// being split into several parts as they might be able
-// to better use their firepower.
-//
-// The `ID` represents the ID of the fleet component as
-// defined in the DB. It allows to uniquely identify it.
-//
-// The `Player` defines the identifier of the player that
-// launched this fleet component. It means that all the
-// ships in this component belongs to the player.
-//
-// The `Planet` defines the identifier of the starting
-// planet of this component. Unlike the destination of
-// the fleet which might not be a planet yet a fleet
-// must start from an existing location.
-//
-// The `Speed` defines the travel speed of this fleet
-// component. It is used to precisely determine how
-// much this component impacts the final arrival time
-// of the fleet and also for the consumption of fuel.
-// The value is in the range `[0, 1]` representing a
-// percentage of the maximum available speed.
-//
-// The `JoinedAt` defines the time at which this player
-// has joined the main fleet and created this component.
-//
-// The `Ships` define the actual ships involved in this
-// fleet component.
-//
-// The `Fleet` is used as an internal value allowing
-// to determine to which fleet this component is linked.
-type Component struct {
-	ID       string       `json:"id"`
-	Player   string       `json:"-"`
-	Planet   string       `json:"planet"`
-	Speed    float32      `json:"speed"`
-	JoinedAt time.Time    `json:"joined_at"`
-	Ships    ShipsInFleet `json:"ships"`
-	Fleet    string       `json:"-"`
-}
-
-// Components :
-// Convenience define to refer to a list of fleet
-// components.
-type Components []Component
-
-// ShipInFleet :
-// Defines a single ship involved in a fleet component.
-// This is basically the building blocks of fleet. This
-// element defines a set of similar ships that joined a
-// fleet from a single location (and thus belong to a
-// single player).
-//
-// The `ID` defines the identifier of the ship that is
-// involved in the fleet component.
-//
-// The `Count` defines how many ships of the specified
-// type are involved.
-type ShipInFleet struct {
-	ID    string `json:"ship"`
-	Count int    `json:"count"`
-}
-
-// ShipsInFleet :
-// Convenience define to refer to a list of ships
-// belonging to a fleet component. Allows to define
-// some methods on this type to ease the consistency
-// checks.
-type ShipsInFleet []ShipInFleet
-
 // ErrInvalidFleet :
 // Used to indicate that the fleet provided in input is
 // not valid.
@@ -145,109 +69,6 @@ var ErrInvalidFleet = fmt.Errorf("Invalid fleet with no identifier")
 // Used to indicate that the fleet's identifier provided
 // input is not unique in the DB.
 var ErrDuplicatedFleet = fmt.Errorf("Invalid not unique fleet")
-
-// ErrInvalidFleetComponent :
-// Used to indicate that the fleet component's identifier
-// provided in input is not valid.
-var ErrInvalidFleetComponent = fmt.Errorf("Invalid fleet component with no identifier")
-
-// ErrDuplicatedFleetComponent :
-// Used to indicate that the fleet component's ID provided
-// input is not unique in the DB.
-var ErrDuplicatedFleetComponent = fmt.Errorf("Invalid not unique fleet component")
-
-// Valid :
-// Defines whether this fleet is valid given the bounds
-// for the coordinates that are admissible in the uni
-// this fleet evolves in.
-//
-// Returns `true` if the fleet is valid.
-func (f *Fleet) Valid(uni Universe) bool {
-	return validUUID(f.ID) &&
-		validUUID(f.Universe) &&
-		validUUID(f.Objective) &&
-		f.Target.valid(uni.GalaxiesCount, uni.GalaxySize, uni.SolarSystemSize) &&
-		f.Comps.valid()
-}
-
-// String :
-// Implementation of the `Stringer` interface to make
-// sure displaying this fleet is easy.
-//
-// Returns the corresponding string.
-func (f Fleet) String() string {
-	return fmt.Sprintf("[id: %s, universe: %s, target: %s]", f.ID, f.Universe, f.Target)
-}
-
-// Valid :
-// Used to determine whether the fleet component defined
-// by this element is valid or not. We will check that
-// the starting coordinate are valid and the each ship
-// packet is also valid.
-//
-// Returns `true` if the component is valid.
-func (fc Component) Valid() bool {
-	return validUUID(fc.ID) &&
-		validUUID(fc.Player) &&
-		validUUID(fc.Planet) &&
-		fc.Speed >= 0.0 && fc.Speed <= 1.0 &&
-		fc.Ships.valid() &&
-		// Allow for either a valid fleet identifier of
-		// no identifier at all in case the fleet for
-		// this component does not exist yet.
-		(fc.Fleet == "" || validUUID(fc.Fleet))
-}
-
-// String :
-// Implementation of the `Stringer` interface to make
-// sure displaying this fleet component is easy.
-//
-// Returns the corresponding string.
-func (fc Component) String() string {
-	return fmt.Sprintf("[id: %s, player: %s, planet: %s]", fc.ID, fc.Player, fc.Planet)
-}
-
-// valid :
-// Used to perform a chain validation on all the elems
-// for this slice.
-//
-// Returns `true` if all individual components are
-// valid.
-func (fcs Components) valid() bool {
-	for _, comp := range fcs {
-		if !comp.Valid() {
-			return false
-		}
-	}
-
-	return true
-}
-
-// valid :
-// Used to verify that the ship assigned to a component
-// are valid. It should contain a valid ship's ID and a
-// non zero amount of ship.
-//
-// Returns `true` if the ship is valid.
-func (sif ShipInFleet) valid() bool {
-	return validUUID(sif.ID) && sif.Count > 0
-}
-
-// valid :
-// Used to perform a chain validation on all the ships
-// sets defined in the slice.
-//
-// Returns `true` if all individual components are
-// valid.
-func (sifs ShipsInFleet) valid() bool {
-	for _, sif := range sifs {
-		if !sif.valid() {
-			return false
-		}
-	}
-
-	return len(sifs) > 0
-}
 
 // NewFleetFromDB :
 // Used to fetch the content of the fleet from
@@ -288,6 +109,29 @@ func NewFleetFromDB(ID string, data Instance) (Fleet, error) {
 	}
 
 	return f, nil
+}
+
+// Valid :
+// Defines whether this fleet is valid given the bounds
+// for the coordinates that are admissible in the uni
+// this fleet evolves in.
+//
+// Returns `true` if the fleet is valid.
+func (f *Fleet) Valid(uni Universe) bool {
+	return validUUID(f.ID) &&
+		validUUID(f.Universe) &&
+		validUUID(f.Objective) &&
+		f.Target.valid(uni.GalaxiesCount, uni.GalaxySize, uni.SolarSystemSize) &&
+		f.Comps.valid()
+}
+
+// String :
+// Implementation of the `Stringer` interface to make
+// sure displaying this fleet is easy.
+//
+// Returns the corresponding string.
+func (f Fleet) String() string {
+	return fmt.Sprintf("[id: %s, universe: %s, target: %s]", f.ID, f.Universe, f.Target)
 }
 
 // fetchGeneralInfo :
@@ -457,6 +301,7 @@ func (f *Fleet) Convert() interface{} {
 		Galaxy      int       `json:"target_galaxy"`
 		System      int       `json:"target_solar_system"`
 		Position    int       `json:"target_position"`
+		Planet      string    `json:"planet"`
 		ArrivalTime time.Time `json:"arrival_time"`
 	}{
 		ID:          f.ID,
@@ -466,94 +311,16 @@ func (f *Fleet) Convert() interface{} {
 		Galaxy:      f.Target.Galaxy,
 		System:      f.Target.System,
 		Position:    f.Target.Position,
+		Planet:      f.Planet,
 		ArrivalTime: f.ArrivalTime,
 	}
 }
 
-// fetchShips :
-// Used to populate the internal data of the fleet
-// component with info from the DB. It will assume
-// the identifier for this fleet component is at
-// least provided.
-//
-// The `data` allows to access to the DB.
-//
-// Returns any error.
-func (fc *Component) fetchShips(data Instance) error {
-	// Check whether the fleet component has an identifier assigned.
-	if fc.ID == "" {
-		return ErrInvalidFleetComponent
-	}
-
-	fc.Ships = make([]ShipInFleet, 0)
-
-	// Create the query and execute it.
-	query := db.QueryDesc{
-		Props: []string{
-			"ship",
-			"count",
-		},
-		Table: "fleet_ships",
-		Filters: []db.Filter{
-			{
-				Key:    "fleet_element",
-				Values: []string{fc.ID},
-			},
-		},
-	}
-
-	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
-
-	// Check for errors.
-	if err != nil {
-		return err
-	}
-	if dbRes.Err != nil {
-		return dbRes.Err
-	}
-
-	// Populate the return value.
-	var sif ShipInFleet
-
-	for dbRes.Next() {
-		err = dbRes.Scan(
-			&sif.ID,
-			&sif.Count,
-		)
-
-		if err != nil {
-			return err
-		}
-
-		fc.Ships = append(fc.Ships, sif)
-	}
-
-	return nil
-}
-
-// Convert :
-// Implementation of the `db.Convertible` interface
-// from the DB package in order to only include fields
-// that need to be marshalled in the fleet component's
-// creation.
-//
-// Returns the converted version of the planet which
-// only includes relevant fields.
-func (fc *Component) Convert() interface{} {
-	return struct {
-		ID       string    `json:"id"`
-		Fleet    string    `json:"fleet"`
-		Player   string    `json:"player"`
-		Planet   string    `json:"planet"`
-		Speed    float32   `json:"speed"`
-		JoinedAt time.Time `json:"joined_at"`
-	}{
-		ID:       fc.ID,
-		Fleet:    fc.Fleet,
-		Player:   fc.Player,
-		Planet:   fc.Planet,
-		Speed:    fc.Speed,
-		JoinedAt: fc.JoinedAt,
-	}
+// consolidateSpeed :
+// Used to adjust the speed of the component based on
+// the speed of its parent fleet to make sure that all
+// components arrive at the same time.
+func (f *Fleet) consolidateSpeed(data Instance) error {
+	// TODO: Implement this.
+	return fmt.Errorf("Not implemented")
 }

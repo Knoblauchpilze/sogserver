@@ -226,6 +226,12 @@ var ErrTechDepsNotMet = fmt.Errorf("Action dependencies not met")
 // issue).
 var ErrNoCost = fmt.Errorf("No cost provided for action")
 
+// ErrNotEnoughFuel :
+// Used to indicate that there's not enough fuel on
+// a planet to satisfy the requirement of a fleet
+// component.
+var ErrNotEnoughFuel = fmt.Errorf("Not enough fuel for fleet")
+
 // getDefaultPlanetName :
 // Used to retrieve a default name for a planet. The
 // generated name will be different based on whether
@@ -1732,5 +1738,63 @@ func (p *Planet) validateAction(costs map[string]int, desc UpgradableDesc, data 
 	}
 
 	// Seems like all conditions are valid.
+	return nil
+}
+
+// validateComponent :
+// Used to make sure that the data described by
+// the component in input is consistent with the
+// data actually contained in the planet. It is
+// meant to check that the requested resources
+// can be provided by the planet and that there
+// is enough fuel to make the ships move.
+//
+// The `fuels` defines the amount of fuel that
+// is needed by the component to move.
+//
+// The `cargos` defines the amount of resources
+// that should be taken by the component.
+//
+// The `data` allows to access to the DB in
+// case it's needed.
+//
+// Returns any error. The behavior is similar
+// to the `validateAction` where no error is
+// meant to indicate that the component is a
+// valid one compared to the planet's data.
+func (p *Planet) validateComponent(fuels []Consumption, cargos []ResourceAmount, data Instance) error {
+	// Gather existing resources.
+	available := make(map[string]float32)
+
+	for _, res := range p.Resources {
+		ex := available[res.Resource]
+		ex += res.Amount
+		available[res.Resource] = ex
+	}
+
+	// Make sure that there's enough fuel.
+	for _, fuel := range fuels {
+		res := available[fuel.Resource]
+
+		if res < fuel.Amount {
+			return ErrNotEnoughFuel
+		}
+
+		res -= fuel.Amount
+		available[fuel.Resource] = res
+	}
+
+	// Make sure that there's enough resources.
+	for _, cargo := range cargos {
+		res := available[cargo.Resource]
+
+		if res < cargo.Amount {
+			return ErrNotEnoughResources
+		}
+
+		res -= cargo.Amount
+		available[cargo.Resource] = res
+	}
+
 	return nil
 }

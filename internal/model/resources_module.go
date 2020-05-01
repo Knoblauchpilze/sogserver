@@ -84,6 +84,20 @@ type ResourceDesc struct {
 	BaseAmount  int    `json:"base_amount"`
 }
 
+// ResourceAmount :
+// Holds a convenience structure allowing to talk of
+// a resource and the associated amount.
+//
+// The `Resource` defines the ID of the resource that
+// is consumed.
+//
+// The `Amount` defines how much of the resource is
+// to be provided.
+type ResourceAmount struct {
+	Resource string  `json:"resource"`
+	Amount   float32 `json:"amount"`
+}
+
 // NewResourcesModule :
 // Used to create a new resources module initialized with
 // no content (as no DB is provided yet). The module will

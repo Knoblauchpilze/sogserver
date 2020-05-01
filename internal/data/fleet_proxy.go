@@ -44,6 +44,20 @@ type shipInFleetForDB struct {
 	model.ShipInFleet
 }
 
+// ErrInvalidFleet :
+// Used to indicate that the fleet component provided
+// in input could not be analyzed in some way: it is
+// usually because fetching some related data failed
+// but can also indicate that the input values were
+// not correct.
+var ErrInvalidFleet = fmt.Errorf("Unable to analyze invalid action")
+
+// ErrImpossibleFleet :
+// Used to indicate that the creation of the fleet
+// component cannot be performed on the planet due
+// to a lack of ships, fuel or resources.
+var ErrImpossibleFleet = fmt.Errorf("Cannot perform creation of fleet component on planet")
+
 // ErrPlayerNotInUniverse :
 // Used to indicate that the player's identifier associated
 // to a fleet component is not consistent with the universe
@@ -164,7 +178,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 	// Check validity of the input fleet component.
 	if !comp.Valid() {
 		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet component's data %s", comp))
-		return comp.ID, model.ErrInvalidFleetComponent
+		return comp.ID, ErrInvalidFleet
 	}
 
 	// Acquire the lock on the player associated to this
@@ -195,7 +209,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch planet related to fleet component (err: %v)", err))
-		return comp.ID, ErrInvalidAction
+		return comp.ID, ErrInvalidFleet
 	}
 
 	// TODO: Handle cases where the fleet does not exist.
@@ -204,6 +218,13 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" to create component for \"%s\" (err: %v)", comp.Fleet, comp.Player, err))
 		return comp.ID, err
+	}
+
+	// Validate the component against planet's data.
+	err = comp.Validate(p.data, &planet)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Cannot create fleet component for \"%s\" from \"%s\" (err: %v)", comp.Player, planet.ID, err))
+		return comp.ID, ErrImpossibleFleet
 	}
 
 	// Convert the input ships to something that can be directly

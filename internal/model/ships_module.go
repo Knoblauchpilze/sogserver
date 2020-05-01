@@ -107,21 +107,10 @@ type PropulsionDesc struct {
 	Increase   int    `json:"increase"`
 }
 
-// ConsumptionValue :
-// Used to describe the amount of some resource
-// that a ship burns to move. It is basically a
-// combination of a resource identifier and of
-// a value (describing the actual consumption).
-//
-// The `Resource` defines the identifier of the
-// resource associated to the consumption.
-//
-// The `Value` defines how much of this resource
-// is consumed by the ship to move of 1 unit.
-type ConsumptionValue struct {
-	Resource string `json:"resource"`
-	Value    int    `json:"value"`
-}
+// Consumption :
+// Alias to refer to the amount of resource that
+// is needed to allow a journey.
+type Consumption ResourceAmount
 
 // ShipDesc :
 // Defines the abstract representation of a ship with
@@ -152,15 +141,15 @@ type ConsumptionValue struct {
 type ShipDesc struct {
 	UpgradableDesc
 
-	Cargo        int                `json:"cargo,omitempty"`
-	Shield       int                `json:"shield,omitempty"`
-	Weapon       int                `json:"weapon,omitempty"`
-	Speed        int                `json:"speed,omitempty"`
-	Propulsion   PropulsionDesc     `json:"propulsion"`
-	Consumption  []ConsumptionValue `json:"consumption,omitempty"`
-	RFVSShips    []RapidFire        `json:"rf_against_ships,omitempty"`
-	RFVSDefenses []RapidFire        `json:"rf_against_defenses,omitempty"`
-	Cost         FixedCost          `json:"cost"`
+	Cargo        int            `json:"cargo,omitempty"`
+	Shield       int            `json:"shield,omitempty"`
+	Weapon       int            `json:"weapon,omitempty"`
+	Speed        int            `json:"speed,omitempty"`
+	Propulsion   PropulsionDesc `json:"propulsion"`
+	Consumption  []Consumption  `json:"consumption,omitempty"`
+	RFVSShips    []RapidFire    `json:"rf_against_ships,omitempty"`
+	RFVSDefenses []RapidFire    `json:"rf_against_defenses,omitempty"`
+	Cost         FixedCost      `json:"cost"`
 }
 
 // RapidFire :
@@ -744,9 +733,9 @@ func (sm *ShipsModule) getShipFromID(ID string) (ShipDesc, error) {
 	}
 
 	for res, value := range props.consumption {
-		fuel := ConsumptionValue{
+		fuel := Consumption{
 			Resource: res,
-			Value:    value,
+			Amount:   float32(value),
 		}
 
 		desc.Consumption = append(desc.Consumption, fuel)

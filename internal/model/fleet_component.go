@@ -246,6 +246,8 @@ func (fc *Component) consolidateConsumption(data Instance, p *Planet) error {
 		}
 
 		for _, fuel := range sd.Consumption {
+			// The values and formulas are extracted from here:
+			// https://ogame.fandom.com/wiki/Talk:Fuel_Consumption
 			sk := 35000.0 * math.Sqrt(d*10.0/float64(sd.Speed)) / (fc.flightTime - 10.0)
 			cons := float64(fuel.Amount*float32(ship.Count)) * d * math.Pow(1.0+sk/10.0, 2.0) / 35000.0
 
@@ -394,8 +396,7 @@ func (fc *Component) Validate(data Instance, p *Planet, f *Fleet) error {
 	// Check that the arrival time for this component
 	// is consistent with what's expected by the fleet.
 	// TODO: Relax the constraint to allow fleet offset.
-	// if fc.ArrivalTime != f.ArrivalTime {
-	if true {
+	if fc.ArrivalTime != f.ArrivalTime {
 		return ErrArrivalTimeMismatch
 	}
 

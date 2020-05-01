@@ -347,6 +347,7 @@ func (f *Fleet) fetchComponents(data Instance) error {
 		}
 
 		comp.Fleet = f.ID
+		comp.ArrivalTime = f.ArrivalTime
 
 		err = comp.fetchShips(data)
 		if err != nil {

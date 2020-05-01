@@ -51,6 +51,12 @@ import (
 // The `Cargo` holds the resources moved around by the
 // fleet component. It accounts for all the cargo that
 // is available on all ships.
+//
+// The `ArrivalTime` defines the expected arrival time
+// of the component to its destination. It should be
+// consistent with what's expected by the parent fleet
+// and allows to slightly offset the arrival time if
+// needed.
 type Component struct {
 	ID          string           `json:"id"`
 	Player      string           `json:"-"`
@@ -61,6 +67,7 @@ type Component struct {
 	Fleet       string           `json:"-"`
 	Consumption []Consumption    `json:"-"`
 	Cargo       []ResourceAmount `json:"-"`
+	ArrivalTime time.Time        `json:"-"`
 }
 
 // Components :
@@ -107,6 +114,12 @@ var ErrDuplicatedFleetComponent = fmt.Errorf("Invalid not unique fleet component
 // to transport more resources than the available cargo
 // space available.
 var ErrInsufficientCargo = fmt.Errorf("Insufficient cargo space to hold resources")
+
+// ErrArrivalTimeMismatch :
+// Used to indicate that the arrival time computed for a
+// given fleet component is incompatible with the time its
+// parent fleet should arrive.
+var ErrArrivalTimeMismatch = fmt.Errorf("Fleet and component arrival times mismatch")
 
 // valid :
 // Used to verify that the ship assigned to a component
@@ -195,6 +208,26 @@ func (fc *Component) consolidateConsumption(data Instance) error {
 	return fmt.Errorf("Not implemented")
 }
 
+// ConsolidateArrivalTime :
+// Used to perform the update of the arrival time for
+// this fleet component based on the technologies of
+// the planet it starts from.
+//
+// The `data` allows to get information from the DB
+// related to the propulsion used by each ships and
+// their consumption.
+//
+// The `p` defines the planet from which this comp
+// should start and will be used to update the values
+// of the techs that should be used for computing a
+// speed for each ship.
+//
+// Returns any error.
+func (fc *Component) ConsolidateArrivalTime(data Instance, p *Planet) error {
+	// TODO: Implement this.
+	return fmt.Errorf("Not implemented")
+}
+
 // Validate :
 // Used to make sure that the component can be created
 // from the input planet. The check of the number of
@@ -208,8 +241,10 @@ func (fc *Component) consolidateConsumption(data Instance) error {
 // it needs to be provided as input so that resource
 // locking is easier.
 //
+// The `f` defines the parent fleet for this component.
+//
 // Returns any error.
-func (fc *Component) Validate(data Instance, p *Planet) error {
+func (fc *Component) Validate(data Instance, p *Planet, f *Fleet) error {
 	// Consistency.
 	if fc.Planet != p.ID {
 		return ErrInvalidPlanet
@@ -242,6 +277,13 @@ func (fc *Component) Validate(data Instance, p *Planet) error {
 
 	if totNeeded > float32(totCargo) {
 		return ErrInsufficientCargo
+	}
+
+	// Check that the arrival time for this component
+	// is consistent with what's expected by the fleet.
+	// TODO: Relax the constraint to allow fleet offset.
+	if fc.ArrivalTime != f.ArrivalTime {
+		return ErrArrivalTimeMismatch
 	}
 
 	// Validate the amount of fuel available on the

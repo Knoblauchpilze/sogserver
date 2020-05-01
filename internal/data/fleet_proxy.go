@@ -212,6 +212,13 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 		return comp.ID, ErrInvalidFleet
 	}
 
+	// Consolidate the arrival time for this component.
+	err = comp.ConsolidateArrivalTime(p.data, &planet)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not consolidate arrival time for component (err: %v)", err))
+		return comp.ID, ErrInvalidFleet
+	}
+
 	// Fetch the fleet related to this component.
 	// Note that in case the component does not
 	// yet have a fleet associated to it this is
@@ -230,7 +237,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 	}
 
 	// Validate the component against planet's data.
-	err = comp.Validate(p.data, &planet)
+	err = comp.Validate(p.data, &planet, &fleet)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Cannot create fleet component for \"%s\" from \"%s\" (err: %v)", comp.Player, planet.ID, err))
 		return comp.ID, ErrImpossibleFleet

@@ -114,12 +114,6 @@ func (p *ActionProxy) CreateBuildingAction(a model.BuildingAction) (string, erro
 		return a.ID, ErrInvalidAction
 	}
 
-	err = a.ConsolidateCompletionTime(p.data, &planet)
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not consolidate completion time for building action on \"%s\" (err: %v)", planet.ID, err))
-		return a.ID, ErrInvalidAction
-	}
-
 	// Validate the action's data against its parent planet
 	err = a.Validate(p.data, &planet)
 	if err != nil {
@@ -132,6 +126,7 @@ func (p *ActionProxy) CreateBuildingAction(a model.BuildingAction) (string, erro
 		Script: "create_building_upgrade_action",
 		Args: []interface{}{
 			a,
+			a.Costs,
 			a.Production,
 			a.Storage,
 		},
@@ -205,13 +200,6 @@ func (p *ActionProxy) CreateTechnologyAction(a model.TechnologyAction) (string, 
 		return a.ID, ErrInvalidAction
 	}
 
-	// Consolidate the completion time for this technology.
-	err = a.ConsolidateCompletionTime(p.data, &planet)
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not consolidate completion time for technology action on \"%s\" (err: %v)", planet.ID, err))
-		return a.ID, ErrInvalidAction
-	}
-
 	// Validate the action's data against its parent planet
 	err = a.Validate(p.data, &planet)
 	if err != nil {
@@ -222,7 +210,10 @@ func (p *ActionProxy) CreateTechnologyAction(a model.TechnologyAction) (string, 
 	// Create the query and execute it.
 	query := db.InsertReq{
 		Script: "create_technology_upgrade_action",
-		Args:   []interface{}{a},
+		Args: []interface{}{
+			a,
+			a.Costs,
+		},
 	}
 
 	err = p.proxy.InsertToDB(query)
@@ -296,12 +287,6 @@ func (p *ActionProxy) CreateShipAction(a model.ShipAction) (string, error) {
 	// the amount of units to produce.
 	a.Remaining = a.Amount
 
-	err = a.ConsolidateCompletionTime(p.data, &planet)
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not consolidate completion time for ship action on \"%s\" (err: %v)", planet.ID, err))
-		return a.ID, ErrInvalidAction
-	}
-
 	// Validate the action's data against its parent planet
 	err = a.Validate(p.data, &planet)
 	if err != nil {
@@ -312,7 +297,10 @@ func (p *ActionProxy) CreateShipAction(a model.ShipAction) (string, error) {
 	// Create the query and execute it.
 	query := db.InsertReq{
 		Script: "create_ship_upgrade_action",
-		Args:   []interface{}{a},
+		Args: []interface{}{
+			a,
+			a.Costs,
+		},
 	}
 
 	err = p.proxy.InsertToDB(query)
@@ -386,12 +374,6 @@ func (p *ActionProxy) CreateDefenseAction(a model.DefenseAction) (string, error)
 	// the amount of units to produce.
 	a.Remaining = a.Amount
 
-	err = a.ConsolidateCompletionTime(p.data, &planet)
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not consolidate completion time for defense action on \"%s\" (err: %v)", planet.ID, err))
-		return a.ID, ErrInvalidAction
-	}
-
 	// Validate the action's data against its parent planet
 	err = a.Validate(p.data, &planet)
 	if err != nil {
@@ -402,7 +384,10 @@ func (p *ActionProxy) CreateDefenseAction(a model.DefenseAction) (string, error)
 	// Create the query and execute it.
 	query := db.InsertReq{
 		Script: "create_defense_upgrade_action",
-		Args:   []interface{}{a},
+		Args: []interface{}{
+			a,
+			a.Costs,
+		},
 	}
 
 	err = p.proxy.InsertToDB(query)

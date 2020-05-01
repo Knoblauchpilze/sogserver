@@ -220,6 +220,12 @@ var ErrNotEnoughResources = fmt.Errorf("Not enough resources available for actio
 // performed due to unmet tech dependencies.
 var ErrTechDepsNotMet = fmt.Errorf("Action dependencies not met")
 
+// ErrNoCost :
+// Indicates that the action to perform does not have
+// any costs associated to it (which is probably an
+// issue).
+var ErrNoCost = fmt.Errorf("No cost provided for action")
+
 // getDefaultPlanetName :
 // Used to retrieve a default name for a planet. The
 // generated name will be different based on whether
@@ -1678,6 +1684,10 @@ func (p *Planet) GetBuilding(ID string) (BuildingInfo, error) {
 // on this planet.
 func (p *Planet) validateAction(costs map[string]int, desc UpgradableDesc, data Instance) error {
 	// Make sure that there are enough resources on the planet.
+	if len(costs) == 0 {
+		return ErrNoCost
+	}
+
 	for res, amount := range costs {
 		// Find the amount existing on the planet.
 		desc, err := p.GetResource(res)

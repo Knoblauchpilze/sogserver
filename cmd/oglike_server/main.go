@@ -31,8 +31,6 @@ import (
 // interval with no issues) to perform update for players that didn't
 // connect for a long time.
 // TODO: Should update the arrival time of the fleet from the server.
-// TODO: Should decrease the amount of resources existing when performing
-// the action.
 // TODO: Multiple ships or defenses actions overlaps while they should be
 // added at the end of each other.
 

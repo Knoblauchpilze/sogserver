@@ -21,16 +21,16 @@ DROP FUNCTION create_fleet_component(component json, ships json);
 DROP FUNCTION create_fleet(inputs json);
 
 -- Drop the defense upgrade insertion script.
-DROP FUNCTION create_defense_upgrade_action(upgrade json);
+DROP FUNCTION create_defense_upgrade_action(upgrade json, costs json);
 
 -- Drop the ship upgrade insertion script.
-DROP FUNCTION create_ship_upgrade_action(upgrade json);
+DROP FUNCTION create_ship_upgrade_action(upgrade json, costs json);
 
 -- Drop the technology upgrade insertion script.
-DROP FUNCTION create_technology_upgrade_action(upgrade json);
+DROP FUNCTION create_technology_upgrade_action(upgrade json, costs json);
 
 -- Drop the building upgrade insertion script.
-DROP FUNCTION create_building_upgrade_action(upgrade json, production_effects json, storage_effects json);
+DROP FUNCTION create_building_upgrade_action(upgrade json, costs json, production_effects json, storage_effects json);
 
 -- Drop the planet's creation script.
 DROP FUNCTION create_planet(planet json, resources json);

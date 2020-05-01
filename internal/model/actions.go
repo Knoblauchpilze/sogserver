@@ -35,11 +35,32 @@ import (
 // link to the action. It can either be the identifier of
 // the building that is built, the identifier of the ship
 // that is produced etc.
+//
+// The `Costs` defines the total cost of this action as
+// an array of resources and quantities. This is used to
+// actually remove the cost of the action from the res
+// available on the planet where this action is started.
 type Action struct {
 	ID      string `json:"id"`
 	Planet  string `json:"planet"`
 	Player  string `json:"player"`
 	Element string `json:"element"`
+	Costs   []Cost `json:"-"`
+}
+
+// Cost :
+// Convenience structure allowing to define a cost for
+// an element. It regroups the resource identifier and
+// the actual amount needed.
+//
+// The `Resource` represents the identifier of the res
+// that this cost represents.
+//
+// The `Cost` defines the amount of resource that is
+// needed.
+type Cost struct {
+	Resource string  `json:"resource"`
+	Cost     float32 `json:"cost"`
 }
 
 // ErrInvalidAction :
@@ -352,6 +373,19 @@ func (a *FixedAction) computeCompletionTime(data Instance, cost FixedCost, p *Pl
 
 	costs := cost.ComputeCost(1)
 
+	// Populate the cost of the whole action.
+	totCosts := cost.ComputeCost(a.Amount)
+	a.Costs = make([]Cost, 0)
+
+	for res, amount := range totCosts {
+		c := Cost{
+			Resource: res,
+			Cost:     float32(amount),
+		}
+
+		a.Costs = append(a.Costs, c)
+	}
+
 	// Retrieve the level of the shipyard and the nanite
 	// factory: these are the two buildings that have an
 	// influence on the completion time.
@@ -486,24 +520,48 @@ func (a *BuildingAction) Valid() bool {
 func NewBuildingActionFromDB(ID string, data Instance) (BuildingAction, error) {
 	// Create the return value and fetch the base
 	// data for this action.
-	ba := BuildingAction{}
-	ba.ID = ID
+	a := BuildingAction{}
+	a.ID = ID
 
+	// Create the action using the base handler.
 	var err error
-	ba.ProgressAction, err = newProgressActionFromDB(ID, data, "construction_actions_buildings")
+	a.ProgressAction, err = newProgressActionFromDB(ID, data, "construction_actions_buildings")
 
 	if err != nil {
-		return ba, err
+		return a, err
 	}
 
-	err = ba.fetchProductionEffects(data)
+	err = a.fetchProductionEffects(data)
 	if err != nil {
-		return ba, err
+		return a, err
 	}
 
-	err = ba.fetchStorageEffects(data)
+	err = a.fetchStorageEffects(data)
+	if err != nil {
+		return a, err
+	}
 
-	return ba, err
+	// Update the cost for this action. We will fetch
+	// the building related to the action and compute
+	// how many resources are needed to build it.
+	sd, err := data.Buildings.getBuildingFromID(a.Element)
+	if err != nil {
+		return a, err
+	}
+
+	costs := sd.Cost.ComputeCost(a.CurrentLevel)
+	a.Costs = make([]Cost, 0)
+
+	for res, amount := range costs {
+		c := Cost{
+			Resource: res,
+			Cost:     float32(amount),
+		}
+
+		a.Costs = append(a.Costs, c)
+	}
+
+	return a, nil
 }
 
 // fetchProductionEffects :
@@ -689,7 +747,7 @@ func (a *BuildingAction) ConsolidateEffects(data Instance, p *Planet) error {
 	return nil
 }
 
-// ConsolidateCompletionTime :
+// consolidateCompletionTime :
 // Used to update the completion time required for this
 // action to complete based on the amount of resources
 // needed by the next level of the building level.
@@ -702,7 +760,7 @@ func (a *BuildingAction) ConsolidateEffects(data Instance, p *Planet) error {
 // it should be fetched before validating the action.
 //
 // Returns any error.
-func (a *BuildingAction) ConsolidateCompletionTime(data Instance, p *Planet) error {
+func (a *BuildingAction) consolidateCompletionTime(data Instance, p *Planet) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrInvalidPlanet
@@ -715,7 +773,19 @@ func (a *BuildingAction) ConsolidateCompletionTime(data Instance, p *Planet) err
 		return err
 	}
 
-	costs := bd.Cost.ComputeCost(a.DesiredLevel)
+	costs := bd.Cost.ComputeCost(a.CurrentLevel)
+
+	// Populate the cost.
+	a.Costs = make([]Cost, 0)
+
+	for res, amount := range costs {
+		c := Cost{
+			Resource: res,
+			Cost:     float32(amount),
+		}
+
+		a.Costs = append(a.Costs, c)
+	}
 
 	// Retrieve the level of the robotics factory and the
 	// nanite factory: these are the two buildings having
@@ -783,14 +853,19 @@ func (a *BuildingAction) Validate(data Instance, p *Planet) error {
 		return ErrInvalidPlanet
 	}
 
-	// Compute the total cost of this action.
-	bd, err := data.Buildings.getBuildingFromID(a.Element)
+	// Update completion time and costs.
+	err := a.consolidateCompletionTime(data, p)
 	if err != nil {
 		return err
 	}
 
 	// Make sure that the current level of the building is
 	// consistent with what's desired.
+	bd, err := data.Buildings.getBuildingFromID(a.Element)
+	if err != nil {
+		return err
+	}
+
 	bi, err := p.GetBuilding(bd.ID)
 	if err != nil {
 		return err
@@ -806,9 +881,9 @@ func (a *BuildingAction) Validate(data Instance, p *Planet) error {
 		return ErrNoFieldsLeft
 	}
 
-	costs := bd.Cost.ComputeCost(a.DesiredLevel)
+	// Validate against planet's data.
+	costs := bd.Cost.ComputeCost(a.CurrentLevel)
 
-	// Validate data.
 	return p.validateAction(costs, bd.UpgradableDesc, data)
 }
 
@@ -848,16 +923,40 @@ func (a *TechnologyAction) Valid() bool {
 func NewTechnologyActionFromDB(ID string, data Instance) (TechnologyAction, error) {
 	// Create the return value and fetch the base
 	// data for this action.
-	ta := TechnologyAction{}
-	ta.ID = ID
+	a := TechnologyAction{}
+	a.ID = ID
 
+	// Create the action using the base handler.
 	var err error
-	ta.ProgressAction, err = newProgressActionFromDB(ID, data, "construction_actions_technologies")
+	a.ProgressAction, err = newProgressActionFromDB(ID, data, "construction_actions_technologies")
+	if err != nil {
+		return a, err
+	}
 
-	return ta, err
+	// Update the cost for this action. We will fetch
+	// the tech related to the action and compute how
+	// many resources are needed to build it.
+	sd, err := data.Technologies.getTechnologyFromID(a.Element)
+	if err != nil {
+		return a, err
+	}
+
+	costs := sd.Cost.ComputeCost(a.CurrentLevel)
+	a.Costs = make([]Cost, 0)
+
+	for res, amount := range costs {
+		c := Cost{
+			Resource: res,
+			Cost:     float32(amount),
+		}
+
+		a.Costs = append(a.Costs, c)
+	}
+
+	return a, nil
 }
 
-// ConsolidateCompletionTime :
+// consolidateCompletionTime :
 // Used to update the completion time required for this
 // action to complete based on the amount of resources
 // needed by the next level of the technology level. It
@@ -875,7 +974,7 @@ func NewTechnologyActionFromDB(ID string, data Instance) (TechnologyAction, erro
 // by the action creation process.
 //
 // Returns any error.
-func (a *TechnologyAction) ConsolidateCompletionTime(data Instance, p *Planet) error {
+func (a *TechnologyAction) consolidateCompletionTime(data Instance, p *Planet) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrInvalidPlanet
@@ -888,7 +987,19 @@ func (a *TechnologyAction) ConsolidateCompletionTime(data Instance, p *Planet) e
 		return err
 	}
 
-	costs := td.Cost.ComputeCost(a.DesiredLevel)
+	costs := td.Cost.ComputeCost(a.CurrentLevel)
+
+	// Populate the cost.
+	a.Costs = make([]Cost, 0)
+
+	for res, amount := range costs {
+		c := Cost{
+			Resource: res,
+			Cost:     float32(amount),
+		}
+
+		a.Costs = append(a.Costs, c)
+	}
 
 	// Fetch the total research power available for this
 	// action. It will not account for the current planet
@@ -943,14 +1054,19 @@ func (a *TechnologyAction) Validate(data Instance, p *Planet) error {
 		return ErrInvalidPlanet
 	}
 
-	// Compute the total cost of this action.
-	td, err := data.Technologies.getTechnologyFromID(a.Element)
+	// Update completion time and costs.
+	err := a.consolidateCompletionTime(data, p)
 	if err != nil {
 		return err
 	}
 
 	// Make sure that the current level of the technology
 	// is consistent with what's desired.
+	td, err := data.Technologies.getTechnologyFromID(a.Element)
+	if err != nil {
+		return err
+	}
+
 	tLevel, ok := p.technologies[td.ID]
 	if !ok && a.CurrentLevel > 0 {
 		return ErrLevelIncorrect
@@ -959,9 +1075,9 @@ func (a *TechnologyAction) Validate(data Instance, p *Planet) error {
 		return ErrLevelIncorrect
 	}
 
-	costs := td.Cost.ComputeCost(a.DesiredLevel)
+	// Validate against planet's data.
+	costs := td.Cost.ComputeCost(a.CurrentLevel)
 
-	// Validate data.
 	return p.validateAction(costs, td.UpgradableDesc, data)
 }
 
@@ -1097,13 +1213,38 @@ func NewShipActionFromDB(ID string, data Instance) (ShipAction, error) {
 	a := ShipAction{}
 	a.ID = ID
 
+	// Create the action using the base handler.
 	var err error
 	a.FixedAction, err = newFixedActionFromDB(ID, data, "construction_actions_ships")
+	if err != nil {
+		return a, err
+	}
 
-	return a, err
+	// Update the cost for this action. We will fetch
+	// the ship related to the action and compute how
+	// many resources are needed to build all the ships
+	// required by the action.
+	sd, err := data.Ships.getShipFromID(a.Element)
+	if err != nil {
+		return a, err
+	}
+
+	costs := sd.Cost.ComputeCost(a.Remaining)
+	a.Costs = make([]Cost, 0)
+
+	for res, amount := range costs {
+		c := Cost{
+			Resource: res,
+			Cost:     float32(amount),
+		}
+
+		a.Costs = append(a.Costs, c)
+	}
+
+	return a, nil
 }
 
-// ConsolidateCompletionTime :
+// consolidateCompletionTime :
 // Used to update the completion time required for this
 // action to complete based on the amount of units to be
 // produced.
@@ -1116,7 +1257,7 @@ func NewShipActionFromDB(ID string, data Instance) (ShipAction, error) {
 // concurrency easier.
 //
 // Returns any error.
-func (a *ShipAction) ConsolidateCompletionTime(data Instance, p *Planet) error {
+func (a *ShipAction) consolidateCompletionTime(data Instance, p *Planet) error {
 	// First, we need to determine the cost for each of
 	// the individual unit to produce.
 	sd, err := data.Ships.getShipFromID(a.Element)
@@ -1147,7 +1288,14 @@ func (a *ShipAction) Validate(data Instance, p *Planet) error {
 		return ErrInvalidPlanet
 	}
 
-	// Compute the total cost of this action.
+	// Update completion time and costs.
+	err := a.consolidateCompletionTime(data, p)
+	if err != nil {
+		return err
+	}
+
+	// Compute the total cost of this action and validate
+	// against planet's data.
 	sd, err := data.Ships.getShipFromID(a.Element)
 	if err != nil {
 		return err
@@ -1155,7 +1303,6 @@ func (a *ShipAction) Validate(data Instance, p *Planet) error {
 
 	costs := sd.Cost.ComputeCost(a.Remaining)
 
-	// Validate data.
 	return p.validateAction(costs, sd.UpgradableDesc, data)
 }
 
@@ -1177,13 +1324,38 @@ func NewDefenseActionFromDB(ID string, data Instance) (DefenseAction, error) {
 	a := DefenseAction{}
 	a.ID = ID
 
+	// Create the action using the base handler.
 	var err error
 	a.FixedAction, err = newFixedActionFromDB(ID, data, "construction_actions_defenses")
+	if err != nil {
+		return a, err
+	}
 
-	return a, err
+	// Update the cost for this action. We will fetch
+	// the defense system related to the action and
+	// compute how many resources are needed to build
+	// all the defenses required by the action.
+	sd, err := data.Defenses.getDefenseFromID(a.Element)
+	if err != nil {
+		return a, err
+	}
+
+	costs := sd.Cost.ComputeCost(a.Remaining)
+	a.Costs = make([]Cost, 0)
+
+	for res, amount := range costs {
+		c := Cost{
+			Resource: res,
+			Cost:     float32(amount),
+		}
+
+		a.Costs = append(a.Costs, c)
+	}
+
+	return a, nil
 }
 
-// ConsolidateCompletionTime :
+// consolidateCompletionTime :
 // Used to update the completion time required for this
 // action to complete. It uses internally the base handler
 // which allow to handle the actual completion of the time.
@@ -1197,7 +1369,7 @@ func NewDefenseActionFromDB(ID string, data Instance) (DefenseAction, error) {
 // concurrency easier.
 //
 // Returns any error.
-func (a *DefenseAction) ConsolidateCompletionTime(data Instance, p *Planet) error {
+func (a *DefenseAction) consolidateCompletionTime(data Instance, p *Planet) error {
 	// First, we need to determine the cost for each of
 	// the individual unit to produce.
 	dd, err := data.Defenses.getDefenseFromID(a.Element)
@@ -1227,7 +1399,14 @@ func (a *DefenseAction) Validate(data Instance, p *Planet) error {
 		return ErrInvalidPlanet
 	}
 
-	// Compute the total cost of this action.
+	// Update completion time and costs.
+	err := a.consolidateCompletionTime(data, p)
+	if err != nil {
+		return err
+	}
+
+	// Compute the total cost of this action and validate
+	// against planet's data.
 	dd, err := data.Defenses.getDefenseFromID(a.Element)
 	if err != nil {
 		return err
@@ -1235,6 +1414,5 @@ func (a *DefenseAction) Validate(data Instance, p *Planet) error {
 
 	costs := dd.Cost.ComputeCost(a.Remaining)
 
-	// Validate data.
 	return p.validateAction(costs, dd.UpgradableDesc, data)
 }

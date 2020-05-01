@@ -71,17 +71,15 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Import building upgrade action in the dedicated table.
-CREATE OR REPLACE FUNCTION create_building_upgrade_action(upgrade json, production_effects json, storage_effects json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_building_upgrade_action(upgrade json, costs json, production_effects json, storage_effects json) RETURNS VOID AS $$
 BEGIN
   -- Create the building upgrade action itself.
   INSERT INTO construction_actions_buildings
     SELECT *
     FROM json_populate_record(null::construction_actions_buildings, upgrade);
 
-  -- Update the construction action effects (both
-  -- in terms of storage and production). We only
-  -- perform the insertion in case at least one
-  -- effect is registered.
+  -- Update the construction action effects (both in terms of
+  -- storage and production).
   INSERT INTO construction_actions_buildings_production_effects
     SELECT
       (upgrade->>'id')::uuid,
@@ -97,33 +95,121 @@ BEGIN
       storage_capacity_change
     FROM
       json_populate_recordset(null::construction_actions_buildings_storage_effects, storage_effects);
+
+  -- Subtract the cost of the action to the resources existing
+  -- the planet so that it's no longer available. We assume a
+  -- valid amount of resources remaining (no checks to clamp
+  -- to `0` or anything). We will update the existing resource
+  -- on the planet before decreasing in order to make sure we
+  -- have a valid amount.
+  PERFORM update_resources_for_planet((upgrade->>'planet')::uuid);
+
+  WITH rc AS (
+    SELECT
+      t.resource,
+      t.cost
+    FROM
+      json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
+    )
+  UPDATE
+    planets_resources
+  SET
+    amount = amount - rc.cost
+  FROM
+    rc
+  WHERE planet = (upgrade->>'planet')::uuid
+  AND res = rc.resource;
+
 END
 $$ LANGUAGE plpgsql;
 
 -- Import technology upgrade action in the dedicated table.
-CREATE OR REPLACE FUNCTION create_technology_upgrade_action(upgrade json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_technology_upgrade_action(upgrade json, costs json) RETURNS VOID AS $$
 BEGIN
+  -- Insert the construction action in the related table.
   INSERT INTO construction_actions_technologies
     SELECT *
     FROM json_populate_record(null::construction_actions_technologies, upgrade);
+
+  -- Perform the update of the resources by subtracting
+  -- the cost of the action.
+  PERFORM update_resources_for_planet((upgrade->>'planet')::uuid);
+
+  WITH rc AS (
+    SELECT
+      t.resource,
+      t.cost
+    FROM
+      json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
+    )
+  UPDATE
+    planets_resources
+  SET
+    amount = amount - rc.cost
+  FROM
+    rc
+  WHERE planet = (upgrade->>'planet')::uuid
+  AND res = rc.resource;
 END
 $$ LANGUAGE plpgsql;
 
 -- Import ship upgrade action in the dedicated table.
-CREATE OR REPLACE FUNCTION create_ship_upgrade_action(upgrade json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_ship_upgrade_action(upgrade json, costs json) RETURNS VOID AS $$
 BEGIN
+  -- Insert the construction action in the related table.
   INSERT INTO construction_actions_ships
     SELECT *
     FROM json_populate_record(null::construction_actions_ships, upgrade);
+
+  -- Perform the update of the resources by subtracting
+  -- the cost of the action.
+  PERFORM update_resources_for_planet((upgrade->>'planet')::uuid);
+
+  WITH rc AS (
+    SELECT
+      t.resource,
+      t.cost
+    FROM
+      json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
+    )
+  UPDATE
+    planets_resources
+  SET
+    amount = amount - rc.cost
+  FROM
+    rc
+  WHERE planet = (upgrade->>'planet')::uuid
+  AND res = rc.resource;
 END
 $$ LANGUAGE plpgsql;
 
 -- Import defense upgrade action in the dedicated table.
-CREATE OR REPLACE FUNCTION create_defense_upgrade_action(upgrade json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_defense_upgrade_action(upgrade json, costs json) RETURNS VOID AS $$
 BEGIN
+  -- Insert the construction action in the related table.
   INSERT INTO construction_actions_defenses
     SELECT *
     FROM json_populate_record(null::construction_actions_defenses, upgrade);
+
+  -- Perform the update of the resources by subtracting
+  -- the cost of the action.
+  PERFORM update_resources_for_planet((upgrade->>'planet')::uuid);
+
+  WITH rc AS (
+    SELECT
+      t.resource,
+      t.cost
+    FROM
+      json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
+    )
+  UPDATE
+    planets_resources
+  SET
+    amount = amount - rc.cost
+  FROM
+    rc
+  WHERE planet = (upgrade->>'planet')::uuid
+  AND res = rc.resource;
 END
 $$ LANGUAGE plpgsql;
 

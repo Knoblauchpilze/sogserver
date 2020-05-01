@@ -128,3 +128,38 @@ func (c Coordinate) valid(galaxyCount int, galaxySize int, solarSystemSize int) 
 		c.System >= 0 && c.System < galaxySize &&
 		c.Position >= 0 && c.Position < solarSystemSize
 }
+
+// distanceTo :
+// Used to compute the distance from this position to the
+// other provided as input. Note that the concept of a
+// distance is specific to og and has few real meaning.
+//
+// The `other` defines the other coordinates for which a
+// distance should be computed.
+//
+// Returns the distance between the two coordinates.
+func (c Coordinate) distanceTo(other Coordinate) int {
+	// Most of the information is extracted from there:
+	// https://ogame.fandom.com/wiki/Talk:Fuel_Consumption
+
+	// Case where galaxies are different.
+	if c.Galaxy != other.Galaxy {
+		dGal := float64(c.Galaxy - other.Galaxy)
+		return 20000 * int(math.Abs(dGal))
+	}
+
+	// Case where systems are different.
+	if c.System != other.System {
+		dSys := float64(c.System - other.System)
+		return 2700 + (95 * int(math.Abs(dSys)))
+	}
+
+	// Case where positions are different.
+	if c.Position != other.Position {
+		dPos := float64(c.Position - other.Position)
+		return 1000 + (5 * int(math.Abs(dPos)))
+	}
+
+	// Within same position the cost is always identical.
+	return 5
+}

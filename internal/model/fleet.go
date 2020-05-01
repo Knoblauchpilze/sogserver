@@ -346,8 +346,11 @@ func (f *Fleet) fetchComponents(data Instance) error {
 			return err
 		}
 
+		// Populate additional information for this component.
 		comp.Fleet = f.ID
 		comp.ArrivalTime = f.ArrivalTime
+		comp.Target = f.Target
+		comp.flightTime = float64(comp.ArrivalTime.Sub(comp.JoinedAt) / time.Second)
 
 		err = comp.fetchShips(data)
 		if err != nil {

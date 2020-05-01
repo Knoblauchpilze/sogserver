@@ -87,7 +87,7 @@ type shipProps struct {
 	weapon      int
 	speed       int
 	propulsion  string
-	consumption map[string]int
+	consumption []Consumption
 }
 
 // PropulsionDesc :
@@ -110,7 +110,9 @@ type PropulsionDesc struct {
 // Consumption :
 // Alias to refer to the amount of resource that
 // is needed to allow a journey.
-type Consumption ResourceAmount
+type Consumption struct {
+	ResourceAmount
+}
 
 // ShipDesc :
 // Defines the abstract representation of a ship with
@@ -165,6 +167,21 @@ type ShipDesc struct {
 type RapidFire struct {
 	Receiver string `json:"receiver"`
 	RF       int    `json:"rf"`
+}
+
+// ComputeSpeed :
+// Used to compute the speed reached by this propulsion
+// system given the base speed and the level of the tech
+// researched so far.
+//
+// The `base` defines the base speed of the element.
+//
+// The `level` defines the level reached by the tech of
+// the propulsion system.
+//
+// Returns the speed reached by the element.
+func (p PropulsionDesc) ComputeSpeed(base int, level int) int {
+	return int(float32(base) * (1.0 + float32(level*p.Increase)/100.0))
 }
 
 // NewShipsModule :
@@ -414,8 +431,10 @@ func (sm *ShipsModule) initCharacteristics(proxy db.Proxy) error {
 			c, ok := eCons[res]
 
 			if ok {
-				sm.trace(logger.Error, fmt.Sprintf("Overriding propulsion consumption for resource \"%s\" of \"%s\" from %d to %d", res, ID, c, consumption))
+				sm.trace(logger.Error, fmt.Sprintf("Prevented override of propulsion consumption for resource \"%s\" of \"%s\" from %d to %d", res, ID, c, consumption))
 				override = true
+
+				continue
 			}
 		}
 
@@ -427,10 +446,16 @@ func (sm *ShipsModule) initCharacteristics(proxy db.Proxy) error {
 		props := sm.characteristics[ID]
 
 		if props.consumption == nil {
-			props.consumption = make(map[string]int)
+			props.consumption = make([]Consumption, 0)
 		}
 
-		props.consumption[res] = consumption
+		c := Consumption{
+			ResourceAmount: ResourceAmount{
+				Resource: res,
+				Amount:   float32(consumption),
+			},
+		}
+		props.consumption = append(props.consumption, c)
 		sm.characteristics[ID] = props
 	}
 
@@ -732,14 +757,7 @@ func (sm *ShipsModule) getShipFromID(ID string) (ShipDesc, error) {
 		Increase:   speedIncrease,
 	}
 
-	for res, value := range props.consumption {
-		fuel := Consumption{
-			Resource: res,
-			Amount:   float32(value),
-		}
-
-		desc.Consumption = append(desc.Consumption, fuel)
-	}
+	desc.Consumption = props.consumption
 
 	return desc, nil
 }

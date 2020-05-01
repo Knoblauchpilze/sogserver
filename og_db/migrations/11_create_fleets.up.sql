@@ -42,9 +42,6 @@ CREATE TABLE fleet_elements (
   FOREIGN KEY (planet) REFERENCES planets(id)
 );
 
--- Create the trigger on the table to update the `joined_at` field.
-CREATE TRIGGER update_fleets_elements_creation BEFORE INSERT ON fleet_elements FOR EACH ROW EXECUTE PROCEDURE update_joined_at();
-
 -- Create the table for vessels belonging to a fleet.
 CREATE TABLE fleet_ships (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),

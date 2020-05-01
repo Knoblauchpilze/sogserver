@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"math"
 	"oglike_server/pkg/db"
 	"time"
 )
@@ -57,23 +58,39 @@ import (
 // consistent with what's expected by the parent fleet
 // and allows to slightly offset the arrival time if
 // needed.
+//
+// The `Target` defines the destination of the fleet
+// either through its own definition or by polling
+// the parent fleet.
+//
+// The `flightTime` defines the flight time in seconds.
+// Note that it is somewhat redundant with the other
+// time information (namely `JoinedAt` and the arrival
+// time).
 type Component struct {
-	ID          string           `json:"id"`
-	Player      string           `json:"-"`
-	Planet      string           `json:"planet"`
-	Speed       float32          `json:"speed"`
-	JoinedAt    time.Time        `json:"joined_at"`
-	Ships       ShipsInFleet     `json:"ships"`
-	Fleet       string           `json:"-"`
-	Consumption []Consumption    `json:"-"`
-	Cargo       []ResourceAmount `json:"-"`
-	ArrivalTime time.Time        `json:"-"`
+	ID          string             `json:"id"`
+	Player      string             `json:"-"`
+	Planet      string             `json:"planet"`
+	Speed       float32            `json:"speed"`
+	JoinedAt    time.Time          `json:"joined_at"`
+	Ships       ShipsInFleet       `json:"ships"`
+	Fleet       string             `json:"-"`
+	Consumption []ConsumptionValue `json:"-"`
+	Cargo       []ResourceAmount   `json:"-"`
+	ArrivalTime time.Time          `json:"-"`
+	Target      Coordinate         `json:"-"`
+	flightTime  float64
 }
 
 // Components :
 // Convenience define to refer to a list of fleet
 // components.
 type Components []Component
+
+// ConsumptionValue :
+// Used as a convenience define to reference resource
+// amount in a meaningful way.
+type ConsumptionValue ResourceAmount
 
 // ShipInFleet :
 // Defines a single ship involved in a fleet component.
@@ -120,6 +137,12 @@ var ErrInsufficientCargo = fmt.Errorf("Insufficient cargo space to hold resource
 // given fleet component is incompatible with the time its
 // parent fleet should arrive.
 var ErrArrivalTimeMismatch = fmt.Errorf("Fleet and component arrival times mismatch")
+
+// ErrInvalidPropulsionSystem :
+// Used to indicate that the propulsion system of a ship
+// was not valid compared to the researched technologies
+// on the planet.
+var ErrInvalidPropulsionSystem = fmt.Errorf("Unknown propulsion system for ship")
 
 // valid :
 // Used to verify that the ship assigned to a component
@@ -202,10 +225,49 @@ func (fc Component) String() string {
 // The `data` allows to get information from the DB on
 // the consumption of ships.
 //
+// The `p` defines the planet from where this component
+// is starting the flight.
+//
 // Returns any error.
-func (fc *Component) consolidateConsumption(data Instance) error {
-	// TODO: Implement this.
-	return fmt.Errorf("Not implemented")
+func (fc *Component) consolidateConsumption(data Instance, p *Planet) error {
+	// Compute the distance between the starting position
+	// and the destination of the flight.
+	d := float64(p.Coordinates.distanceTo(fc.Target))
+
+	// Now we can compute the total consumption by summing
+	// the individual consumptions of ships.
+	consumption := make(map[string]float64)
+
+	for _, ship := range fc.Ships {
+		sd, err := data.Ships.getShipFromID(ship.ID)
+
+		if err != nil {
+			return err
+		}
+
+		for _, fuel := range sd.Consumption {
+			sk := 35000.0 * math.Sqrt(d*10.0/float64(sd.Speed)) / (fc.flightTime - 10.0)
+			cons := float64(fuel.Amount*float32(ship.Count)) * d * math.Pow(1.0+sk/10.0, 2.0) / 35000.0
+
+			ex := consumption[fuel.Resource]
+			ex += cons
+			consumption[fuel.Resource] = ex
+		}
+	}
+
+	// Save the data in the component itself.
+	fc.Consumption = make([]ConsumptionValue, 0)
+
+	for res, fuel := range consumption {
+		value := ConsumptionValue{
+			Resource: res,
+			Amount:   float32(fuel),
+		}
+
+		fc.Consumption = append(fc.Consumption, value)
+	}
+
+	return nil
 }
 
 // ConsolidateArrivalTime :
@@ -224,8 +286,53 @@ func (fc *Component) consolidateConsumption(data Instance) error {
 //
 // Returns any error.
 func (fc *Component) ConsolidateArrivalTime(data Instance, p *Planet) error {
-	// TODO: Implement this.
-	return fmt.Errorf("Not implemented")
+	// Consistency.
+	if fc.Planet != p.ID {
+		return ErrInvalidPlanet
+	}
+
+	// Update the time at which this component joined
+	// the fleet.
+	fc.JoinedAt = time.Now()
+
+	// Compute the time of arrival for this component. It
+	// is function of the percentage of the maximum speed
+	// used by the ships and the slowest ship's speed.
+	d := float64(p.Coordinates.distanceTo(fc.Target))
+
+	// Compute the maximum speed of the fleet. This will
+	// correspond to the speed of the slowest ship in the
+	// component.
+	maxSpeed := 0
+
+	for _, ship := range fc.Ships {
+		sd, err := data.Ships.getShipFromID(ship.ID)
+
+		if err != nil {
+			return err
+		}
+
+		level, ok := p.technologies[sd.Propulsion.Propulsion]
+		if !ok {
+			return ErrInvalidPropulsionSystem
+		}
+
+		speed := sd.Propulsion.ComputeSpeed(sd.Speed, level)
+
+		if speed > maxSpeed {
+			maxSpeed = speed
+		}
+	}
+
+	// Compute the duration of the flight given the distance.
+	fc.flightTime = 35000.0*float64(fc.Speed)*math.Sqrt(float64(d)*10.0/float64(maxSpeed)) + 10.0
+
+	// The arrival time is just this duration in the future.
+	// We will use the milliseconds in order to keep more
+	// precision before rounding.
+	fc.ArrivalTime = fc.JoinedAt.Add(time.Duration(1000.0*fc.flightTime) * time.Millisecond)
+
+	return nil
 }
 
 // Validate :
@@ -251,7 +358,7 @@ func (fc *Component) Validate(data Instance, p *Planet, f *Fleet) error {
 	}
 
 	// Update consumption.
-	err := fc.consolidateConsumption(data)
+	err := fc.consolidateConsumption(data, p)
 	if err != nil {
 		return err
 	}

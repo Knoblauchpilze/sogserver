@@ -30,7 +30,6 @@ import (
 // night (or another duration which would be consistent with the maximum
 // interval with no issues) to perform update for players that didn't
 // connect for a long time.
-// TODO: Should update the arrival time of the fleet from the server.
 // TODO: Multiple ships or defenses actions overlaps while they should be
 // added at the end of each other.
 

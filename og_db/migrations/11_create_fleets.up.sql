@@ -32,13 +32,12 @@ CREATE TABLE fleet_elements (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   fleet uuid NOT NULL,
   player uuid NOT NULL,
-  start_galaxy integer NOT NULL,
-  start_solar_system integer NOT NULL,
-  start_position integer NOT NULL,
+  planet uuid NOT NULL,
   speed numeric(3, 2) NOT NULL,
   joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  FOREIGN KEY (fleet) REFERENCES fleets(id)
+  FOREIGN KEY (fleet) REFERENCES fleets(id),
+  FOREIGN KEY (planet) REFERENCES planets(id)
 );
 
 -- Create the trigger on the table to update the `joined_at` field.

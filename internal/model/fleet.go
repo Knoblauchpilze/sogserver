@@ -69,8 +69,10 @@ type Fleet struct {
 // launched this fleet component. It means that all the
 // ships in this component belongs to the player.
 //
-// The `Origin` defines the coordinates from which the
-// component was launched.
+// The `Planet` defines the identifier of the starting
+// planet of this component. Unlike the destination of
+// the fleet which might not be a planet yet a fleet
+// must start from an existing location.
 //
 // The `Speed` defines the travel speed of this fleet
 // component. It is used to precisely determine how
@@ -89,8 +91,8 @@ type Fleet struct {
 // to determine to which fleet this component is linked.
 type Component struct {
 	ID       string       `json:"id"`
-	Player   string       `json:"player"`
-	Origin   Coordinate   `json:"coordinates"`
+	Player   string       `json:"-"`
+	Planet   string       `json:"planet"`
 	Speed    float32      `json:"speed"`
 	JoinedAt time.Time    `json:"joined_at"`
 	Ships    ShipsInFleet `json:"ships"`
@@ -157,7 +159,7 @@ func (f *Fleet) Valid(uni Universe) bool {
 		validUUID(f.Universe) &&
 		validUUID(f.Objective) &&
 		f.Target.valid(uni.GalaxiesCount, uni.GalaxySize, uni.SolarSystemSize) &&
-		f.Comps.valid(uni)
+		f.Comps.valid()
 }
 
 // String :
@@ -175,14 +177,11 @@ func (f Fleet) String() string {
 // the starting coordinate are valid and the each ship
 // packet is also valid.
 //
-// The `uni` defines the universe of the fleet which is
-// used to verify the starting position of this element.
-//
 // Returns `true` if the component is valid.
-func (fc Component) Valid(uni Universe) bool {
+func (fc Component) Valid() bool {
 	return validUUID(fc.ID) &&
 		validUUID(fc.Player) &&
-		fc.Origin.valid(uni.GalaxiesCount, uni.GalaxySize, uni.SolarSystemSize) &&
+		validUUID(fc.Planet) &&
 		fc.Speed >= 0.0 && fc.Speed <= 1.0 &&
 		fc.Ships.valid() &&
 		validUUID(fc.Fleet)
@@ -194,21 +193,18 @@ func (fc Component) Valid(uni Universe) bool {
 //
 // Returns the corresponding string.
 func (fc Component) String() string {
-	return fmt.Sprintf("[id: %s, player: %s, origin: %s]", fc.ID, fc.Player, fc.Origin)
+	return fmt.Sprintf("[id: %s, player: %s, planet: %s]", fc.ID, fc.Player, fc.Planet)
 }
 
 // valid :
 // Used to perform a chain validation on all the elems
 // for this slice.
 //
-// The `uni` defines the universe to perform the check
-// of coordinates for components.
-//
 // Returns `true` if all individual components are
 // valid.
-func (fcs Components) valid(uni Universe) bool {
+func (fcs Components) valid() bool {
 	for _, comp := range fcs {
-		if !comp.Valid(uni) {
+		if !comp.Valid() {
 			return false
 		}
 	}
@@ -379,9 +375,7 @@ func (f *Fleet) fetchComponents(data Instance) error {
 		Props: []string{
 			"id",
 			"player",
-			"start_galaxy",
-			"start_solar_system",
-			"start_position",
+			"planet",
 			"speed",
 			"joined_at",
 		},
@@ -407,15 +401,12 @@ func (f *Fleet) fetchComponents(data Instance) error {
 
 	// Populate the return value.
 	var comp Component
-	var g, s, p int
 
 	for dbRes.Next() {
 		err = dbRes.Scan(
 			&comp.ID,
 			&comp.Player,
-			&g,
-			&s,
-			&p,
+			&comp.Planet,
 			&comp.Speed,
 			&comp.JoinedAt,
 		)
@@ -424,7 +415,6 @@ func (f *Fleet) fetchComponents(data Instance) error {
 			return err
 		}
 
-		comp.Origin = NewCoordinate(g, s, p)
 		comp.Fleet = f.ID
 
 		err = comp.fetchShips(data)
@@ -542,18 +532,14 @@ func (fc *Component) Convert() interface{} {
 		ID       string    `json:"id"`
 		Fleet    string    `json:"fleet"`
 		Player   string    `json:"player"`
-		Galaxy   int       `json:"start_galaxy"`
-		System   int       `json:"start_solar_system"`
-		Position int       `json:"start_position"`
+		Planet   string    `json:"planet"`
 		Speed    float32   `json:"speed"`
 		JoinedAt time.Time `json:"joined_at"`
 	}{
 		ID:       fc.ID,
 		Fleet:    fc.Fleet,
 		Player:   fc.Player,
-		Galaxy:   fc.Origin.Galaxy,
-		System:   fc.Origin.System,
-		Position: fc.Origin.Position,
+		Planet:   fc.Planet,
 		Speed:    fc.Speed,
 		JoinedAt: fc.JoinedAt,
 	}

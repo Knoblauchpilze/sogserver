@@ -30,8 +30,7 @@ func (s *Server) routes() {
 	s.route("POST", "/players/[a-zA-Z0-9-]+/planets/[a-zA-Z0-9-]+/actions/buildings", s.registerBuildingAction())
 	s.route("POST", "/players/[a-zA-Z0-9-]+/planets/[a-zA-Z0-9-]+/actions/ships", s.registerShipAction())
 	s.route("POST", "/players/[a-zA-Z0-9-]+/planets/[a-zA-Z0-9-]+/actions/defenses", s.registerDefenseAction())
-	s.route("POST", "/fleets", s.createFleet())
-	s.route("POST", "/fleets/[a-zA-Z0-9-]+/components", s.createFleetComponent())
+	s.route("POST", "/players/[a-zA-Z0-9-]+/planets/[a-zA-Z0-9-]+/fleets", s.createFleetComponent())
 }
 
 // route :

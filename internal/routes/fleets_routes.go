@@ -61,56 +61,6 @@ func (s *Server) listFleetObjectives() http.HandlerFunc {
 	return ed.ServeRoute(s.log)
 }
 
-// createFleet :
-// Used to perform the creation of a handler allowing to server
-// the requests to create fleets.
-//
-// Returns the handler to execute to perform said requests.
-func (s *Server) createFleet() http.HandlerFunc {
-	// Create the endpoint with the suited route.
-	ed := NewCreateResourceEndpoint("fleets")
-
-	// Configure the endpoint.
-	ed.WithDataKey("fleet-data").WithModule("fleets")
-	ed.WithCreationFunc(
-		func(input RouteData) ([]string, error) {
-			// We need to iterate over the data retrieved from the route and
-			// create fleets from it.
-			var fleet model.Fleet
-			resources := make([]string, 0)
-
-			// Prevent request with no data.
-			if len(input.Data) == 0 {
-				return resources, ErrNoData
-			}
-
-			// Iterate over the provided data to create the corresponding
-			// fleets in the main DB.
-			for _, rawData := range input.Data {
-				// Try to unmarshal the data into a valid `Fleet` struct.
-				err := json.Unmarshal([]byte(rawData), &fleet)
-				if err != nil {
-					return resources, ErrInvalidData
-				}
-
-				// Create the fleet.
-				res, err := s.fleets.Create(fleet)
-				if err != nil {
-					return resources, ErrDBError
-				}
-
-				// Successfully created a fleet.
-				resources = append(resources, res)
-			}
-
-			// Return the path to the resources created during the process.
-			return resources, nil
-		},
-	)
-
-	return ed.ServeRoute(s.log)
-}
-
 // createFleetComponent :
 // Used to perform the creation of a handler allowing to server
 // the requests to create fleet components.
@@ -118,7 +68,7 @@ func (s *Server) createFleet() http.HandlerFunc {
 // Returns the handler to execute to perform said requests.
 func (s *Server) createFleetComponent() http.HandlerFunc {
 	// Create the endpoint with the suited route.
-	ed := NewCreateResourceEndpoint("fleets")
+	ed := NewCreateResourceEndpoint("players")
 
 	// Configure the endpoint.
 	ed.WithDataKey("fleet-data").WithModule("fleets")
@@ -135,13 +85,14 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 			}
 
 			// Make sure that we can retrieve the identifier of the
-			// fleet for which the component should be created from
+			// planet for which the component should be added from
 			// the route's data.
-			if len(input.ExtraElems) != 2 || input.ExtraElems[1] != "components" {
+			if len(input.ExtraElems) != 4 || input.ExtraElems[1] != "planets" || input.ExtraElems[3] != "fleets" {
 				return resources, ErrInvalidData
 			}
 
-			fleetID := input.ExtraElems[0]
+			player := input.ExtraElems[0]
+			planet := input.ExtraElems[2]
 
 			for _, rawData := range input.Data {
 				// Try to unmarshal the data into a valid `Component` struct.
@@ -150,11 +101,13 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 					return resources, ErrInvalidData
 				}
 
-				// Make sure that this component is linked to the fleet.
-				comp.Fleet = fleetID
+				// Make sure that this component is linked to the
+				// planet and player described in the route.
+				comp.Planet = planet
+				comp.Player = player
 
 				// Create the fleet component.
-				res, err := s.fleets.CreateComponent(comp)
+				_, err = s.fleets.CreateComponent(comp)
 				if err != nil {
 					return resources, ErrDBError
 				}
@@ -163,7 +116,7 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 				// the resource by a `components/` string in order to have
 				// consistency with the input route. We should also prefix
 				// with the fleet's identifier.
-				fullRes := fmt.Sprintf("%s/components/%s", fleetID, res)
+				fullRes := fmt.Sprintf("%s/planets/%s", player, planet)
 				resources = append(resources, fullRes)
 			}
 

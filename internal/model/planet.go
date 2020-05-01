@@ -332,6 +332,11 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 		mode: mode,
 	}
 
+	// Consistency.
+	if p.ID == "" {
+		return p, ErrInvalidPlanet
+	}
+
 	// Acquire the lock on the planet from the DB.
 	var err error
 	p.locker, err = data.Locker.Acquire(p.ID)

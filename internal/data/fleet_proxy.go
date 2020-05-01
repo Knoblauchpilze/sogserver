@@ -139,7 +139,7 @@ func (p *FleetProxy) Fleets(filters []db.Filter) ([]model.Fleet, error) {
 	fleets := make([]model.Fleet, 0)
 
 	for _, ID = range IDs {
-		uni, err := model.NewFleetFromDB(ID, p.data)
+		uni, err := model.NewReadOnlyFleet(ID, p.data)
 
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" data from DB (err: %v)", ID, err))
@@ -212,12 +212,21 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 		return comp.ID, ErrInvalidFleet
 	}
 
-	// TODO: Handle cases where the fleet does not exist.
 	// Fetch the fleet related to this component.
-	fleet, err := model.NewFleetFromDB(comp.Fleet, p.data)
+	// Note that in case the component does not
+	// yet have a fleet associated to it this is
+	// the moment to create it.
+	fleet, err := p.fetchFleetForComponent(comp)
+	defer func() {
+		err := fleet.Close()
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Could not release lock on fleet \"%s\" (err: %v)", fleet.ID, err))
+		}
+	}()
+
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" to create component for \"%s\" (err: %v)", comp.Fleet, comp.Player, err))
-		return comp.ID, err
+		return comp.ID, ErrInvalidFleet
 	}
 
 	// Validate the component against planet's data.
@@ -260,6 +269,29 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 	p.trace(logger.Notice, fmt.Sprintf("Created new fleet component \"%s\" for \"%s\" in \"%s\"", comp.ID, comp.Player, fleet.ID))
 
 	return comp.ID, nil
+}
+
+// fetchFleetForComponent :
+// Used to fetch the fleet related to the input component.
+// This might either mean fetch it from the DB in case it
+// already exists or create a new fleet if the fleet does
+// not exist yet.
+//
+// The `comp` defines the fleet component for which the
+// fleet should be fetched.
+//
+// Returns the fleet associated to this component along
+// with any errors.
+func (p *FleetProxy) fetchFleetForComponent(comp model.Component) (model.Fleet, error) {
+	// In case the component has a fleet associated to it
+	// we can fetch it through the dedicated handler.
+	if comp.Fleet != "" {
+		return model.NewReadWriteFleet(comp.Fleet, p.data)
+	}
+
+	// We need to generate a new fleet from this component.
+	// TODO: Handle this.
+	return model.Fleet{}, fmt.Errorf("Not implemented")
 }
 
 // Create :

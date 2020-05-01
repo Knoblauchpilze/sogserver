@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"oglike_server/internal/locker"
 	"oglike_server/pkg/db"
 	"time"
 )
@@ -49,6 +50,14 @@ import (
 // The `Comps` defines the list of components defining the
 // fleet. Each component correspond to some ships starting
 // from a single location and travelling as a single unit.
+//
+// The `mode` defines whether the locker on the planet's
+// resources should be kept as long as this object exist
+// or only during the acquisition of the resources.
+//
+// The `locker` defines the object to use to prevent a
+// concurrent process to access to the resources of the
+// planet.
 type Fleet struct {
 	ID          string     `json:"id"`
 	Name        string     `json:"name"`
@@ -58,6 +67,8 @@ type Fleet struct {
 	Planet      string     `json:"planet,omitempty"`
 	ArrivalTime time.Time  `json:"arrival_time"`
 	Comps       Components `json:"components"`
+	mode        accessMode
+	locker      *locker.Lock
 }
 
 // ErrInvalidFleet :
@@ -86,10 +97,11 @@ var ErrDuplicatedFleet = fmt.Errorf("Invalid not unique fleet")
 //
 // Returns the fleet as fetched from the DB along
 // with any errors.
-func NewFleetFromDB(ID string, data Instance) (Fleet, error) {
+func newFleetFromDB(ID string, data Instance, mode accessMode) (Fleet, error) {
 	// Create the fleet.
 	f := Fleet{
-		ID: ID,
+		ID:   ID,
+		mode: mode,
 	}
 
 	// Consistency.
@@ -97,8 +109,16 @@ func NewFleetFromDB(ID string, data Instance) (Fleet, error) {
 		return f, ErrInvalidFleet
 	}
 
+	// Acquire the lock on the planet from the DB.
+	var err error
+	f.locker, err = data.Locker.Acquire(f.ID)
+	if err != nil {
+		return f, err
+	}
+	f.locker.Lock()
+
 	// Fetch the fleet's content.
-	err := f.fetchGeneralInfo(data)
+	err = f.fetchGeneralInfo(data)
 	if err != nil {
 		return f, err
 	}
@@ -109,6 +129,60 @@ func NewFleetFromDB(ID string, data Instance) (Fleet, error) {
 	}
 
 	return f, nil
+}
+
+// NewReadOnlyFleet :
+// Used to wrap the call arounf `newFleetFromDB`
+// to create a fleet with a read only mode. This
+// will indicate that the data will not be used
+// to modify anything on this fleet and thus the
+// resource can be locked for minimum overhead.
+//
+// The `ID` defines the identifier of the fleet
+// to fetch from the DB.
+//
+// The `data` defines a way to access to the DB.
+//
+// Returns the fleet fetched from the DB along
+// with any errors.
+func NewReadOnlyFleet(ID string, data Instance) (Fleet, error) {
+	return newFleetFromDB(ID, data, ReadOnly)
+}
+
+// NewReadWriteFleet :
+// Similar to the `NewReadOnlyFleet` but tells
+// that the fleet will be used to modify it and
+// thus the locker is kept after exiting this
+// function.
+// The user should call the `Close` method when
+// done with the modifications so as to allow
+// other processes to access the fleet.
+//
+// The `ID` defines the identifier of the fleet
+// to fetch from the DB.
+//
+// The `data` defines a way to access to the DB.
+//
+// Returns the fleet fetched from the DB along
+// with any errors.
+func NewReadWriteFleet(ID string, data Instance) (Fleet, error) {
+	return newFleetFromDB(ID, data, ReadWrite)
+}
+
+// Close :
+// Implementation of the `Closer` interface allowing
+// to release the lock this fleet may still detain
+// on the DB resources.
+func (f *Fleet) Close() error {
+	// Only release the locker in case the access mode
+	// indicates so.
+	var err error
+
+	if f.mode == ReadWrite {
+		err = f.locker.Unlock()
+	}
+
+	return err
 }
 
 // Valid :
@@ -314,13 +388,4 @@ func (f *Fleet) Convert() interface{} {
 		Planet:      f.Planet,
 		ArrivalTime: f.ArrivalTime,
 	}
-}
-
-// consolidateSpeed :
-// Used to adjust the speed of the component based on
-// the speed of its parent fleet to make sure that all
-// components arrive at the same time.
-func (f *Fleet) consolidateSpeed(data Instance) error {
-	// TODO: Implement this.
-	return fmt.Errorf("Not implemented")
 }

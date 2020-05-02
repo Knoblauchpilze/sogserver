@@ -404,7 +404,7 @@ func (fc *Component) Validate(data Instance, p *Planet, f *Fleet) error {
 	// planet compared to the amount required and
 	// that there are enough resources to be taken
 	// from the planet.
-	return p.validateComponent(fc.Consumption, fc.Cargo, data)
+	return p.validateComponent(fc.Consumption, fc.Cargo, fc.Ships, data)
 }
 
 // fetchShips :

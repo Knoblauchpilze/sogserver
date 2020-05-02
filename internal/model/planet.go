@@ -232,6 +232,12 @@ var ErrNoCost = fmt.Errorf("No cost provided for action")
 // component.
 var ErrNotEnoughFuel = fmt.Errorf("Not enough fuel for fleet")
 
+// ErrNotEnoughShips :
+// Used to indicate that there's not enough ships of
+// a certain kind to deploy as many as needed by the
+// fleet component.
+var ErrNotEnoughShips = fmt.Errorf("Not enough ships for fleet")
+
 // getDefaultPlanetName :
 // Used to retrieve a default name for a planet. The
 // generated name will be different based on whether
@@ -1673,6 +1679,26 @@ func (p *Planet) GetBuilding(ID string) (BuildingInfo, error) {
 	return BuildingInfo{}, ErrInvalidID
 }
 
+// GetShip :
+// Retrieves the ship from the input identifier.
+//
+// The `ID` defines the identifier of the ship
+// to fetch from the planet.
+//
+// Returns the ship description corresponding
+// to the input identifier along with any error.
+func (p *Planet) GetShip(ID string) (ShipInfo, error) {
+	// Traverse the list of ships attached to the
+	// planet and search for the input ID.
+	for _, s := range p.Ships {
+		if s.ID == ID {
+			return s, nil
+		}
+	}
+
+	return ShipInfo{}, ErrInvalidID
+}
+
 // validateAction :
 // Used to make sure that the action described by
 // the costs and tech dependencies in input can be
@@ -1760,6 +1786,12 @@ func (p *Planet) validateAction(costs map[string]int, desc UpgradableDesc, data 
 // The `cargos` defines the amount of resources
 // that should be taken by the component.
 //
+// The `ships` defines the list of ships that
+// should be subtracted to the current fleet
+// deployed at this planet. Each value should
+// be at most equal to the total number of
+// ships of this kind on the planet.
+//
 // The `data` allows to access to the DB in
 // case it's needed.
 //
@@ -1767,7 +1799,7 @@ func (p *Planet) validateAction(costs map[string]int, desc UpgradableDesc, data 
 // to the `validateAction` where no error is
 // meant to indicate that the component is a
 // valid one compared to the planet's data.
-func (p *Planet) validateComponent(fuels []ConsumptionValue, cargos []ResourceAmount, data Instance) error {
+func (p *Planet) validateComponent(fuels []ConsumptionValue, cargos []ResourceAmount, ships []ShipInFleet, data Instance) error {
 	// Gather existing resources.
 	available := make(map[string]float32)
 
@@ -1799,6 +1831,19 @@ func (p *Planet) validateComponent(fuels []ConsumptionValue, cargos []ResourceAm
 
 		res -= cargo.Amount
 		available[cargo.Resource] = res
+	}
+
+	// Make sure that there's enough ships.
+	for _, ship := range ships {
+		s, err := p.GetShip(ship.ID)
+
+		if err != nil {
+			return err
+		}
+
+		if s.Amount < ship.Count {
+			return ErrNotEnoughShips
+		}
 	}
 
 	return nil

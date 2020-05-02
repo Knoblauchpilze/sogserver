@@ -116,6 +116,9 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 				// the resource by a `components/` string in order to have
 				// consistency with the input route. We should also prefix
 				// with the fleet's identifier.
+				// TODO: We should define whether we will keep the component
+				// in the planets route or only in the fleet route (and the
+				// planets route would only serve the fleeets identifiers).
 				fullRes := fmt.Sprintf("%s/planets/%s", player, planet)
 				resources = append(resources, fullRes)
 			}

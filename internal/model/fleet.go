@@ -129,6 +129,11 @@ func newFleetFromDB(ID string, data Instance, mode accessMode) (Fleet, error) {
 		return f, err
 	}
 
+	// Release the locker if needed.
+	if f.mode == ReadOnly {
+		err = f.locker.Unlock()
+	}
+
 	return f, nil
 }
 

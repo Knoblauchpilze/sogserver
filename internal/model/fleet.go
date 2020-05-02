@@ -351,6 +351,7 @@ func (f *Fleet) fetchComponents(data Instance) error {
 		comp.ArrivalTime = f.ArrivalTime
 		comp.Target = f.Target
 		comp.Objective = f.Objective
+		comp.Name = f.Name
 		comp.flightTime = float64(comp.ArrivalTime.Sub(comp.JoinedAt) / time.Second)
 
 		err = comp.fetchShips(data)

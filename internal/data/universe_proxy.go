@@ -68,7 +68,7 @@ func (p *UniverseProxy) Universes(filters []db.Filter) ([]model.Universe, error)
 	}
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch universes (err: %v)", dbRes.Err))
-		return []model.Universe{}, err
+		return []model.Universe{}, dbRes.Err
 	}
 
 	// We now need to retrieve all the identifiers that matched

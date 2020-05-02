@@ -184,7 +184,7 @@ func newProgressActionFromDB(ID string, data Instance, table string) (ProgressAc
 		return a, err
 	}
 	if dbRes.Err != nil {
-		return a, err
+		return a, dbRes.Err
 	}
 
 	// Scan the action's data.
@@ -304,7 +304,7 @@ func newFixedActionFromDB(ID string, data Instance, table string) (FixedAction, 
 		return a, err
 	}
 	if dbRes.Err != nil {
-		return a, err
+		return a, dbRes.Err
 	}
 
 	// Scan the action's data.
@@ -601,7 +601,7 @@ func (a *BuildingAction) fetchProductionEffects(data Instance) error {
 		return err
 	}
 	if dbRes.Err != nil {
-		return err
+		return dbRes.Err
 	}
 
 	// Populate the return value.
@@ -660,7 +660,7 @@ func (a *BuildingAction) fetchStorageEffects(data Instance) error {
 		return err
 	}
 	if dbRes.Err != nil {
-		return err
+		return dbRes.Err
 	}
 
 	// Populate the return value.

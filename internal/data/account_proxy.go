@@ -68,7 +68,7 @@ func (p *AccountProxy) Accounts(filters []db.Filter) ([]model.Account, error) {
 	}
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch accounts (err: %v)", dbRes.Err))
-		return []model.Account{}, err
+		return []model.Account{}, dbRes.Err
 	}
 
 	// We now need to retrieve all the identifiers that matched

@@ -120,7 +120,7 @@ func NewAccountFromDB(ID string, data Instance) (Account, error) {
 		return a, err
 	}
 	if dbRes.Err != nil {
-		return a, err
+		return a, dbRes.Err
 	}
 
 	// Scan the account's data.

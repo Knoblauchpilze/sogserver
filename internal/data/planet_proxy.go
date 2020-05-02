@@ -85,7 +85,7 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
 	}
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch planets (err: %v)", dbRes.Err))
-		return []model.Planet{}, err
+		return []model.Planet{}, dbRes.Err
 	}
 
 	// We now need to retrieve all the identifiers that matched

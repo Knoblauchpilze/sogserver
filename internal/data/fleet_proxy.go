@@ -116,7 +116,7 @@ func (p *FleetProxy) Fleets(filters []db.Filter) ([]model.Fleet, error) {
 	}
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch fleets (err: %v)", dbRes.Err))
-		return []model.Fleet{}, err
+		return []model.Fleet{}, dbRes.Err
 	}
 
 	// We now need to retrieve all the identifiers that matched
@@ -309,9 +309,11 @@ func (p *FleetProxy) fetchFleetForComponent(comp model.Component, universe strin
 			return f, nil, err
 		}
 
-		// Override the target information from the component
-		// if any is provided.
+		// Override the information provided by the fleet in
+		// the component.
+		comp.Objective = f.Objective
 		comp.Target = f.Target
+		comp.Name = f.Name
 	}
 
 	// Attempt to retrieve the target planet associated
@@ -324,7 +326,7 @@ func (p *FleetProxy) fetchFleetForComponent(comp model.Component, universe strin
 	}
 
 	// Retrieve the target planet if needed.
-	target, err := uni.GetPlanetAt(comp.Target)
+	target, err := uni.GetPlanetAt(comp.Target, comp.Player, p.data)
 	if err != nil && err != model.ErrPlanetNotFound {
 		return f, nil, err
 	}
@@ -343,7 +345,7 @@ func (p *FleetProxy) fetchFleetForComponent(comp model.Component, universe strin
 
 	f = model.Fleet{
 		ID:          uuid.New().String(),
-		Name:        "??",
+		Name:        comp.Name,
 		Universe:    uni.ID,
 		Objective:   comp.Objective,
 		Target:      comp.Target,
@@ -352,6 +354,12 @@ func (p *FleetProxy) fetchFleetForComponent(comp model.Component, universe strin
 		Comps: []model.Component{
 			comp,
 		},
+	}
+
+	// Make sure the fleet is valid.
+	if !f.Valid(uni) {
+		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet's data %s", f))
+		return f, target, ErrInvalidFleet
 	}
 
 	// Register it in the DB.

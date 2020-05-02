@@ -63,6 +63,15 @@ import (
 // either through its own definition or by polling
 // the parent fleet.
 //
+// The `Objective` defines the objective of this fleet
+// component. It is used in case the fleet associated
+// to the comp is not yet created to asses the purpose
+// of the fleet.
+//
+// The `Name` defines a human readable name provided
+// by the user to reference the fleet. It should be
+// unique in a universe.
+//
 // The `flightTime` defines the flight time in seconds.
 // Note that it is somewhat redundant with the other
 // time information (namely `JoinedAt` and the arrival
@@ -80,6 +89,7 @@ type Component struct {
 	ArrivalTime time.Time          `json:"-"`
 	Target      Coordinate         `json:"target"`
 	Objective   string             `json:"objective"`
+	Name        string             `json:"name"`
 	flightTime  float64
 }
 

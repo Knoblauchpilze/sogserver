@@ -71,7 +71,7 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]model.Player, error) {
 	}
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch players (err: %v)", dbRes.Err))
-		return []model.Player{}, err
+		return []model.Player{}, dbRes.Err
 	}
 
 	// We now need to retrieve all the identifiers that matched

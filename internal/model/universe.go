@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"oglike_server/pkg/db"
+	"strconv"
 )
 
 // Universe :
@@ -77,6 +78,18 @@ var ErrDuplicatedCoordinates = fmt.Errorf("Invalid duplicated coordinates")
 // Used to indicate that there is not planet at the specified
 // coordinates.
 var ErrPlanetNotFound = fmt.Errorf("No planet at the specified coordinates")
+
+// ErrInvalidPlanetCoordinates :
+// Used to indicate that the coordinates provided to fetch a
+// planet are obviously not suited to the universe they're
+// used into.
+var ErrInvalidPlanetCoordinates = fmt.Errorf("Invalid coordinates for universe exploration")
+
+// ErrDuplicatedPlanet :
+// Used to indicate that the coordinates provided in input
+// did not allow to narrow the search of a planet to a single
+// instance.
+var ErrDuplicatedPlanet = fmt.Errorf("Invalid duplicated planet from coordinates")
 
 // Valid :
 // Used to determine whether the parameters defined for this
@@ -277,13 +290,87 @@ func (u *Universe) UsedCoords(proxy db.Proxy) (map[int]Coordinate, error) {
 // Used to attempt to retrieve the planet that exists at
 // the specified coordinates. In case no planet exists
 // a `ErrPlanetNotFound` error will be returned.
+// Additionnaly the planet is required to belong to the
+// specified player.
 //
 // The `coord` defines the coordinates from which a planet
 // should be fetched.
 //
+// The `player` defines the identifier of the player that
+// should own the planet if it exists.
+//
+// The `data` allows to access to the DB to fetch the
+// planet's data.
+//
 // Returns the planet at the specified coordinates (or
 // `nil` in case no planet exists) along with any error.
-func (u *Universe) GetPlanetAt(coord Coordinate) (*Planet, error) {
-	// TODO: Implement this.
-	return nil, fmt.Errorf("Not implemented")
+func (u *Universe) GetPlanetAt(coord Coordinate, player string, data Instance) (*Planet, error) {
+	// Make sure that the coordinate are valid for this universe.
+	if !coord.valid(u.GalaxiesCount, u.GalaxySize, u.SolarSystemSize) {
+		return nil, ErrInvalidPlanetCoordinates
+	}
+
+	// Create the query to fetch the planet from the coordinates.
+	// Create the query and execute it.
+	gas := strconv.Itoa(coord.Galaxy)
+	sas := strconv.Itoa(coord.System)
+	pas := strconv.Itoa(coord.Position)
+
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table: "planets",
+		Filters: []db.Filter{
+			{
+				Key:    "galaxy",
+				Values: []string{gas},
+			},
+			{
+				Key:    "solar_system",
+				Values: []string{sas},
+			},
+			{
+				Key:    "position",
+				Values: []string{pas},
+			},
+			{
+				Key:    "player",
+				Values: []string{player},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return nil, err
+	}
+	if dbRes.Err != nil {
+		return nil, dbRes.Err
+	}
+
+	// Scan the planet's data.
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return nil, ErrPlanetNotFound
+	}
+
+	var ID string
+
+	err = dbRes.Scan(
+		&ID,
+	)
+
+	// Make sure that it's the only universe.
+	if dbRes.Next() {
+		return nil, ErrDuplicatedPlanet
+	}
+
+	// Fetch the planet using read write semantic.
+	p, err := NewReadWritePlanet(ID, data)
+
+	return &p, err
 }

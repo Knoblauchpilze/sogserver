@@ -64,6 +64,12 @@ var ErrImpossibleFleet = fmt.Errorf("Cannot perform creation of fleet component 
 // associated to the fleet.
 var ErrPlayerNotInUniverse = fmt.Errorf("Invalid player identifier compared to universe")
 
+// ErrComponentAtDestination :
+// Used to indicate that a fleet component is actually set
+// to start from the destination of the fleet it is meant
+// to join. This is not possible.
+var ErrComponentAtDestination = fmt.Errorf("Fleet component cannot join fleet directed towards starting position")
+
 // NewFleetProxy :
 // Create a new proxy allowing to serve the requests
 // related to fleets.
@@ -212,6 +218,13 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 		return comp.ID, ErrInvalidFleet
 	}
 
+	// Make sure that the component is not directed towards
+	// its started position.
+	if comp.Target == source.Coordinates {
+		p.trace(logger.Error, fmt.Sprintf("Fleet component is directed towards planet \"%s\" which is its started location at %s", source.ID, comp.Target))
+		return comp.ID, ErrInvalidFleet
+	}
+
 	// Consolidate the arrival time for this component.
 	err = comp.ConsolidateArrivalTime(p.data, &source)
 	if err != nil {
@@ -223,7 +236,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 	// Note that in case the component does not
 	// yet have a fleet associated to it this is
 	// the moment to create it.
-	fleet, target, err := p.fetchFleetForComponent(comp, player.Universe)
+	fleet, target, err := p.fetchFleetForComponent(&comp, player.Universe)
 	defer func() {
 		err := fleet.Close()
 		if err != nil {
@@ -235,6 +248,8 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 		p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" to create component for \"%s\" (err: %v)", comp.Fleet, comp.Player, err))
 		return comp.ID, ErrInvalidFleet
 	}
+	fmt.Println(fmt.Sprintf("Fleet was created with id %v", fleet))
+	fmt.Println(fmt.Sprintf("Comp has fleet id \"%s\"", comp.Fleet))
 
 	// Validate the component against planet's data.
 	err = comp.Validate(p.data, &source, target, &fleet)
@@ -242,6 +257,26 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 		p.trace(logger.Error, fmt.Sprintf("Cannot create fleet component for \"%s\" from \"%s\" (err: %v)", comp.Player, source.ID, err))
 		return comp.ID, ErrImpossibleFleet
 	}
+	// TODO: Acquire the lock on the fleet.
+
+	// We can perform the insertion of both the fleet and the
+	// component now that we know that both are valid.
+	query := db.InsertReq{
+		Script: "create_fleet",
+		Args: []interface{}{
+			&fleet,
+		},
+	}
+
+	err = p.proxy.InsertToDB(query)
+
+	// Check for errors.
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not create fleet for \"%s\" from \"%s\" (err: %v)", comp.Player, comp.Planet, err))
+		return comp.ID, err
+	}
+
+	p.trace(logger.Notice, fmt.Sprintf("Created new fleet \"%s\" from component \"%s\"", fleet.ID, comp.ID))
 
 	// Convert the input ships to something that can be directly
 	// inserted into the DB. We need to manually create the ID
@@ -257,7 +292,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 	}
 
 	// Create the query and execute it.
-	query := db.InsertReq{
+	query = db.InsertReq{
 		Script: "create_fleet_component",
 		Args: []interface{}{
 			&comp,
@@ -296,7 +331,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 // with the target planet (which might be `nil` in case
 // the objective of the fleet is compatible with it) and
 // any errors.
-func (p *FleetProxy) fetchFleetForComponent(comp model.Component, universe string) (model.Fleet, *model.Planet, error) {
+func (p *FleetProxy) fetchFleetForComponent(comp *model.Component, universe string) (model.Fleet, *model.Planet, error) {
 	var f model.Fleet
 	var err error
 
@@ -323,6 +358,12 @@ func (p *FleetProxy) fetchFleetForComponent(comp model.Component, universe strin
 	uni, err := model.NewUniverseFromDB(universe, p.data)
 	if err != nil {
 		return f, nil, model.ErrInvalidUniverse
+	}
+
+	// Make sure that the target of the fleet is not
+	// the source of the component.
+	if comp.Target == f.Target {
+		return f, nil, ErrComponentAtDestination
 	}
 
 	// Retrieve the target planet if needed.
@@ -352,33 +393,18 @@ func (p *FleetProxy) fetchFleetForComponent(comp model.Component, universe strin
 		Planet:      planetID,
 		ArrivalTime: comp.ArrivalTime,
 		Comps: []model.Component{
-			comp,
+			*comp,
 		},
 	}
+
+	// Associate the component with the fleet.
+	comp.Fleet = f.ID
 
 	// Make sure the fleet is valid.
 	if !f.Valid(uni) {
 		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet's data %s", f))
 		return f, target, ErrInvalidFleet
 	}
-
-	// Register it in the DB.
-	query := db.InsertReq{
-		Script: "create_fleet",
-		Args: []interface{}{
-			&f,
-		},
-	}
-
-	err = p.proxy.InsertToDB(query)
-
-	// Check for errors.
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not create fleet for \"%s\" from \"%s\" (err: %v)", comp.Player, comp.Planet, err))
-		return f, target, err
-	}
-
-	p.trace(logger.Notice, fmt.Sprintf("Created new fleet \"%s\" from component \"%s\"", f.ID, comp.ID))
 
 	return f, target, nil
 }

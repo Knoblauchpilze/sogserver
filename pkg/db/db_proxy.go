@@ -312,6 +312,8 @@ func (p Proxy) InsertToDB(req InsertReq) error {
 		query = fmt.Sprintf("SELECT %s(%s)", req.Script, strings.Join(argsAsStr, ", "))
 	}
 
+	fmt.Println(fmt.Sprintf("Query is \"%s\"", query))
+
 	_, err := p.dbase.DBExecute(query)
 
 	return formatDBError(err)

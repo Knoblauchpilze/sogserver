@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql"
 	"fmt"
 	"oglike_server/internal/locker"
 	"oglike_server/pkg/db"
@@ -262,6 +263,11 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 		return ErrInvalidFleet
 	}
 
+	// Note that we have to query the `planet` in a nullable
+	// string in order to account for cases where the string
+	// is not filled (typically for undirected objectives).
+	var pl sql.NullString
+
 	err = dbRes.Scan(
 		&f.Name,
 		&f.Universe,
@@ -269,11 +275,14 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 		&g,
 		&s,
 		&p,
-		&f.Planet,
+		&pl,
 		&f.ArrivalTime,
 	)
 
 	f.Target = NewCoordinate(g, s, p)
+	if pl.Valid {
+		f.Planet = pl.String
+	}
 
 	// Make sure that it's the only fleet.
 	if dbRes.Next() {
@@ -381,7 +390,7 @@ func (f *Fleet) Convert() interface{} {
 		Galaxy      int       `json:"target_galaxy"`
 		System      int       `json:"target_solar_system"`
 		Position    int       `json:"target_position"`
-		Planet      string    `json:"planet"`
+		Planet      string    `json:"planet,omitempty"`
 		ArrivalTime time.Time `json:"arrival_time"`
 	}{
 		ID:          f.ID,

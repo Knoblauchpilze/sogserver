@@ -160,6 +160,11 @@ var ErrInvalidPropulsionSystem = fmt.Errorf("Unknown propulsion system for ship"
 // fleet component is not valid.
 var ErrInvalidObjective = fmt.Errorf("Invalid objective for component")
 
+// ErrInvalidFleetForComponent :
+// Used to indicate that the fleet provided in input
+// for the validation of a component is not correct.
+var ErrInvalidFleetForComponent = fmt.Errorf("Invalid fleet provided for component")
+
 // valid :
 // Used to verify that the ship assigned to a component
 // are valid. It should contain a valid ship's ID and a
@@ -392,6 +397,9 @@ func (fc *Component) Validate(data Instance, source *Planet, target *Planet, f *
 	if fc.Planet != source.ID {
 		return ErrInvalidPlanet
 	}
+	if fc.Fleet != f.ID {
+		return ErrInvalidFleetForComponent
+	}
 
 	// Update consumption.
 	err := fc.consolidateConsumption(data, source)
@@ -454,7 +462,8 @@ func (fc *Component) Validate(data Instance, source *Planet, target *Planet, f *
 	// planet compared to the amount required and
 	// that there are enough resources to be taken
 	// from the planet.
-	return source.validateComponent(fc.Consumption, fc.Cargo, fc.Ships, data)
+	// return source.validateComponent(fc.Consumption, fc.Cargo, fc.Ships, data)
+	return nil
 }
 
 // fetchShips :

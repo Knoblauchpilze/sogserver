@@ -175,6 +175,41 @@ func NewReadWriteFleet(ID string, data Instance) (Fleet, error) {
 	return newFleetFromDB(ID, data, ReadWrite)
 }
 
+// NewEmptyReadWriteFleet :
+// Used to perform the creation of a minimalistic
+// fleet from the specified identifier. Nothing
+// else is set apart from the locker which is
+// acquired in read write mode.
+//
+// The `ID` defines the identifier of the fleet.
+//
+// The `data` allows to register the locker for
+// this fleet.
+//
+// Returns the created fleet along with any errors.
+func NewEmptyReadWriteFleet(ID string, data Instance) (Fleet, error) {
+	// Consistency.
+	if !validUUID(ID) {
+		return Fleet{}, ErrInvalidFleet
+	}
+
+	// Create the fleet.
+	f := Fleet{
+		ID:   ID,
+		mode: ReadWrite,
+	}
+
+	// Try to acquire the lock for this fleet.
+	var err error
+	f.locker, err = data.Locker.Acquire(f.ID)
+	if err != nil {
+		return f, err
+	}
+	f.locker.Lock()
+
+	return f, nil
+}
+
 // Close :
 // Implementation of the `Closer` interface allowing
 // to release the lock this fleet may still detain
@@ -184,7 +219,7 @@ func (f *Fleet) Close() error {
 	// indicates so.
 	var err error
 
-	if f.mode == ReadWrite {
+	if f.mode == ReadWrite && f.locker != nil {
 		err = f.locker.Unlock()
 	}
 

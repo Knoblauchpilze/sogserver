@@ -257,7 +257,6 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 		p.trace(logger.Error, fmt.Sprintf("Cannot create fleet component for \"%s\" from \"%s\" (err: %v)", comp.Player, source.ID, err))
 		return comp.ID, ErrImpossibleFleet
 	}
-	// TODO: Acquire the lock on the fleet.
 
 	// We can perform the insertion of both the fleet and the
 	// component now that we know that both are valid.
@@ -384,17 +383,19 @@ func (p *FleetProxy) fetchFleetForComponent(comp *model.Component, universe stri
 		planetID = target.ID
 	}
 
-	f = model.Fleet{
-		ID:          uuid.New().String(),
-		Name:        comp.Name,
-		Universe:    uni.ID,
-		Objective:   comp.Objective,
-		Target:      comp.Target,
-		Planet:      planetID,
-		ArrivalTime: comp.ArrivalTime,
-		Comps: []model.Component{
-			*comp,
-		},
+	f, err = model.NewEmptyReadWriteFleet(uuid.New().String(), p.data)
+	if err != nil {
+		return f, target, nil
+	}
+
+	f.Name = comp.Name
+	f.Universe = uni.ID
+	f.Objective = comp.Objective
+	f.Target = comp.Target
+	f.Planet = planetID
+	f.ArrivalTime = comp.ArrivalTime
+	f.Comps = []model.Component{
+		*comp,
 	}
 
 	// Associate the component with the fleet.

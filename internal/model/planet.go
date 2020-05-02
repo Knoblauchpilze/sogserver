@@ -467,7 +467,7 @@ func (p *Planet) Close() error {
 	// indicates so.
 	var err error
 
-	if p.mode == ReadWrite {
+	if p.mode == ReadWrite && p.locker != nil {
 		err = p.locker.Unlock()
 	}
 

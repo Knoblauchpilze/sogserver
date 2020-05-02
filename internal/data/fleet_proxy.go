@@ -261,8 +261,6 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 		p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" to create component for \"%s\" (err: %v)", comp.Fleet, comp.Player, err))
 		return comp.ID, ErrInvalidFleet
 	}
-	fmt.Println(fmt.Sprintf("Fleet was created with id %v", fleet))
-	fmt.Println(fmt.Sprintf("Comp has fleet id \"%s\"", comp.Fleet))
 
 	// Validate the component against planet's data.
 	err = comp.Validate(p.data, &source, target, &fleet)

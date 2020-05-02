@@ -12,9 +12,18 @@ import (
 // are used to indicate which purpose fleets are serving.
 // Each objective is retrieved from the DB and is hardly
 // subject to modifications during the course of the game.
+//
+// The `hostile` defines whether fleet objectives are set
+// to be hostile actions or not.
+//
+// The `directed` defines which of the objectives need a
+// target planet.
 type FleetObjectivesModule struct {
 	associationTable
 	baseModule
+
+	hostile  map[string]bool
+	directed map[string]bool
 }
 
 // Objective :
@@ -29,9 +38,20 @@ type FleetObjectivesModule struct {
 // The `Name` defines the display name for the fleet
 // objective. It already gives some summary of what
 // is intended when a fleet has this purpose.
+//
+// The `Hostile` defines whether or not a fleet with
+// this objective can be directed towards the planet
+// of a single player.
+//
+// The `Directed` defines whether a planet should be
+// associated to a fleet having this objective. If
+// set to `false` it indicates that the fleet does
+// not need to be directed to a planet.
 type Objective struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Hostile  bool   `json:"hostile"`
+	Directed bool   `json:"directed"`
 }
 
 // NewFleetObjectivesModule :
@@ -46,7 +66,20 @@ func NewFleetObjectivesModule(log logger.Logger) *FleetObjectivesModule {
 	return &FleetObjectivesModule{
 		associationTable: newAssociationTable(),
 		baseModule:       newBaseModule(log, "fleets"),
+		hostile:          nil,
+		directed:         nil,
 	}
+}
+
+// valid :
+// Refinement of the base `associationTable` valid method
+// in order to perform some checks on the hostile and the
+// directionality of the objectives in this module.
+//
+// Returns `true` if the association table is valid and
+// the internal resources as well.
+func (fom *FleetObjectivesModule) valid() bool {
+	return fom.associationTable.valid() && len(fom.hostile) > 0 && len(fom.directed) > 0
 }
 
 // Init :
@@ -62,11 +95,22 @@ func NewFleetObjectivesModule(log logger.Logger) *FleetObjectivesModule {
 //
 // Returns any error.
 func (fom *FleetObjectivesModule) Init(proxy db.Proxy, force bool) error {
+	// Prevent reload if not needed.
+	if fom.valid() && !force {
+		return nil
+	}
+
+	// Initialize internal values.
+	fom.hostile = make(map[string]bool)
+	fom.directed = make(map[string]bool)
+
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
 			"id",
 			"name",
+			"hostile",
+			"directed",
 		},
 		Table:   "fleet_objectives",
 		Filters: []db.Filter{},
@@ -94,6 +138,8 @@ func (fom *FleetObjectivesModule) Init(proxy db.Proxy, force bool) error {
 		err := rows.Scan(
 			&obj.ID,
 			&obj.Name,
+			&obj.Hostile,
+			&obj.Directed,
 		)
 
 		if err != nil {
@@ -114,7 +160,25 @@ func (fom *FleetObjectivesModule) Init(proxy db.Proxy, force bool) error {
 		if err != nil {
 			fom.trace(logger.Error, fmt.Sprintf("Cannot register objective \"%s\" (id: \"%s\") (err: %v)", obj.Name, obj.ID, err))
 			inconsistent = true
+
+			continue
 		}
+
+		// Register the directed and hostile status.
+		eh, hok := fom.hostile[obj.ID]
+		ed, dok := fom.directed[obj.ID]
+
+		if hok {
+			fom.trace(logger.Error, fmt.Sprintf("Overriding hostile flag for \"%s\" (%t to %t)", obj.ID, eh, obj.Hostile))
+			override = true
+		}
+		if dok {
+			fom.trace(logger.Error, fmt.Sprintf("Overriding directed flag for \"%s\" (%t to %t)", obj.ID, ed, obj.Directed))
+			override = true
+		}
+
+		fom.hostile[obj.ID] = obj.Hostile
+		fom.directed[obj.ID] = obj.Directed
 	}
 
 	if override || inconsistent {
@@ -149,8 +213,10 @@ func (fom *FleetObjectivesModule) GetObjectiveFromID(id string) (Objective, erro
 	// assigned to the left operands which is okay (and
 	// even desired).
 	res := Objective{
-		ID:   id,
-		Name: name,
+		ID:       id,
+		Name:     name,
+		Hostile:  fom.hostile[id],
+		Directed: fom.directed[id],
 	}
 
 	return res, nil
@@ -229,6 +295,22 @@ func (fom *FleetObjectivesModule) Objectives(proxy db.Proxy, filters []db.Filter
 		desc := Objective{
 			ID:   ID,
 			Name: name,
+		}
+
+		h, ok := fom.hostile[ID]
+		if !ok {
+			fom.trace(logger.Error, fmt.Sprintf("Unable to fetch hostile status for objective \"%s\"", ID))
+			continue
+		} else {
+			desc.Hostile = h
+		}
+
+		d, ok := fom.directed[ID]
+		if !ok {
+			fom.trace(logger.Error, fmt.Sprintf("Unable to fetch directed status for objective \"%s\"", ID))
+			continue
+		} else {
+			desc.Directed = d
 		}
 
 		descs = append(descs, desc)

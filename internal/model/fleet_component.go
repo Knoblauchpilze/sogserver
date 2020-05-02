@@ -79,6 +79,7 @@ type Component struct {
 	Cargo       []ResourceAmount   `json:"cargo"`
 	ArrivalTime time.Time          `json:"-"`
 	Target      Coordinate         `json:"target"`
+	Objective   string             `json:"objective"`
 	flightTime  float64
 }
 
@@ -144,6 +145,11 @@ var ErrArrivalTimeMismatch = fmt.Errorf("Fleet and component arrival times misma
 // on the planet.
 var ErrInvalidPropulsionSystem = fmt.Errorf("Unknown propulsion system for ship")
 
+// ErrInvalidObjective :
+// Used to indicate that the objective associated to the
+// fleet component is not valid.
+var ErrInvalidObjective = fmt.Errorf("Invalid objective for component")
+
 // valid :
 // Used to verify that the ship assigned to a component
 // are valid. It should contain a valid ship's ID and a
@@ -174,11 +180,18 @@ func (sifs ShipsInFleet) valid() bool {
 // Used to perform a chain validation on all the elems
 // for this slice.
 //
+// The `objective` defines the parent fleet's objective
+// which should be matched by all components.
+//
+// The `target` defines the coordinates targeted by
+// the parent fleet which should be reflected by all
+// the individual components.
+//
 // Returns `true` if all individual components are
 // valid.
-func (fcs Components) valid() bool {
+func (fcs Components) valid(objective string, target Coordinate) bool {
 	for _, comp := range fcs {
-		if !comp.Valid() {
+		if !comp.Valid() || comp.Objective != objective || comp.Target != target {
 			return false
 		}
 	}
@@ -199,6 +212,7 @@ func (fc *Component) Valid() bool {
 		validUUID(fc.Planet) &&
 		fc.Speed >= 0.0 && fc.Speed <= 1.0 &&
 		fc.Ships.valid() &&
+		validUUID(fc.Objective) &&
 		// Allow for either a valid fleet identifier of
 		// no identifier at all in case the fleet for
 		// this component does not exist yet.
@@ -351,21 +365,26 @@ func (fc *Component) ConsolidateArrivalTime(data Instance, p *Planet) error {
 //
 // The `data` allows to access to the DB if needed.
 //
-// The `p` defines the planet attached to this action:
-// it needs to be provided as input so that resource
-// locking is easier.
+// The `source` defines the planet attached to this
+// fleet: it represents the mandatory location from
+// where the component is launched.
+//
+// The `target` defines the potential planet to which
+// this component is directed. It might be `nil` in
+// case the objective allows it (typically a colonize
+// operation).
 //
 // The `f` defines the parent fleet for this component.
 //
 // Returns any error.
-func (fc *Component) Validate(data Instance, p *Planet, f *Fleet) error {
+func (fc *Component) Validate(data Instance, source *Planet, target *Planet, f *Fleet) error {
 	// Consistency.
-	if fc.Planet != p.ID {
+	if fc.Planet != source.ID {
 		return ErrInvalidPlanet
 	}
 
 	// Update consumption.
-	err := fc.consolidateConsumption(data, p)
+	err := fc.consolidateConsumption(data, source)
 	if err != nil {
 		return err
 	}
@@ -400,11 +419,32 @@ func (fc *Component) Validate(data Instance, p *Planet, f *Fleet) error {
 		return ErrArrivalTimeMismatch
 	}
 
+	// Make sure that the objective of this component
+	// is consistent with what's defined in the DB.
+	obj, err := data.Objectives.GetObjectiveFromID(fc.Objective)
+	if err != nil {
+		return ErrInvalidObjective
+	}
+
+	// Verify that the objective is consistent with
+	// the origin and destination of the component:
+	// we don't want player to attack themselves for
+	// example.
+	if obj.Directed && target == nil {
+		return ErrInvalidObjective
+	}
+	if obj.Hostile && target == nil {
+		return ErrInvalidObjective
+	}
+	if obj.Hostile && source.Player == target.Player {
+		return ErrInvalidObjective
+	}
+
 	// Validate the amount of fuel available on the
 	// planet compared to the amount required and
 	// that there are enough resources to be taken
 	// from the planet.
-	return p.validateComponent(fc.Consumption, fc.Cargo, fc.Ships, data)
+	return source.validateComponent(fc.Consumption, fc.Cargo, fc.Ships, data)
 }
 
 // fetchShips :

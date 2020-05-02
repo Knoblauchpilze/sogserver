@@ -73,6 +73,11 @@ var ErrDuplicatedUniverse = fmt.Errorf("Invalid not unique universe")
 // was actually already existing.
 var ErrDuplicatedCoordinates = fmt.Errorf("Invalid duplicated coordinates")
 
+// ErrPlanetNotFound :
+// Used to indicate that there is not planet at the specified
+// coordinates.
+var ErrPlanetNotFound = fmt.Errorf("No planet at the specified coordinates")
+
 // Valid :
 // Used to determine whether the parameters defined for this
 // universe are consistent with what is expected. This will
@@ -266,4 +271,19 @@ func (u *Universe) UsedCoords(proxy db.Proxy) (map[int]Coordinate, error) {
 	}
 
 	return coords, nil
+}
+
+// GetPlanetAt :
+// Used to attempt to retrieve the planet that exists at
+// the specified coordinates. In case no planet exists
+// a `ErrPlanetNotFound` error will be returned.
+//
+// The `coord` defines the coordinates from which a planet
+// should be fetched.
+//
+// Returns the planet at the specified coordinates (or
+// `nil` in case no planet exists) along with any error.
+func (u *Universe) GetPlanetAt(coord Coordinate) (*Planet, error) {
+	// TODO: Implement this.
+	return nil, fmt.Errorf("Not implemented")
 }

@@ -3,6 +3,8 @@
 CREATE TABLE fleet_objectives (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
+  hostile boolean NOT NULL,
+  directed boolean NOT NULL,
   PRIMARY KEY (id),
   UNIQUE (name)
 );
@@ -64,13 +66,13 @@ CREATE TABLE fleet_resources (
 );
 
 -- Seed the fleet objectives.
-INSERT INTO public.fleet_objectives ("name") VALUES('attacking');
-INSERT INTO public.fleet_objectives ("name") VALUES('deployment');
-INSERT INTO public.fleet_objectives ("name") VALUES('espionage');
-INSERT INTO public.fleet_objectives ("name") VALUES('transport');
-INSERT INTO public.fleet_objectives ("name") VALUES('colonization');
-INSERT INTO public.fleet_objectives ("name") VALUES('harvesting');
-INSERT INTO public.fleet_objectives ("name") VALUES('destroy');
-INSERT INTO public.fleet_objectives ("name") VALUES('expedition');
-INSERT INTO public.fleet_objectives ("name") VALUES('ACS attack');
-INSERT INTO public.fleet_objectives ("name") VALUES('ACS defend');
+INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('deployment', 'false', 'true');
+INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('transport', 'false', 'true');
+INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('colonization', 'false', 'false');
+INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('expedition', 'false', 'false');
+INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('ACS defend', 'false', 'true');
+INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('ACS attack', 'true', 'true');
+INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('harvesting', 'false', 'false');
+INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('attacking', 'true', 'true');
+INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('espionage', 'true', 'true');
+INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('destroy', 'true', 'true');

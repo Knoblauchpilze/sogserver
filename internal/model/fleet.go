@@ -196,7 +196,7 @@ func (f *Fleet) Valid(uni Universe) bool {
 		validUUID(f.Universe) &&
 		validUUID(f.Objective) &&
 		f.Target.valid(uni.GalaxiesCount, uni.GalaxySize, uni.SolarSystemSize) &&
-		f.Comps.valid()
+		f.Comps.valid(f.Objective, f.Target)
 }
 
 // String :
@@ -350,6 +350,7 @@ func (f *Fleet) fetchComponents(data Instance) error {
 		comp.Fleet = f.ID
 		comp.ArrivalTime = f.ArrivalTime
 		comp.Target = f.Target
+		comp.Objective = f.Objective
 		comp.flightTime = float64(comp.ArrivalTime.Sub(comp.JoinedAt) / time.Second)
 
 		err = comp.fetchShips(data)

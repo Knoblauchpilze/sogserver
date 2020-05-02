@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"oglike_server/pkg/db"
@@ -552,4 +553,37 @@ func (fc *Component) Convert() interface{} {
 		Speed:    fc.Speed,
 		JoinedAt: fc.JoinedAt,
 	}
+}
+
+// MarshalJSON :
+// Implementation of the `Marshaler` interface to allow
+// only specific information to be marshalled when the
+// component needs to be exported. It fills a similar
+// role to the `Convert` method but only to provide a
+// clean interface to the outside world where only
+// relevant info is provided.
+//
+// Returns the marshalled bytes for this fleet component
+// along with any error.
+func (fc *Component) MarshalJSON() ([]byte, error) {
+	type lightComponent struct {
+		ID       string           `json:"id"`
+		Planet   string           `json:"planet"`
+		Speed    float32          `json:"speed"`
+		JoinedAt time.Time        `json:"joined_at"`
+		Ships    ShipsInFleet     `json:"ships"`
+		Cargo    []ResourceAmount `json:"cargo"`
+	}
+
+	// Copy the planet's data.
+	lc := lightComponent{
+		ID:       fc.ID,
+		Planet:   fc.Planet,
+		Speed:    fc.Speed,
+		JoinedAt: fc.JoinedAt,
+		Ships:    fc.Ships,
+		Cargo:    fc.Cargo,
+	}
+
+	return json.Marshal(lc)
 }

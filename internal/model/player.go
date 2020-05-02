@@ -392,7 +392,7 @@ func (p *Player) Convert() interface{} {
 // interface to the outside world where only relevant
 // info is provided.
 //
-// Returns the marshalled bytes for this planet along
+// Returns the marshalled bytes for this player along
 // with any error.
 func (p *Player) MarshalJSON() ([]byte, error) {
 	type lightInfo struct {

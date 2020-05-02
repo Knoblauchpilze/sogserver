@@ -328,6 +328,7 @@ func (f *Fleet) fetchComponents(data Instance) error {
 		},
 	}
 
+	// TODO: This should be extracted in a dedicated method.
 	dbRes, err := data.Proxy.FetchFromDB(query)
 	defer dbRes.Close()
 

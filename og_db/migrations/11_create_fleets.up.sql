@@ -60,7 +60,7 @@ CREATE TABLE fleet_ships (
 CREATE TABLE fleet_resources (
   fleet_elem uuid NOT NULL,
   res uuid NOT NULL,
-  amount integer NOT NULL,
+  amount numeric(15, 5) NOT NULL,
   FOREIGN KEY (fleet_elem) REFERENCES fleet_elements(id),
   FOREIGN KEY (res) REFERENCES resources(id)
 );

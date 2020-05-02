@@ -82,7 +82,7 @@ var ErrInvalidFleet = fmt.Errorf("Invalid fleet with no identifier")
 // input is not unique in the DB.
 var ErrDuplicatedFleet = fmt.Errorf("Invalid not unique fleet")
 
-// NewFleetFromDB :
+// newFleetFromDB :
 // Used to fetch the content of the fleet from
 // the input DB and populate all internal fields
 // from it. In case the DB cannot be fetched or
@@ -354,10 +354,6 @@ func (f *Fleet) fetchComponents(data Instance) error {
 	query := db.QueryDesc{
 		Props: []string{
 			"id",
-			"player",
-			"planet",
-			"speed",
-			"joined_at",
 		},
 		Table: "fleet_elements",
 		Filters: []db.Filter{
@@ -368,7 +364,6 @@ func (f *Fleet) fetchComponents(data Instance) error {
 		},
 	}
 
-	// TODO: This should be extracted in a dedicated method.
 	dbRes, err := data.Proxy.FetchFromDB(query)
 	defer dbRes.Close()
 
@@ -378,6 +373,32 @@ func (f *Fleet) fetchComponents(data Instance) error {
 	}
 	if dbRes.Err != nil {
 		return dbRes.Err
+	}
+
+	// Extract each component for this fleet.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			return err
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	f.Comps = make([]Component, 0)
+
+	for _, ID = range IDs {
+		comp, err := newComponentFromDB(ID, data, f)
+
+		if err != nil {
+			return err
+		}
+
+		f.Comps = append(f.Comps, comp)
 	}
 
 	// Populate the return value.
@@ -392,19 +413,6 @@ func (f *Fleet) fetchComponents(data Instance) error {
 			&comp.JoinedAt,
 		)
 
-		if err != nil {
-			return err
-		}
-
-		// Populate additional information for this component.
-		comp.Fleet = f.ID
-		comp.ArrivalTime = f.ArrivalTime
-		comp.Target = f.Target
-		comp.Objective = f.Objective
-		comp.Name = f.Name
-		comp.flightTime = float64(comp.ArrivalTime.Sub(comp.JoinedAt) / time.Second)
-
-		err = comp.fetchShips(data)
 		if err != nil {
 			return err
 		}

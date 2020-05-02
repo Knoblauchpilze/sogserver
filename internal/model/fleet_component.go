@@ -215,6 +215,68 @@ func (fcs Components) valid(objective string, target Coordinate) bool {
 	return true
 }
 
+// newComponentFromDB :
+// Used to fetch the content of the fleet component
+// from the input DB and populate all internal fields
+// from it. In case the DB cannot be fetched or some
+// errors are encoutered, the return value can be used
+// to get a description of the error.
+//
+// The `ID` defines the ID of the fleet component to
+// get. It is fetched from the DB and should refer
+// to an existing component.
+//
+// The `data` allows to actually perform the DB
+// requests to fetch the component's data.
+//
+// The `f` defines the parent fleet for this component
+// it will be used to populate some of the info that
+// are not stored directly in the DB.
+//
+// Returns the component as fetched from the DB along
+// with any errors.
+func newComponentFromDB(ID string, data Instance, f *Fleet) (Component, error) {
+	// Create the fleet.
+	c := Component{
+		ID: ID,
+	}
+
+	// Consistency.
+	if c.ID == "" {
+		return c, ErrInvalidFleetComponent
+	}
+
+	// Fetch the fleet's content.
+	err := c.fetchGeneralInfo(data)
+	if err != nil {
+		return c, err
+	}
+
+	err = c.fetchShips(data)
+	if err != nil {
+		return c, err
+	}
+
+	err = c.fetchCargo(data)
+	if err != nil {
+		return c, err
+	}
+
+	// Override information that is not provided from the DB
+	// with the input `f` data.
+	if c.Fleet != f.ID {
+		return c, ErrInvalidFleetForComponent
+	}
+
+	c.ArrivalTime = f.ArrivalTime
+	c.Target = f.Target
+	c.Objective = f.Objective
+	c.Name = f.Name
+	c.flightTime = float64(c.ArrivalTime.Sub(c.JoinedAt) / time.Second)
+
+	return c, nil
+}
+
 // Valid :
 // Used to determine whether the fleet component defined
 // by this element is valid or not. We will check that
@@ -467,6 +529,72 @@ func (fc *Component) Validate(data Instance, source *Planet, target *Planet, f *
 	return nil
 }
 
+// fetchGeneralInfo :
+// Used to populate the internal data of the fleet
+// component with info from the DB. It will assume
+// the identifier for this fleet component is at
+// least provided.
+//
+// The `data` allows to access to the DB.
+//
+// Returns any error.
+func (fc *Component) fetchGeneralInfo(data Instance) error {
+	// Consistency.
+	if fc.ID == "" {
+		return ErrInvalidFleetComponent
+	}
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"fleet",
+			"player",
+			"planet",
+			"speed",
+			"joined_at",
+		},
+		Table: "fleet_elements",
+		Filters: []db.Filter{
+			{
+				Key:    "id",
+				Values: []string{fc.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Scan the fleet component's data.
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return ErrInvalidFleetComponent
+	}
+
+	err = dbRes.Scan(
+		&fc.Fleet,
+		&fc.Player,
+		&fc.Planet,
+		&fc.Speed,
+		&fc.JoinedAt,
+	)
+
+	// Make sure that it's the only fleet component.
+	if dbRes.Next() {
+		return ErrDuplicatedFleetComponent
+	}
+
+	return err
+}
+
 // fetchShips :
 // Used to populate the internal data of the fleet
 // component with info from the DB. It will assume
@@ -524,6 +652,66 @@ func (fc *Component) fetchShips(data Instance) error {
 		}
 
 		fc.Ships = append(fc.Ships, sif)
+	}
+
+	return nil
+}
+
+// fetchCargo :
+// Serves a similar purpose to `fetchShips` but is
+// dedicated to fetching the cargo for this comp.
+//
+// The `data` allows to access to the DB.
+//
+// Returns any error.
+func (fc *Component) fetchCargo(data Instance) error {
+	// Check whether the fleet component has an identifier assigned.
+	if fc.ID == "" {
+		return ErrInvalidFleetComponent
+	}
+
+	fc.Cargo = make([]ResourceAmount, 0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"res",
+			"amount",
+		},
+		Table: "fleet_resources",
+		Filters: []db.Filter{
+			{
+				Key:    "fleet_elem",
+				Values: []string{fc.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Populate the return value.
+	var ra ResourceAmount
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&ra.Resource,
+			&ra.Amount,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		fc.Cargo = append(fc.Cargo, ra)
 	}
 
 	return nil

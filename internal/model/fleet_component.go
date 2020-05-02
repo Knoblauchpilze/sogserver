@@ -675,13 +675,13 @@ func (fc *Component) fetchCargo(data Instance) error {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"res",
+			"resource",
 			"amount",
 		},
 		Table: "fleet_resources",
 		Filters: []db.Filter{
 			{
-				Key:    "fleet_elem",
+				Key:    "fleet_element",
 				Values: []string{fc.ID},
 			},
 		},

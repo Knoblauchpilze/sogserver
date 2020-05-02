@@ -58,11 +58,11 @@ CREATE TABLE fleet_ships (
 
 -- Create the table for resources transported by each fleet element.
 CREATE TABLE fleet_resources (
-  fleet_elem uuid NOT NULL,
-  res uuid NOT NULL,
+  fleet_element uuid NOT NULL,
+  resource uuid NOT NULL,
   amount numeric(15, 5) NOT NULL,
-  FOREIGN KEY (fleet_elem) REFERENCES fleet_elements(id),
-  FOREIGN KEY (res) REFERENCES resources(id)
+  FOREIGN KEY (fleet_element) REFERENCES fleet_elements(id),
+  FOREIGN KEY (resource) REFERENCES resources(id)
 );
 
 -- Seed the fleet objectives.

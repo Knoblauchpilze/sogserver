@@ -41,7 +41,20 @@ type FleetProxy struct {
 type shipInFleetForDB struct {
 	ID          string `json:"id"`
 	FleetCompID string `json:"fleet_element"`
+
 	model.ShipInFleet
+}
+
+// resourceInFleetForDB :
+// Similar to the `shipInFleetForDB` but holds a resource
+// and an amount that is carried by a fleet component.
+//
+// The `FleetCompID` defines the identifier of the fleet
+// component to which this resources is associated.
+type resourceInFleetForDB struct {
+	FleetCompID string `json:"fleet_element"`
+
+	model.ResourceAmount
 }
 
 // ErrInvalidFleet :
@@ -290,12 +303,24 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 		}
 	}
 
+	// Perform a similar operation on the cargo defined for
+	// this component.
+	resForDB := make([]resourceInFleetForDB, len(comp.Cargo))
+
+	for id, res := range comp.Cargo {
+		resForDB[id] = resourceInFleetForDB{
+			FleetCompID:    comp.ID,
+			ResourceAmount: res,
+		}
+	}
+
 	// Create the query and execute it.
 	query = db.InsertReq{
 		Script: "create_fleet_component",
 		Args: []interface{}{
 			&comp,
 			shipsForDB,
+			resForDB,
 		},
 	}
 
@@ -408,56 +433,4 @@ func (p *FleetProxy) fetchFleetForComponent(comp *model.Component, universe stri
 	}
 
 	return f, target, nil
-}
-
-// Create :
-// Used to perform the creation of the fleet described
-// by the input data to the DB. In case the creation can
-// not be performed an error is returned.
-//
-// The `fleet` describes the element to create in DB. Its
-// value may be modified by the function mainly to update
-// the identifier of the fleet if none have been set.
-//
-// The return status indicates whether the creation could
-// be performed: if this is not the case the error is not
-// `nil`. Returns the identifier of the fleet that was
-// created as well.
-func (p *FleetProxy) Create(fleet model.Fleet) (string, error) {
-	// Assign a valid identifier if this is not already the case.
-	if fleet.ID == "" {
-		fleet.ID = uuid.New().String()
-	}
-
-	// First we need to fetch the universe related to the
-	// planet to create.
-	uni, err := model.NewUniverseFromDB(fleet.Universe, p.data)
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Unable to fetch universe \"%s\" to create fleet (err: %v)", fleet.Universe, err))
-		return fleet.ID, err
-	}
-
-	// Check consistency.
-	if !fleet.Valid(uni) {
-		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet's data %s", fleet))
-		return fleet.ID, model.ErrInvalidFleet
-	}
-
-	// Create the query and execute it.
-	query := db.InsertReq{
-		Script: "create_fleet",
-		Args:   []interface{}{&fleet},
-	}
-
-	err = p.proxy.InsertToDB(query)
-
-	// Check for errors.
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not create fleet in \"%s\" (err: %v)", fleet.Universe, err))
-		return fleet.ID, err
-	}
-
-	p.trace(logger.Notice, fmt.Sprintf("Created new fleet \"%s\" in \"%s\" targetting \"%s\"", fleet.ID, uni.ID, fleet.Target))
-
-	return fleet.ID, nil
 }

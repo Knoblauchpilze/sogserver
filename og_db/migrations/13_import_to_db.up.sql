@@ -223,7 +223,7 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Import fleet components in the relevant table.
-CREATE OR REPLACE FUNCTION create_fleet_component(component json, ships json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_fleet_component(component json, ships json, resources json) RETURNS VOID AS $$
 BEGIN
   -- Insert the fleet element.
   INSERT INTO fleet_elements
@@ -234,6 +234,11 @@ BEGIN
   INSERT INTO fleet_ships
     SELECT *
     FROM json_populate_recordset(null::fleet_ships, ships);
+
+  -- Insert the resources for this fleet element.
+  INSERT INTO fleet_resources
+    SELECT *
+    FROM json_populate_recordset(null::fleet_resources, resources);
 END
 $$ LANGUAGE plpgsql;
 

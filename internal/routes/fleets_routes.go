@@ -71,7 +71,7 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 	ed := NewCreateResourceEndpoint("players")
 
 	// Configure the endpoint.
-	ed.WithDataKey("fleet-data").WithModule("fleets")
+	ed.WithDataKey("fleet-data").WithoutPrefix().WithModule("fleets")
 	ed.WithCreationFunc(
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and
@@ -107,7 +107,7 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 				comp.Player = player
 
 				// Create the fleet component.
-				_, err = s.fleets.CreateComponent(comp)
+				res, err := s.fleets.CreateComponent(comp)
 				if err != nil {
 					return resources, ErrDBError
 				}
@@ -116,10 +116,7 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 				// the resource by a `components/` string in order to have
 				// consistency with the input route. We should also prefix
 				// with the fleet's identifier.
-				// TODO: We should define whether we will keep the component
-				// in the planets route or only in the fleet route (and the
-				// planets route would only serve the fleeets identifiers).
-				fullRes := fmt.Sprintf("%s/planets/%s", player, planet)
+				fullRes := fmt.Sprintf("fleets/%s", res)
 				resources = append(resources, fullRes)
 			}
 

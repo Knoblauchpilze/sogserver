@@ -219,7 +219,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 	// Check validity of the input fleet component.
 	if !comp.Valid() {
 		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet component's data %s", comp))
-		return comp.ID, ErrInvalidFleet
+		return "", ErrInvalidFleet
 	}
 
 	// Acquire the lock on the player associated to this
@@ -235,7 +235,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch player \"%s\" to create component for \"%s\" err: %v)", comp.Player, comp.Fleet, err))
-		return comp.ID, err
+		return "", err
 	}
 
 	// Fetch the planet related to this fleet and use
@@ -250,21 +250,21 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch planet related to fleet component (err: %v)", err))
-		return comp.ID, ErrInvalidFleet
+		return "", ErrInvalidFleet
 	}
 
 	// Make sure that the component is not directed towards
 	// its started position.
 	if comp.Target == source.Coordinates {
 		p.trace(logger.Error, fmt.Sprintf("Fleet component is directed towards planet \"%s\" which is its started location at %s", source.ID, comp.Target))
-		return comp.ID, ErrInvalidFleet
+		return "", ErrInvalidFleet
 	}
 
 	// Consolidate the arrival time for this component.
 	err = comp.ConsolidateArrivalTime(p.data, &source)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not consolidate arrival time for component (err: %v)", err))
-		return comp.ID, ErrInvalidFleet
+		return "", ErrInvalidFleet
 	}
 
 	// Fetch the fleet related to this component.
@@ -281,21 +281,21 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" to create component for \"%s\" (err: %v)", comp.Fleet, comp.Player, err))
-		return comp.ID, ErrInvalidFleet
+		return fDesc.fleet.ID, ErrInvalidFleet
 	}
 
 	// Make sure that the target of the fleet is not
 	// the source of the component.
 	if source.Coordinates == fDesc.fleet.Target {
 		p.trace(logger.Error, fmt.Sprintf("Fleet component is starting from the fleet's destination at %s", source.Coordinates))
-		return comp.ID, ErrComponentAtDestination
+		return fDesc.fleet.ID, ErrComponentAtDestination
 	}
 
 	// Validate the component against planet's data.
 	err = comp.Validate(p.data, &source, fDesc.target, &fDesc.fleet)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Cannot create fleet component for \"%s\" from \"%s\" (err: %v)", comp.Player, source.ID, err))
-		return comp.ID, ErrImpossibleFleet
+		return fDesc.fleet.ID, ErrImpossibleFleet
 	}
 
 	// We can perform the insertion of both the fleet and the
@@ -316,7 +316,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 		// Check for errors.
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Could not create fleet for \"%s\" from \"%s\" (err: %v)", comp.Player, comp.Planet, err))
-			return comp.ID, err
+			return fDesc.fleet.ID, err
 		}
 
 		p.trace(logger.Notice, fmt.Sprintf("Created new fleet \"%s\" from component \"%s\"", fDesc.fleet.ID, comp.ID))
@@ -361,12 +361,12 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not create component for \"%s\" in \"%s\" (err: %v)", comp.Player, fDesc.fleet.ID, err))
-		return comp.ID, err
+		return fDesc.fleet.ID, err
 	}
 
 	p.trace(logger.Notice, fmt.Sprintf("Created new fleet component \"%s\" for \"%s\" in \"%s\"", comp.ID, comp.Player, fDesc.fleet.ID))
 
-	return comp.ID, nil
+	return fDesc.fleet.ID, nil
 }
 
 // fetchFleetForComponent :

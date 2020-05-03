@@ -52,11 +52,19 @@ type CreationFunc func(data RouteData) ([]string, error)
 // This string should be unique across the application and is
 // used as a mean to easily distinguish between the different
 // services composing the server.
+//
+// The `prefixRes` allows to determine whether the path that
+// is returned to indicate the resources created by the func
+// `creator` should be prefixed by the route's name. Note
+// that the default value is `true`. One can disable this
+// behavior by using the `WithoutPrefix` method. Note however
+// that a '/' prefix is still added.
 type CreateResourceEndpoint struct {
-	route   string
-	key     string
-	creator CreationFunc
-	module  string
+	route     string
+	key       string
+	creator   CreationFunc
+	module    string
+	prefixRes bool
 }
 
 // ErrNoData :
@@ -85,7 +93,8 @@ var ErrDBError = fmt.Errorf("Unable to register input data in DB")
 // Returns the created end point description.
 func NewCreateResourceEndpoint(route string) *CreateResourceEndpoint {
 	return &CreateResourceEndpoint{
-		route: sanitizeRoute(route),
+		route:     sanitizeRoute(route),
+		prefixRes: true,
 	}
 }
 
@@ -124,6 +133,17 @@ func (cre *CreateResourceEndpoint) WithCreationFunc(f CreationFunc) *CreateResou
 // Returns this endpoint to allow chain calling.
 func (cre *CreateResourceEndpoint) WithModule(module string) *CreateResourceEndpoint {
 	cre.module = module
+	return cre
+}
+
+// WithoutPrefix :
+// Used to define that the resources' paths created by the
+// `creator` function should not be prefixed with the name
+// of the route.
+//
+// Returns this endpoint to allow chain calling.
+func (cre *CreateResourceEndpoint) WithoutPrefix() *CreateResourceEndpoint {
+	cre.prefixRes = false
 	return cre
 }
 
@@ -170,7 +190,13 @@ func (cre *CreateResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFun
 		resources := make([]string, len(resNames))
 
 		for id, resource := range resNames {
-			resources[id] = fmt.Sprintf("/%s/%s", cre.route, resource)
+			res := fmt.Sprintf("/%s", resource)
+
+			if cre.prefixRes {
+				res = fmt.Sprintf("/%s/%s", cre.route, resource)
+			}
+
+			resources[id] = res
 		}
 
 		bts, err := json.Marshal(&resources)

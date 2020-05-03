@@ -360,6 +360,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 			&comp,
 			shipsForDB,
 			resForDB,
+			comp.Consumption,
 		},
 	}
 

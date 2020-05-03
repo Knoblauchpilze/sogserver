@@ -224,7 +224,7 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Import fleet components in the relevant table.
-CREATE OR REPLACE FUNCTION create_fleet_component(component json, ships json, resources json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_fleet_component(component json, ships json, resources json, consumption json) RETURNS VOID AS $$
 BEGIN
   -- Insert the fleet element.
   INSERT INTO fleet_elements
@@ -242,7 +242,20 @@ BEGIN
     FROM json_populate_recordset(null::fleet_resources, resources);
 
   -- Reduce the planet's resources from the amount of the fuel.
-  -- TODO: Handle this.
+  WITH cc AS (
+    SELECT
+      t.resource,
+      t.amount AS quantity
+    FROM
+      json_to_recordset(consumption) AS t(resource uuid, amount numeric(15, 5))
+    )
+  UPDATE planets_resources
+    SET amount = amount - cc.quantity
+  FROM
+    cc
+  WHERE
+    planet = (component->>'planet')::uuid
+    AND res = cc.resource;
 
   -- Reduce the planet's resources from the amount that will be moved.
   WITH cr AS (

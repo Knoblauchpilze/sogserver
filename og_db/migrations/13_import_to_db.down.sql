@@ -15,7 +15,7 @@ DROP FUNCTION update_building_upgrade_action(planet_id uuid);
 DROP FUNCTION update_resources_for_planet(planet_id uuid);
 
 -- Drop the fleet components import function.
-DROP FUNCTION create_fleet_component(component json, ships json, resources json);
+DROP FUNCTION create_fleet_component(component json, ships json, resources json, consumption json);
 
 -- Drop the fleet import function.
 DROP FUNCTION create_fleet(inputs json);

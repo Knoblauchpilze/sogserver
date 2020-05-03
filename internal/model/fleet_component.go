@@ -487,7 +487,7 @@ func (fc *Component) Validate(data Instance, source *Planet, target *Planet, f *
 			return err
 		}
 
-		totCargo += sd.Cargo
+		totCargo += (ship.Count * sd.Cargo)
 	}
 
 	var totNeeded float32

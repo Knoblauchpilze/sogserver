@@ -144,6 +144,12 @@ var ErrDuplicatedFleetComponent = fmt.Errorf("Invalid not unique fleet component
 // space available.
 var ErrInsufficientCargo = fmt.Errorf("Insufficient cargo space to hold resources")
 
+// ErrInvalidCargo :
+// Used to indicate that the amount of resources that should
+// be carried by the fleet component is invalid (typically a
+// negative value).
+var ErrInvalidCargo = fmt.Errorf("Invalid cargo value for resource")
+
 // ErrArrivalTimeMismatch :
 // Used to indicate that the arrival time computed for a
 // given fleet component is incompatible with the time its
@@ -486,6 +492,10 @@ func (fc *Component) Validate(data Instance, source *Planet, target *Planet, f *
 
 	var totNeeded float32
 	for _, res := range fc.Cargo {
+		if res.Amount < 0.0 {
+			return ErrInvalidCargo
+		}
+
 		totNeeded += res.Amount
 	}
 

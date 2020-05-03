@@ -45,6 +45,11 @@ import (
 // The `amount` defines a similar map where the values
 // correspond to the initial amount of the resource that
 // exists on the planet when it's created.
+//
+// The `movable` defines a similar map where the values
+// correspond to the movable status for this resource.
+// This defines whether it can be transported or looted
+// by fleets.
 type ResourcesModule struct {
 	associationTable
 	baseModule
@@ -52,6 +57,7 @@ type ResourcesModule struct {
 	prod    map[string]int
 	storage map[string]int
 	amount  map[string]int
+	movable map[string]bool
 }
 
 // ResourceDesc :
@@ -76,12 +82,17 @@ type ResourcesModule struct {
 //
 // The `BaseAmount` defines the base amount for this res
 // that can be found on any new planet in the game.
+//
+// The `Movable` defines whether this resources can be
+// plundered by an attacking fleet or transported by an
+// allied fleet to another planet.
 type ResourceDesc struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	BaseProd    int    `json:"base_production"`
 	BaseStorage int    `json:"base_storage"`
 	BaseAmount  int    `json:"base_amount"`
+	Movable     bool   `json:"movable"`
 }
 
 // ResourceAmount :
@@ -113,6 +124,7 @@ func NewResourcesModule(log logger.Logger) *ResourcesModule {
 		prod:             nil,
 		storage:          nil,
 		amount:           nil,
+		movable:          nil,
 	}
 }
 
@@ -124,7 +136,7 @@ func NewResourcesModule(log logger.Logger) *ResourcesModule {
 // Returns `true` if the association table is valid and
 // the internal resources as well.
 func (rm *ResourcesModule) valid() bool {
-	return rm.associationTable.valid() && len(rm.prod) > 0 && len(rm.storage) > 0 && len(rm.amount) > 0
+	return rm.associationTable.valid() && len(rm.prod) > 0 && len(rm.storage) > 0 && len(rm.amount) > 0 && len(rm.movable) > 0
 }
 
 // Init :
@@ -149,6 +161,7 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 	rm.prod = make(map[string]int)
 	rm.storage = make(map[string]int)
 	rm.amount = make(map[string]int)
+	rm.movable = make(map[string]bool)
 
 	// Perform the DB query through a dedicated DB proxy.
 	query := db.QueryDesc{
@@ -158,6 +171,7 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 			"base_production",
 			"base_storage",
 			"base_amount",
+			"movable",
 		},
 		Table:   "resources",
 		Filters: []db.Filter{},
@@ -179,6 +193,7 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 	// Analyze the query and populate internal values.
 	var ID, name string
 	var prod, storage, amount int
+	var movable bool
 
 	override := false
 	inconsistent := false
@@ -190,6 +205,7 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 			&prod,
 			&storage,
 			&amount,
+			&movable,
 		)
 
 		if err != nil {
@@ -201,6 +217,7 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 		ep, pok := rm.prod[ID]
 		es, sok := rm.storage[ID]
 		ea, aok := rm.amount[ID]
+		em, mok := rm.movable[ID]
 
 		if pok {
 			rm.trace(logger.Error, fmt.Sprintf("Overriding base production for \"%s\" (%d to %d)", ID, ep, prod))
@@ -214,10 +231,15 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 			rm.trace(logger.Error, fmt.Sprintf("Overriding base amount for \"%s\" (%d to %d)", ID, ea, amount))
 			override = true
 		}
+		if mok {
+			rm.trace(logger.Error, fmt.Sprintf("Overriding movable status for \"%s\" (%t to %t)", ID, em, movable))
+			override = true
+		}
 
 		rm.prod[ID] = prod
 		rm.storage[ID] = storage
 		rm.amount[ID] = amount
+		rm.movable[ID] = movable
 
 		err := rm.registerAssociation(ID, name)
 		if err != nil {
@@ -263,6 +285,7 @@ func (rm *ResourcesModule) GetResourceFromID(id string) (ResourceDesc, error) {
 		BaseProd:    rm.prod[id],
 		BaseStorage: rm.storage[id],
 		BaseAmount:  rm.amount[id],
+		Movable:     rm.movable[id],
 	}
 
 	return res, nil
@@ -369,6 +392,14 @@ func (rm *ResourcesModule) Resources(proxy db.Proxy, filters []db.Filter) ([]Res
 			continue
 		} else {
 			desc.BaseAmount = amount
+		}
+
+		movable, ok := rm.movable[ID]
+		if !ok {
+			rm.trace(logger.Error, fmt.Sprintf("Unable to fetch movable status for resource \"%s\"", ID))
+			continue
+		} else {
+			desc.Movable = movable
 		}
 
 		descs = append(descs, desc)

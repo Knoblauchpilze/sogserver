@@ -172,6 +172,11 @@ var ErrInvalidObjective = fmt.Errorf("Invalid objective for component")
 // for the validation of a component is not correct.
 var ErrInvalidFleetForComponent = fmt.Errorf("Invalid fleet provided for component")
 
+// ErrCargoNotMovable :
+// Used to indicate that the resource specified as a
+// cargo cannot be moved.
+var ErrCargoNotMovable = fmt.Errorf("Resource cannot be moved by a fleet")
+
 // valid :
 // Used to verify that the ship assigned to a component
 // are valid. It should contain a valid ship's ID and a
@@ -494,6 +499,14 @@ func (fc *Component) Validate(data Instance, source *Planet, target *Planet, f *
 	for _, res := range fc.Cargo {
 		if res.Amount < 0.0 {
 			return ErrInvalidCargo
+		}
+
+		rDesc, err := data.Resources.GetResourceFromID(res.Resource)
+		if err != nil {
+			return err
+		}
+		if !rDesc.Movable {
+			return ErrCargoNotMovable
 		}
 
 		totNeeded += res.Amount

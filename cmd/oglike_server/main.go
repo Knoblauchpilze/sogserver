@@ -32,6 +32,8 @@ import (
 // connect for a long time.
 // TODO: Multiple ships or defenses actions overlaps while they should be
 // added at the end of each other.
+// TODO: Maybe add a column to define whether the resource can be produced
+// or updated and stored (like for energy and antimatter for example).
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

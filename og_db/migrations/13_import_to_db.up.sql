@@ -178,8 +178,9 @@ BEGIN
     amount = amount - rc.cost
   FROM
     rc
-  WHERE planet = (upgrade->>'planet')::uuid
-  AND res = rc.resource;
+  WHERE
+    planet = (upgrade->>'planet')::uuid
+    AND res = rc.resource;
 END
 $$ LANGUAGE plpgsql;
 
@@ -239,6 +240,28 @@ BEGIN
   INSERT INTO fleet_resources
     SELECT *
     FROM json_populate_recordset(null::fleet_resources, resources);
+
+  -- Reduce the planet's resources from the amount of the fuel.
+  -- TODO: Handle this.
+
+  -- Reduce the planet's resources from the amount that will be moved.
+  WITH cr AS (
+    SELECT
+      t.resource,
+      t.amount AS quantity
+    FROM
+      json_to_recordset(resources) AS t(resource uuid, amount numeric(15, 5))
+    )
+  UPDATE planets_resources
+    SET amount = amount - cr.quantity
+  FROM
+    cr
+  WHERE
+    planet = (component->>'planet')::uuid
+    AND res = cr.resource;
+
+  -- Reduce the planet's available ships from the ones that will be launched.
+  -- TODO: Handle this.
 END
 $$ LANGUAGE plpgsql;
 

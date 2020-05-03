@@ -6,13 +6,19 @@ CREATE TABLE resources (
   base_production integer NOT NULL,
   base_storage integer NOT NULL,
   base_amount integer NOT NULL,
+  movable boolean NOT NULL,
   PRIMARY KEY (id),
   UNIQUE (name)
 );
 
 -- Perform seeding with the base resources.
-INSERT INTO public.resources ("name", "base_production", "base_storage", "base_amount") VALUES('metal', 30, 10000, 500);
-INSERT INTO public.resources ("name", "base_production", "base_storage", "base_amount") VALUES('crystal', 15, 10000, 500);
-INSERT INTO public.resources ("name", "base_production", "base_storage", "base_amount") VALUES('deuterium', 0, 10000, 0);
-INSERT INTO public.resources ("name", "base_production", "base_storage", "base_amount") VALUES('energy', 0, 0, 0);
-INSERT INTO public.resources ("name", "base_production", "base_storage", "base_amount") VALUES('antimatter', 0, 0, 0);
+INSERT INTO public.resources ("name", "base_production", "base_storage", "base_amount", "movable")
+  VALUES('metal', 30, 10000, 500, 'true');
+INSERT INTO public.resources ("name", "base_production", "base_storage", "base_amount", "movable")
+  VALUES('crystal', 15, 10000, 500, 'true');
+INSERT INTO public.resources ("name", "base_production", "base_storage", "base_amount", "movable")
+  VALUES('deuterium', 0, 10000, 0, 'true');
+INSERT INTO public.resources ("name", "base_production", "base_storage", "base_amount", "movable")
+  VALUES('energy', 0, 0, 0, 'false');
+INSERT INTO public.resources ("name", "base_production", "base_storage", "base_amount", "movable")
+  VALUES('antimatter', 0, 0, 0, 'false');

@@ -120,7 +120,8 @@ func (p Player) String() string {
 func newPlayerFromDB(ID string, data Instance, mode accessMode) (Player, error) {
 	// Create the player.
 	p := Player{
-		ID: ID,
+		ID:   ID,
+		mode: mode,
 	}
 
 	// Acquire the lock on the player from the DB.

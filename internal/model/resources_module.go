@@ -33,31 +33,14 @@ import (
 // in this package are designed in a similar way: they
 // just handle different aspects of the game.
 //
-// The `prod` defines a map where the keys are resources
-// identifiers (as loaded from the DB) while the values
-// are base production level for each resource on a new
-// planet. This value is expressed in units per hour.
-//
-// The `storage` defines a map where keys are resources
-// identifiers while values are the base storage on a
-// new planet for said resources.
-//
-// The `amount` defines a similar map where the values
-// correspond to the initial amount of the resource that
-// exists on the planet when it's created.
-//
-// The `movable` defines a similar map where the values
-// correspond to the movable status for this resource.
-// This defines whether it can be transported or looted
-// by fleets.
+// The `characteristics` defines the properties of the
+// resources such as their base production, storage or
+// whether or not it can be accumulated.
 type ResourcesModule struct {
 	associationTable
 	baseModule
 
-	prod    map[string]int
-	storage map[string]int
-	amount  map[string]int
-	movable map[string]bool
+	characteristics map[string]resProps
 }
 
 // ResourceDesc :
@@ -86,6 +69,9 @@ type ResourcesModule struct {
 // The `Movable` defines whether this resources can be
 // plundered by an attacking fleet or transported by an
 // allied fleet to another planet.
+//
+// The `Storable` defines whether the resources can be
+// stored on a planet or not.
 type ResourceDesc struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -93,6 +79,38 @@ type ResourceDesc struct {
 	BaseStorage int    `json:"base_storage"`
 	BaseAmount  int    `json:"base_amount"`
 	Movable     bool   `json:"movable"`
+	Storable    bool   `json:"storable"`
+}
+
+// resProps :
+// Used internally to save properties of the resources.
+// It describes most of the properties of the resource
+// as defined in the `ResourceDesc` without the ID and
+// name.
+//
+// The `prod` defines the base production for this res.
+//
+// The `storage` defines the available storage for the
+// resource by default.
+//
+// The `amount` defines the base amount of this res in
+// any new planet.
+//
+// The `movable` defines whether this resource can be
+// moved from a planet to another.
+//
+// The `storable` defines whether or not this res is
+// allowed to be stored. Resources that do not have
+// this property will not be accumulated by the game
+// on a planet. This can represent resources where
+// the production is actually used at each time step
+// like energy for example.
+type resProps struct {
+	prod     int
+	storage  int
+	amount   int
+	movable  bool
+	storable bool
 }
 
 // ResourceAmount :
@@ -121,10 +139,7 @@ func NewResourcesModule(log logger.Logger) *ResourcesModule {
 	return &ResourcesModule{
 		associationTable: newAssociationTable(),
 		baseModule:       newBaseModule(log, "resources"),
-		prod:             nil,
-		storage:          nil,
-		amount:           nil,
-		movable:          nil,
+		characteristics:  nil,
 	}
 }
 
@@ -136,7 +151,7 @@ func NewResourcesModule(log logger.Logger) *ResourcesModule {
 // Returns `true` if the association table is valid and
 // the internal resources as well.
 func (rm *ResourcesModule) valid() bool {
-	return rm.associationTable.valid() && len(rm.prod) > 0 && len(rm.storage) > 0 && len(rm.amount) > 0 && len(rm.movable) > 0
+	return rm.associationTable.valid() && len(rm.characteristics) > 0
 }
 
 // Init :
@@ -158,10 +173,7 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 	}
 
 	// Initialize internal values.
-	rm.prod = make(map[string]int)
-	rm.storage = make(map[string]int)
-	rm.amount = make(map[string]int)
-	rm.movable = make(map[string]bool)
+	rm.characteristics = make(map[string]resProps)
 
 	// Perform the DB query through a dedicated DB proxy.
 	query := db.QueryDesc{
@@ -172,6 +184,7 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 			"base_storage",
 			"base_amount",
 			"movable",
+			"storable",
 		},
 		Table:   "resources",
 		Filters: []db.Filter{},
@@ -186,14 +199,13 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 		return ErrNotInitialized
 	}
 	if rows.Err != nil {
-		rm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize resources module (err: %v)", err))
+		rm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize resources module (err: %v)", rows.Err))
 		return ErrNotInitialized
 	}
 
 	// Analyze the query and populate internal values.
 	var ID, name string
-	var prod, storage, amount int
-	var movable bool
+	var props resProps
 
 	override := false
 	inconsistent := false
@@ -202,10 +214,11 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 		err = rows.Scan(
 			&ID,
 			&name,
-			&prod,
-			&storage,
-			&amount,
-			&movable,
+			&props.prod,
+			&props.storage,
+			&props.amount,
+			&props.movable,
+			&props.storable,
 		)
 
 		if err != nil {
@@ -213,39 +226,24 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 			continue
 		}
 
-		// Check for overrides.
-		ep, pok := rm.prod[ID]
-		es, sok := rm.storage[ID]
-		ea, aok := rm.amount[ID]
-		em, mok := rm.movable[ID]
+		// Check whether a resource with this identifier exists.
+		if rm.existsID(ID) {
+			rm.trace(logger.Error, fmt.Sprintf("Prevented override of resource \"%s\"", ID))
+			override = true
 
-		if pok {
-			rm.trace(logger.Error, fmt.Sprintf("Overriding base production for \"%s\" (%d to %d)", ID, ep, prod))
-			override = true
-		}
-		if sok {
-			rm.trace(logger.Error, fmt.Sprintf("Overriding base storage for \"%s\" (%d to %d)", ID, es, storage))
-			override = true
-		}
-		if aok {
-			rm.trace(logger.Error, fmt.Sprintf("Overriding base amount for \"%s\" (%d to %d)", ID, ea, amount))
-			override = true
-		}
-		if mok {
-			rm.trace(logger.Error, fmt.Sprintf("Overriding movable status for \"%s\" (%t to %t)", ID, em, movable))
-			override = true
+			continue
 		}
 
-		rm.prod[ID] = prod
-		rm.storage[ID] = storage
-		rm.amount[ID] = amount
-		rm.movable[ID] = movable
-
-		err := rm.registerAssociation(ID, name)
+		// Register this resource in the association table.
+		err = rm.registerAssociation(ID, name)
 		if err != nil {
 			rm.trace(logger.Error, fmt.Sprintf("Cannot register resource \"%s\" (id: \"%s\") (err: %v)", name, ID, err))
 			inconsistent = true
+
+			continue
 		}
+
+		rm.characteristics[ID] = props
 	}
 
 	if override || inconsistent {
@@ -276,17 +274,20 @@ func (rm *ResourcesModule) GetResourceFromID(id string) (ResourceDesc, error) {
 	// thus the name) both exists so we discard errors.
 	name, _ := rm.getNameFromID(id)
 
-	// If the key does not exist the zero value will be
-	// assigned to the left operands which is okay (and
-	// even desired).
 	res := ResourceDesc{
-		ID:          id,
-		Name:        name,
-		BaseProd:    rm.prod[id],
-		BaseStorage: rm.storage[id],
-		BaseAmount:  rm.amount[id],
-		Movable:     rm.movable[id],
+		ID:   id,
+		Name: name,
 	}
+
+	props, ok := rm.characteristics[id]
+	if !ok {
+		return res, ErrInvalidID
+	}
+	res.BaseProd = props.prod
+	res.BaseStorage = props.storage
+	res.BaseAmount = props.amount
+	res.Movable = props.movable
+	res.Storable = props.storable
 
 	return res, nil
 }
@@ -370,36 +371,16 @@ func (rm *ResourcesModule) Resources(proxy db.Proxy, filters []db.Filter) ([]Res
 			Name: name,
 		}
 
-		prod, ok := rm.prod[ID]
+		props, ok := rm.characteristics[ID]
 		if !ok {
-			rm.trace(logger.Error, fmt.Sprintf("Unable to fetch base production for resource \"%s\"", ID))
+			rm.trace(logger.Error, fmt.Sprintf("Unable to fetch characteristics for resource \"%s\"", ID))
 			continue
 		} else {
-			desc.BaseProd = prod
-		}
-
-		storage, ok := rm.storage[ID]
-		if !ok {
-			rm.trace(logger.Error, fmt.Sprintf("Unable to fetch base storage for resource \"%s\"", ID))
-			continue
-		} else {
-			desc.BaseStorage = storage
-		}
-
-		amount, ok := rm.amount[ID]
-		if !ok {
-			rm.trace(logger.Error, fmt.Sprintf("Unable to fetch base amount for resource \"%s\"", ID))
-			continue
-		} else {
-			desc.BaseAmount = amount
-		}
-
-		movable, ok := rm.movable[ID]
-		if !ok {
-			rm.trace(logger.Error, fmt.Sprintf("Unable to fetch movable status for resource \"%s\"", ID))
-			continue
-		} else {
-			desc.Movable = movable
+			desc.BaseProd = props.prod
+			desc.BaseStorage = props.storage
+			desc.BaseAmount = props.amount
+			desc.Movable = props.movable
+			desc.Storable = props.storable
 		}
 
 		descs = append(descs, desc)

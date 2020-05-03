@@ -306,7 +306,12 @@ BEGIN
   -- able to obtain fractions of an hour to update the value.
   UPDATE planets_resources
     SET amount = amount + EXTRACT(EPOCH FROM processing_time - updated_at) * production / 3600.0
-  WHERE planet = planet_id;
+  FROM
+    resources AS r
+  WHERE
+    planet = planet_id
+    AND res = r.id
+    AND r.storable='true';
 END
 $$ LANGUAGE plpgsql;
 

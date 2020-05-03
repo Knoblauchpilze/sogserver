@@ -11,6 +11,7 @@ import (
 // actual binding is done.
 func (s *Server) routes() {
 	// Handle known routes.
+	s.route("GET", "/resources", s.listResources())
 	s.route("GET", "/universes", s.listUniverses())
 	s.route("GET", "/accounts", s.listAccounts())
 	s.route("GET", "/buildings", s.listBuildings())

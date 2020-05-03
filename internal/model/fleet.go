@@ -82,6 +82,11 @@ var ErrInvalidFleet = fmt.Errorf("Invalid fleet with no identifier")
 // input is not unique in the DB.
 var ErrDuplicatedFleet = fmt.Errorf("Invalid not unique fleet")
 
+// ErrNoShipToPerformObjective :
+// Indicates that none of the ships taking part in the
+// fleet are able to perform the fleet's objective.
+var ErrNoShipToPerformObjective = fmt.Errorf("No ships can perform the fleet's objective")
+
 // newFleetFromDB :
 // Used to fetch the content of the fleet from
 // the input DB and populate all internal fields
@@ -452,4 +457,42 @@ func (f *Fleet) Convert() interface{} {
 		Planet:      f.Planet,
 		ArrivalTime: f.ArrivalTime,
 	}
+}
+
+// Validate :
+// Used to make sure that the data contained in this
+// fleet is valid. It will mostly consist in checking
+// whether at least one ship contained in the comps
+// that are associated to it are allowed to perform
+// the mission's objective.
+//
+// The `data` allows to access data from the DB.
+//
+// Returns an error in case the fleet is not valid
+// and `nil` otherwise (indicating that no obvious
+// errors were detected).
+func (f *Fleet) Validate(data Instance) error {
+	// Consistency.
+	if f.ID == "" {
+		return ErrInvalidFleet
+	}
+
+	// Retrieve this fleet's objective's description.
+	obj, err := data.Objectives.GetObjectiveFromID(f.Objective)
+	if err != nil {
+		return err
+	}
+
+	// We will return as early as possible because
+	// for now there's nothing else to check. Make
+	// sure to change the loop if it ever changes.
+	for _, comp := range f.Comps {
+		for _, ship := range comp.Ships {
+			if obj.canBePerformedBy(ship.ID) {
+				return nil
+			}
+		}
+	}
+
+	return ErrNoShipToPerformObjective
 }

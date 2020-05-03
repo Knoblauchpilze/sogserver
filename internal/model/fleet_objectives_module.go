@@ -109,6 +109,28 @@ func (o *Objective) MarshalJSON() ([]byte, error) {
 	return json.Marshal(oo)
 }
 
+// canBePerformedBy :
+// Allows to determine whether the ship described by
+// the input identifier can be used to perform this
+// fleet objective.
+// In case no rule can be found for this ship, we
+// will conservatively assume that the ship cannot
+// be used.
+//
+// The `ship` defines the identifier of the ship to
+// be checked.
+//
+// Returns `true` if the ship can be used to serve
+// this objective.
+func (o *Objective) canBePerformedBy(ship string) bool {
+	// In case the `ship` does not exist in the table
+	// for this objective we will get a default value
+	// of `false`: this suits our conservative view
+	// which will indicate that the ship is not usable
+	// for this objective.
+	return o.Allowed[ship]
+}
+
 // NewFleetObjectivesModule :
 // Used to create a new fleet objectives module which is
 // initialized with no content (as no DB is provided yet).
@@ -494,39 +516,4 @@ func (fom *FleetObjectivesModule) Objectives(proxy db.Proxy, filters []db.Filter
 	}
 
 	return descs, nil
-}
-
-// canBeUsedFor :
-// Allows to determine whether the ship described by
-// the input identifier can be used to perform the
-// objective in input.
-// In case no rule can be found for this ship and the
-// specified objective, we will conservatively assume
-// that the ship cannot be used.
-//
-// The `objective` defines the fleet objective for
-// which the ship should be checked.
-//
-// The `ship` defines the identifier of the ship to
-// be checked.
-//
-// Returns `true` if the ship can be used to serve
-// the input objective and any error.
-func (fom *FleetObjectivesModule) canBeUsedFor(objective string, ship string) (bool, error) {
-	// Try to fetch the objective in the internal table.
-	if !fom.existsID(objective) {
-		return false, ErrInvalidObjective
-	}
-
-	ships, ok := fom.allowedShips[objective]
-	if !ok {
-		return false, ErrInvalidObjective
-	}
-
-	// In case the `ship` does not exist in the table
-	// for this objective we will get a default value
-	// of `false`: this suits our conservative view
-	// which will indicate that the ship is not usable
-	// for this objective.
-	return ships[ship], nil
 }

@@ -555,8 +555,7 @@ func (fc *Component) Validate(data Instance, source *Planet, target *Planet, f *
 	// planet compared to the amount required and
 	// that there are enough resources to be taken
 	// from the planet.
-	// return source.validateComponent(fc.Consumption, fc.Cargo, fc.Ships, data)
-	return nil
+	return source.validateComponent(fc.Consumption, fc.Cargo, fc.Ships, data)
 }
 
 // fetchGeneralInfo :

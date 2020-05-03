@@ -413,6 +413,9 @@ func (p *FleetProxy) fetchFleetForComponent(comp *model.Component, universe stri
 		comp.Objective = f.fleet.Objective
 		comp.Target = f.fleet.Target
 		comp.Name = f.fleet.Name
+
+		// Register this component as a member of the fleet.
+		f.fleet.Comps = append(f.fleet.Comps, *comp)
 	}
 
 	// Attempt to retrieve the target planet associated
@@ -465,6 +468,23 @@ func (p *FleetProxy) fetchFleetForComponent(comp *model.Component, universe stri
 	// Make sure the fleet is valid.
 	if !f.fleet.Valid(uni) {
 		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet's data %s", f.fleet))
+		return f, ErrInvalidFleet
+	}
+
+	// Make sure that the objective specified for the
+	// fleet is consistent with the ships existing in
+	// the component.
+	// Indeed as this is the first component that is
+	// joining the fleet it *has* to be allowed for
+	// the objective. Other elements joining later
+	// will be allowed to not contain any ship that
+	// can perform the action but the first one is
+	// special.
+	// That is why no check is performed when the
+	// fleet can be found from the component's id.
+	err = f.fleet.Validate(p.data)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet's data %s (err: %v)", f.fleet, err))
 		return f, ErrInvalidFleet
 	}
 

@@ -277,6 +277,13 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Could not release lock on fleet \"%s\" (err: %v)", fDesc.fleet.ID, err))
 		}
+
+		if fDesc.target != nil {
+			err = fDesc.target.Close()
+			if err != nil {
+				p.trace(logger.Error, fmt.Sprintf("Could not release lock on planet \"%s\" (err: %v)", fDesc.target.ID, err))
+			}
+		}
 	}()
 
 	if err != nil {

@@ -40,6 +40,11 @@ import (
 // The `JoinedAt` defines the time at which this player
 // has joined the main fleet and created this component.
 //
+// The `ReturnTime` defines the time at which the fleet
+// component will return to the planet. This value does
+// correspond to twice the duration of a single flight
+// from the starting position to the destination.
+//
 // The `Ships` define the actual ships involved in this
 // fleet component.
 //
@@ -73,16 +78,18 @@ import (
 // by the user to reference the fleet. It should be
 // unique in a universe.
 //
-// The `flightTime` defines the flight time in seconds.
-// Note that it is somewhat redundant with the other
-// time information (namely `JoinedAt` and the arrival
-// time).
+// The `flightTime` defines the flight time expressed
+// in milliseconds. Note that it is somewhat redundant
+// with the other time information (namely `JoinedAt`,
+// `ArrivalTime` and `ReturnTime`) but actually it is
+// meant to help the computations of these values.
 type Component struct {
 	ID          string             `json:"id"`
 	Player      string             `json:"-"`
 	Planet      string             `json:"planet"`
 	Speed       float32            `json:"speed"`
 	JoinedAt    time.Time          `json:"joined_at"`
+	ReturnTime  time.Time          `json:"return_time"`
 	Ships       ShipsInFleet       `json:"ships"`
 	Fleet       string             `json:"fleet"`
 	Consumption []ConsumptionValue `json:"-"`
@@ -91,7 +98,7 @@ type Component struct {
 	Target      Coordinate         `json:"target"`
 	Objective   string             `json:"objective"`
 	Name        string             `json:"name"`
-	flightTime  float64
+	flightTime  time.Duration
 }
 
 // Components :
@@ -240,13 +247,9 @@ func (fcs Components) valid(objective string, target Coordinate) bool {
 // The `data` allows to actually perform the DB
 // requests to fetch the component's data.
 //
-// The `f` defines the parent fleet for this component
-// it will be used to populate some of the info that
-// are not stored directly in the DB.
-//
 // Returns the component as fetched from the DB along
 // with any errors.
-func newComponentFromDB(ID string, data Instance, f *Fleet) (Component, error) {
+func newComponentFromDB(ID string, data Instance) (Component, error) {
 	// Create the fleet.
 	c := Component{
 		ID: ID,
@@ -273,17 +276,10 @@ func newComponentFromDB(ID string, data Instance, f *Fleet) (Component, error) {
 		return c, err
 	}
 
-	// Override information that is not provided from the DB
-	// with the input `f` data.
-	if c.Fleet != f.ID {
-		return c, ErrInvalidFleetForComponent
+	err = c.fetchFleetInfo(data)
+	if err != nil {
+		return c, err
 	}
-
-	c.ArrivalTime = f.ArrivalTime
-	c.Target = f.Target
-	c.Objective = f.Objective
-	c.Name = f.Name
-	c.flightTime = float64(c.ArrivalTime.Sub(c.JoinedAt) / time.Second)
 
 	return c, nil
 }
@@ -351,7 +347,10 @@ func (fc *Component) consolidateConsumption(data Instance, p *Planet) error {
 		for _, fuel := range sd.Consumption {
 			// The values and formulas are extracted from here:
 			// https://ogame.fandom.com/wiki/Talk:Fuel_Consumption
-			sk := 35000.0 * math.Sqrt(d*10.0/float64(sd.Speed)) / (fc.flightTime - 10.0)
+			// The flight time is expressed internally in millisecs.
+			ftSec := float64(fc.flightTime) / float64(time.Second)
+
+			sk := 35000.0 * math.Sqrt(d*10.0/float64(sd.Speed)) / (ftSec - 10.0)
 			cons := float64(fuel.Amount*float32(ship.Count)) * d * math.Pow(1.0+sk/10.0, 2.0) / 35000.0
 
 			ex := consumption[fuel.Resource]
@@ -435,12 +434,20 @@ func (fc *Component) ConsolidateArrivalTime(data Instance, p *Planet) error {
 	//  -  50% -> 5
 	//  -  10% -> 1
 	speedRatio := fc.Speed * 10.0
-	fc.flightTime = 35000.0/float64(speedRatio)*math.Sqrt(float64(d)*10.0/float64(maxSpeed)) + 10.0
+	flightTimeSec := 35000.0/float64(speedRatio)*math.Sqrt(float64(d)*10.0/float64(maxSpeed)) + 10.0
+
+	// Compute the flight time by converting this duration in
+	// milliseconds: this will allow to keep more precision.
+	fc.flightTime = time.Duration(1000.0*flightTimeSec) * time.Millisecond
 
 	// The arrival time is just this duration in the future.
 	// We will use the milliseconds in order to keep more
 	// precision before rounding.
-	fc.ArrivalTime = fc.JoinedAt.Add(time.Duration(1000.0*fc.flightTime) * time.Millisecond)
+	fc.ArrivalTime = fc.JoinedAt.Add(fc.flightTime)
+
+	// The return time is separated from the arrival time
+	// by an additional full flight time.
+	fc.ReturnTime = fc.ArrivalTime.Add(fc.flightTime)
 
 	return nil
 }
@@ -548,7 +555,8 @@ func (fc *Component) Validate(data Instance, source *Planet, target *Planet, f *
 	// planet compared to the amount required and
 	// that there are enough resources to be taken
 	// from the planet.
-	return source.validateComponent(fc.Consumption, fc.Cargo, fc.Ships, data)
+	// return source.validateComponent(fc.Consumption, fc.Cargo, fc.Ships, data)
+	return nil
 }
 
 // fetchGeneralInfo :
@@ -574,6 +582,7 @@ func (fc *Component) fetchGeneralInfo(data Instance) error {
 			"planet",
 			"speed",
 			"joined_at",
+			"return_time",
 		},
 		Table: "fleet_elements",
 		Filters: []db.Filter{
@@ -607,6 +616,7 @@ func (fc *Component) fetchGeneralInfo(data Instance) error {
 		&fc.Planet,
 		&fc.Speed,
 		&fc.JoinedAt,
+		&fc.ReturnTime,
 	)
 
 	// Make sure that it's the only fleet component.
@@ -739,6 +749,78 @@ func (fc *Component) fetchCargo(data Instance) error {
 	return nil
 }
 
+// fetchFleetInfo :
+// Allows to fetch the general info that is stored
+// in the parent fleet of a component such as the
+// objective of the fleet, its name, etc.
+//
+// The `data` allows to access to the DB.
+//
+// Returns any error.
+func (fc *Component) fetchFleetInfo(data Instance) error {
+	// Consistency.
+	if fc.ID == "" {
+		return ErrInvalidFleetComponent
+	}
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"name",
+			"objective",
+			"target_galaxy",
+			"target_solar_system",
+			"target_position",
+			"arrival_time",
+		},
+		Table: "fleets",
+		Filters: []db.Filter{
+			{
+				Key:    "id",
+				Values: []string{fc.Fleet},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Scan the fleet's information.
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return ErrInvalidFleetComponent
+	}
+
+	var g, s, p int
+
+	err = dbRes.Scan(
+		&fc.Name,
+		&fc.Objective,
+		&g,
+		&s,
+		&p,
+		&fc.ArrivalTime,
+	)
+
+	fc.Target = NewCoordinate(g, s, p)
+	fc.flightTime = fc.ArrivalTime.Sub(fc.JoinedAt)
+
+	// Make sure that it's the only fleet.
+	if dbRes.Next() {
+		return ErrDuplicatedFleet
+	}
+
+	return nil
+}
+
 // Convert :
 // Implementation of the `db.Convertible` interface
 // from the DB package in order to only include fields
@@ -749,19 +831,21 @@ func (fc *Component) fetchCargo(data Instance) error {
 // only includes relevant fields.
 func (fc *Component) Convert() interface{} {
 	return struct {
-		ID       string    `json:"id"`
-		Fleet    string    `json:"fleet"`
-		Player   string    `json:"player"`
-		Planet   string    `json:"planet"`
-		Speed    float32   `json:"speed"`
-		JoinedAt time.Time `json:"joined_at"`
+		ID         string    `json:"id"`
+		Fleet      string    `json:"fleet"`
+		Player     string    `json:"player"`
+		Planet     string    `json:"planet"`
+		Speed      float32   `json:"speed"`
+		JoinedAt   time.Time `json:"joined_at"`
+		ReturnTime time.Time `json:"return_time"`
 	}{
-		ID:       fc.ID,
-		Fleet:    fc.Fleet,
-		Player:   fc.Player,
-		Planet:   fc.Planet,
-		Speed:    fc.Speed,
-		JoinedAt: fc.JoinedAt,
+		ID:         fc.ID,
+		Fleet:      fc.Fleet,
+		Player:     fc.Player,
+		Planet:     fc.Planet,
+		Speed:      fc.Speed,
+		JoinedAt:   fc.JoinedAt,
+		ReturnTime: fc.ReturnTime,
 	}
 }
 
@@ -777,24 +861,24 @@ func (fc *Component) Convert() interface{} {
 // along with any error.
 func (fc *Component) MarshalJSON() ([]byte, error) {
 	type lightComponent struct {
-		ID       string           `json:"id"`
-		Fleet    string           `json:"fleet"`
-		Planet   string           `json:"planet"`
-		Speed    float32          `json:"speed"`
-		JoinedAt time.Time        `json:"joined_at"`
-		Ships    ShipsInFleet     `json:"ships"`
-		Cargo    []ResourceAmount `json:"cargo"`
+		ID         string           `json:"id"`
+		Planet     string           `json:"planet"`
+		Speed      float32          `json:"speed"`
+		JoinedAt   time.Time        `json:"joined_at"`
+		ReturnTime time.Time        `json:"return_time"`
+		Ships      ShipsInFleet     `json:"ships"`
+		Cargo      []ResourceAmount `json:"cargo"`
 	}
 
 	// Copy the planet's data.
 	lc := lightComponent{
-		ID:       fc.ID,
-		Fleet:    fc.Fleet,
-		Planet:   fc.Planet,
-		Speed:    fc.Speed,
-		JoinedAt: fc.JoinedAt,
-		Ships:    fc.Ships,
-		Cargo:    fc.Cargo,
+		ID:         fc.ID,
+		Planet:     fc.Planet,
+		Speed:      fc.Speed,
+		JoinedAt:   fc.JoinedAt,
+		ReturnTime: fc.ReturnTime,
+		Ships:      fc.Ships,
+		Cargo:      fc.Cargo,
 	}
 
 	return json.Marshal(lc)

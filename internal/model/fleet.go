@@ -392,7 +392,7 @@ func (f *Fleet) fetchComponents(data Instance) error {
 	f.Comps = make([]Component, 0)
 
 	for _, ID = range IDs {
-		comp, err := newComponentFromDB(ID, data, f)
+		comp, err := newComponentFromDB(ID, data)
 
 		if err != nil {
 			return err

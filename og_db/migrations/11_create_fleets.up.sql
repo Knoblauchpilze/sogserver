@@ -39,6 +39,7 @@ CREATE TABLE fleet_elements (
   planet uuid NOT NULL,
   speed numeric(3, 2) NOT NULL,
   joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  return_time TIMESTAMP WITH TIME ZONE NOT NULL,
   PRIMARY KEY (id),
   FOREIGN KEY (fleet) REFERENCES fleets(id),
   FOREIGN KEY (planet) REFERENCES planets(id)

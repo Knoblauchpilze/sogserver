@@ -261,7 +261,20 @@ BEGIN
     AND res = cr.resource;
 
   -- Reduce the planet's available ships from the ones that will be launched.
-  -- TODO: Handle this.
+  WITH cs AS (
+    SELECT
+      t.ship AS vessel,
+      t.count AS quantity
+    FROM
+      json_to_recordset(ships) AS t(ship uuid, count integer)
+    )
+  UPDATE planets_ships
+    SET count = count - cs.quantity
+  FROM
+    cs
+  WHERE
+    planet = (component->>'planet')::uuid
+    AND ship = cs.vessel;
 END
 $$ LANGUAGE plpgsql;
 

@@ -18,4 +18,4 @@ Logger:
   Level: "debug"
 # Concurrent lock for upgrade actions
 Concurrent:
-  LockCount : 2
+  LockCount : 3

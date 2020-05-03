@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -18,12 +19,21 @@ import (
 //
 // The `directed` defines which of the objectives need a
 // target planet.
+//
+// The `allowedShips` defines the ships that can be used
+// for each fleet objective. Indeed some objectices are
+// needing some specific capacities and at least a ship
+// able to peform the action should be attached to the
+// fleet so that it can perform its duty. The other ships
+// can be seen as some sort of escort.
 type FleetObjectivesModule struct {
 	associationTable
 	baseModule
 
 	hostile  map[string]bool
 	directed map[string]bool
+
+	allowedShips map[string]map[string]bool
 }
 
 // Objective :
@@ -47,11 +57,56 @@ type FleetObjectivesModule struct {
 // associated to a fleet having this objective. If
 // set to `false` it indicates that the fleet does
 // not need to be directed to a planet.
+//
+// The `Allowed` defines the list of identifiers of
+// ships that are allowed to perform this objective.
+// It helps defining whether a fleet can have the
+// defined objective given the ships that compose
+// it.
 type Objective struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Hostile  bool   `json:"hostile"`
-	Directed bool   `json:"directed"`
+	ID       string          `json:"id"`
+	Name     string          `json:"name"`
+	Hostile  bool            `json:"hostile"`
+	Directed bool            `json:"directed"`
+	Allowed  map[string]bool `json:"-"`
+}
+
+// MarshalJSON :
+// Implementation of the `Marshaler` interface to allow
+// only specific information to be marshalled when the
+// objective needs to be exported. This will mostly be
+// used to convert the list of allowed ships from a map
+// to a simple array.
+//
+// Returns the marshalled bytes for this objective along
+// with any error.
+func (o *Objective) MarshalJSON() ([]byte, error) {
+	type outObjective struct {
+		ID       string   `json:"id"`
+		Name     string   `json:"name"`
+		Hostile  bool     `json:"hostile"`
+		Directed bool     `json:"directed"`
+		Allowed  []string `json:"allowed_ships"`
+	}
+
+	// Copy the planet's data.
+	oo := outObjective{
+		ID:       o.ID,
+		Name:     o.Name,
+		Hostile:  o.Hostile,
+		Directed: o.Directed,
+		Allowed:  make([]string, 0),
+	}
+
+	// Make shallow copy of the allowed ships.
+	for ship, allowed := range o.Allowed {
+		// Append this ship if it is allowed to perform the mission.
+		if allowed {
+			oo.Allowed = append(oo.Allowed, ship)
+		}
+	}
+
+	return json.Marshal(oo)
 }
 
 // NewFleetObjectivesModule :
@@ -68,6 +123,7 @@ func NewFleetObjectivesModule(log logger.Logger) *FleetObjectivesModule {
 		baseModule:       newBaseModule(log, "fleets"),
 		hostile:          nil,
 		directed:         nil,
+		allowedShips:     nil,
 	}
 }
 
@@ -79,7 +135,7 @@ func NewFleetObjectivesModule(log logger.Logger) *FleetObjectivesModule {
 // Returns `true` if the association table is valid and
 // the internal resources as well.
 func (fom *FleetObjectivesModule) valid() bool {
-	return fom.associationTable.valid() && len(fom.hostile) > 0 && len(fom.directed) > 0
+	return fom.associationTable.valid() && len(fom.hostile) > 0 && len(fom.directed) > 0 && len(fom.allowedShips) > 0
 }
 
 // Init :
@@ -103,7 +159,35 @@ func (fom *FleetObjectivesModule) Init(proxy db.Proxy, force bool) error {
 	// Initialize internal values.
 	fom.hostile = make(map[string]bool)
 	fom.directed = make(map[string]bool)
+	fom.allowedShips = make(map[string]map[string]bool)
 
+	// Initialize general information for objectives.
+	err := fom.fetchObjectives(proxy)
+	if err != nil {
+		fom.trace(logger.Error, fmt.Sprintf("Could not initialize module (err: %v)", err))
+		return err
+	}
+
+	// Initialize allowed ships for each objective.
+	err = fom.fetchAllowedShips(proxy)
+	if err != nil {
+		fom.trace(logger.Error, fmt.Sprintf("Could not initialize module (err: %v)", err))
+		return err
+	}
+
+	return nil
+}
+
+// fetchObjectives :
+// Used internally to fetch the fleet objectives from
+// the DB. The input proxy will be used to access the
+// information and populate internal tables.
+//
+// The `proxy` defines a convenient way to access to
+// the DB.
+//
+// Returns any error.
+func (fom *FleetObjectivesModule) fetchObjectives(proxy db.Proxy) error {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
@@ -188,6 +272,89 @@ func (fom *FleetObjectivesModule) Init(proxy db.Proxy, force bool) error {
 	return nil
 }
 
+// fetchAllowedShips :
+// Used internally to fetch the list of ships that
+// can be used to perform a specific fleet objective.
+// This will allow to make sure that at least a ship
+// in a fleet can be used to perform the mission.
+//
+// The `proxy` defines a convenient way to access to
+// the DB.
+//
+// Returns any error.
+func (fom *FleetObjectivesModule) fetchAllowedShips(proxy db.Proxy) error {
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"ship",
+			"objective",
+			"usable",
+		},
+		Table:   "ships_usage",
+		Filters: []db.Filter{},
+	}
+
+	rows, err := proxy.FetchFromDB(query)
+	defer rows.Close()
+
+	if err != nil {
+		fom.trace(logger.Error, fmt.Sprintf("Unable to initialize allowed ships (err: %v)", err))
+		return ErrNotInitialized
+	}
+	if rows.Err != nil {
+		fom.trace(logger.Error, fmt.Sprintf("Invalid query to initialize allowed ships (err: %v)", rows.Err))
+		return ErrNotInitialized
+	}
+
+	// Analyze the query and populate internal values.
+	var ship, obj string
+	var usable bool
+
+	override := false
+	inconsistent := false
+
+	for rows.Next() {
+		err := rows.Scan(
+			&ship,
+			&obj,
+			&usable,
+		)
+
+		if err != nil {
+			fom.trace(logger.Error, fmt.Sprintf("Failed to initialize objective from row (err: %v)", err))
+			continue
+		}
+
+		// Check whether a objective with this identifier exists.
+		if !fom.existsID(obj) {
+			fom.trace(logger.Error, fmt.Sprintf("Cannot interpret allowed ship with invalid objective \"%s\"", obj))
+			inconsistent = true
+
+			continue
+		}
+
+		allowedFor, ok := fom.allowedShips[obj]
+		if !ok {
+			allowedFor = make(map[string]bool)
+		}
+
+		e, ok := allowedFor[ship]
+		if ok {
+			fom.trace(logger.Error, fmt.Sprintf("Overriding allowed status ship \"%s\" for objective \"%s\" (%t to %t)", ship, obj, e, usable))
+			override = true
+		}
+
+		allowedFor[ship] = usable
+		fom.allowedShips[obj] = allowedFor
+	}
+
+	if override || inconsistent {
+		return ErrInconsistentDB
+	}
+
+	return nil
+}
+
 // GetObjectiveFromID :
 // Used to retrieve information on the fleet objective
 // that corresponds to the input identifier. If no such
@@ -217,7 +384,10 @@ func (fom *FleetObjectivesModule) GetObjectiveFromID(id string) (Objective, erro
 		Name:     name,
 		Hostile:  fom.hostile[id],
 		Directed: fom.directed[id],
+		Allowed:  fom.allowedShips[id],
 	}
+
+	// Convert the allowed ships.
 
 	return res, nil
 }
@@ -313,8 +483,50 @@ func (fom *FleetObjectivesModule) Objectives(proxy db.Proxy, filters []db.Filter
 			desc.Directed = d
 		}
 
+		allowed, ok := fom.allowedShips[ID]
+		if ok {
+			desc.Allowed = allowed
+		} else {
+			desc.Allowed = make(map[string]bool)
+		}
+
 		descs = append(descs, desc)
 	}
 
 	return descs, nil
+}
+
+// canBeUsedFor :
+// Allows to determine whether the ship described by
+// the input identifier can be used to perform the
+// objective in input.
+// In case no rule can be found for this ship and the
+// specified objective, we will conservatively assume
+// that the ship cannot be used.
+//
+// The `objective` defines the fleet objective for
+// which the ship should be checked.
+//
+// The `ship` defines the identifier of the ship to
+// be checked.
+//
+// Returns `true` if the ship can be used to serve
+// the input objective and any error.
+func (fom *FleetObjectivesModule) canBeUsedFor(objective string, ship string) (bool, error) {
+	// Try to fetch the objective in the internal table.
+	if !fom.existsID(objective) {
+		return false, ErrInvalidObjective
+	}
+
+	ships, ok := fom.allowedShips[objective]
+	if !ok {
+		return false, ErrInvalidObjective
+	}
+
+	// In case the `ship` does not exist in the table
+	// for this objective we will get a default value
+	// of `false`: this suits our conservative view
+	// which will indicate that the ship is not usable
+	// for this objective.
+	return ships[ship], nil
 }

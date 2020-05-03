@@ -66,6 +66,15 @@ CREATE TABLE fleet_resources (
   FOREIGN KEY (resource) REFERENCES resources(id)
 );
 
+-- Create the table indicating which ship can be used for which missions.
+CREATE TABLE ships_usage (
+  ship uuid NOT NULL,
+  objective uuid NOT NULL,
+  usable boolean NOT NULL,
+  FOREIGN KEY (ship) REFERENCES ships(id),
+  FOREIGN KEY (objective) REFERENCES fleet_objectives(id)
+);
+
 -- Seed the fleet objectives.
 INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('deployment', 'false', 'true');
 INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('transport', 'false', 'true');
@@ -77,3 +86,854 @@ INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('harv
 INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('attacking', 'true', 'true');
 INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('espionage', 'true', 'true');
 INSERT INTO public.fleet_objectives ("name", "hostile", "directed") VALUES('destroy', 'true', 'true');
+
+-- Seed the ships' usage.
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='small cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='deployment'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='large cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='deployment'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='light fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='deployment'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='heavy fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='deployment'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='cruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='deployment'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battleship'),
+    (SELECT id FROM fleet_objectives WHERE name='deployment'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battlecruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='deployment'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='bomber'),
+    (SELECT id FROM fleet_objectives WHERE name='deployment'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='destroyer'),
+    (SELECT id FROM fleet_objectives WHERE name='deployment'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='deathstar'),
+    (SELECT id FROM fleet_objectives WHERE name='deployment'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='recycler'),
+    (SELECT id FROM fleet_objectives WHERE name='deployment'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='espionage probe'),
+    (SELECT id FROM fleet_objectives WHERE name='deployment'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='solar satellite'),
+    (SELECT id FROM fleet_objectives WHERE name='deployment'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='colony ship'),
+    (SELECT id FROM fleet_objectives WHERE name='deployment'),
+    'true'
+  );
+
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='small cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='transport'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='large cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='transport'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='light fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='transport'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='heavy fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='transport'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='cruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='transport'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battleship'),
+    (SELECT id FROM fleet_objectives WHERE name='transport'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battlecruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='transport'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='bomber'),
+    (SELECT id FROM fleet_objectives WHERE name='transport'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='destroyer'),
+    (SELECT id FROM fleet_objectives WHERE name='transport'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='deathstar'),
+    (SELECT id FROM fleet_objectives WHERE name='transport'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='recycler'),
+    (SELECT id FROM fleet_objectives WHERE name='transport'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='espionage probe'),
+    (SELECT id FROM fleet_objectives WHERE name='transport'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='solar satellite'),
+    (SELECT id FROM fleet_objectives WHERE name='transport'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='colony ship'),
+    (SELECT id FROM fleet_objectives WHERE name='transport'),
+    'true'
+  );
+
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='small cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='colonization'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='large cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='colonization'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='light fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='colonization'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='heavy fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='colonization'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='cruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='colonization'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battleship'),
+    (SELECT id FROM fleet_objectives WHERE name='colonization'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battlecruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='colonization'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='bomber'),
+    (SELECT id FROM fleet_objectives WHERE name='colonization'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='destroyer'),
+    (SELECT id FROM fleet_objectives WHERE name='colonization'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='deathstar'),
+    (SELECT id FROM fleet_objectives WHERE name='colonization'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='recycler'),
+    (SELECT id FROM fleet_objectives WHERE name='colonization'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='espionage probe'),
+    (SELECT id FROM fleet_objectives WHERE name='colonization'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='solar satellite'),
+    (SELECT id FROM fleet_objectives WHERE name='colonization'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='colony ship'),
+    (SELECT id FROM fleet_objectives WHERE name='colonization'),
+    'true'
+  );
+
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='small cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='expedition'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='large cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='expedition'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='light fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='expedition'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='heavy fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='expedition'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='cruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='expedition'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battleship'),
+    (SELECT id FROM fleet_objectives WHERE name='expedition'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battlecruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='expedition'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='bomber'),
+    (SELECT id FROM fleet_objectives WHERE name='expedition'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='destroyer'),
+    (SELECT id FROM fleet_objectives WHERE name='expedition'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='deathstar'),
+    (SELECT id FROM fleet_objectives WHERE name='expedition'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='recycler'),
+    (SELECT id FROM fleet_objectives WHERE name='expedition'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='espionage probe'),
+    (SELECT id FROM fleet_objectives WHERE name='expedition'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='solar satellite'),
+    (SELECT id FROM fleet_objectives WHERE name='expedition'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='colony ship'),
+    (SELECT id FROM fleet_objectives WHERE name='expedition'),
+    'true'
+  );
+
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='small cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS defend'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='large cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS defend'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='light fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS defend'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='heavy fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS defend'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='cruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS defend'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battleship'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS defend'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battlecruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS defend'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='bomber'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS defend'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='destroyer'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS defend'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='deathstar'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS defend'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='recycler'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS defend'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='espionage probe'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS defend'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='solar satellite'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS defend'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='colony ship'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS defend'),
+    'true'
+  );
+
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='small cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS attack'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='large cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS attack'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='light fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS attack'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='heavy fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS attack'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='cruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS attack'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battleship'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS attack'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battlecruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS attack'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='bomber'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS attack'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='destroyer'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS attack'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='deathstar'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS attack'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='recycler'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS attack'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='espionage probe'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS attack'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='solar satellite'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS attack'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='colony ship'),
+    (SELECT id FROM fleet_objectives WHERE name='ACS attack'),
+    'true'
+  );
+
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='small cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='harvesting'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='large cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='harvesting'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='light fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='harvesting'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='heavy fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='harvesting'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='cruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='harvesting'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battleship'),
+    (SELECT id FROM fleet_objectives WHERE name='harvesting'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battlecruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='harvesting'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='bomber'),
+    (SELECT id FROM fleet_objectives WHERE name='harvesting'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='destroyer'),
+    (SELECT id FROM fleet_objectives WHERE name='harvesting'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='deathstar'),
+    (SELECT id FROM fleet_objectives WHERE name='harvesting'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='recycler'),
+    (SELECT id FROM fleet_objectives WHERE name='harvesting'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='espionage probe'),
+    (SELECT id FROM fleet_objectives WHERE name='harvesting'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='solar satellite'),
+    (SELECT id FROM fleet_objectives WHERE name='harvesting'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='colony ship'),
+    (SELECT id FROM fleet_objectives WHERE name='harvesting'),
+    'false'
+  );
+
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='small cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='attacking'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='large cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='attacking'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='light fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='attacking'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='heavy fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='attacking'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='cruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='attacking'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battleship'),
+    (SELECT id FROM fleet_objectives WHERE name='attacking'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battlecruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='attacking'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='bomber'),
+    (SELECT id FROM fleet_objectives WHERE name='attacking'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='destroyer'),
+    (SELECT id FROM fleet_objectives WHERE name='attacking'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='deathstar'),
+    (SELECT id FROM fleet_objectives WHERE name='attacking'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='recycler'),
+    (SELECT id FROM fleet_objectives WHERE name='attacking'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='espionage probe'),
+    (SELECT id FROM fleet_objectives WHERE name='attacking'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='solar satellite'),
+    (SELECT id FROM fleet_objectives WHERE name='attacking'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='colony ship'),
+    (SELECT id FROM fleet_objectives WHERE name='attacking'),
+    'true'
+  );
+
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='small cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='espionage'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='large cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='espionage'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='light fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='espionage'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='heavy fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='espionage'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='cruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='espionage'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battleship'),
+    (SELECT id FROM fleet_objectives WHERE name='espionage'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battlecruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='espionage'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='bomber'),
+    (SELECT id FROM fleet_objectives WHERE name='espionage'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='destroyer'),
+    (SELECT id FROM fleet_objectives WHERE name='espionage'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='deathstar'),
+    (SELECT id FROM fleet_objectives WHERE name='espionage'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='recycler'),
+    (SELECT id FROM fleet_objectives WHERE name='espionage'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='espionage probe'),
+    (SELECT id FROM fleet_objectives WHERE name='espionage'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='solar satellite'),
+    (SELECT id FROM fleet_objectives WHERE name='espionage'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='colony ship'),
+    (SELECT id FROM fleet_objectives WHERE name='espionage'),
+    'false'
+  );
+
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='small cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='destroy'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='large cargo ship'),
+    (SELECT id FROM fleet_objectives WHERE name='destroy'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='light fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='destroy'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='heavy fighter'),
+    (SELECT id FROM fleet_objectives WHERE name='destroy'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='cruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='destroy'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battleship'),
+    (SELECT id FROM fleet_objectives WHERE name='destroy'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battlecruiser'),
+    (SELECT id FROM fleet_objectives WHERE name='destroy'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='bomber'),
+    (SELECT id FROM fleet_objectives WHERE name='destroy'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='destroyer'),
+    (SELECT id FROM fleet_objectives WHERE name='destroy'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='deathstar'),
+    (SELECT id FROM fleet_objectives WHERE name='destroy'),
+    'true'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='recycler'),
+    (SELECT id FROM fleet_objectives WHERE name='destroy'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='espionage probe'),
+    (SELECT id FROM fleet_objectives WHERE name='destroy'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='solar satellite'),
+    (SELECT id FROM fleet_objectives WHERE name='destroy'),
+    'false'
+  );
+INSERT INTO public.ships_usage ("ship", "objective", "usable")
+  VALUES(
+    (SELECT id FROM ships WHERE name='colony ship'),
+    (SELECT id FROM fleet_objectives WHERE name='destroy'),
+    'false'
+  );

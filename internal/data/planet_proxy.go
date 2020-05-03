@@ -66,41 +66,16 @@ func NewPlanetProxy(data model.Instance, log logger.Logger) PlanetProxy {
 // the input list of filters. In case the error is not `nil` the
 // value of the array should be ignored.
 func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
-	// Create the query and execute it.
-	query := db.QueryDesc{
-		Props: []string{
-			"id",
-		},
-		Table:   "planets",
-		Filters: filters,
-	}
-
-	dbRes, err := p.proxy.FetchFromDB(query)
-	defer dbRes.Close()
-
-	// Check for errors.
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch planets (err: %v)", err))
-		return []model.Planet{}, err
-	}
-	if dbRes.Err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch planets (err: %v)", dbRes.Err))
-		return []model.Planet{}, dbRes.Err
-	}
-
-	// We now need to retrieve all the identifiers that matched
-	// the input filters and then build the corresponding planets
-	// object for each one of them.
-	// Note that we should protect the access to the players by
-	// using a locker on each player owning a planet to return.
-	// The only way we have at this step to fetch the ids of all
-	// players is through the filters. So we will traverse them
-	// and lock each player.
-	// In order to have some fail-safe mechanism we will surround
-	// this by a dedicated function.
-	var ID string
-	IDs := make([]string, 0)
-
+	// We need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding
+	// planet objects for each one of them.
+	// Note that we should protect the access to the players
+	// by using a locker on each player owning a planet to
+	// return. The only way we have at this step to fetch
+	// the ids of all players is through the filters. So we
+	// will traverse them and lock each player.
+	// In order to have some fail-safe mechanism we will
+	// surround this by a dedicated function.
 	locks := make([]*locker.Lock, 0)
 
 	defer func() {
@@ -130,7 +105,32 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
 		}
 	}
 
-	// Now that players are locked we can fetch and build the planets.
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table:   "planets",
+		Filters: filters,
+	}
+
+	dbRes, err := p.proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch planets (err: %v)", err))
+		return []model.Planet{}, err
+	}
+	if dbRes.Err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch planets (err: %v)", dbRes.Err))
+		return []model.Planet{}, dbRes.Err
+	}
+
+	// Fetch the data for each planet.
+	var ID string
+	IDs := make([]string, 0)
+
 	for dbRes.Next() {
 		err = dbRes.Scan(&ID)
 

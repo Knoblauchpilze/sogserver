@@ -765,6 +765,7 @@ func (fc *Component) Convert() interface{} {
 func (fc *Component) MarshalJSON() ([]byte, error) {
 	type lightComponent struct {
 		ID       string           `json:"id"`
+		Fleet    string           `json:"fleet"`
 		Planet   string           `json:"planet"`
 		Speed    float32          `json:"speed"`
 		JoinedAt time.Time        `json:"joined_at"`
@@ -775,6 +776,7 @@ func (fc *Component) MarshalJSON() ([]byte, error) {
 	// Copy the planet's data.
 	lc := lightComponent{
 		ID:       fc.ID,
+		Fleet:    fc.Fleet,
 		Planet:   fc.Planet,
 		Speed:    fc.Speed,
 		JoinedAt: fc.JoinedAt,

@@ -95,6 +95,17 @@ import (
 // The `DefensesConstruction` defines a similar list for
 // defense systems on this planet.
 //
+// The `SourceFleets` defines the identifier of the fleet
+// components in which ships from this planet are taking
+// an active part. It does not define anything beyond the
+// ID of the fleet component and does not define all the
+// components that joined this fleet.
+//
+// The `IncomingFleets` defines the identifier of the
+// fleets that have this planet as a target. it does not
+// indicate anything about the actual components of the
+// fleet.
+//
 // The `technologies` defines the technologies that have
 // already been researched by the player owning this tech.
 // It helps in various cases to be able to fetch player's
@@ -124,6 +135,8 @@ type Planet struct {
 	TechnologiesUpgrade  []TechnologyAction `json:"technologies_upgrade"`
 	ShipsConstruction    []ShipAction       `json:"ships_construction"`
 	DefensesConstruction []DefenseAction    `json:"defenses_construction"`
+	SourceFleets         []string           `json:"source_fleets"`
+	IncomingFleets       []string           `json:"incoming_fleets"`
 	technologies         map[string]int
 	mode                 accessMode
 	locker               *locker.Lock
@@ -388,7 +401,10 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 		return p, err
 	}
 
-	// TODO: This is where we should update the fleets.
+	err = p.fetchFleets(data)
+	if err != nil {
+		return p, err
+	}
 
 	// Fetch the planet's content.
 	err = p.fetchResources(data)
@@ -757,6 +773,110 @@ func (p *Planet) updateResources(data Instance) error {
 	err := data.Proxy.InsertToDB(update)
 
 	return err
+}
+
+// fetchFleets :
+// Used to perform the update of the fleets that may
+// have an impact on this planet before fetching the
+// rest of the data. Just like for resources, fleets
+// may have an impact on the amount of ships, defenses
+// or resources existing on a planet through the
+// various actions that can be requested of a fleet:
+// attacking a planet will create fights and pacific
+// actions might bring in some resources. This method
+// will perform the needed updates to make sure that
+// everything is up-to-date.
+// Once fleets have been updated the `Fleets` field
+// will be populated.
+//
+// The `data` defines the object to access the DB if
+// needed.
+//
+// Returns any error.
+func (p *Planet) fetchFleets(data Instance) error {
+	// We need to fetch both the components that were
+	// started from this planet and the fleets that
+	// are directed towards it.
+
+	// First query the components that started from
+	// this planet.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table: "fleet_elements",
+		Filters: []db.Filter{
+			{
+				Key:    "planet",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	var ID string
+	p.SourceFleets = make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			return err
+		}
+
+		p.SourceFleets = append(p.SourceFleets, ID)
+	}
+
+	// Then the fleets that are directed towards this
+	// planet.
+	query = db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table: "fleets",
+		Filters: []db.Filter{
+			{
+				Key:    "planet",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes.Close()
+	dbRes, err = data.Proxy.FetchFromDB(query)
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	p.IncomingFleets = make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			return err
+		}
+
+		p.IncomingFleets = append(p.IncomingFleets, ID)
+	}
+
+	// TODO: This is where we should update the fleets.
+	return nil
 }
 
 // fetchBuildingUpgrades :
@@ -1587,6 +1707,8 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 		TechnologiesUpgrade  []TechnologyAction `json:"technologies_upgrade"`
 		ShipsConstruction    []ShipAction       `json:"ships_construction"`
 		DefensesConstruction []DefenseAction    `json:"defenses_construction"`
+		SourceFleets         []string           `json:"source_fleets"`
+		IncomingFleets       []string           `json:"incoming_fleets"`
 	}
 
 	// Copy the planet's data.
@@ -1604,6 +1726,8 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 		TechnologiesUpgrade:  p.TechnologiesUpgrade,
 		ShipsConstruction:    p.ShipsConstruction,
 		DefensesConstruction: p.DefensesConstruction,
+		SourceFleets:         p.SourceFleets,
+		IncomingFleets:       p.IncomingFleets,
 	}
 
 	// Make shallow copy of the buildings, ships and

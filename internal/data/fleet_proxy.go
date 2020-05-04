@@ -399,6 +399,25 @@ func (p *FleetProxy) fetchFleetForComponent(comp *model.Component, universe stri
 	var f fleetDesc
 	var err error
 
+	// We assume that even in the case of a fleet provided
+	// in the component the target will be provided. This
+	// will help us lock the target planet *before* locking
+	// the fleet and thus be consistent with the scenario
+	// when the user wants to fetch the target planet.
+	// So we can try to acquire the lock on the planet as
+	// specified by the target of the component.
+	// We need first to fetch the universe of the planet.
+	uni, err := model.NewUniverseFromDB(universe, p.data)
+	if err != nil {
+		return f, model.ErrInvalidUniverse
+	}
+
+	// Retrieve the target planet if needed.
+	f.target, err = uni.GetPlanetAt(comp.Target, comp.Player, p.data)
+	if err != nil && err != model.ErrPlanetNotFound {
+		return f, err
+	}
+
 	// In case the component has a fleet associated to it
 	// we can fetch it through the dedicated handler.
 	if comp.Fleet != "" {
@@ -416,21 +435,6 @@ func (p *FleetProxy) fetchFleetForComponent(comp *model.Component, universe stri
 
 		// Register this component as a member of the fleet.
 		f.fleet.Comps = append(f.fleet.Comps, *comp)
-	}
-
-	// Attempt to retrieve the target planet associated
-	// to the fleet. This means first fetching the uni
-	// that is associated to the fleet and then the
-	// actual planet.
-	uni, err := model.NewUniverseFromDB(universe, p.data)
-	if err != nil {
-		return f, model.ErrInvalidUniverse
-	}
-
-	// Retrieve the target planet if needed.
-	f.target, err = uni.GetPlanetAt(comp.Target, comp.Player, p.data)
-	if err != nil && err != model.ErrPlanetNotFound {
-		return f, err
 	}
 
 	// In case the fleet was valid, return now.

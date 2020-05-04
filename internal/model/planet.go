@@ -875,7 +875,13 @@ func (p *Planet) fetchFleets(data Instance) error {
 		p.IncomingFleets = append(p.IncomingFleets, ID)
 	}
 
-	// TODO: This is where we should update the fleets.
+	// Perform the simulation of the fleets incoming
+	// on this planet.
+	err = p.crashIncomingFleets(data)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1971,4 +1977,20 @@ func (p *Planet) validateComponent(fuels []ConsumptionValue, cargos []ResourceAm
 	}
 
 	return nil
+}
+
+// crashIncomingFleets :
+// Used to perform the simulation of the fleets
+// that target this planet. We assume that the
+// internal `IncomingFleets` slice is already
+// populated with the fleets' data. We will not
+// update the fleets starting from this planet
+// in here.
+//
+// The `data` allows to access to the DB.
+//
+// Return any error.
+func (p *Planet) crashIncomingFleets(data Instance) error {
+	// TODO: Handle this.
+	return fmt.Errorf("Not implemented")
 }

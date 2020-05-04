@@ -496,3 +496,37 @@ func (f *Fleet) Validate(data Instance) error {
 
 	return ErrNoShipToPerformObjective
 }
+
+// simulate :
+// Used to perform the simulation of this fleet on
+// the input planet. This will simulate the fight
+// or any effect that this fleet might have on the
+// planet.
+//
+// The `p` represents the planet this fleet is
+// directed to. Providing an invalid planet will
+// make the simulation fail.
+//
+// The `data` allows to access the data from the
+// DB if needed.
+//
+// Returns any error.
+func (f *Fleet) simulate(p *Planet, data Instance) error {
+	// TODO: Handle this.
+	return fmt.Errorf("Not implemented")
+}
+
+// persistToDB :
+// Used to persist the content of this fleet to
+// the DB. Most of the process will be done by
+// calling the dedicated script with the valid
+// data.
+//
+// The `data` allows to access to the DB to be
+// able to save the fleet's data.
+//
+// Returns any error.
+func (f *Fleet) persistToDB(data Instance) error {
+	// TODO: Handle this.
+	return fmt.Errorf("Not implemented")
+}

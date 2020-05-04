@@ -838,7 +838,9 @@ func (p *Planet) fetchFleets(data Instance) error {
 	}
 
 	// Then the fleets that are directed towards this
-	// planet.
+	// planet. Note that we will order them by arrival
+	// time so that the ones that will hit the planet
+	// first are also in the first slots in the slice.
 	query = db.QueryDesc{
 		Props: []string{
 			"id",
@@ -850,6 +852,7 @@ func (p *Planet) fetchFleets(data Instance) error {
 				Values: []string{p.ID},
 			},
 		},
+		Ordering: "order by arrival_time desc",
 	}
 
 	dbRes.Close()
@@ -877,6 +880,10 @@ func (p *Planet) fetchFleets(data Instance) error {
 
 	// Perform the simulation of the fleets incoming
 	// on this planet.
+	// TODO: This does not take care of the fleets that
+	// have their source at this planet. We might want
+	// to simulate these as well but there's an issue
+	// with the lock order.
 	err = p.crashIncomingFleets(data)
 	if err != nil {
 		return err
@@ -1991,6 +1998,43 @@ func (p *Planet) validateComponent(fuels []ConsumptionValue, cargos []ResourceAm
 //
 // Return any error.
 func (p *Planet) crashIncomingFleets(data Instance) error {
-	// TODO: Handle this.
-	return fmt.Errorf("Not implemented")
+	// For each fleet, retrieve its associated data
+	// and then simulate it against the planetary
+	// infrastructure. Note that we assume that the
+	// fleets registered in the `IncomingFleets` are
+	// indeed sorted by order of arrival.
+	var err error
+
+	for _, fID := range p.IncomingFleets {
+		func() {
+
+			fleet, err := NewReadWriteFleet(fID, data)
+			defer func() {
+				err = fleet.Close()
+			}()
+
+			if err != nil {
+				return
+			}
+
+			// Simulate the effect of the fleet on this
+			// planet.
+			err = fleet.simulate(p, data)
+			if err != nil {
+				return
+			}
+
+			// Save the fleet back to db.
+			err = fleet.persistToDB(data)
+			if err != nil {
+				return
+			}
+		}()
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

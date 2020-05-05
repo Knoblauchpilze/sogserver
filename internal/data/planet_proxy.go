@@ -147,7 +147,6 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
 	for _, ID = range IDs {
 		// Protect the fetching of the planet's data with a
 		// lock on the player.
-
 		pla, err := model.NewReadOnlyPlanet(ID, p.data)
 
 		if err != nil {

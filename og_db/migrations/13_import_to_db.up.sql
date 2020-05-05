@@ -589,8 +589,8 @@ BEGIN
     INNER JOIN fleets f ON fe.fleet = f.id
   WHERE
     f.id = fleet_id
-    AND pr.res=fr.resource
-    AND pr.planet=planet_id;
+    AND pr.res = fr.resource
+    AND pr.planet = planet_id;
 
   -- Remove the resources carried by this fleet.
   DELETE FROM
@@ -616,9 +616,9 @@ BEGIN
   -- of the resources.
   SELECT fleet_deposit_resources(fleet_id) INTO planet_was_found;
 
-  -- In case nothing is found (i.e. no valid planet is
-  -- assigned to the fleet) return early.
-  IF NOT FOUND THEN
+  -- Raise an error in case the planet associated to
+  -- the fleet does not exist.
+  IF NOT planet_was_found THEN
     RAISE EXCEPTION 'Fleet % is not directed towards a planet', fleet_id;
   END IF;
 END
@@ -630,7 +630,60 @@ DECLARE
   planet_was_found BOOLEAN;
   planet_id uuid;
 BEGIN
-  -- TODO: Handle this.
+  -- Make the resources carried by the fleet drop on
+  -- the target planet.
+  SELECT fleet_deposit_resources(fleet_id) INTO planet_was_found;
+
+  -- Raise an error in case the planet associated to
+  -- the fleet does not exist.
+  IF NOT planet_was_found THEN
+    RAISE EXCEPTION 'Fleet % is not directed towards a planet', fleet_id;
+  END IF;
+
+  -- At this point we know that the fleet exist so
+  -- we can fetch it.
   SELECT planet INTO planet_id FROM fleets WHERE id = fleet_id AND planet IS NOT NULL;
+
+  -- Otherwise, assign the ships of the fleet as
+  -- element of the player.
+  UPDATE planets_ships AS ps
+    SET count = ps.count + fs.count
+  FROM
+    fleet_ships fs
+    INNER JOIN fleet_elements fe ON fs.fleet_element = fe.id
+    INNER JOIN fleets f ON fe.fleet = f.id
+  WHERE
+    f.id = fleet_id
+    AND ps.ship = fs.ship
+    AND ps.planet = planet_id;
+
+  -- Remove the ships associated to the components
+  -- of this fleet.
+  DELETE FROM
+    fleet_ships AS fs
+    USING
+      fleet_elements AS fe,
+      fleets AS f
+  WHERE
+    fs.fleet_element = fe.id
+    AND fe.fleet = f.id
+    AND f.id = fleet_id;
+
+  -- We will also need to remove the components as
+  -- they're not relevant anymore.
+  DELETE FROM
+    fleet_elements AS fe
+    USING
+      fleets AS f
+  WHERE
+    fe.fleet = f.id
+    AND f.id = fleet_id;
+
+  -- And finally remove the fleet which is now as
+  -- empty as my bank account.
+  DELETE FROM
+    fleets
+  WHERE
+    id = fleet_id;
 END
 $$ LANGUAGE plpgsql;

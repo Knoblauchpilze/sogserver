@@ -512,8 +512,51 @@ func (f *Fleet) Validate(data Instance) error {
 //
 // Returns any error.
 func (f *Fleet) simulate(p *Planet, data Instance) error {
-	// TODO: Handle this.
-	return fmt.Errorf("Not implemented")
+	// We need to check the objective of this fleet
+	// and perform the adequate processing.
+	obj, err := data.Objectives.GetObjectiveFromID(f.Objective)
+	if err != nil {
+		return err
+	}
+
+	var script string
+
+	// TODO: Handle missing cases.
+	switch obj.Name {
+	case "deployment":
+		return fmt.Errorf("Not implemented")
+	case "transport":
+		script = "fleet_transport"
+	case "colonization":
+		return fmt.Errorf("Not implemented")
+	case "expedition":
+		return fmt.Errorf("Not implemented")
+	case "ACSdefend'":
+		return fmt.Errorf("Not implemented")
+	case "ACSattack'":
+		return fmt.Errorf("Not implemented")
+	case "harvesting":
+		return fmt.Errorf("Not implemented")
+	case "attacking":
+		return fmt.Errorf("Not implemented")
+	case "espionage":
+		return fmt.Errorf("Not implemented")
+	case "destroy":
+		return fmt.Errorf("Not implemented")
+	}
+
+	// Execute the script allowing to perform
+	// the objective of the fleet.
+	query := db.InsertReq{
+		Script: script,
+		Args: []interface{}{
+			f.ID,
+		},
+	}
+
+	err = data.Proxy.InsertToDB(query)
+
+	return err
 }
 
 // persistToDB :

@@ -413,7 +413,7 @@ func (p *FleetProxy) fetchFleetForComponent(comp *model.Component, universe stri
 	}
 
 	// Retrieve the target planet if needed.
-	f.target, err = uni.GetPlanetAt(comp.Target, comp.Player, p.data)
+	f.target, err = uni.GetPlanetAt(comp.Target, p.data)
 	if err != nil && err != model.ErrPlanetNotFound {
 		return f, err
 	}

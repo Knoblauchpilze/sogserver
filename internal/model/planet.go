@@ -364,6 +364,13 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 	}
 	p.locker.Lock()
 
+	defer func() {
+		// Release the locker if needed.
+		if p.mode == ReadOnly {
+			err = p.locker.Unlock()
+		}
+	}()
+
 	// Fetch general info for this planet. It will
 	// allow to fetch the player's identifier and
 	// be able to update the technologies actions.
@@ -430,11 +437,6 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 	err = p.fetchTechnologies(data)
 	if err != nil {
 		return p, err
-	}
-
-	// Release the locker if needed.
-	if p.mode == ReadOnly {
-		err = p.locker.Unlock()
 	}
 
 	return p, err
@@ -2003,7 +2005,7 @@ func (p *Planet) crashIncomingFleets(data Instance) error {
 	// infrastructure. Note that we assume that the
 	// fleets registered in the `IncomingFleets` are
 	// indeed sorted by order of arrival.
-	var err error
+	var gErr error
 
 	for _, fID := range p.IncomingFleets {
 		func() {
@@ -2019,20 +2021,20 @@ func (p *Planet) crashIncomingFleets(data Instance) error {
 
 			// Simulate the effect of the fleet on this
 			// planet.
-			err = fleet.simulate(p, data)
-			if err != nil {
+			gErr = fleet.simulate(p, data)
+			if gErr != nil {
 				return
 			}
 
 			// Save the fleet back to db.
-			err = fleet.persistToDB(data)
-			if err != nil {
+			gErr = fleet.persistToDB(data)
+			if gErr != nil {
 				return
 			}
 		}()
 
-		if err != nil {
-			return err
+		if gErr != nil {
+			return gErr
 		}
 	}
 

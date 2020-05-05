@@ -290,21 +290,16 @@ func (u *Universe) UsedCoords(proxy db.Proxy) (map[int]Coordinate, error) {
 // Used to attempt to retrieve the planet that exists at
 // the specified coordinates. In case no planet exists
 // a `ErrPlanetNotFound` error will be returned.
-// Additionnaly the planet is required to belong to the
-// specified player.
 //
 // The `coord` defines the coordinates from which a planet
 // should be fetched.
-//
-// The `player` defines the identifier of the player that
-// should own the planet if it exists.
 //
 // The `data` allows to access to the DB to fetch the
 // planet's data.
 //
 // Returns the planet at the specified coordinates (or
 // `nil` in case no planet exists) along with any error.
-func (u *Universe) GetPlanetAt(coord Coordinate, player string, data Instance) (*Planet, error) {
+func (u *Universe) GetPlanetAt(coord Coordinate, data Instance) (*Planet, error) {
 	// Make sure that the coordinate are valid for this universe.
 	if !coord.valid(u.GalaxiesCount, u.GalaxySize, u.SolarSystemSize) {
 		return nil, ErrInvalidPlanetCoordinates
@@ -333,10 +328,6 @@ func (u *Universe) GetPlanetAt(coord Coordinate, player string, data Instance) (
 			{
 				Key:    "position",
 				Values: []string{pas},
-			},
-			{
-				Key:    "player",
-				Values: []string{player},
 			},
 		},
 	}

@@ -436,6 +436,9 @@ func (fc *Component) ConsolidateArrivalTime(data Instance, p *Planet) error {
 	speedRatio := fc.Speed * 10.0
 	flightTimeSec := 35000.0/float64(speedRatio)*math.Sqrt(float64(d)*10.0/float64(maxSpeed)) + 10.0
 
+	// TODO: Hack
+	flightTimeSec /= 200.0
+
 	// Compute the flight time by converting this duration in
 	// milliseconds: this will allow to keep more precision.
 	fc.flightTime = time.Duration(1000.0*flightTimeSec) * time.Millisecond
@@ -555,7 +558,8 @@ func (fc *Component) Validate(data Instance, source *Planet, target *Planet, f *
 	// planet compared to the amount required and
 	// that there are enough resources to be taken
 	// from the planet.
-	return source.validateComponent(fc.Consumption, fc.Cargo, fc.Ships, data)
+	// return source.validateComponent(fc.Consumption, fc.Cargo, fc.Ships, data)
+	return nil
 }
 
 // fetchGeneralInfo :

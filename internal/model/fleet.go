@@ -123,6 +123,13 @@ func newFleetFromDB(ID string, data Instance, mode accessMode) (Fleet, error) {
 	}
 	f.locker.Lock()
 
+	defer func() {
+		// Release the locker if needed.
+		if f.mode == ReadOnly {
+			err = f.locker.Unlock()
+		}
+	}()
+
 	// Fetch the fleet's content.
 	err = f.fetchGeneralInfo(data)
 	if err != nil {
@@ -132,11 +139,6 @@ func newFleetFromDB(ID string, data Instance, mode accessMode) (Fleet, error) {
 	err = f.fetchComponents(data)
 	if err != nil {
 		return f, err
-	}
-
-	// Release the locker if needed.
-	if f.mode == ReadOnly {
-		err = f.locker.Unlock()
 	}
 
 	return f, nil

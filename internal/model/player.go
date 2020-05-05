@@ -132,6 +132,13 @@ func newPlayerFromDB(ID string, data Instance, mode accessMode) (Player, error) 
 	}
 	p.locker.Lock()
 
+	defer func() {
+		// Release the locker if needed.
+		if p.mode == ReadOnly {
+			err = p.locker.Unlock()
+		}
+	}()
+
 	// Fetch the player's data.
 	err = p.fetchGeneralInfo(data)
 	if err != nil {
@@ -139,12 +146,6 @@ func newPlayerFromDB(ID string, data Instance, mode accessMode) (Player, error) 
 	}
 
 	err = p.fetchTechnologies(data)
-
-	// Release the locker if needed.
-	if p.mode == ReadOnly {
-		err = p.locker.Unlock()
-		return p, err
-	}
 
 	return p, err
 }

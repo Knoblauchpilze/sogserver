@@ -526,7 +526,7 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 	// TODO: Handle missing cases.
 	switch obj.Name {
 	case "deployment":
-		return fmt.Errorf("Not implemented")
+		script = "fleet_deployment"
 	case "transport":
 		script = "fleet_transport"
 	case "colonization":

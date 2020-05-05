@@ -1,4 +1,13 @@
 
+-- Drop the function allowing to handle deployment of a fleet.
+DROP FUNCTION fleet_deployment(fleet_id uuid);
+
+-- Drop the function allowing to perform the transport action of a fleet.
+DROP FUNCTION fleet_transport(fleet_id uuid);
+
+-- Drop convenience script allowing to deposit resources on a planet.
+DROP FUNCTION fleet_deposit_resources(fleet_id uuid);
+
 -- Drop the function allowing to update defense for a player.
 DROP FUNCTION update_defense_upgrade_action(planet_id uuid);
 

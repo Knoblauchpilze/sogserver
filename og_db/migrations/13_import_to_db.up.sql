@@ -552,31 +552,35 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
--- Perform updates to account for a transport fleet.
-CREATE OR REPLACE FUNCTION fleet_transport(fleet_id uuid) RETURNS VOID AS $$
+-- Utility script allowing to deposit the resources
+-- carried by a fleet to the planet it belongs to.
+-- The return value indicates whether the planet to
+-- deposit the resources to (computed with the data
+-- from the input fleet) actually existed.
+CREATE OR REPLACE FUNCTION fleet_deposit_resources(fleet_id uuid) RETURNS BOOLEAN AS $$
 DECLARE
   planet_id uuid;
 BEGIN
-  -- Perform the update of the resources stored on the
-  -- planet if available. This should be the case as we
-  -- consider this script is called only when the fleet
-  -- transports resources to an existing planet.
   -- Retrieve the index of the planet associated to the
   -- fleet.
   SELECT planet INTO planet_id FROM fleets WHERE id = fleet_id AND planet IS NOT NULL;
 
-  -- In case nothing is found (i.e. no valid planet is
-  -- assigned to the fleet) return early.
+  -- If the planet does not exist for this fleet, do not
+  -- deposit resources. Whether it is an issue will be
+  -- determined by the calling script.
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Fleet % is not directed towards a planet', fleet_id;
+    RETURN FALSE;
   END IF;
 
-  -- Otherwise perform the update of the resources for
-  -- said planet.
+  -- Perform the update of the resources on the planet
+  -- so as to be sure that the player gets the max of
+  -- its production in case the new deposit brings the
+  -- total over the storage capacity.
   PERFORM update_resources_for_planet(planet_id);
 
-  -- Add the resources carried by the fleet to the destination planet
-  -- and remove them from the fleet's resources.
+  -- Add the resources carried by the fleet to the
+  -- destination planet and remove them from the
+  -- fleet's resources.
   UPDATE planets_resources AS pr
     SET amount = pr.amount + fr.amount
   FROM
@@ -598,5 +602,35 @@ BEGIN
     fr.fleet_element = fe.id
     AND fe.fleet = f.id
     AND f.id = fleet_id;
+
+  RETURN TRUE;
+END
+$$ LANGUAGE plpgsql;
+
+-- Perform updates to account for a transport fleet.
+CREATE OR REPLACE FUNCTION fleet_transport(fleet_id uuid) RETURNS VOID AS $$
+DECLARE
+  planet_was_found BOOLEAN;
+BEGIN
+  -- Use the dedicated script to perform the deposit
+  -- of the resources.
+  SELECT fleet_deposit_resources(fleet_id) INTO planet_was_found;
+
+  -- In case nothing is found (i.e. no valid planet is
+  -- assigned to the fleet) return early.
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Fleet % is not directed towards a planet', fleet_id;
+  END IF;
+END
+$$ LANGUAGE plpgsql;
+
+-- Perform updates to account for a deployment fleet.
+CREATE OR REPLACE FUNCTION fleet_deployment(fleet_id uuid) RETURNS VOID AS $$
+DECLARE
+  planet_was_found BOOLEAN;
+  planet_id uuid;
+BEGIN
+  -- TODO: Handle this.
+  SELECT planet INTO planet_id FROM fleets WHERE id = fleet_id AND planet IS NOT NULL;
 END
 $$ LANGUAGE plpgsql;

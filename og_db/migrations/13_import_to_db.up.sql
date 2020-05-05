@@ -551,3 +551,52 @@ BEGIN
   DELETE FROM construction_actions_defenses WHERE planet = planet_id AND remaining = 0;
 END
 $$ LANGUAGE plpgsql;
+
+-- Perform updates to account for a transport fleet.
+CREATE OR REPLACE FUNCTION fleet_transport(fleet_id uuid) RETURNS VOID AS $$
+DECLARE
+  planet_id uuid;
+BEGIN
+  -- Perform the update of the resources stored on the
+  -- planet if available. This should be the case as we
+  -- consider this script is called only when the fleet
+  -- transports resources to an existing planet.
+  -- Retrieve the index of the planet associated to the
+  -- fleet.
+  SELECT planet INTO planet_id FROM fleets WHERE id = fleet_id AND planet IS NOT NULL;
+
+  -- In case nothing is found (i.e. no valid planet is
+  -- assigned to the fleet) return early.
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Fleet % is not directed towards a planet', fleet_id;
+  END IF;
+
+  -- Otherwise perform the update of the resources for
+  -- said planet.
+  PERFORM update_resources_for_planet(planet_id);
+
+  -- Add the resources carried by the fleet to the destination planet
+  -- and remove them from the fleet's resources.
+  UPDATE planets_resources AS pr
+    SET amount = pr.amount + fr.amount
+  FROM
+    fleet_resources fr
+    INNER JOIN fleet_elements fe ON fr.fleet_element = fe.id
+    INNER JOIN fleets f ON fe.fleet = f.id
+  WHERE
+    f.id = fleet_id
+    AND pr.res=fr.resource
+    AND pr.planet=planet_id;
+
+  -- Remove the resources carried by this fleet.
+  DELETE FROM
+    fleet_resources AS fr
+    USING
+      fleet_elements AS fe,
+      fleets AS f
+  WHERE
+    fr.fleet_element = fe.id
+    AND fe.fleet = f.id
+    AND f.id = fleet_id;
+END
+$$ LANGUAGE plpgsql;

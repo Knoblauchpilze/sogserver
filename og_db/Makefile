@@ -38,3 +38,7 @@ migrate:
 # Target allowing to migrate the db to initial state.
 demigrate:
 	migrate -path ${PWD}/migrations -database postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable down
+
+# Demigrate only the last step of the DB creation.
+demigrateO:
+	migrate -path ${PWD}/migrations -database postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable down 1

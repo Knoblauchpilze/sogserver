@@ -103,7 +103,8 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 
 				// Make sure that this component is linked to the
 				// planet and player described in the route.
-				comp.Planet = planet
+				comp.Source = planet
+				comp.SourceType = model.World
 				comp.Player = player
 
 				// Create the fleet component.

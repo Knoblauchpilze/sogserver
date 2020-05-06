@@ -314,6 +314,11 @@ $$ LANGUAGE plpgsql;
 -- Import fleet components in the relevant table.
 CREATE OR REPLACE FUNCTION create_fleet_component(component json, ships json, resources json, consumption json) RETURNS VOID AS $$
 BEGIN
+  -- Make sure that the type for this component is valid.
+  IF component->>'source_type' != 'planet' AND component->>'source_type' != 'moon' THEN
+    RAISE EXCEPTION 'Invalid kind % specified for fleet component', component->>'source_type';
+  END IF;
+
   -- Insert the fleet element.
   INSERT INTO fleet_elements
     SELECT *
@@ -330,52 +335,108 @@ BEGIN
     FROM json_populate_recordset(null::fleet_resources, resources);
 
   -- Reduce the planet's resources from the amount of the fuel.
-  WITH cc AS (
-    SELECT
-      t.resource,
-      t.amount AS quantity
+  -- Note that depending on the starting location of the fleet
+  -- component we might have to subtract from the planet or the
+  -- moon associated to the component.
+  -- This can be checked using the `source_type` field in the
+  -- input `component` element.
+  IF (component->>'source_type') = 'planet' THEN
+    WITH cc AS (
+      SELECT
+        t.resource,
+        t.amount AS quantity
+      FROM
+        json_to_recordset(consumption) AS t(resource uuid, amount numeric(15, 5))
+      )
+    UPDATE planets_resources
+      SET amount = amount - cc.quantity
     FROM
-      json_to_recordset(consumption) AS t(resource uuid, amount numeric(15, 5))
-    )
-  UPDATE planets_resources
-    SET amount = amount - cc.quantity
-  FROM
-    cc
-  WHERE
-    planet = (component->>'planet')::uuid
-    AND res = cc.resource;
+      cc
+    WHERE
+      planet = (component->>'source')::uuid
+      AND res = cc.resource;
 
-  -- Reduce the planet's resources from the amount that will be moved.
-  WITH cr AS (
-    SELECT
-      t.resource,
-      t.amount AS quantity
+    -- Reduce the planet's resources from the amount that will be moved.
+    WITH cr AS (
+      SELECT
+        t.resource,
+        t.amount AS quantity
+      FROM
+        json_to_recordset(resources) AS t(resource uuid, amount numeric(15, 5))
+      )
+    UPDATE planets_resources
+      SET amount = amount - cr.quantity
     FROM
-      json_to_recordset(resources) AS t(resource uuid, amount numeric(15, 5))
-    )
-  UPDATE planets_resources
-    SET amount = amount - cr.quantity
-  FROM
-    cr
-  WHERE
-    planet = (component->>'planet')::uuid
-    AND res = cr.resource;
+      cr
+    WHERE
+      planet = (component->>'source')::uuid
+      AND res = cr.resource;
 
-  -- Reduce the planet's available ships from the ones that will be launched.
-  WITH cs AS (
-    SELECT
-      t.ship AS vessel,
-      t.count AS quantity
+    -- Reduce the planet's available ships from the ones that will be launched.
+    WITH cs AS (
+      SELECT
+        t.ship AS vessel,
+        t.count AS quantity
+      FROM
+        json_to_recordset(ships) AS t(ship uuid, count integer)
+      )
+    UPDATE planets_ships
+      SET count = count - cs.quantity
     FROM
-      json_to_recordset(ships) AS t(ship uuid, count integer)
-    )
-  UPDATE planets_ships
-    SET count = count - cs.quantity
-  FROM
-    cs
-  WHERE
-    planet = (component->>'planet')::uuid
-    AND ship = cs.vessel;
+      cs
+    WHERE
+      planet = (component->>'source')::uuid
+      AND ship = cs.vessel;
+  END IF;
+
+  IF (component->>'source_type') = 'moon' THEN
+    WITH cc AS (
+      SELECT
+        t.resource,
+        t.amount AS quantity
+      FROM
+        json_to_recordset(consumption) AS t(resource uuid, amount numeric(15, 5))
+      )
+    UPDATE moons_resources
+      SET amount = amount - cc.quantity
+    FROM
+      cc
+    WHERE
+      moon = (component->>'source')::uuid
+      AND res = cc.resource;
+
+    -- Reduce the planet's resources from the amount that will be moved.
+    WITH cr AS (
+      SELECT
+        t.resource,
+        t.amount AS quantity
+      FROM
+        json_to_recordset(resources) AS t(resource uuid, amount numeric(15, 5))
+      )
+    UPDATE moons_resources
+      SET amount = amount - cr.quantity
+    FROM
+      cr
+    WHERE
+      moon = (component->>'source')::uuid
+      AND res = cr.resource;
+
+    -- Reduce the planet's available ships from the ones that will be launched.
+    WITH cs AS (
+      SELECT
+        t.ship AS vessel,
+        t.count AS quantity
+      FROM
+        json_to_recordset(ships) AS t(ship uuid, count integer)
+      )
+    UPDATE moons_ships
+      SET count = count - cs.quantity
+    FROM
+      cs
+    WHERE
+      moon = (component->>'source')::uuid
+      AND ship = cs.vessel;
+  END IF;
 END
 $$ LANGUAGE plpgsql;
 

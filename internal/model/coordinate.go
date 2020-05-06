@@ -27,6 +27,20 @@ type Coordinate struct {
 	Position int `json:"position"`
 }
 
+// Location :
+// Describes the possible locations of a coordinate. It usually
+// indicates whether the coordinate refers to the planet, moon
+// or debris fields of a specific location.
+type Location string
+
+// Define the possible location for a coordinate.
+// TODO: Should be included in the coordinate itself ?
+const (
+	World  Location = "planet"
+	Moon   Location = "moon"
+	Debris Location = "debris"
+)
+
 // NewCoordinate :
 // Used to create a new coordinate object from the input data.
 // No controls are performed to verify that the input coords

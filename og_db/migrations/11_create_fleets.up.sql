@@ -36,13 +36,13 @@ CREATE TABLE fleet_elements (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   fleet uuid NOT NULL,
   player uuid NOT NULL,
-  planet uuid NOT NULL,
+  source uuid NOT NULL,
+  source_type text NOT NULL,
   speed numeric(3, 2) NOT NULL,
   joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   return_time TIMESTAMP WITH TIME ZONE NOT NULL,
   PRIMARY KEY (id),
-  FOREIGN KEY (fleet) REFERENCES fleets(id),
-  FOREIGN KEY (planet) REFERENCES planets(id)
+  FOREIGN KEY (fleet) REFERENCES fleets(id)
 );
 
 -- Create the table for vessels belonging to a fleet.

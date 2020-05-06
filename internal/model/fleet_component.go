@@ -25,10 +25,15 @@ import (
 // launched this fleet component. It means that all the
 // ships in this component belongs to the player.
 //
-// The `Planet` defines the identifier of the starting
-// planet of this component. Unlike the destination of
-// the fleet which might not be a planet yet a fleet
-// must start from an existing location.
+// The `Source` defines the identifier of the starting
+// planet or moon of this component. Unlike the target
+// of the fleet which might not be a valid planet/moon
+// yet a fleet must start from an existing location.
+//
+// The `SourceType` defines the kind of the source. It
+// is either a planet or a moon and indicates to the
+// underlying DB where the info for this component is
+// to be updated.
 //
 // The `Speed` defines the travel speed of this fleet
 // component. It is used to precisely determine how
@@ -86,7 +91,8 @@ import (
 type Component struct {
 	ID          string             `json:"id"`
 	Player      string             `json:"-"`
-	Planet      string             `json:"planet"`
+	Source      string             `json:"source"`
+	SourceType  Location           `json:"-"`
 	Speed       float32            `json:"speed"`
 	JoinedAt    time.Time          `json:"joined_at"`
 	ReturnTime  time.Time          `json:"return_time"`
@@ -294,7 +300,8 @@ func newComponentFromDB(ID string, data Instance) (Component, error) {
 func (fc *Component) Valid() bool {
 	return validUUID(fc.ID) &&
 		validUUID(fc.Player) &&
-		validUUID(fc.Planet) &&
+		validUUID(fc.Source) &&
+		len(fc.SourceType) > 0 &&
 		fc.Speed >= 0.0 && fc.Speed <= 1.0 &&
 		fc.Ships.valid() &&
 		validUUID(fc.Objective) &&
@@ -310,7 +317,7 @@ func (fc *Component) Valid() bool {
 //
 // Returns the corresponding string.
 func (fc Component) String() string {
-	return fmt.Sprintf("[id: %s, player: %s, planet: %s]", fc.ID, fc.Player, fc.Planet)
+	return fmt.Sprintf("[id: %s, player: %s, source: %s, type: %s]", fc.ID, fc.Player, fc.Source, fc.SourceType)
 }
 
 // consolidateConsumption :
@@ -391,7 +398,7 @@ func (fc *Component) consolidateConsumption(data Instance, p *Planet) error {
 // Returns any error.
 func (fc *Component) ConsolidateArrivalTime(data Instance, p *Planet) error {
 	// Consistency.
-	if fc.Planet != p.ID {
+	if fc.Source != p.ID || fc.SourceType != World {
 		return ErrInvalidPlanet
 	}
 
@@ -478,7 +485,7 @@ func (fc *Component) ConsolidateArrivalTime(data Instance, p *Planet) error {
 // Returns any error.
 func (fc *Component) Validate(data Instance, source *Planet, target *Planet, f *Fleet) error {
 	// Consistency.
-	if fc.Planet != source.ID {
+	if fc.Source != source.ID || fc.SourceType != World {
 		return ErrInvalidPlanet
 	}
 	if fc.Fleet != f.ID {
@@ -583,7 +590,8 @@ func (fc *Component) fetchGeneralInfo(data Instance) error {
 		Props: []string{
 			"fleet",
 			"player",
-			"planet",
+			"source",
+			"source_type",
 			"speed",
 			"joined_at",
 			"return_time",
@@ -617,7 +625,8 @@ func (fc *Component) fetchGeneralInfo(data Instance) error {
 	err = dbRes.Scan(
 		&fc.Fleet,
 		&fc.Player,
-		&fc.Planet,
+		&fc.Source,
+		&fc.SourceType,
 		&fc.Speed,
 		&fc.JoinedAt,
 		&fc.ReturnTime,
@@ -838,7 +847,8 @@ func (fc *Component) Convert() interface{} {
 		ID         string    `json:"id"`
 		Fleet      string    `json:"fleet"`
 		Player     string    `json:"player"`
-		Planet     string    `json:"planet"`
+		Source     string    `json:"source"`
+		SourceType Location  `json:"source_type"`
 		Speed      float32   `json:"speed"`
 		JoinedAt   time.Time `json:"joined_at"`
 		ReturnTime time.Time `json:"return_time"`
@@ -846,7 +856,8 @@ func (fc *Component) Convert() interface{} {
 		ID:         fc.ID,
 		Fleet:      fc.Fleet,
 		Player:     fc.Player,
-		Planet:     fc.Planet,
+		Source:     fc.Source,
+		SourceType: fc.SourceType,
 		Speed:      fc.Speed,
 		JoinedAt:   fc.JoinedAt,
 		ReturnTime: fc.ReturnTime,
@@ -866,7 +877,8 @@ func (fc *Component) Convert() interface{} {
 func (fc *Component) MarshalJSON() ([]byte, error) {
 	type lightComponent struct {
 		ID         string           `json:"id"`
-		Planet     string           `json:"planet"`
+		Source     string           `json:"source"`
+		SourceType Location         `json:"source_type"`
 		Speed      float32          `json:"speed"`
 		JoinedAt   time.Time        `json:"joined_at"`
 		ReturnTime time.Time        `json:"return_time"`
@@ -877,7 +889,8 @@ func (fc *Component) MarshalJSON() ([]byte, error) {
 	// Copy the planet's data.
 	lc := lightComponent{
 		ID:         fc.ID,
-		Planet:     fc.Planet,
+		Source:     fc.Source,
+		SourceType: fc.SourceType,
 		Speed:      fc.Speed,
 		JoinedAt:   fc.JoinedAt,
 		ReturnTime: fc.ReturnTime,

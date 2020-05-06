@@ -408,25 +408,6 @@ func (f *Fleet) fetchComponents(data Instance) error {
 		f.Comps = append(f.Comps, comp)
 	}
 
-	// Populate the return value.
-	var comp Component
-
-	for dbRes.Next() {
-		err = dbRes.Scan(
-			&comp.ID,
-			&comp.Player,
-			&comp.Planet,
-			&comp.Speed,
-			&comp.JoinedAt,
-		)
-
-		if err != nil {
-			return err
-		}
-
-		f.Comps = append(f.Comps, comp)
-	}
-
 	return nil
 }
 

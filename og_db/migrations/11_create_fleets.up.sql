@@ -18,13 +18,13 @@ CREATE TABLE fleets (
   target_galaxy integer NOT NULL,
   target_solar_system integer NOT NULL,
   target_position integer NOT NULL,
-  planet uuid,
+  target uuid,
+  target_type text NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   arrival_time TIMESTAMP WITH TIME ZONE NOT NULL,
   PRIMARY KEY (id),
   FOREIGN KEY (uni) REFERENCES universes(id),
   FOREIGN KEY (objective) REFERENCES fleet_objectives(id),
-  FOREIGN KEY (planet) REFERENCES planets(id),
   UNIQUE (uni, name)
 );
 

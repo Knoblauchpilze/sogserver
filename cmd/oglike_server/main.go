@@ -32,7 +32,6 @@ import (
 // connect for a long time.
 // TODO: Multiple ships or defenses actions overlaps while they should be
 // added at the end of each other.
-// TODO: Verify that the fleet can be used for this mission.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

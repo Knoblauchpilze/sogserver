@@ -316,7 +316,7 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Update upgrade action for buildings.
-CREATE OR REPLACE FUNCTION update_building_upgrade_action(planet_id uuid) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION update_building_upgrade_action(target_id uuid, kind text) RETURNS VOID AS $$
 DECLARE
   -- Save time: this will make sure that we can't run into
   -- problem where for example an action is not complete
@@ -324,97 +324,140 @@ DECLARE
   -- performed (resulting in a ship never being built).
   processing_time TIMESTAMP := NOW();
 BEGIN
-  -- 1. Update the actions by updating the level of each
-  -- building having a completed action. Make sure to
-  -- order by ascending order of operations in case some
-  -- pending operations concerns the same building for
-  -- different levels.
-  WITH update_data
-    AS (
-      SELECT *
-      FROM construction_actions_buildings
-      WHERE
-        planet = planet_id AND
-        completion_time < processing_time
-      ORDER BY
-        desired_level ASC
-    )
-  UPDATE planets_buildings pb
-    SET level = ud.desired_level
-  FROM update_data AS ud
-  WHERE
-    pb.planet = planet_id
-    AND pb.building = ud.element
-    AND pb.level = ud.current_level;
+  -- The `target_id` can reference either a planet or a moon.
+  -- Note that this is specified by the `kind` in input which
+  -- allows to select between both cases.
+  -- The process to update the actions is very similar in any
+  -- of these two cases, the only variable is the name of the
+  -- table. For now we will relyon the `kind` and copy paste
+  -- the code for both cases.
+  IF kind != 'planet' AND kind != 'moon' THEN
+    RAISE EXCEPTION 'Invalid kind % specified for %', kind, target_id;
+  END IF;
 
-  -- 2. Update the resources on this planet based on the
-  -- type of building that has been completed. We will
-  -- focus on updating the storage capacity and prod for
-  -- each resource.
-  -- 2.a) Update resources to reach the current time.
-  PERFORM update_resources_for_planet(planet_id);
+  IF kind = 'planet' THEN
+    -- 1. Update the actions by updating the level of each
+    -- building having a completed action. Make sure to
+    -- order by ascending order of operations in case some
+    -- pending operations concerns the same building for
+    -- different levels.
+    WITH update_data
+      AS (
+        SELECT *
+        FROM construction_actions_buildings
+        WHERE
+          planet = target_id AND
+          completion_time < processing_time
+        ORDER BY
+          desired_level ASC
+      )
+    UPDATE planets_buildings pb
+      SET level = ud.desired_level
+    FROM update_data AS ud
+    WHERE
+      pb.planet = target_id
+      AND pb.building = ud.element
+      AND pb.level = ud.current_level;
 
-  -- 2.b) Proceed to update the mines with their new prod
-  -- values.
-  WITH update_data
-    AS (
-      SELECT resource, SUM(production_change) AS prod_change
-      FROM
-        construction_actions_buildings_production_effects cabpe
-        INNER JOIN construction_actions_buildings cab ON cab.id = cabpe.action
-      WHERE
-        cab.planet = planet_id AND
-        cab.completion_time < processing_time
-      GROUP BY
-        cabpe.resource
-    )
-  UPDATE planets_resources pr
-    SET production = production + ud.prod_change
-  FROM update_data AS ud
-  WHERE
-    pr.planet = planet_id
-    AND pr.res = ud.resource;
+    -- 2. Update the resources on this planet based on the
+    -- type of building that has been completed. We will
+    -- focus on updating the storage capacity and prod for
+    -- each resource.
+    -- 2.a) Update resources to reach the current time.
+    PERFORM update_resources_for_planet(target_id);
 
-  -- 2.c) Update the storage facilities with their new
-  -- values.
-  WITH update_data
-    AS (
-      SELECT resource, SUM(storage_capacity_change) AS capacity_change
-      FROM
-        construction_actions_buildings_storage_effects cabse
-        INNER JOIN construction_actions_buildings cab ON cab.id = cabse.action
-      WHERE
-        cab.planet = planet_id AND
-        cab.completion_time < processing_time
-      GROUP BY
-        cabse.resource
-    )
-  UPDATE planets_resources pr
-    SET storage_capacity = storage_capacity + ud.capacity_change
-  FROM update_data AS ud
-  WHERE
-    pr.planet = planet_id
-    AND pr.res = ud.resource;
+    -- 2.b) Proceed to update the mines with their new prod
+    -- values.
+    WITH update_data
+      AS (
+        SELECT resource, SUM(production_change) AS prod_change
+        FROM
+          construction_actions_buildings_production_effects cabpe
+          INNER JOIN construction_actions_buildings cab ON cab.id = cabpe.action
+        WHERE
+          cab.planet = target_id AND
+          cab.completion_time < processing_time
+        GROUP BY
+          cabpe.resource
+      )
+    UPDATE planets_resources pr
+      SET production = production + ud.prod_change
+    FROM update_data AS ud
+    WHERE
+      pr.planet = target_id
+      AND pr.res = ud.resource;
 
-  -- 3. Destroy the processed actions effects.
-  DELETE FROM
-    construction_actions_buildings_production_effects cabpe
-    USING construction_actions_buildings cab
-  WHERE
-    cabpe.action = cab.id AND
-    cab.planet = planet_id AND
-    cab.completion_time < processing_time;
+    -- 2.c) Update the storage facilities with their new
+    -- values.
+    WITH update_data
+      AS (
+        SELECT resource, SUM(storage_capacity_change) AS capacity_change
+        FROM
+          construction_actions_buildings_storage_effects cabse
+          INNER JOIN construction_actions_buildings cab ON cab.id = cabse.action
+        WHERE
+          cab.planet = target_id AND
+          cab.completion_time < processing_time
+        GROUP BY
+          cabse.resource
+      )
+    UPDATE planets_resources pr
+      SET storage_capacity = storage_capacity + ud.capacity_change
+    FROM update_data AS ud
+    WHERE
+      pr.planet = target_id
+      AND pr.res = ud.resource;
 
-  DELETE FROM
-    construction_actions_buildings_storage_effects cabse
-    USING construction_actions_buildings cab
-  WHERE
-    cabse.action = cab.id AND
-    cab.planet = planet_id AND
-    cab.completion_time < processing_time;
+    -- 3. Destroy the processed actions effects.
+    DELETE FROM
+      construction_actions_buildings_production_effects cabpe
+      USING construction_actions_buildings cab
+    WHERE
+      cabpe.action = cab.id AND
+      cab.planet = target_id AND
+      cab.completion_time < processing_time;
 
-  -- 4. And finally the processed actions.
-  DELETE FROM construction_actions_buildings WHERE planet = planet_id AND completion_time < processing_time;
+    DELETE FROM
+      construction_actions_buildings_storage_effects cabse
+      USING construction_actions_buildings cab
+    WHERE
+      cabse.action = cab.id AND
+      cab.planet = planet_id AND
+      cab.completion_time < processing_time;
+
+    -- 4. And finally the processed actions.
+    DELETE FROM construction_actions_buildings WHERE planet = target_id AND completion_time < processing_time;
+  END IF;
+
+  IF kind = 'moon' THEN
+    -- 1. See comment in above section.
+    WITH update_data
+      AS (
+        SELECT *
+        FROM construction_actions_buildings_moon
+        WHERE
+          moon = target_id AND
+          completion_time < processing_time
+        ORDER BY
+          desired_level ASC
+      )
+    UPDATE moons_buildings mb
+      SET level = ud.desired_level
+    FROM update_data AS ud
+    WHERE
+      mb.moon = target_id
+      AND mb.building = ud.element
+      AND mb.level = ud.current_level;
+
+    -- 2. No need to update the resources, there's no prod
+    -- that can happen on a moon (at least for now).
+
+    -- 3. As no effects can be applied there's no need to
+    -- delete the corresponding lines in tables.
+
+    -- 4. See comment in above section.
+    DELETE FROM construction_actions_buildings_moon WHERE moon = target_id AND completion_time < processing_time;
+  END IF;
 END
 $$ LANGUAGE plpgsql;
 
@@ -452,7 +495,7 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Update upgrade action for ships.
-CREATE OR REPLACE FUNCTION update_ship_upgrade_action(planet_id uuid) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION update_ship_upgrade_action(target_id uuid, kind text) RETURNS VOID AS $$
 DECLARE
   -- Save time: this will make sure that we can't run into
   -- problem where for example an action is not complete
@@ -460,112 +503,207 @@ DECLARE
   -- performed (resulting in a ship never being built).
   processing_time TIMESTAMP := NOW();
 BEGIN
-  -- 1. Register ships that are now complete. We need to account for
-  -- the fact that several elements might have completed while we
-  -- were not updating this action.
-  -- The algorithm is basically:
-  --   - compute the number of intervals that have elapsed.
-  --   - subtract the number of already built elements.
-  --   - clamp tp make sure that we don't create too many elements.
-  WITH update_data
-    AS (
-      SELECT *
-      FROM construction_actions_ships
-      WHERE
-        planet = planet_id AND
-        created_at + (amount - (remaining - 1)) * completion_time < processing_time
-    )
-  UPDATE planets_ships ps
-    SET count = count - (ud.amount - ud.remaining) +
-      LEAST(
-        EXTRACT(EPOCH FROM processing_time - ud.created_at) / EXTRACT(EPOCH FROM ud.completion_time),
-        CAST(ud.amount AS DOUBLE PRECISION)
-      )
-  FROM update_data AS ud
-  WHERE
-    ps.planet = planet_id AND
-    ps.ship = ud.element;
+  -- The `target_id` can reference either a planet or a moon.
+  -- See comments in `update_building_upgrade_action` to get
+  -- more info.
+  IF kind != 'planet' AND kind != 'moon' THEN
+    RAISE EXCEPTION 'Invalid kind % specified for %', kind, target_id;
+  END IF;
 
-  -- 2. Update remaining actions with an amount decreased by an amount
-  -- consistent with the duration elapsed since the creation.
-  UPDATE construction_actions_ships
-    SET remaining = amount -
-      LEAST(
-        EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time),
-        CAST(amount AS DOUBLE PRECISION)
+  IF kind = 'planet' THEN
+    -- 1. Register ships that are now complete. We need to account for
+    -- the fact that several elements might have completed while we
+    -- were not updating this action.
+    -- The algorithm is basically:
+    --   - compute the number of intervals that have elapsed.
+    --   - subtract the number of already built elements.
+    --   - clamp tp make sure that we don't create too many elements.
+    WITH update_data
+      AS (
+        SELECT *
+        FROM construction_actions_ships
+        WHERE
+          planet = target_id AND
+          created_at + (amount - (remaining - 1)) * completion_time < processing_time
       )
-  WHERE
-    planet = planet_id AND
-    created_at + (amount - (remaining - 1)) * completion_time < processing_time;
+    UPDATE planets_ships ps
+      SET count = count - (ud.amount - ud.remaining) +
+        LEAST(
+          EXTRACT(EPOCH FROM processing_time - ud.created_at) / EXTRACT(EPOCH FROM ud.completion_time),
+          CAST(ud.amount AS DOUBLE PRECISION)
+        )
+    FROM update_data AS ud
+    WHERE
+      ps.planet = target_id AND
+      ps.ship = ud.element;
 
-  -- 3. Delete actions that don't have any remaining effect.
-  DELETE FROM construction_actions_ships WHERE planet = planet_id AND remaining = 0;
+    -- 2. Update remaining actions with an amount decreased by an amount
+    -- consistent with the duration elapsed since the creation.
+    UPDATE construction_actions_ships
+      SET remaining = amount -
+        LEAST(
+          EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time),
+          CAST(amount AS DOUBLE PRECISION)
+        )
+    WHERE
+      planet = target_id AND
+      created_at + (amount - (remaining - 1)) * completion_time < processing_time;
+
+    -- 3. Delete actions that don't have any remaining effect.
+    DELETE FROM construction_actions_ships WHERE planet = target_id AND remaining = 0;
+  END IF;
+
+  IF kind = 'moon' THEN
+    -- 1. See comment in above section.
+    WITH update_data
+      AS (
+        SELECT *
+        FROM construction_actions_ships_moon
+        WHERE
+          moon = target_id AND
+          created_at + (amount - (remaining - 1)) * completion_time < processing_time
+      )
+    UPDATE moons_ships ms
+      SET count = count - (ud.amount - ud.remaining) +
+        LEAST(
+          EXTRACT(EPOCH FROM processing_time - ud.created_at) / EXTRACT(EPOCH FROM ud.completion_time),
+          CAST(ud.amount AS DOUBLE PRECISION)
+        )
+    FROM update_data AS ud
+    WHERE
+      ms.moon = target_id AND
+      ms.ship = ud.element;
+
+    -- 2. See comment in above section.
+    UPDATE construction_actions_ships_moon
+      SET remaining = amount -
+        LEAST(
+          EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time),
+          CAST(amount AS DOUBLE PRECISION)
+        )
+    WHERE
+      moon = target_id AND
+      created_at + (amount - (remaining - 1)) * completion_time < processing_time;
+
+    -- 3. See comment in above section.
+    DELETE FROM construction_actions_ships_moon WHERE moon = target_id AND remaining = 0;
+  END IF;
 END
 $$ LANGUAGE plpgsql;
 
 -- Update upgrade action for defenses.
-CREATE OR REPLACE FUNCTION update_defense_upgrade_action(planet_id uuid) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION update_defense_upgrade_action(target_id uuid, kind text) RETURNS VOID AS $$
 DECLARE
   -- Similar mechanism to the one used for ships.
   processing_time TIMESTAMP := NOW();
 BEGIN
-  -- 1. Register defenses that are now complete. We need to account for
-  -- the fact that several elements might have completed while we were
-  -- not updating this action.
-  -- The algorithm is basically:
-  --   - compute the number of intervals that have elapsed.
-  --   - subtract the number of already built elements.
-  --   - clamp tp make sure that we don't create too many elements.
-  WITH update_data
-    AS (
-      SELECT *
-      FROM construction_actions_defenses
-      WHERE
-        planet = planet_id AND
-        created_at + (amount - (remaining - 1)) * completion_time < processing_time
-    )
-  UPDATE planets_defenses pd
-    SET count = count - (ud.amount - ud.remaining) +
-      LEAST(
-        EXTRACT(EPOCH FROM processing_time - ud.created_at) / EXTRACT(EPOCH FROM ud.completion_time),
-        CAST(ud.amount AS DOUBLE PRECISION)
-      )
-  FROM update_data AS ud
-  WHERE
-    pd.planet = planet_id AND
-    pd.defense = ud.element;
+  -- The `target_id` can reference either a planet or a moon.
+  -- See comments in `update_building_upgrade_action` to get
+  -- more info.
+  IF kind != 'planet' AND kind != 'moon' THEN
+    RAISE EXCEPTION 'Invalid kind % specified for %', kind, target_id;
+  END IF;
 
-  -- 2. Update remaining actions with an amount decreased by an amount
-  -- consistent with the duration elapsed since the creation.
-  UPDATE construction_actions_defenses
-    SET remaining = amount -
-      LEAST(
-        EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time),
-        CAST(amount AS DOUBLE PRECISION)
+  IF kind = 'planet' THEN
+    -- 1. Register defenses that are now complete. We need to
+    -- account for the fact that several elements might have
+    -- completed while we were not updating this action.
+    -- The algorithm is basically:
+    --   - compute the number of intervals that have elapsed.
+    --   - subtract the number of already built elements.
+    --   - clamp tp make sure that we don't create too many
+    --     elements.
+    WITH update_data
+      AS (
+        SELECT *
+        FROM construction_actions_defenses
+        WHERE
+          planet = target_id AND
+          created_at + (amount - (remaining - 1)) * completion_time < processing_time
       )
-  WHERE
-    planet = planet_id AND
-    created_at + (amount - (remaining - 1)) * completion_time < processing_time;
+    UPDATE planets_defenses pd
+      SET count = count - (ud.amount - ud.remaining) +
+        LEAST(
+          EXTRACT(EPOCH FROM processing_time - ud.created_at) / EXTRACT(EPOCH FROM ud.completion_time),
+          CAST(ud.amount AS DOUBLE PRECISION)
+        )
+    FROM update_data AS ud
+    WHERE
+      pd.planet = target_id AND
+      pd.defense = ud.element;
 
-  -- 3.Delete actions that don't have any remaining effect.
-  DELETE FROM construction_actions_defenses WHERE planet = planet_id AND remaining = 0;
+    -- 2. Update remaining actions with an amount decreased by an amount
+    -- consistent with the duration elapsed since the creation.
+    UPDATE construction_actions_defenses
+      SET remaining = amount -
+        LEAST(
+          EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time),
+          CAST(amount AS DOUBLE PRECISION)
+        )
+    WHERE
+      planet = target_id AND
+      created_at + (amount - (remaining - 1)) * completion_time < processing_time;
+
+    -- 3. Delete actions that don't have any remaining effect.
+    DELETE FROM construction_actions_defenses WHERE planet = target_id AND remaining = 0;
+  END IF;
+
+  IF kind = 'moon' THEN
+    -- 1. See comment in above section.
+    WITH update_data
+      AS (
+        SELECT *
+        FROM construction_actions_defenses_moon
+        WHERE
+          moon = target_id AND
+          created_at + (amount - (remaining - 1)) * completion_time < processing_time
+      )
+    UPDATE moons_defenses md
+      SET count = count - (ud.amount - ud.remaining) +
+        LEAST(
+          EXTRACT(EPOCH FROM processing_time - ud.created_at) / EXTRACT(EPOCH FROM ud.completion_time),
+          CAST(ud.amount AS DOUBLE PRECISION)
+        )
+    FROM update_data AS ud
+    WHERE
+      md.moon = target_id AND
+      md.defense = ud.element;
+
+    -- 2. See comment in above section.
+    UPDATE construction_actions_defenses_moon
+      SET remaining = amount -
+        LEAST(
+          EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time),
+          CAST(amount AS DOUBLE PRECISION)
+        )
+    WHERE
+      moon = target_id AND
+      created_at + (amount - (remaining - 1)) * completion_time < processing_time;
+
+    -- 3. See comment in above section.
+    DELETE FROM construction_actions_defenses_moon WHERE moon = target_id AND remaining = 0;
+  END IF;
 END
 $$ LANGUAGE plpgsql;
 
 -- Utility script allowing to deposit the resources
--- carried by a fleet to the planet it belongs to.
--- The return value indicates whether the planet to
+-- carried by a fleet to the target it belongs to.
+-- The target can either be a planet or a moon as
+-- defined by its objective.
+-- The return value indicates whether the target to
 -- deposit the resources to (computed with the data
 -- from the input fleet) actually existed.
 CREATE OR REPLACE FUNCTION fleet_deposit_resources(fleet_id uuid) RETURNS BOOLEAN AS $$
 DECLARE
-  planet_id uuid;
+  target_id uuid;
+  target_kind text;
 BEGIN
-  -- Retrieve the index of the planet associated to the
-  -- fleet.
-  SELECT planet INTO planet_id FROM fleets WHERE id = fleet_id AND planet IS NOT NULL;
+  -- Retrieve the ID of the target associated to the
+  -- fleet along with its type.
+  SELECT target INTO target_id FROM fleets WHERE id = fleet_id AND target IS NOT NULL;
+  SELECT target_type INTO target_kind FROM fleets WHERE id = fleet_id;
 
-  -- If the planet does not exist for this fleet, do not
+  -- If the target does not exist for this fleet, do not
   -- deposit resources. Whether it is an issue will be
   -- determined by the calling script.
   IF NOT FOUND THEN
@@ -576,32 +714,64 @@ BEGIN
   -- so as to be sure that the player gets the max of
   -- its production in case the new deposit brings the
   -- total over the storage capacity.
-  PERFORM update_resources_for_planet(planet_id);
+  -- This is only relevant in case the target is indeed
+  -- a planet.
+  IF target_kind = 'planet' THEN
+    PERFORM update_resources_for_planet(target_id);
+  END IF;
 
   -- Add the resources carried by the fleet to the
-  -- destination planet and remove them from the
+  -- destination target and remove them from the
   -- fleet's resources.
-  UPDATE planets_resources AS pr
-    SET amount = pr.amount + fr.amount
-  FROM
-    fleet_resources fr
-    INNER JOIN fleet_elements fe ON fr.fleet_element = fe.id
-    INNER JOIN fleets f ON fe.fleet = f.id
-  WHERE
-    f.id = fleet_id
-    AND pr.res = fr.resource
-    AND pr.planet = planet_id;
+  -- The table that will be updated depends on the
+  -- type of the target.
+  IF target_kind = 'planet' THEN
+    UPDATE planets_resources AS pr
+      SET amount = pr.amount + fr.amount
+    FROM
+      fleet_resources fr
+      INNER JOIN fleet_elements fe ON fr.fleet_element = fe.id
+      INNER JOIN fleets f ON fe.fleet = f.id
+    WHERE
+      f.id = fleet_id
+      AND pr.res = fr.resource
+      AND pr.planet = target_id;
 
-  -- Remove the resources carried by this fleet.
-  DELETE FROM
-    fleet_resources AS fr
-    USING
-      fleet_elements AS fe,
-      fleets AS f
-  WHERE
-    fr.fleet_element = fe.id
-    AND fe.fleet = f.id
-    AND f.id = fleet_id;
+    -- Remove the resources carried by this fleet.
+    DELETE FROM
+      fleet_resources AS fr
+      USING
+        fleet_elements AS fe,
+        fleets AS f
+    WHERE
+      fr.fleet_element = fe.id
+      AND fe.fleet = f.id
+      AND f.id = fleet_id;
+  END IF;
+
+  IF target_kind = 'moon' THEN
+    UPDATE moons_resources AS mr
+      SET amount = mr.amount + fr.amount
+    FROM
+      fleet_resources fr
+      INNER JOIN fleet_elements fe ON fr.fleet_element = fe.id
+      INNER JOIN fleets f ON fe.fleet = f.id
+    WHERE
+      f.id = fleet_id
+      AND mr.res = fr.resource
+      AND mr.moon = target_id;
+
+    -- Remove the resources carried by this fleet.
+    DELETE FROM
+      fleet_resources AS fr
+      USING
+        fleet_elements AS fe,
+        fleets AS f
+    WHERE
+      fr.fleet_element = fe.id
+      AND fe.fleet = f.id
+      AND f.id = fleet_id;
+  END IF;
 
   RETURN TRUE;
 END
@@ -610,16 +780,16 @@ $$ LANGUAGE plpgsql;
 -- Perform updates to account for a transport fleet.
 CREATE OR REPLACE FUNCTION fleet_transport(fleet_id uuid) RETURNS VOID AS $$
 DECLARE
-  planet_was_found BOOLEAN;
+  target_was_found BOOLEAN;
 BEGIN
   -- Use the dedicated script to perform the deposit
   -- of the resources.
-  SELECT fleet_deposit_resources(fleet_id) INTO planet_was_found;
+  SELECT fleet_deposit_resources(fleet_id) INTO target_was_found;
 
-  -- Raise an error in case the planet associated to
+  -- Raise an error in case the target associated to
   -- the fleet does not exist.
-  IF NOT planet_was_found THEN
-    RAISE EXCEPTION 'Fleet % is not directed towards a planet', fleet_id;
+  IF NOT target_was_found THEN
+    RAISE EXCEPTION 'Fleet % is not directed towards a valid target', fleet_id;
   END IF;
 END
 $$ LANGUAGE plpgsql;
@@ -627,35 +797,52 @@ $$ LANGUAGE plpgsql;
 -- Perform updates to account for a deployment fleet.
 CREATE OR REPLACE FUNCTION fleet_deployment(fleet_id uuid) RETURNS VOID AS $$
 DECLARE
-  planet_was_found BOOLEAN;
-  planet_id uuid;
+  target_was_found BOOLEAN;
+  target_id uuid;
+  target_kind text;
 BEGIN
   -- Make the resources carried by the fleet drop on
-  -- the target planet.
-  SELECT fleet_deposit_resources(fleet_id) INTO planet_was_found;
+  -- the target element.
+  SELECT fleet_deposit_resources(fleet_id) INTO target_was_found;
 
-  -- Raise an error in case the planet associated to
+  -- Raise an error in case the target associated to
   -- the fleet does not exist.
-  IF NOT planet_was_found THEN
-    RAISE EXCEPTION 'Fleet % is not directed towards a planet', fleet_id;
+  IF NOT target_was_found THEN
+    RAISE EXCEPTION 'Fleet % is not directed towards a valid target', fleet_id;
   END IF;
 
-  -- At this point we know that the fleet exist so
-  -- we can fetch it.
-  SELECT planet INTO planet_id FROM fleets WHERE id = fleet_id AND planet IS NOT NULL;
+  -- At this point we know that the fleet exists and
+  -- that its target also exists so we can fetch it.
+  SELECT target INTO target_id FROM fleets WHERE id = fleet_id AND target IS NOT NULL;
+  SELECT target_type INTO target_kind FROM fleets WHERE id = fleet_id;
 
-  -- Otherwise, assign the ships of the fleet as
-  -- element of the player.
-  UPDATE planets_ships AS ps
-    SET count = ps.count + fs.count
-  FROM
-    fleet_ships fs
-    INNER JOIN fleet_elements fe ON fs.fleet_element = fe.id
-    INNER JOIN fleets f ON fe.fleet = f.id
-  WHERE
-    f.id = fleet_id
-    AND ps.ship = fs.ship
-    AND ps.planet = planet_id;
+  -- Assign the ships to the target: either the planet
+  -- or the moon based on the kind of the target.
+  IF target_kind = 'planet' THEN
+    UPDATE planets_ships AS ps
+      SET count = ps.count + fs.count
+    FROM
+      fleet_ships fs
+      INNER JOIN fleet_elements fe ON fs.fleet_element = fe.id
+      INNER JOIN fleets f ON fe.fleet = f.id
+    WHERE
+      f.id = fleet_id
+      AND ps.ship = fs.ship
+      AND ps.planet = target_id;
+  END IF;
+
+  IF target_kind = 'moon' THEN
+    UPDATE moons_ships AS ms
+      SET count = ms.count + fs.count
+    FROM
+      fleet_ships fs
+      INNER JOIN fleet_elements fe ON fs.fleet_element = fe.id
+      INNER JOIN fleets f ON fe.fleet = f.id
+    WHERE
+      f.id = fleet_id
+      AND ms.ship = fs.ship
+      AND ms.moon = target_id;
+  END IF;
 
   -- Remove the ships associated to the components
   -- of this fleet.

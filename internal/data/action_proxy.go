@@ -129,6 +129,7 @@ func (p *ActionProxy) CreateBuildingAction(a model.BuildingAction) (string, erro
 			a.Costs,
 			a.Production,
 			a.Storage,
+			"planet",
 		},
 	}
 
@@ -300,6 +301,7 @@ func (p *ActionProxy) CreateShipAction(a model.ShipAction) (string, error) {
 		Args: []interface{}{
 			a,
 			a.Costs,
+			"planet",
 		},
 	}
 
@@ -387,6 +389,7 @@ func (p *ActionProxy) CreateDefenseAction(a model.DefenseAction) (string, error)
 		Args: []interface{}{
 			a,
 			a.Costs,
+			"planet",
 		},
 	}
 

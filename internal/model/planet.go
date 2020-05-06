@@ -916,6 +916,7 @@ func (p *Planet) fetchBuildingUpgrades(data Instance) error {
 		Script: "update_building_upgrade_action",
 		Args: []interface{}{
 			p.ID,
+			"planet",
 		},
 		SkipReturn: true,
 	}
@@ -1085,6 +1086,7 @@ func (p *Planet) fetchShipUpgrades(data Instance) error {
 		Script: "update_ship_upgrade_action",
 		Args: []interface{}{
 			p.ID,
+			"planet",
 		},
 		SkipReturn: true,
 	}
@@ -1169,6 +1171,7 @@ func (p *Planet) fetchDefenseUpgrades(data Instance) error {
 		Script: "update_defense_upgrade_action",
 		Args: []interface{}{
 			p.ID,
+			"planet",
 		},
 		SkipReturn: true,
 	}

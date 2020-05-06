@@ -27,6 +27,7 @@ import (
 //
 // The `Planet` defines the planet linked to this action.
 // All the action require a parent planet to be scheduled.
+// Note that it can refer to either a planet or a moon.
 //
 // The `Player` defines the player owning the planet on
 // which this action is performed.

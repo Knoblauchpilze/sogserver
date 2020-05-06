@@ -32,6 +32,8 @@ import (
 // connect for a long time.
 // TODO: Multiple ships or defenses actions overlaps while they should be
 // added at the end of each other.
+// TODO: Update cases where the creation of a fleet component would be
+// possible from moons as well.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

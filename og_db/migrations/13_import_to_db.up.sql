@@ -71,55 +71,86 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Import building upgrade action in the dedicated table.
-CREATE OR REPLACE FUNCTION create_building_upgrade_action(upgrade json, costs json, production_effects json, storage_effects json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_building_upgrade_action(upgrade json, costs json, production_effects json, storage_effects json, kind text) RETURNS VOID AS $$
 BEGIN
-  -- Create the building upgrade action itself.
-  INSERT INTO construction_actions_buildings
-    SELECT *
-    FROM json_populate_record(null::construction_actions_buildings, upgrade);
+  -- The `kind` can reference either a planet or a moon.
+  -- We have to make sure that it's a valid value before
+  -- attempting to use it.
+  IF kind != 'planet' AND kind != 'moon' THEN
+    RAISE EXCEPTION 'Invalid kind % specified for building action', kind;
+  END IF;
 
-  -- Update the construction action effects (both in terms of
-  -- storage and production).
-  INSERT INTO construction_actions_buildings_production_effects
-    SELECT
-      (upgrade->>'id')::uuid,
-      resource,
-      production_change
+  IF kind = 'planet' THEN
+    -- Create the building upgrade action itself.
+    INSERT INTO construction_actions_buildings
+      SELECT *
+      FROM json_populate_record(null::construction_actions_buildings, upgrade);
+
+    -- Update the construction action effects (both in terms of
+    -- storage and production).
+    INSERT INTO construction_actions_buildings_production_effects
+      SELECT
+        (upgrade->>'id')::uuid,
+        resource,
+        production_change
+      FROM
+        json_populate_recordset(null::construction_actions_buildings_production_effects, production_effects);
+
+    INSERT INTO construction_actions_buildings_storage_effects
+      SELECT
+        (upgrade->>'id')::uuid,
+        resource,
+        storage_capacity_change
+      FROM
+        json_populate_recordset(null::construction_actions_buildings_storage_effects, storage_effects);
+
+    -- Subtract the cost of the action to the resources existing
+    -- the planet so that it's no longer available. We assume a
+    -- valid amount of resources remaining (no checks to clamp
+    -- to `0` or anything). We will update the existing resource
+    -- on the planet before decreasing in order to make sure we
+    -- have a valid amount.
+    PERFORM update_resources_for_planet((upgrade->>'planet')::uuid);
+
+    WITH rc AS (
+      SELECT
+        t.resource,
+        t.cost
+      FROM
+        json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
+      )
+    UPDATE planets_resources
+      SET amount = amount - rc.cost
     FROM
-      json_populate_recordset(null::construction_actions_buildings_production_effects, production_effects);
+      rc
+    WHERE planet = (upgrade->>'planet')::uuid
+    AND res = rc.resource;
+  END IF;
 
-  INSERT INTO construction_actions_buildings_storage_effects
-    SELECT
-      (upgrade->>'id')::uuid,
-      resource,
-      storage_capacity_change
+  IF kind = 'moon' THEN
+    -- Create the building upgrade action itself.
+    INSERT INTO construction_actions_buildings_moon
+      SELECT *
+      FROM json_populate_record(null::construction_actions_buildings_moon, upgrade);
+
+    -- No production or storage effects available
+    -- on moons as most of the buildings are not
+    -- allowed to be built. We still need to take
+    -- out the resources needed by the action.
+    WITH rc AS (
+      SELECT
+        t.resource,
+        t.cost
+      FROM
+        json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
+      )
+    UPDATE moons_resources
+      SET amount = amount - rc.cost
     FROM
-      json_populate_recordset(null::construction_actions_buildings_storage_effects, storage_effects);
-
-  -- Subtract the cost of the action to the resources existing
-  -- the planet so that it's no longer available. We assume a
-  -- valid amount of resources remaining (no checks to clamp
-  -- to `0` or anything). We will update the existing resource
-  -- on the planet before decreasing in order to make sure we
-  -- have a valid amount.
-  PERFORM update_resources_for_planet((upgrade->>'planet')::uuid);
-
-  WITH rc AS (
-    SELECT
-      t.resource,
-      t.cost
-    FROM
-      json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
-    )
-  UPDATE
-    planets_resources
-  SET
-    amount = amount - rc.cost
-  FROM
-    rc
-  WHERE planet = (upgrade->>'planet')::uuid
-  AND res = rc.resource;
-
+      rc
+    WHERE moon = (upgrade->>'planet')::uuid
+    AND res = rc.resource;
+  END IF;
 END
 $$ LANGUAGE plpgsql;
 
@@ -142,10 +173,8 @@ BEGIN
     FROM
       json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
     )
-  UPDATE
-    planets_resources
-  SET
-    amount = amount - rc.cost
+  UPDATE planets_resources
+    SET amount = amount - rc.cost
   FROM
     rc
   WHERE planet = (upgrade->>'planet')::uuid
@@ -154,63 +183,122 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Import ship upgrade action in the dedicated table.
-CREATE OR REPLACE FUNCTION create_ship_upgrade_action(upgrade json, costs json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_ship_upgrade_action(upgrade json, costs json, kind text) RETURNS VOID AS $$
 BEGIN
-  -- Insert the construction action in the related table.
-  INSERT INTO construction_actions_ships
-    SELECT *
-    FROM json_populate_record(null::construction_actions_ships, upgrade);
+  -- Make sure the kind describes a known action.
+  IF kind != 'planet' AND kind != 'moon' THEN
+    RAISE EXCEPTION 'Invalid kind % specified for ship action', kind;
+  END IF;
 
-  -- Perform the update of the resources by subtracting
-  -- the cost of the action.
-  PERFORM update_resources_for_planet((upgrade->>'planet')::uuid);
+  IF kind = 'planet' THEN
+    -- Insert the construction action in the related table.
+    INSERT INTO construction_actions_ships
+      SELECT *
+      FROM json_populate_record(null::construction_actions_ships, upgrade);
 
-  WITH rc AS (
-    SELECT
-      t.resource,
-      t.cost
+    -- Perform the update of the resources by subtracting
+    -- the cost of the action.
+    PERFORM update_resources_for_planet((upgrade->>'planet')::uuid);
+
+    WITH rc AS (
+      SELECT
+        t.resource,
+        t.cost
+      FROM
+        json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
+      )
+    UPDATE planets_resources
+      SET amount = amount - rc.cost
     FROM
-      json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
-    )
-  UPDATE
-    planets_resources
-  SET
-    amount = amount - rc.cost
-  FROM
-    rc
-  WHERE
-    planet = (upgrade->>'planet')::uuid
-    AND res = rc.resource;
+      rc
+    WHERE
+      planet = (upgrade->>'planet')::uuid
+      AND res = rc.resource;
+  END IF;
+
+  IF kind = 'moon' THEN
+    -- Insert the construction action in the related table.
+    INSERT INTO construction_actions_ships_moon
+      SELECT *
+      FROM json_populate_record(null::construction_actions_ships_moon, upgrade);
+
+    -- No need to update the resources of the moon but we
+    -- need to deduct the cost of the action.
+    WITH rc AS (
+      SELECT
+        t.resource,
+        t.cost
+      FROM
+        json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
+      )
+    UPDATE moons_resources
+      SET amount = amount - rc.cost
+    FROM
+      rc
+    WHERE
+      moon = (upgrade->>'planet')::uuid
+      AND res = rc.resource;
+  END IF;
 END
 $$ LANGUAGE plpgsql;
 
 -- Import defense upgrade action in the dedicated table.
-CREATE OR REPLACE FUNCTION create_defense_upgrade_action(upgrade json, costs json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_defense_upgrade_action(upgrade json, costs json, kind text) RETURNS VOID AS $$
 BEGIN
-  -- Insert the construction action in the related table.
-  INSERT INTO construction_actions_defenses
-    SELECT *
-    FROM json_populate_record(null::construction_actions_defenses, upgrade);
+  -- The `kind` can reference either a planet or a moon.
+  -- We have to make sure that it's a valid value before
+  -- attempting to use it.
+  IF kind != 'planet' AND kind != 'moon' THEN
+    RAISE EXCEPTION 'Invalid kind % specified for defense action', kind;
+  END IF;
 
-  -- Perform the update of the resources by subtracting
-  -- the cost of the action.
-  PERFORM update_resources_for_planet((upgrade->>'planet')::uuid);
+  IF kind = 'planet' THEN
+    -- Insert the construction action in the related table.
+    INSERT INTO construction_actions_defenses
+      SELECT *
+      FROM json_populate_record(null::construction_actions_defenses, upgrade);
 
-  WITH rc AS (
-    SELECT
-      t.resource,
-      t.cost
+    -- Perform the update of the resources by subtracting
+    -- the cost of the action.
+    PERFORM update_resources_for_planet((upgrade->>'planet')::uuid);
+
+    WITH rc AS (
+      SELECT
+        t.resource,
+        t.cost
+      FROM
+        json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
+      )
+    UPDATE planets_resources
+      SET amount = amount - rc.cost
     FROM
-      json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
-    )
-  UPDATE
-    planets_resources
-  SET
-    amount = amount - rc.cost
-  FROM
-    rc
-  WHERE planet = (upgrade->>'planet')::uuid
-  AND res = rc.resource;
+      rc
+    WHERE planet = (upgrade->>'planet')::uuid
+    AND res = rc.resource;
+  END IF;
+
+  IF kind = 'moon' THEN
+    -- Insert the construction action in the related table.
+    INSERT INTO construction_actions_defenses_moon
+      SELECT *
+      FROM json_populate_record(null::construction_actions_defenses_moon, upgrade);
+
+    -- No need to update the resources of the moon but we
+    -- need to deduct the cost of the action.
+    WITH rc AS (
+      SELECT
+        t.resource,
+        t.cost
+      FROM
+        json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
+      )
+    UPDATE moons_resources
+      SET amount = amount - rc.cost
+    FROM
+      rc
+    WHERE moon = (upgrade->>'planet')::uuid
+    AND res = rc.resource;
+  END IF;
 END
 $$ LANGUAGE plpgsql;
 

@@ -37,12 +37,16 @@ import (
 // fleet. Note that depending on the objective of the fleet
 // it might not always refer to an existing planet.
 //
-// The `Planet` attribute defines the potential identifier
-// of the planet this fleet is targetting. This value is
-// meant to be used in case a planet already exist at the
-// location indicated by the `target` coordinates. It is
-// left empty in case nothing exists there (typically in
-// the case of a colonization mission).
+// The `Body` attribute defines the potential identifier
+// of the planet or moon this fleet is targetting. This
+// value is meant to be used in case a celestial body is
+// already existing at the location indicated by `target`
+// coordinates. It is left empty in case nothing exists
+// there (typically in the case of a colonization mission).
+//
+// The `TargetType` defines a common value for the type
+// of the target. It helps the DB system to determine a
+// table to fetch the identifier of the target.
 //
 // The `ArrivalTime` describes the time at which the fleet
 // is meant to reach its destination without taking into
@@ -64,8 +68,9 @@ type Fleet struct {
 	Name        string     `json:"name"`
 	Universe    string     `json:"universe"`
 	Objective   string     `json:"objective"`
-	Target      Coordinate `json:"target"`
-	Planet      string     `json:"planet,omitempty"`
+	Target      Coordinate `json:"target_coordinates"`
+	Body        string     `json:"target,omitempty"`
+	TargetType  Location   `json:"target_type"`
 	ArrivalTime time.Time  `json:"arrival_time"`
 	Comps       Components `json:"components"`
 	mode        accessMode
@@ -244,6 +249,7 @@ func (f *Fleet) Valid(uni Universe) bool {
 		validUUID(f.Universe) &&
 		validUUID(f.Objective) &&
 		f.Target.valid(uni.GalaxiesCount, uni.GalaxySize, uni.SolarSystemSize) &&
+		len(f.TargetType) > 0 &&
 		f.Comps.valid(f.Objective, f.Target)
 }
 
@@ -279,7 +285,8 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 			"target_galaxy",
 			"target_solar_system",
 			"target_position",
-			"planet",
+			"target",
+			"target_type",
 			"arrival_time",
 		},
 		Table: "fleets",
@@ -323,12 +330,13 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 		&s,
 		&p,
 		&pl,
+		&f.TargetType,
 		&f.ArrivalTime,
 	)
 
 	f.Target = NewCoordinate(g, s, p)
 	if pl.Valid {
-		f.Planet = pl.String
+		f.Body = pl.String
 	}
 
 	// Make sure that it's the only fleet.
@@ -427,7 +435,8 @@ func (f *Fleet) Convert() interface{} {
 		Galaxy      int       `json:"target_galaxy"`
 		System      int       `json:"target_solar_system"`
 		Position    int       `json:"target_position"`
-		Planet      string    `json:"planet,omitempty"`
+		Target      string    `json:"target,omitempty"`
+		TargetType  Location  `json:"target_type"`
 		ArrivalTime time.Time `json:"arrival_time"`
 	}{
 		ID:          f.ID,
@@ -437,7 +446,8 @@ func (f *Fleet) Convert() interface{} {
 		Galaxy:      f.Target.Galaxy,
 		System:      f.Target.System,
 		Position:    f.Target.Position,
-		Planet:      f.Planet,
+		Target:      f.Body,
+		TargetType:  f.TargetType,
 		ArrivalTime: f.ArrivalTime,
 	}
 }
@@ -476,6 +486,8 @@ func (f *Fleet) Validate(data Instance) error {
 			}
 		}
 	}
+
+	// TODO: Refine with the objective and the target type.
 
 	return ErrNoShipToPerformObjective
 }

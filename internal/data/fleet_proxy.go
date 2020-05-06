@@ -240,7 +240,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 
 	// Fetch the planet related to this fleet and use
 	// it as read write access.
-	source, err := model.NewReadWritePlanet(comp.Planet, p.data)
+	source, err := model.NewReadWritePlanet(comp.Source, p.data)
 	defer func() {
 		err := source.Close()
 		if err != nil {
@@ -322,7 +322,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 
 		// Check for errors.
 		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not create fleet for \"%s\" from \"%s\" (err: %v)", comp.Player, comp.Planet, err))
+			p.trace(logger.Error, fmt.Sprintf("Could not create fleet for \"%s\" from \"%s\" (err: %v)", comp.Player, comp.Source, err))
 			return fDesc.fleet.ID, err
 		}
 
@@ -460,7 +460,8 @@ func (p *FleetProxy) fetchFleetForComponent(comp *model.Component, universe stri
 	f.fleet.Universe = uni.ID
 	f.fleet.Objective = comp.Objective
 	f.fleet.Target = comp.Target
-	f.fleet.Planet = planetID
+	f.fleet.TargetType = model.World
+	f.fleet.Body = planetID
 	f.fleet.ArrivalTime = comp.ArrivalTime
 	f.fleet.Comps = []model.Component{
 		*comp,

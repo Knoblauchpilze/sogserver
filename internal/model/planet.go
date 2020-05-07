@@ -809,7 +809,7 @@ func (p *Planet) fetchFleets(data Instance) error {
 		Table: "fleet_elements",
 		Filters: []db.Filter{
 			{
-				Key:    "planet",
+				Key:    "source",
 				Values: []string{p.ID},
 			},
 		},
@@ -850,8 +850,12 @@ func (p *Planet) fetchFleets(data Instance) error {
 		Table: "fleets",
 		Filters: []db.Filter{
 			{
-				Key:    "planet",
+				Key:    "target",
 				Values: []string{p.ID},
+			},
+			{
+				Key:    "target_type",
+				Values: []string{"planet"},
 			},
 		},
 		Ordering: "order by arrival_time desc",

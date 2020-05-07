@@ -565,7 +565,7 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 	case "ACSattack'":
 		return fmt.Errorf("Not implemented")
 	case "harvesting":
-		return fmt.Errorf("Not implemented")
+		script = "fleet_harvesting"
 	case "attacking":
 		return fmt.Errorf("Not implemented")
 	case "espionage":

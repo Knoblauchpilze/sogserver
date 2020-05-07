@@ -1,4 +1,7 @@
 
+-- Drop the function allowing to handle harvesting operation of a fleet.
+DROP FUNCTION fleet_harvesting(fleet_id uuid);
+
 -- Drop the function allowing to handle deployment of a fleet.
 DROP FUNCTION fleet_deployment(fleet_id uuid);
 

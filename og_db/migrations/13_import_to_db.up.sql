@@ -571,7 +571,7 @@ BEGIN
       USING construction_actions_buildings cab
     WHERE
       cabse.action = cab.id AND
-      cab.planet = planet_id AND
+      cab.planet = target_id AND
       cab.completion_time < processing_time;
 
     -- 4. And finally the processed actions.
@@ -1021,5 +1021,78 @@ BEGIN
     fleets
   WHERE
     id = fleet_id;
+END
+$$ LANGUAGE plpgsql;
+
+-- Perform updates to account for a harvesting fleet.
+CREATE OR REPLACE FUNCTION fleet_harvesting(fleet_id uuid) RETURNS VOID AS $$
+BEGIN
+  -- We need to update the resources carried by the
+  -- fleet with the content of the debris fields.
+  -- It is required to make sure that we don't use
+  -- more cargo space than available on the fleet.
+  -- We also need to take care of both resources
+  -- that are existing as cargo in the fleet and
+  -- insert the resources that don't exist.
+  UPDATE fleet_resources AS fr
+    SET amount = fr.amount + dfr.amount
+  FROM
+    debris_fields_resources dfr
+    INNER JOIN debris_fields df ON dfr.field=df.id
+    INNER JOIN fleets f ON (
+      df.universe = f.uni
+      AND df.galaxy = f.target_galaxy
+      AND df.solar_system = f.target_solar_system
+      AND df.position = f.target_position
+      AND f.target_type = 'debris'
+    )
+  WHERE
+    f.id = fleet_id;
+
+  -- Handle resources that are not yet part of the
+  -- cargo for this fleet.
+  INSERT INTO fleet_resources
+  SELECT
+    -- TODO: This won't work. As the resources are registered per fleet element
+    -- we need to find a way to either move this on a per fleet (and make the
+    -- split later, probably when the components arrive) or already divide the
+    -- total amount of the debris fields based on fleet components.
+    fleet_element_id ???,
+    dfr.res AS resource,
+    dfr.amount AS amount
+  FROM
+    debris_fields_resources dfr
+    INNER JOIN debris_fields df ON dfr.field = df.id
+    INNER JOIN fleets f ON (
+      df.universe = f.uni
+      AND df.galaxy = f.target_galaxy
+      AND df.solar_system = f.target_solar_system
+      AND df.position = f.target_position
+      AND f.target_type = 'debris'
+    )
+  WHERE
+    f.id = fleet_id;
+
+  -- Remove resources from the debris field.
+  -- TODO: Handle this.
+  -- TODO: Handle the cargo.
+
+  -- Remove the empty lines in resources table.
+  DELETE FROM debris_fields_resources WHERE amount <= 0.0;
+
+  -- Remove the empty debris fields.
+  DELETE FROM
+    debris_fields
+  WHERE
+    id NOT IN (
+      SELECT
+        field
+      FROM
+        debris_fields_resources
+      GROUP BY
+        field
+      HAVING
+        count(*) > 0
+    );
 END
 $$ LANGUAGE plpgsql;

@@ -44,10 +44,6 @@ import (
 // coordinates. It is left empty in case nothing exists
 // there (typically in the case of a colonization mission).
 //
-// The `TargetType` defines a common value for the type
-// of the target. It helps the DB system to determine a
-// table to fetch the identifier of the target.
-//
 // The `ArrivalTime` describes the time at which the fleet
 // is meant to reach its destination without taking into
 // account the potential delays.
@@ -70,7 +66,6 @@ type Fleet struct {
 	Objective   string     `json:"objective"`
 	Target      Coordinate `json:"target_coordinates"`
 	Body        string     `json:"target,omitempty"`
-	TargetType  Location   `json:"target_type"`
 	ArrivalTime time.Time  `json:"arrival_time"`
 	Comps       Components `json:"components"`
 	mode        accessMode
@@ -249,7 +244,6 @@ func (f *Fleet) Valid(uni Universe) bool {
 		validUUID(f.Universe) &&
 		validUUID(f.Objective) &&
 		f.Target.valid(uni.GalaxiesCount, uni.GalaxySize, uni.SolarSystemSize) &&
-		len(f.TargetType) > 0 &&
 		f.Comps.valid(f.Objective, f.Target)
 }
 
@@ -311,6 +305,7 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 
 	// Scan the fleet's data.
 	var g, s, p int
+	var loc Location
 
 	atLeastOne := dbRes.Next()
 	if !atLeastOne {
@@ -330,11 +325,16 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 		&s,
 		&p,
 		&pl,
-		&f.TargetType,
+		&loc,
 		&f.ArrivalTime,
 	)
 
-	f.Target = NewCoordinate(g, s, p)
+	var errC error
+	f.Target, errC = newCoordinate(g, s, p, loc)
+	if errC != nil {
+		return errC
+	}
+
 	if pl.Valid {
 		f.Body = pl.String
 	}
@@ -447,7 +447,7 @@ func (f *Fleet) Convert() interface{} {
 		System:      f.Target.System,
 		Position:    f.Target.Position,
 		Target:      f.Body,
-		TargetType:  f.TargetType,
+		TargetType:  f.Target.Type,
 		ArrivalTime: f.ArrivalTime,
 	}
 }

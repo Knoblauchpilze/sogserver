@@ -21,10 +21,17 @@ import (
 //
 // The `Position` defines the position of the planet within
 // its solar system.
+//
+// The `Type` defines which part of the coordinate should be
+// accessed. Indeed in the game at a specified position one
+// can find a planet and possibly a moon and a debris fields.
+// This element allows to define precisely which location is
+// to be accessed.
 type Coordinate struct {
-	Galaxy   int `json:"galaxy"`
-	System   int `json:"system"`
-	Position int `json:"position"`
+	Galaxy   int      `json:"galaxy"`
+	System   int      `json:"system"`
+	Position int      `json:"position"`
+	Type     Location `json:"location"`
 }
 
 // Location :
@@ -34,17 +41,36 @@ type Coordinate struct {
 type Location string
 
 // Define the possible location for a coordinate.
-// TODO: Should be included in the coordinate itself ?
 const (
 	World  Location = "planet"
 	Moon   Location = "moon"
 	Debris Location = "debris"
 )
 
-// NewCoordinate :
+// ErrInvalidCoordinateType :
+// Used to indicate that a coordinate was constructed with an
+// invalid location identifier.
+var ErrInvalidCoordinateType = fmt.Errorf("Unknown coordinate location type")
+
+// existsLocation :
+// Used to make sure that the input location is a valid
+// coordinate type.
+//
+// The `loc` defines the type of the location that is to
+// be checked.
+//
+// Returns `true` if the input location is a valid item
+// for a location.
+func existsLocation(loc Location) bool {
+	return loc == World || loc == Moon || loc == Debris
+}
+
+// NewPlanetCoordinate :
 // Used to create a new coordinate object from the input data.
 // No controls are performed to verify that the input coords
 // are actually consistent with anything.
+// The coordinate will refer to the planet location at the
+// specified coordinates.
 //
 // The `galaxy` represents the index of the galaxy of the coords.
 //
@@ -54,12 +80,90 @@ const (
 // parent solar system.
 //
 // Returns the created coordinate object.
-func NewCoordinate(galaxy int, system int, position int) Coordinate {
+func NewPlanetCoordinate(galaxy int, system int, position int) Coordinate {
 	return Coordinate{
-		galaxy,
-		system,
-		position,
+		Galaxy:   galaxy,
+		System:   system,
+		Position: position,
+		Type:     World,
 	}
+}
+
+// NewMoonCoordinate :
+// Similar to the `NewPlanetCoordinate` but defines some
+// coordinates allowing to access the moon location.
+//
+// The `galaxy` defines the index of the galaxy for the
+// coordinates.
+//
+// The `system` defines the solar system.
+//
+// Tje `position` defines the position of the element in
+// the solar system.
+//
+// Returns the created coordinates.
+func NewMoonCoordinate(galaxy int, system int, position int) Coordinate {
+	return Coordinate{
+		Galaxy:   galaxy,
+		System:   system,
+		Position: position,
+		Type:     Moon,
+	}
+}
+
+// NewDebrisCoordinate :
+// Similar to the `NewPlanetCoordinate` but defines some
+// coordinates allowing to access the debris fields item
+// at a specified location.
+//
+// The `galaxy` defines the index of the galaxy for the
+// coordinates.
+//
+// The `system` defines the solar system.
+//
+// Tje `position` defines the position of the element in
+// the solar system.
+//
+// Returns the created coordinates.
+func NewDebrisCoordinate(galaxy int, system int, position int) Coordinate {
+	return Coordinate{
+		Galaxy:   galaxy,
+		System:   system,
+		Position: position,
+		Type:     Debris,
+	}
+}
+
+// newCoordinate :
+// Creates a coordinate with the specified galaxy, etc.
+// and location.
+//
+// The `galaxy` defines the index of the galaxy.
+//
+// The `system` defines the index of the solar system
+// in the galaxy.
+//
+// The `position` defines the index of the element in
+// the system.
+//
+// The `loc` defines the location of the element from
+// the input coordinate.
+//
+// Returns the created coordinate with any error in
+// case the location is not valid.
+func newCoordinate(galaxy int, system int, position int, loc Location) (Coordinate, error) {
+	if !existsLocation(loc) {
+		return Coordinate{}, ErrInvalidCoordinateType
+	}
+
+	c := Coordinate{
+		Galaxy:   galaxy,
+		System:   system,
+		Position: position,
+		Type:     loc,
+	}
+
+	return c, nil
 }
 
 // String :
@@ -69,7 +173,7 @@ func NewCoordinate(galaxy int, system int, position int) Coordinate {
 //
 // Returns the string representing the coordinates.
 func (c Coordinate) String() string {
-	return fmt.Sprintf("[G: %d, S: %d, P: %d]", c.Galaxy, c.System, c.Position)
+	return fmt.Sprintf("[G: %d, S: %d, P: %d %s]", c.Galaxy, c.System, c.Position, c.Type)
 }
 
 // Linearize :
@@ -116,13 +220,6 @@ func (c Coordinate) generateSeed() int {
 	return (k1+c.Galaxy)*(k1+c.Galaxy+1)/2 + c.Galaxy
 }
 
-// isNull :
-// Returns `true` if all the values of this coordinates are
-// set to `0`.
-func (c Coordinate) isNull() bool {
-	return c.Galaxy == 0 && c.System == 0 && c.Position == 0
-}
-
 // valid :
 // Used to determine whether this set of coordinates is valid
 // given the input bounds for each element. Note that we also
@@ -140,7 +237,8 @@ func (c Coordinate) isNull() bool {
 func (c Coordinate) valid(galaxyCount int, galaxySize int, solarSystemSize int) bool {
 	return c.Galaxy >= 0 && c.Galaxy < galaxyCount &&
 		c.System >= 0 && c.System < galaxySize &&
-		c.Position >= 0 && c.Position < solarSystemSize
+		c.Position >= 0 && c.Position < solarSystemSize &&
+		existsLocation(c.Type)
 }
 
 // distanceTo :

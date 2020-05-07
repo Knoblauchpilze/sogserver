@@ -127,16 +127,16 @@ type Planet struct {
 	MinTemp              int                `json:"min_temperature"`
 	MaxTemp              int                `json:"max_temperature"`
 	Diameter             int                `json:"diameter"`
-	Resources            Resources          `json:"resources"`
+	Resources            Resources          `json:"resources,omitempty"`
 	Buildings            []BuildingInfo     `json:"buildings,omitempty"`
 	Ships                []ShipInfo         `json:"ships,omitempty"`
 	Defenses             []DefenseInfo      `json:"defenses,omitempty"`
-	BuildingsUpgrade     []BuildingAction   `json:"buildings_upgrade"`
-	TechnologiesUpgrade  []TechnologyAction `json:"technologies_upgrade"`
-	ShipsConstruction    []ShipAction       `json:"ships_construction"`
-	DefensesConstruction []DefenseAction    `json:"defenses_construction"`
-	SourceFleets         []string           `json:"source_fleets"`
-	IncomingFleets       []string           `json:"incoming_fleets"`
+	BuildingsUpgrade     []BuildingAction   `json:"buildings_upgrade,omitempty"`
+	TechnologiesUpgrade  []TechnologyAction `json:"technologies_upgrade,omitempty"`
+	ShipsConstruction    []ShipAction       `json:"ships_construction,omitempty"`
+	DefensesConstruction []DefenseAction    `json:"defenses_construction,omitempty"`
+	SourceFleets         []string           `json:"source_fleets,omitempty"`
+	IncomingFleets       []string           `json:"incoming_fleets,omitempty"`
 	technologies         map[string]int
 	mode                 accessMode
 	locker               *locker.Lock
@@ -1302,7 +1302,7 @@ func (p *Planet) fetchGeneralInfo(data Instance) error {
 			return err
 		}
 
-		p.Coordinates = NewCoordinate(galaxy, system, position)
+		p.Coordinates = NewPlanetCoordinate(galaxy, system, position)
 	}
 
 	return nil

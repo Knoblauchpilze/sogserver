@@ -784,6 +784,7 @@ func (fc *Component) fetchFleetInfo(data Instance) error {
 			"target_galaxy",
 			"target_solar_system",
 			"target_position",
+			"target_type",
 			"arrival_time",
 		},
 		Table: "fleets",
@@ -813,6 +814,7 @@ func (fc *Component) fetchFleetInfo(data Instance) error {
 	}
 
 	var g, s, p int
+	var loc Location
 
 	err = dbRes.Scan(
 		&fc.Name,
@@ -820,10 +822,16 @@ func (fc *Component) fetchFleetInfo(data Instance) error {
 		&g,
 		&s,
 		&p,
+		&loc,
 		&fc.ArrivalTime,
 	)
 
-	fc.Target = NewCoordinate(g, s, p)
+	var errC error
+	fc.Target, errC = newCoordinate(g, s, p, loc)
+	if errC != nil {
+		return errC
+	}
+
 	fc.flightTime = fc.ArrivalTime.Sub(fc.JoinedAt)
 
 	// Make sure that it's the only fleet.

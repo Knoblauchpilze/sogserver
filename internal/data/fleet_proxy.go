@@ -223,7 +223,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 	}
 
 	// Acquire the lock on the player associated to this
-	// fleet component along with the planet it should
+	// fleet component along with the element it should
 	// start from.
 	player, err := model.NewReadWritePlayer(comp.Player, p.data)
 	defer func() {
@@ -238,25 +238,25 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 		return "", err
 	}
 
-	// Fetch the planet related to this fleet and use
+	// Fetch the element related to this fleet and use
 	// it as read write access.
 	source, err := model.NewReadWritePlanet(comp.Source, p.data)
 	defer func() {
 		err := source.Close()
 		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not release lock on planet \"%s\" (err: %v)", source.ID, err))
+			p.trace(logger.Error, fmt.Sprintf("Could not release lock on element \"%s\" (err: %v)", source.ID, err))
 		}
 	}()
 
 	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not fetch planet related to fleet component (err: %v)", err))
+		p.trace(logger.Error, fmt.Sprintf("Could not fetch element related to fleet component (err: %v)", err))
 		return "", ErrInvalidFleet
 	}
 
 	// Make sure that the component is not directed towards
 	// its started position.
 	if comp.Target == source.Coordinates {
-		p.trace(logger.Error, fmt.Sprintf("Fleet component is directed towards planet \"%s\" which is its started location at %s", source.ID, comp.Target))
+		p.trace(logger.Error, fmt.Sprintf("Fleet component is directed towards \"%s\" which is its started location at %s", source.ID, comp.Target))
 		return "", ErrInvalidFleet
 	}
 
@@ -281,7 +281,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 		if fDesc.target != nil {
 			err = fDesc.target.Close()
 			if err != nil {
-				p.trace(logger.Error, fmt.Sprintf("Could not release lock on planet \"%s\" (err: %v)", fDesc.target.ID, err))
+				p.trace(logger.Error, fmt.Sprintf("Could not release lock on element \"%s\" (err: %v)", fDesc.target.ID, err))
 			}
 		}
 	}()
@@ -460,7 +460,6 @@ func (p *FleetProxy) fetchFleetForComponent(comp *model.Component, universe stri
 	f.fleet.Universe = uni.ID
 	f.fleet.Objective = comp.Objective
 	f.fleet.Target = comp.Target
-	f.fleet.TargetType = model.World
 	f.fleet.Body = planetID
 	f.fleet.ArrivalTime = comp.ArrivalTime
 	f.fleet.Comps = []model.Component{

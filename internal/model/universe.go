@@ -262,6 +262,9 @@ func (u *Universe) UsedCoords(proxy db.Proxy) (map[int]Coordinate, error) {
 	coords := make(map[int]Coordinate)
 	var coord Coordinate
 
+	// Only planets are fetched by this function.
+	coord.Type = World
+
 	for dbRes.Next() {
 		err = dbRes.Scan(
 			&coord.Galaxy,

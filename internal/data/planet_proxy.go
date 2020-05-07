@@ -251,11 +251,11 @@ func (p *PlanetProxy) CreateFor(player model.Player) (string, error) {
 		// In case the insertion fails we will add the selected
 		// coordinates to the list of used one so as not to try
 		// to use it again.
-		coord := model.Coordinate{
-			Galaxy:   rand.Int() % uni.GalaxiesCount,
-			System:   rand.Int() % uni.GalaxySize,
-			Position: rand.Int() % uni.SolarSystemSize,
-		}
+		coord := model.NewPlanetCoordinate(
+			rand.Int()%uni.GalaxiesCount,
+			rand.Int()%uni.GalaxySize,
+			rand.Int()%uni.SolarSystemSize,
+		)
 
 		exists := true
 		for exists {
@@ -266,11 +266,11 @@ func (p *PlanetProxy) CreateFor(player model.Player) (string, error) {
 				exists = false
 			} else {
 				// Pick some new coordinates.
-				coord = model.Coordinate{
-					Galaxy:   rand.Int() % uni.GalaxiesCount,
-					System:   rand.Int() % uni.GalaxySize,
-					Position: rand.Int() % uni.SolarSystemSize,
-				}
+				coord = model.NewPlanetCoordinate(
+					rand.Int()%uni.GalaxiesCount,
+					rand.Int()%uni.GalaxySize,
+					rand.Int()%uni.SolarSystemSize,
+				)
 			}
 		}
 

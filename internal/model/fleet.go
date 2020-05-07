@@ -87,6 +87,30 @@ var ErrDuplicatedFleet = fmt.Errorf("Invalid not unique fleet")
 // fleet are able to perform the fleet's objective.
 var ErrNoShipToPerformObjective = fmt.Errorf("No ships can perform the fleet's objective")
 
+// ErrInvalidTargetForObjective :
+// Used to indicate that the objective is not valid
+// compared to the target of a fleet.
+var ErrInvalidTargetForObjective = fmt.Errorf("Target cannot be used for fleet's objective")
+
+// purpose :
+// Convenience define to refer to the purpose of a fleet
+// which mimics the objectives of a fleet.
+type purpose string
+
+// Possible values of a fleet's purpose.
+const (
+	deployment   purpose = "deployment"
+	transport    purpose = "transport"
+	colonization purpose = "colonization"
+	expedition   purpose = "expedition"
+	acsDefend    purpose = "ACS defend"
+	acsAttack    purpose = "ACS attack"
+	harvesting   purpose = "harvesting"
+	attacking    purpose = "attacking"
+	espionage    purpose = "espionage"
+	destroy      purpose = "destroy"
+)
+
 // newFleetFromDB :
 // Used to fetch the content of the fleet from
 // the input DB and populate all internal fields
@@ -487,7 +511,17 @@ func (f *Fleet) Validate(data Instance) error {
 		}
 	}
 
-	// TODO: Refine with the objective and the target type.
+	// Make sure that the location of the target
+	// is consistent with the objective.
+	if purpose(obj.Name) == harvesting && f.Target.Type != Debris {
+		return ErrInvalidTargetForObjective
+	}
+	if purpose(obj.Name) != harvesting && f.Target.Type == Debris {
+		return ErrInvalidTargetForObjective
+	}
+	if purpose(obj.Name) == destroy && f.Target.Type != Moon {
+		return ErrInvalidTargetForObjective
+	}
 
 	return ErrNoShipToPerformObjective
 }

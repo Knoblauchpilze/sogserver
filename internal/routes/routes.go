@@ -20,7 +20,6 @@ func (s *Server) routes() {
 	s.route("GET", "/defenses", s.listDefenses())
 	s.route("GET", "/players", s.listPlayers())
 	s.route("GET", "/players/[a-zA-Z0-9-]+/planets", s.listPlanets())
-	s.route("GET", "/fleets", s.listFleets())
 	s.route("GET", "/fleets/objectives", s.listFleetObjectives())
 
 	s.route("POST", "/universes", s.createUniverse())

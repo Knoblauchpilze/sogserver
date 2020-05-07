@@ -124,7 +124,8 @@ Similar to the rest, the endpoint is `/defenses` and the properties are `id` and
 
 ## Planets
 
-The planets endpoint allows to query planets on a variety of criteria. The main endpoint is accessible through the `/planets` route and serves all the planets registered in the server no matter the universe (thus it's not very helpful). The user can query a particular planet by providing its identifier in the route (e.g. `/planets/planet_id`).
+The planets endpoint allows to query planets on a variety of criteria. The main endpoint is accessible through the `/players/player_id/planets` route and serves all the planets for a player. The user can query a particular planet by providing its identifier in the route (e.g. `/players/player_id/planets/planet_id`).
+We require to perform a research first on the player as it's the main resource we want to protect.
 
 The user also has access to some query parameters:
  * `id`: defines a filter on the player owning the planet.
@@ -151,19 +152,6 @@ It is possible to create a new player, which represents the instance of an accou
  * `account`: the identifier of the account linked to this player. Should be matching an existing account.
  * `universe`: the identifier of the universe into which the player should be created. No other `player` linked to the same account should exist in this universe.
  * `name`: the display name of the player in the universe. Should be unique but does not need to be (maybe we should modify that at some point).
-
-## Fleets
-
-The `/fleets` endpoint allows to fetch information on the fleet currently moving through the server. There is no real way to distinguish between fleets of different universes but we instead rely on providing the coordinates of the destination of the fleet and thus access the fleet through its target planet. The available query parameters are:
- * `id` : defines a filter on the identifier of the fleet (can be accessed directly through the route).
- * `name` : defines a filter on the name of the fleet (if any).
- * `galaxy` : defines a filter on the target galaxy of the fleet.
- * `solar_system` : defines a filter on the target solar system of the fleet.
- * `position` : defines a filter on the target position of the fleet.
-
-For each query the detailed information of the fleet are retrieved which describe the number of ships and the composition of the successive waves of the fleet (players involved, starting position of each one, etc.).
-
-For now there are some missing possibilities but it will be added on the go.
 
 ## Construction actions
 

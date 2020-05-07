@@ -32,15 +32,6 @@ import (
 // connect for a long time.
 // TODO: Multiple ships or defenses actions overlaps while they should be
 // added at the end of each other.
-// TODO: We should lock the planet targetted by a fleet when fetching a fleet.
-// Or revamp the way we fetch fleets if this is not possible. Because it will
-// be hard to determine beforehand what are the fleets available for this
-// planet. On the other hand maybe the endpoint `fleets` does not make sense
-// because for a player the only fleet that matters are the one that he sent
-// (available through the planet) and the ones that will crash on his planets
-// (available through the planet as well). If a player wants to attack a planet
-// he can fetch the planet (and thus the fleet that have their target on the
-// planet) and retrieve the potential ACS this way.
 // TODO: Maybe to fetch the result of the fleets that are not directed towards
 // on of their planet, the players could issue a request to the actual target
 // planets of the fleets (which is available in the fleet component which is

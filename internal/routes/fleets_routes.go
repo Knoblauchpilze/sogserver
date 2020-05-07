@@ -8,34 +8,6 @@ import (
 	"oglike_server/pkg/db"
 )
 
-// listFleets :
-// Used to perform the creation of a handler allowing to serve
-// the requests on fleets.
-//
-// Returns the handler that can be executed to serve said reqs.
-func (s *Server) listFleets() http.HandlerFunc {
-	// Create the endpoint with the suited route.
-	ed := NewGetResourceEndpoint("fleets")
-
-	allowed := map[string]string{
-		"id":           "id",
-		"name":         "name",
-		"galaxy":       "target_galaxy",
-		"solar_system": "target_solar_system",
-		"position":     "target_position",
-	}
-
-	// Configure the endpoint.
-	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("fleets")
-	ed.WithDataFunc(
-		func(filters []db.Filter) (interface{}, error) {
-			return s.fleets.Fleets(filters)
-		},
-	)
-
-	return ed.ServeRoute(s.log)
-}
-
 // listFleetObjectives :
 // Used to perform the creation of a handler allowing to server
 // the requests on fleet objectives.

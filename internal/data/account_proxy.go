@@ -59,7 +59,7 @@ func (p *AccountProxy) Accounts(filters []db.Filter) ([]game.Account, error) {
 		Filters: filters,
 	}
 
-	dbRes, err := p.proxy.FetchFromDB(query)
+	dbRes, err := p.data.Proxy.FetchFromDB(query)
 	defer dbRes.Close()
 
 	// Check for errors.
@@ -137,7 +137,7 @@ func (p *AccountProxy) Create(acc game.Account) (string, error) {
 		Args:   []interface{}{acc},
 	}
 
-	err := p.proxy.InsertToDB(query)
+	err := p.data.Proxy.InsertToDB(query)
 
 	// Check for errors.
 	if err != nil {

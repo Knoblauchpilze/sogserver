@@ -219,7 +219,7 @@ func (p *FleetProxy) CreateComponent(comp game.Component) (string, error) {
 			},
 		}
 
-		err = p.proxy.InsertToDB(query)
+		err = p.data.Proxy.InsertToDB(query)
 
 		// Check for errors.
 		if err != nil {
@@ -265,7 +265,7 @@ func (p *FleetProxy) CreateComponent(comp game.Component) (string, error) {
 		},
 	}
 
-	err = p.proxy.InsertToDB(query)
+	err = p.data.Proxy.InsertToDB(query)
 
 	// Check for errors.
 	if err != nil {
@@ -310,7 +310,7 @@ func (p *FleetProxy) fetchFleetForComponent(comp *game.Component, universe strin
 	// We need first to fetch the universe of the planet.
 	uni, err := game.NewUniverseFromDB(universe, p.data)
 	if err != nil {
-		return f, game.ErrInvalidUniverse
+		return f, err
 	}
 
 	// Retrieve the target planet if needed.

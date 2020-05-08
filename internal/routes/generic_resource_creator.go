@@ -77,11 +77,6 @@ var ErrNoData = fmt.Errorf("No data provided to perform resource creation")
 // of a creation request could not be read.
 var ErrInvalidData = fmt.Errorf("Unable to parse input data")
 
-// ErrDBError :
-// Used as a generic error in case the data provided as input
-// of a creation request could not be inserted to the DB.
-var ErrDBError = fmt.Errorf("Unable to register input data in DB")
-
 // NewCreateResourceEndpoint :
 // Creates a new empty endpoint description with the provided
 // route. The fetcher func is defined as an empty element to
@@ -176,8 +171,8 @@ func (cre *CreateResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFun
 		resNames, err := cre.creator(data)
 		if err != nil {
 			log.Trace(logger.Error, cre.module, fmt.Sprintf("Could not create resource from route \"%s\" (err: %v)", cre.route, err))
-			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
 
+			http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
 			return
 		}
 
@@ -220,7 +215,6 @@ func (cre *CreateResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFun
 // The `w` response writer will be used to indicate the status
 // to the client.
 func notifyCreation(resource string, w http.ResponseWriter) {
-	// Notify the status.
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(resource))
 }

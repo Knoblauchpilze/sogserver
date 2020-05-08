@@ -82,7 +82,7 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 				// Create the fleet component.
 				res, err := s.fleets.CreateComponent(comp)
 				if err != nil {
-					return resources, ErrDBError
+					return resources, err
 				}
 
 				// Successfully created a fleet component: we should prefix

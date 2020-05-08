@@ -62,7 +62,7 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]game.Player, error) {
 		Filters: filters,
 	}
 
-	dbRes, err := p.proxy.FetchFromDB(query)
+	dbRes, err := p.data.Proxy.FetchFromDB(query)
 	defer dbRes.Close()
 
 	// Check for errors.
@@ -144,7 +144,7 @@ func (p *PlayerProxy) Create(player game.Player) (string, error) {
 		Args:   []interface{}{&player},
 	}
 
-	err := p.proxy.InsertToDB(query)
+	err := p.data.Proxy.InsertToDB(query)
 
 	// Check for errors.
 	if err != nil {

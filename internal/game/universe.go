@@ -60,37 +60,56 @@ type Universe struct {
 	SolarSystemSize  int     `json:"solar_system_size"`
 }
 
-// ErrInvalidUniverse :
-// Used to indicate that the universe provided in input is
-// not valid.
-var ErrInvalidUniverse = fmt.Errorf("Invalid universe with no identifier")
+// ErrInvalidUniverseID : Indicates that the universe has no identifier.
+var ErrInvalidUniverseID = fmt.Errorf("Empty or invalid identifier provided for universe")
 
-// ErrDuplicatedUniverse :
-// Used to indicate that the universe's identifier provided
-// input is not unique in the DB.
+// ErrDuplicatedUniverse : Indicates that the universe identifier is not unique.
 var ErrDuplicatedUniverse = fmt.Errorf("Invalid not unique universe")
 
-// ErrDuplicatedCoordinates :
-// Used to indicate that some coordinates used in a process
-// was actually already existing.
+// ErrUniverseNotFuond : Indicates that no universe with specified ID exists.
+var ErrUniverseNotFuond = fmt.Errorf("Identifier does not correspond to any known universe")
+
+// ErrDuplicatedCoordinates : Indicates that some coordites appeared twice.
 var ErrDuplicatedCoordinates = fmt.Errorf("Invalid duplicated coordinates")
 
-// ErrPlanetNotFound :
-// Used to indicate that there is not planet at the specified
-// coordinates.
+// ErrPlanetNotFound : No planet exists at the specified coordinates.
 var ErrPlanetNotFound = fmt.Errorf("No planet at the specified coordinates")
 
-// ErrInvalidPlanetCoordinates :
-// Used to indicate that the coordinates provided to fetch a
-// planet are obviously not suited to the universe they're
-// used into.
-var ErrInvalidPlanetCoordinates = fmt.Errorf("Invalid coordinates for universe exploration")
+// ErrInvalidCoordinates : Input coordinates are not valid given the universe structure.
+var ErrInvalidCoordinates = fmt.Errorf("Invalid coordinates relative to universe structure")
 
-// ErrDuplicatedPlanet :
-// Used to indicate that the coordinates provided in input
-// did not allow to narrow the search of a planet to a single
-// instance.
-var ErrDuplicatedPlanet = fmt.Errorf("Invalid duplicated planet from coordinates")
+// ErrDuplicatedPlanet : Indicates that there several planets share the same coordinates.
+var ErrDuplicatedPlanet = fmt.Errorf("Several planets share the same coordinates")
+
+// ErrInvalidName : Indicates that the name is invalid or already exists.
+var ErrInvalidName = fmt.Errorf("Invalid or already existing name")
+
+// ErrInvalidEcoSpeed : The economic speed is not within admissible range.
+var ErrInvalidEcoSpeed = fmt.Errorf("Economic speed is not within admissible range")
+
+// ErrInvalidFleetSpeed : The fleet speed is not within admissible range.
+var ErrInvalidFleetSpeed = fmt.Errorf("Fleet speed is not within admissible range")
+
+// ErrInvalidResearchSpeed : The research speed is not within admissible range.
+var ErrInvalidResearchSpeed = fmt.Errorf("Research speed is not within admissible range")
+
+// ErrFleetsToRuins : The fleets to ruins ratio is not within admissible range.
+var ErrFleetsToRuins = fmt.Errorf("Fleets to ruins ratio is not within admissible range")
+
+// ErrDefensesToRuins : The defenses to ruins ratio is not within admissible range.
+var ErrDefensesToRuins = fmt.Errorf("Defenses to ruins is not within admissible range")
+
+// ErrFleetConsumption : The fleet consumption is not within admissible range.
+var ErrFleetConsumption = fmt.Errorf("Fleet consumption is not within admissible range")
+
+// ErrGalaxiesCount : The number of galaxies is not within admissible range.
+var ErrGalaxiesCount = fmt.Errorf("Galaxies count is not within admissible range")
+
+// ErrGalaxySize : The size of a galaxy is not within admissible range.
+var ErrGalaxySize = fmt.Errorf("Galaxy size is not within admissible range")
+
+// ErrSolarSystemSize : The size of a solar system is not within admissible range.
+var ErrSolarSystemSize = fmt.Errorf("Solar system size is not within admissible range")
 
 // Valid :
 // Used to determine whether the parameters defined for this
@@ -99,20 +118,44 @@ var ErrDuplicatedPlanet = fmt.Errorf("Invalid duplicated planet from coordinates
 // and some other common assumptions.
 // Note that it requires that the `ID` is valid as well.
 //
-// Returns `true` if the universe is valid (i.e. all values
-// are consistent with the expected ranges).
-func (u *Universe) Valid() bool {
-	return validUUID(u.ID) &&
-		u.Name != "" &&
-		u.EcoSpeed > 0 &&
-		u.FleetSpeed > 0 &&
-		u.ResearchSpeed > 0 &&
-		u.FleetsToRuins >= 0.0 && u.FleetsToRuins <= 1.0 &&
-		u.DefensesToRuins >= 0.0 && u.DefensesToRuins <= 1.0 &&
-		u.FleetConsumption >= 0.0 && u.FleetConsumption <= 1.0 &&
-		u.GalaxiesCount > 0 &&
-		u.GalaxySize > 0 &&
-		u.SolarSystemSize > 0
+// Returns `nil` if no obvious errors can be found and an
+// error indicating the problem otherwise.
+func (u *Universe) Valid() error {
+	if !validUUID(u.ID) {
+		return ErrInvalidUniverseID
+	}
+	if u.Name == "" {
+		return ErrInvalidName
+	}
+	if u.EcoSpeed <= 0 {
+		return ErrInvalidEcoSpeed
+	}
+	if u.FleetSpeed <= 0 {
+		return ErrInvalidFleetSpeed
+	}
+	if u.ResearchSpeed <= 0 {
+		return ErrInvalidResearchSpeed
+	}
+	if u.FleetsToRuins < 0.0 && u.FleetsToRuins > 1.0 {
+		return ErrFleetsToRuins
+	}
+	if u.DefensesToRuins < 0.0 && u.DefensesToRuins > 1.0 {
+		return ErrDefensesToRuins
+	}
+	if u.FleetConsumption < 0.0 && u.FleetConsumption > 1.0 {
+		return ErrFleetConsumption
+	}
+	if u.GalaxiesCount <= 0 {
+		return ErrGalaxiesCount
+	}
+	if u.GalaxySize <= 0 {
+		return ErrGalaxySize
+	}
+	if u.SolarSystemSize <= 0 {
+		return ErrSolarSystemSize
+	}
+
+	return nil
 }
 
 // String :
@@ -147,8 +190,8 @@ func NewUniverseFromDB(ID string, data model.Instance) (Universe, error) {
 	}
 
 	// Consistency.
-	if u.ID == "" {
-		return u, ErrInvalidUniverse
+	if !validUUID(u.ID) {
+		return u, ErrInvalidUniverseID
 	}
 
 	// Create the query and execute it.
@@ -188,7 +231,7 @@ func NewUniverseFromDB(ID string, data model.Instance) (Universe, error) {
 	// Scan the universe's data.
 	atLeastOne := dbRes.Next()
 	if !atLeastOne {
-		return u, ErrInvalidUniverse
+		return u, ErrUniverseNotFuond
 	}
 
 	err = dbRes.Scan(
@@ -210,6 +253,49 @@ func NewUniverseFromDB(ID string, data model.Instance) (Universe, error) {
 	}
 
 	return u, err
+}
+
+// SaveToDB :
+// Used to save the content of this universe to
+// the DB. In case an error is raised during the
+// operation a comprehensive error is returned.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns any error.
+func (u *Universe) SaveToDB(proxy db.Proxy) error {
+
+	// Check consistency.
+	if err := u.Valid(); err != nil {
+		return err
+	}
+
+	// Create the query and execute it.
+	query := db.InsertReq{
+		Script: "create_universe",
+		Args:   []interface{}{u},
+	}
+
+	err := proxy.InsertToDB(query)
+
+	// Analyze the error in order to  provide some
+	// comprehensive message.
+	dbe, ok := err.(db.Error)
+	if !ok {
+		return err
+	}
+
+	dee, ok := dbe.Err.(db.DuplicatedElementError)
+	if ok {
+		switch dee.Constraint {
+		case "universes_pkey":
+			return ErrDuplicatedUniverse
+		case "universes_name_key":
+			return ErrInvalidName
+		}
+	}
+
+	return dbe
 }
 
 // UsedCoords :
@@ -306,7 +392,7 @@ func (u *Universe) UsedCoords(proxy db.Proxy) (map[int]Coordinate, error) {
 func (u *Universe) GetPlanetAt(coord Coordinate, data model.Instance) (*Planet, error) {
 	// Make sure that the coordinate are valid for this universe.
 	if !coord.valid(u.GalaxiesCount, u.GalaxySize, u.SolarSystemSize) {
-		return nil, ErrInvalidPlanetCoordinates
+		return nil, ErrInvalidCoordinates
 	}
 
 	// Create the query to fetch the planet from the coordinates.

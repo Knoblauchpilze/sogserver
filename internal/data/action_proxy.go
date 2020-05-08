@@ -113,7 +113,7 @@ func (p *ActionProxy) CreateBuildingAction(a game.BuildingAction) (string, error
 		},
 	}
 
-	err = p.proxy.InsertToDB(query)
+	err = p.data.Proxy.InsertToDB(query)
 
 	// Check for errors.
 	if err != nil {
@@ -176,7 +176,7 @@ func (p *ActionProxy) CreateTechnologyAction(a game.TechnologyAction) (string, e
 		},
 	}
 
-	err = p.proxy.InsertToDB(query)
+	err = p.data.Proxy.InsertToDB(query)
 
 	// Check for errors.
 	if err != nil {
@@ -243,7 +243,7 @@ func (p *ActionProxy) CreateShipAction(a game.ShipAction) (string, error) {
 		},
 	}
 
-	err = p.proxy.InsertToDB(query)
+	err = p.data.Proxy.InsertToDB(query)
 
 	// Check for errors.
 	if err != nil {
@@ -310,7 +310,7 @@ func (p *ActionProxy) CreateDefenseAction(a game.DefenseAction) (string, error) 
 		},
 	}
 
-	err = p.proxy.InsertToDB(query)
+	err = p.data.Proxy.InsertToDB(query)
 
 	// Check for errors.
 	if err != nil {

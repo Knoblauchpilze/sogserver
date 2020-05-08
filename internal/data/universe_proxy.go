@@ -59,7 +59,7 @@ func (p *UniverseProxy) Universes(filters []db.Filter) ([]game.Universe, error) 
 		Filters: filters,
 	}
 
-	dbRes, err := p.proxy.FetchFromDB(query)
+	dbRes, err := p.data.Proxy.FetchFromDB(query)
 	defer dbRes.Close()
 
 	// Check for errors.
@@ -125,21 +125,7 @@ func (p *UniverseProxy) Create(uni game.Universe) (string, error) {
 		uni.ID = uuid.New().String()
 	}
 
-	// Check consistency.
-	if !uni.Valid() {
-		p.trace(logger.Error, fmt.Sprintf("Failed to validate universe's data %s", uni))
-		return uni.ID, game.ErrInvalidUniverse
-	}
-
-	// Create the query and execute it.
-	query := db.InsertReq{
-		Script: "create_universe",
-		Args:   []interface{}{uni},
-	}
-
-	err := p.proxy.InsertToDB(query)
-
-	// Check for errors.
+	err := uni.SaveToDB(p.data.Proxy)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not create universe \"%s\" (err: %v)", uni.Name, err))
 		return uni.ID, err

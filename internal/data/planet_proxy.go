@@ -75,7 +75,7 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]game.Planet, error) {
 		Filters: filters,
 	}
 
-	dbRes, err := p.proxy.FetchFromDB(query)
+	dbRes, err := p.data.Proxy.FetchFromDB(query)
 	defer dbRes.Close()
 
 	// Check for errors.
@@ -134,7 +134,7 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]game.Planet, error) {
 // Returns any error.
 func (p *PlanetProxy) generateResources(planet *game.Planet) error {
 	// A planet always has the base amount defined in the DB.
-	resources, err := p.data.Resources.Resources(p.proxy, []db.Filter{})
+	resources, err := p.data.Resources.Resources(p.data.Proxy, []db.Filter{})
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Unable to generate resources for planet (err: %v)", err))
 		return err
@@ -292,7 +292,7 @@ func (p *PlanetProxy) createPlanet(planet *game.Planet) error {
 		},
 	}
 
-	err := p.proxy.InsertToDB(query)
+	err := p.data.Proxy.InsertToDB(query)
 
 	// Check for errors.
 	if err != nil {

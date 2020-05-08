@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"oglike_server/internal/locker"
 	"oglike_server/internal/model"
-	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 )
 
@@ -20,11 +19,6 @@ import (
 // The following link contains useful information on
 // the paradigm we're following with this object:
 // https://www.reddit.com/r/golang/comments/9i5cpg/good_approach_to_interacting_with_databases/
-//
-// The `proxy` is a reference to an object allowing
-// to manipulate the main DB. It provides convenience
-// methods to execute a query and insert some data
-// into it.
 //
 // The `log` allows to perform display to the user so as
 // to inform of potential issues and debug information to
@@ -61,7 +55,6 @@ import (
 // actually fetched. It can be used to verify specific
 // criteria when performing an action for example.
 type commonProxy struct {
-	proxy  db.Proxy
 	log    logger.Logger
 	lock   *locker.ConcurrentLocker
 	module string
@@ -93,7 +86,6 @@ var ErrInvalidOperation = fmt.Errorf("Invalid query performed for resource")
 // not right when creating the proxy.
 func newCommonProxy(data model.Instance, log logger.Logger, module string) commonProxy {
 	return commonProxy{
-		proxy:  data.Proxy,
 		log:    log,
 		lock:   locker.NewConcurrentLocker(log),
 		module: module,

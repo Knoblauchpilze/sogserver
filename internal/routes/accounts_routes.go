@@ -66,7 +66,7 @@ func (s *Server) createAccount() http.HandlerFunc {
 				// Create the account.
 				res, err := s.accounts.Create(acc)
 				if err != nil {
-					return resources, ErrDBError
+					return resources, err
 				}
 
 				// Successfully created an account.

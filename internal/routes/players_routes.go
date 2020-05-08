@@ -67,7 +67,7 @@ func (s *Server) createPlayer() http.HandlerFunc {
 				// Create the player.
 				res, err := s.players.Create(player)
 				if err != nil {
-					return resources, ErrDBError
+					return resources, err
 				}
 
 				// Update the player's identifier.
@@ -85,7 +85,7 @@ func (s *Server) createPlayer() http.HandlerFunc {
 					// If it's a problem we can still handle it later. For example by
 					// creating a `deletePlayer` method which will be needed anyways
 					// at some point.
-					return resources, ErrDBError
+					return resources, err
 				}
 
 				// Successfully created a player.

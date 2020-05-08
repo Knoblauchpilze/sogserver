@@ -65,7 +65,7 @@ func (s *Server) createUniverse() http.HandlerFunc {
 				// Create the universe.
 				res, err := s.universes.Create(uni)
 				if err != nil {
-					return resources, ErrDBError
+					return resources, err
 				}
 
 				// Successfully created a universe.

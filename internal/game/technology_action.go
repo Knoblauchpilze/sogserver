@@ -217,10 +217,7 @@ func (a *TechnologyAction) fetchResearchPower(data model.Instance, planet *Plane
 	if err != nil {
 		return 0, err
 	}
-	lab, err := planet.GetBuilding(labID)
-	if err != nil {
-		return 0, err
-	}
+	lab := planet.Buildings[labID]
 
 	// Get the level of the intergalactic research network
 	// technology reached by the player owning this planet.

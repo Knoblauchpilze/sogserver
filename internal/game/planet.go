@@ -111,24 +111,24 @@ import (
 // It helps in various cases to be able to fetch player's
 // info about technology.
 type Planet struct {
-	ID                   string             `json:"id"`
-	Player               string             `json:"player"`
-	Coordinates          Coordinate         `json:"coordinate"`
-	Name                 string             `json:"name"`
-	Fields               int                `json:"fields"`
-	MinTemp              int                `json:"min_temperature"`
-	MaxTemp              int                `json:"max_temperature"`
-	Diameter             int                `json:"diameter"`
-	Resources            Resources          `json:"resources,omitempty"`
-	Buildings            []BuildingInfo     `json:"buildings,omitempty"`
-	Ships                []ShipInfo         `json:"ships,omitempty"`
-	Defenses             []DefenseInfo      `json:"defenses,omitempty"`
-	BuildingsUpgrade     []BuildingAction   `json:"buildings_upgrade,omitempty"`
-	TechnologiesUpgrade  []TechnologyAction `json:"technologies_upgrade,omitempty"`
-	ShipsConstruction    []ShipAction       `json:"ships_construction,omitempty"`
-	DefensesConstruction []DefenseAction    `json:"defenses_construction,omitempty"`
-	SourceFleets         []string           `json:"source_fleets,omitempty"`
-	IncomingFleets       []string           `json:"incoming_fleets,omitempty"`
+	ID                   string                  `json:"id"`
+	Player               string                  `json:"player"`
+	Coordinates          Coordinate              `json:"coordinate"`
+	Name                 string                  `json:"name"`
+	Fields               int                     `json:"fields"`
+	MinTemp              int                     `json:"min_temperature"`
+	MaxTemp              int                     `json:"max_temperature"`
+	Diameter             int                     `json:"diameter"`
+	Resources            Resources               `json:"-"`
+	Buildings            map[string]BuildingInfo `json:"-"`
+	Ships                map[string]ShipInfo     `json:"-"`
+	Defenses             map[string]DefenseInfo  `json:"-"`
+	BuildingsUpgrade     []BuildingAction        `json:"-"`
+	TechnologiesUpgrade  []TechnologyAction      `json:"-"`
+	ShipsConstruction    []ShipAction            `json:"-"`
+	DefensesConstruction []DefenseAction         `json:"-"`
+	SourceFleets         []string                `json:"-"`
+	IncomingFleets       []string                `json:"-"`
 	technologies         map[string]int
 }
 
@@ -258,7 +258,7 @@ func getDefaultPlanetName(isHomeWorld bool) string {
 // Convenience define to refer to a slice of resource
 // info. It is used to make that that the array does
 // get converted before getting sent to the DB.
-type Resources []ResourceInfo
+type Resources map[string]ResourceInfo
 
 // Convert :
 // Implementation of the `db.Convertible` interface
@@ -413,10 +413,10 @@ func NewPlanet(player string, coords Coordinate, homeworld bool) *Planet {
 		MinTemp:     0,
 		MaxTemp:     0,
 		Diameter:    0,
-		Resources:   make([]ResourceInfo, 0),
-		Buildings:   make([]BuildingInfo, 0),
-		Ships:       make([]ShipInfo, 0),
-		Defenses:    make([]DefenseInfo, 0),
+		Resources:   make(map[string]ResourceInfo, 0),
+		Buildings:   make(map[string]BuildingInfo, 0),
+		Ships:       make(map[string]ShipInfo, 0),
+		Defenses:    make(map[string]DefenseInfo, 0),
 	}
 
 	// Generate diameter and fields count.
@@ -1120,7 +1120,7 @@ func (p *Planet) fetchGeneralInfo(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchResources(data model.Instance) error {
-	p.Resources = make([]ResourceInfo, 0)
+	p.Resources = make(map[string]ResourceInfo, 0)
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
@@ -1153,6 +1153,8 @@ func (p *Planet) fetchResources(data model.Instance) error {
 	// Populate the return value.
 	var res ResourceInfo
 
+	sanity := make(map[string]bool)
+
 	for dbRes.Next() {
 		err = dbRes.Scan(
 			&res.Resource,
@@ -1165,7 +1167,13 @@ func (p *Planet) fetchResources(data model.Instance) error {
 			return err
 		}
 
-		p.Resources = append(p.Resources, res)
+		_, ok := sanity[res.Resource]
+		if ok {
+			return model.ErrInconsistentDB
+		}
+		sanity[res.Resource] = true
+
+		p.Resources[res.Resource] = res
 	}
 
 	return nil
@@ -1179,7 +1187,7 @@ func (p *Planet) fetchResources(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchBuildings(data model.Instance) error {
-	p.Buildings = make([]BuildingInfo, 0)
+	p.Buildings = make(map[string]BuildingInfo, 0)
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
@@ -1211,6 +1219,8 @@ func (p *Planet) fetchBuildings(data model.Instance) error {
 	var ID string
 	var b BuildingInfo
 
+	sanity := make(map[string]bool)
+
 	for dbRes.Next() {
 		err = dbRes.Scan(
 			&ID,
@@ -1221,6 +1231,12 @@ func (p *Planet) fetchBuildings(data model.Instance) error {
 			return err
 		}
 
+		_, ok := sanity[ID]
+		if ok {
+			return model.ErrInconsistentDB
+		}
+		sanity[ID] = true
+
 		desc, err := data.Buildings.GetBuildingFromID(ID)
 		if err != nil {
 			return err
@@ -1228,7 +1244,7 @@ func (p *Planet) fetchBuildings(data model.Instance) error {
 
 		b.BuildingDesc = desc
 
-		p.Buildings = append(p.Buildings, b)
+		p.Buildings[ID] = b
 	}
 
 	return nil
@@ -1242,7 +1258,7 @@ func (p *Planet) fetchBuildings(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchShips(data model.Instance) error {
-	p.Ships = make([]ShipInfo, 0)
+	p.Ships = make(map[string]ShipInfo, 0)
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
@@ -1274,6 +1290,8 @@ func (p *Planet) fetchShips(data model.Instance) error {
 	var ID string
 	var s ShipInfo
 
+	sanity := make(map[string]bool)
+
 	for dbRes.Next() {
 		err = dbRes.Scan(
 			&ID,
@@ -1284,6 +1302,12 @@ func (p *Planet) fetchShips(data model.Instance) error {
 			return err
 		}
 
+		_, ok := sanity[ID]
+		if ok {
+			return model.ErrInconsistentDB
+		}
+		sanity[ID] = true
+
 		desc, err := data.Ships.GetShipFromID(ID)
 		if err != nil {
 			return err
@@ -1291,7 +1315,7 @@ func (p *Planet) fetchShips(data model.Instance) error {
 
 		s.ShipDesc = desc
 
-		p.Ships = append(p.Ships, s)
+		p.Ships[ID] = s
 	}
 
 	return nil
@@ -1305,7 +1329,7 @@ func (p *Planet) fetchShips(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchDefenses(data model.Instance) error {
-	p.Defenses = make([]DefenseInfo, 0)
+	p.Defenses = make(map[string]DefenseInfo, 0)
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
@@ -1337,6 +1361,8 @@ func (p *Planet) fetchDefenses(data model.Instance) error {
 	var ID string
 	var d DefenseInfo
 
+	sanity := make(map[string]bool)
+
 	for dbRes.Next() {
 		err = dbRes.Scan(
 			&ID,
@@ -1347,6 +1373,12 @@ func (p *Planet) fetchDefenses(data model.Instance) error {
 			return err
 		}
 
+		_, ok := sanity[ID]
+		if ok {
+			return model.ErrInconsistentDB
+		}
+		sanity[ID] = true
+
 		desc, err := data.Defenses.GetDefenseFromID(ID)
 		if err != nil {
 			return err
@@ -1354,7 +1386,7 @@ func (p *Planet) fetchDefenses(data model.Instance) error {
 
 		d.DefenseDesc = desc
 
-		p.Defenses = append(p.Defenses, d)
+		p.Defenses[ID] = d
 	}
 
 	return nil
@@ -1528,7 +1560,7 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 		MinTemp              int                `json:"min_temperature"`
 		MaxTemp              int                `json:"max_temperature"`
 		Diameter             int                `json:"diameter"`
-		Resources            Resources          `json:"resources"`
+		Resources            []ResourceInfo     `json:"resources"`
 		Buildings            []lightInfo        `json:"buildings,omitempty"`
 		Ships                []lightCount       `json:"ships,omitempty"`
 		Defenses             []lightCount       `json:"defenses,omitempty"`
@@ -1550,13 +1582,17 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 		MinTemp:              p.MinTemp,
 		MaxTemp:              p.MaxTemp,
 		Diameter:             p.Diameter,
-		Resources:            p.Resources,
 		BuildingsUpgrade:     p.BuildingsUpgrade,
 		TechnologiesUpgrade:  p.TechnologiesUpgrade,
 		ShipsConstruction:    p.ShipsConstruction,
 		DefensesConstruction: p.DefensesConstruction,
 		SourceFleets:         p.SourceFleets,
 		IncomingFleets:       p.IncomingFleets,
+	}
+
+	// Copy resources from map to slice.
+	for _, r := range p.Resources {
+		lp.Resources = append(lp.Resources, r)
 	}
 
 	// Make shallow copy of the buildings, ships and
@@ -1594,67 +1630,6 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 	return json.Marshal(lp)
 }
 
-// GetResource :
-// Retrieves the resource from the input identifier.
-//
-// The `ID` defines the identifier of the planet to
-// fetch from the planet.
-//
-// Returns the resource description corresponding
-// to the input identifier along with any error.
-func (p *Planet) GetResource(ID string) (ResourceInfo, error) {
-	// TODO: Should be transformed as a map. Similarly the buildings
-	// and ships and other arrays as well. Only in the `MarshalJSON`
-	// we should transform this to an array.
-	for _, r := range p.Resources {
-		if r.Resource == ID {
-			return r, nil
-		}
-	}
-
-	return ResourceInfo{}, model.ErrInvalidID
-}
-
-// GetBuilding :
-// Retrieves the building from the input identifier.
-//
-// The `ID` defines the identifier of the building
-// to fetch from the planet.
-//
-// Returns the building description corresponding
-// to the input identifier along with any error.
-func (p *Planet) GetBuilding(ID string) (BuildingInfo, error) {
-	// Traverse the list of buildings attached to the
-	// planet and search for the input ID.
-	for _, b := range p.Buildings {
-		if b.ID == ID {
-			return b, nil
-		}
-	}
-
-	return BuildingInfo{}, model.ErrInvalidID
-}
-
-// GetShip :
-// Retrieves the ship from the input identifier.
-//
-// The `ID` defines the identifier of the ship
-// to fetch from the planet.
-//
-// Returns the ship description corresponding
-// to the input identifier along with any error.
-func (p *Planet) GetShip(ID string) (ShipInfo, error) {
-	// Traverse the list of ships attached to the
-	// planet and search for the input ID.
-	for _, s := range p.Ships {
-		if s.ID == ID {
-			return s, nil
-		}
-	}
-
-	return ShipInfo{}, model.ErrInvalidID
-}
-
 // validateAction :
 // Used to make sure that the action described by
 // the costs and tech dependencies in input can be
@@ -1682,13 +1657,13 @@ func (p *Planet) validateAction(costs map[string]int, desc model.UpgradableDesc,
 	}
 
 	for res, amount := range costs {
-		// Find the amount existing on the planet.
-		desc, err := p.GetResource(res)
-		if err != nil {
-			return err
-		}
+		// Find the amount existing on the planet. We
+		// will consider that if the resource does not
+		// exist on the internal array it means that
+		// no amount is present.
+		desc, ok := p.Resources[res]
 
-		if desc.Amount < float32(amount) {
+		if !ok || desc.Amount < float32(amount) {
 			return ErrNotEnoughResources
 		}
 	}
@@ -1696,9 +1671,9 @@ func (p *Planet) validateAction(costs map[string]int, desc model.UpgradableDesc,
 	// Make sure that the tech tree is consistent with the
 	// expectations.
 	for _, bDep := range desc.BuildingsDeps {
-		bi, err := p.GetBuilding(bDep.ID)
+		bi, ok := p.Buildings[bDep.ID]
 
-		if err != nil || bi.Level < bDep.Level {
+		if !ok || bi.Level < bDep.Level {
 			return ErrTechDepsNotMet
 		}
 	}
@@ -1706,20 +1681,7 @@ func (p *Planet) validateAction(costs map[string]int, desc model.UpgradableDesc,
 	for _, tDep := range desc.TechnologiesDeps {
 		level, ok := p.technologies[tDep.ID]
 
-		// If the technology is not defined for this player
-		// we assume it has a level of 0.
-		if !ok && tDep.Level > 0 {
-			return ErrTechDepsNotMet
-		}
-
-		// If the technology exist but has a level inferior
-		// to what is expected by the dependency it means a
-		// failure to meet this criteria.
-		// Note that in case `!ok && tDep.Level == 0` we do
-		// want to skip this test (hence the `ok` part) as
-		// we consider that if the tech dep is `0` it means
-		// we always pass the test.
-		if ok && level < tDep.Level {
+		if !ok || level < tDep.Level {
 			return ErrTechDepsNotMet
 		}
 	}
@@ -1791,13 +1753,9 @@ func (p *Planet) validateComponent(fuels []ConsumptionValue, cargos []model.Reso
 
 	// Make sure that there's enough ships.
 	for _, ship := range ships {
-		s, err := p.GetShip(ship.ID)
+		s, ok := p.Ships[ship.ID]
 
-		if err != nil {
-			return err
-		}
-
-		if s.Amount < ship.Count {
+		if !ok || s.Amount < ship.Count {
 			return ErrNotEnoughShips
 		}
 	}

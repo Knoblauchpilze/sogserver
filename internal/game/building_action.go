@@ -405,14 +405,8 @@ func (a *BuildingAction) consolidateCompletionTime(data model.Instance, p *Plane
 		return err
 	}
 
-	robotics, err := p.GetBuilding(roboticsID)
-	if err != nil {
-		return err
-	}
-	nanite, err := p.GetBuilding(naniteID)
-	if err != nil {
-		return err
-	}
+	robotics := p.Buildings[roboticsID]
+	nanite := p.Buildings[naniteID]
 
 	// Retrieve the cost in metal and crystal as it is
 	// the only costs that matters.
@@ -472,12 +466,8 @@ func (a *BuildingAction) Validate(data model.Instance, p *Planet) error {
 		return err
 	}
 
-	bi, err := p.GetBuilding(bd.ID)
-	if err != nil {
-		return err
-	}
-
-	if bi.Level != a.CurrentLevel {
+	bi, ok := p.Buildings[bd.ID]
+	if !ok || bi.Level != a.CurrentLevel {
 		return ErrLevelIncorrect
 	}
 

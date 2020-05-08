@@ -150,7 +150,7 @@ func (p *PlanetProxy) generateResources(planet *game.Planet) error {
 	// the identifier of the resources retrieved from the DB
 	// to populate the planet.
 	if planet.Resources == nil {
-		planet.Resources = make([]game.ResourceInfo, 0)
+		planet.Resources = make(map[string]game.ResourceInfo, 0)
 	}
 
 	for _, res := range resources {
@@ -161,7 +161,7 @@ func (p *PlanetProxy) generateResources(planet *game.Planet) error {
 			Production: float32(res.BaseProd),
 		}
 
-		planet.Resources = append(planet.Resources, desc)
+		planet.Resources[res.ID] = desc
 	}
 
 	return nil

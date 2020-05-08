@@ -208,11 +208,6 @@ type DefenseInfo struct {
 	Amount int `json:"amount"`
 }
 
-// ErrInvalidPlanet :
-// Used to indicate an ill-formed planet with no
-// associated identifier.
-var ErrInvalidPlanet = fmt.Errorf("Invalid planet with no identifier")
-
 // ErrNotEnoughResources :
 // Used to indicate that an upgrade action cannot be
 // performed due to missing resources.
@@ -285,25 +280,19 @@ type Resources []ResourceInfo
 //
 // Returns the marshallable slice.
 func (r Resources) Convert() interface{} {
-	out := make(
-		[]struct {
-			Resource   string  `json:"res"`
-			Amount     float32 `json:"amount"`
-			Storage    float32 `json:"storage_capacity"`
-			Production float32 `json:"production"`
-		},
-		0,
-	)
+	type resForDB struct {
+		Resource   string  `json:"res"`
+		Amount     float32 `json:"amount"`
+		Storage    float32 `json:"storage_capacity"`
+		Production float32 `json:"production"`
+	}
+
+	out := make([]resForDB, 0)
 
 	for _, res := range r {
 		out = append(
 			out,
-			struct {
-				Resource   string  `json:"res"`
-				Amount     float32 `json:"amount"`
-				Storage    float32 `json:"storage_capacity"`
-				Production float32 `json:"production"`
-			}{
+			resForDB{
 				Resource:   res.Resource,
 				Amount:     res.Amount,
 				Storage:    res.Storage,
@@ -339,7 +328,7 @@ func NewPlanetFromDB(ID string, data model.Instance) (Planet, error) {
 
 	// Consistency.
 	if !validUUID(p.ID) {
-		return p, ErrInvalidPlanet
+		return p, ErrInvalidElementID
 	}
 
 	// Fetch general info for this planet. It will
@@ -1463,7 +1452,8 @@ func (p *Planet) fetchDefenses(data model.Instance) error {
 func (p *Planet) fetchTechnologies(data model.Instance) error {
 	// Consistency.
 	if !validUUID(p.Player) {
-		return ErrInvalidPlanet
+		// TODO: Handle this better.
+		return ErrInvalidElementID
 	}
 
 	p.technologies = make(map[string]int)

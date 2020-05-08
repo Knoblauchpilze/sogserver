@@ -64,7 +64,7 @@ import (
 // the payload of the answer is also relevant. This would correspond to
 // cases where the user clicked on a research on two separate tabs or
 // something similar: very unlikely.
-// Regarding the fleet, it might have potentil impacts. Typically if we
+// Regarding the fleet, it might have potential impacts. Typically if we
 // want to restore the fleets endpoint, we might want to lock a fleet.
 // We also might want to lock the planet related to the fleet (if any)
 // so that we can perform the fight or any operation while nobody is

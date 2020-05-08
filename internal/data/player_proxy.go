@@ -118,9 +118,6 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]game.Player, error) {
 // associated to an account and a universe. The database
 // guarantees that no two players can exist in the same
 // universe belonging to the same account.
-// This method also handles the creation of the needed
-// data for a player to truly be ready to start in a new
-// universe (which means creating a homeworld).
 //
 // The `player` describes the element to create in `DB`.
 // This value may be modified by the function in case it
@@ -136,23 +133,11 @@ func (p *PlayerProxy) Create(player game.Player) (string, error) {
 		player.ID = uuid.New().String()
 	}
 
-	// Check consistency.
-	if !player.Valid() {
-		p.trace(logger.Error, fmt.Sprintf("Failed to validate player's data \"%s\"", player.Name))
-		return player.ID, game.ErrInvalidPlayer
-	}
+	fmt.Println(fmt.Sprintf("Id for %s is %s", player.Name, player.ID))
 
-	// Create the query and execute it.
-	query := db.InsertReq{
-		Script: "create_player",
-		Args:   []interface{}{&player},
-	}
-
-	err := p.data.Proxy.InsertToDB(query)
-
-	// Check for errors.
+	err := player.SaveToDB(p.data.Proxy)
 	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not create player in \"%s\" for \"%s\" (err: %v)", player.Universe, player.Account, err))
+		p.trace(logger.Error, fmt.Sprintf("Could not create player \"%s\" (err: %v)", player.Name, err))
 		return player.ID, err
 	}
 

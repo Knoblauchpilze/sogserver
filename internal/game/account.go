@@ -35,7 +35,7 @@ type Account struct {
 }
 
 // ErrInvalidPassword : Indicates that the account has an invalid password.
-var ErrInvalidPassword = fmt.Errorf("Empty or invalid identifier provided for element")
+var ErrInvalidPassword = fmt.Errorf("Empty password provided for account")
 
 // ErrInvalidMail : Indicates that the mail does not seem to have a valid syntax.
 var ErrInvalidMail = fmt.Errorf("Invalid syntax for mail")

@@ -32,11 +32,11 @@ import (
 // player has already researched with their associated
 // level.
 type Player struct {
-	ID           string           `json:"id"`
-	Account      string           `json:"account"`
-	Universe     string           `json:"universe"`
-	Name         string           `json:"name"`
-	Technologies []TechnologyInfo `json:"technologies"`
+	ID           string                    `json:"id"`
+	Account      string                    `json:"account"`
+	Universe     string                    `json:"universe"`
+	Name         string                    `json:"name"`
+	Technologies map[string]TechnologyInfo `json:"-"`
 }
 
 // TechnologyInfo :
@@ -53,34 +53,45 @@ type TechnologyInfo struct {
 	Level int `json:"level"`
 }
 
-// ErrInvalidPlayer :
-// Used to indicate that the player provided in input is
-// not valid.
-var ErrInvalidPlayer = fmt.Errorf("Invalid player with no identifier")
+// ErrInvalidUniverseForPlayer : Indicates that the universe for a player is not valid.
+var ErrInvalidUniverseForPlayer = fmt.Errorf("Invalid universe identifier for player")
 
-// ErrDuplicatedPlayer :
-// Used to indicate that the player's identifier provided
-// input is not unique in the DB.
-var ErrDuplicatedPlayer = fmt.Errorf("Invalid not unique player")
+// ErrInvalidAccountForPlayer : Indicates that the account for a player is not valid.
+var ErrInvalidAccountForPlayer = fmt.Errorf("Invalid account identifier for player")
+
+// ErrMultipleAccountInUniverse : Indicates that a player tries to register multiple
+// times in a single universe.
+var ErrMultipleAccountInUniverse = fmt.Errorf("Cannot register account twice in a universe")
+
+// ErrNameAlreadyInUse : Indicates that the name for a player is already in use.
+var ErrNameAlreadyInUse = fmt.Errorf("Name is already in use in universe")
+
+// ErrNonExistingAccount : Indicates that the account does not exist for this player.
+var ErrNonExistingAccount = fmt.Errorf("Inexisting parent account")
+
+// ErrNonExistingUniverse : Indicates that the universe does not exist for this player.
+var ErrNonExistingUniverse = fmt.Errorf("Inexisting parent universe")
 
 // Valid :
-// Used to determine whether this player is valid. We will
-// check that it does not contain obvious errors such as
-// wrong identifiers etc. No check is performed to make
-// sure that the player actually exists in the DB.
+// Determines whether the player is valid. By valid we only mean
+// obvious syntax errors.
 //
-// Returns `true` if this player is valid.
-func (p *Player) Valid() bool {
-	return validUUID(p.ID) && validUUID(p.Account) && validUUID(p.Universe) && len(p.Name) > 0
-}
+// Returns any error or `nil` if the player seems valid.
+func (p *Player) Valid() error {
+	if !validUUID(p.ID) {
+		return ErrInvalidElementID
+	}
+	if p.Name == "" {
+		return ErrInvalidName
+	}
+	if !validUUID(p.Account) {
+		return ErrInvalidAccountForPlayer
+	}
+	if !validUUID(p.Universe) {
+		return ErrInvalidUniverseForPlayer
+	}
 
-// String :
-// Implementation of the `Stringer` interface to make
-// sure displaying this player is easy.
-//
-// Returns the corresponding string.
-func (p Player) String() string {
-	return fmt.Sprintf("[id: %s, account: %s, universe: %s, name: \"%s\"]", p.ID, p.Account, p.Universe, p.Name)
+	return nil
 }
 
 // NewPlayerFromDB :
@@ -109,7 +120,7 @@ func NewPlayerFromDB(ID string, data model.Instance) (Player, error) {
 
 	// Consistency.
 	if !validUUID(p.ID) {
-		return p, ErrInvalidPlayer
+		return p, ErrInvalidElementID
 	}
 
 	// Fetch the player's data.
@@ -162,7 +173,7 @@ func (p *Player) fetchGeneralInfo(data model.Instance) error {
 	// Scan the player's data.
 	atLeastOne := dbRes.Next()
 	if !atLeastOne {
-		return ErrInvalidPlayer
+		return ErrElementNotFound
 	}
 
 	err = dbRes.Scan(
@@ -173,7 +184,7 @@ func (p *Player) fetchGeneralInfo(data model.Instance) error {
 
 	// Make sure that it's the only player.
 	if dbRes.Next() {
-		return ErrDuplicatedPlayer
+		return ErrDuplicatedElement
 	}
 
 	return err
@@ -187,7 +198,7 @@ func (p *Player) fetchGeneralInfo(data model.Instance) error {
 //
 // Returns any error.
 func (p *Player) fetchTechnologies(data model.Instance) error {
-	p.Technologies = make([]TechnologyInfo, 0)
+	p.Technologies = make(map[string]TechnologyInfo, 0)
 
 	// Before fetching the technologies we need to
 	// perform the update of the upgrade actions if
@@ -235,6 +246,8 @@ func (p *Player) fetchTechnologies(data model.Instance) error {
 	var ID string
 	var t TechnologyInfo
 
+	sanity := make(map[string]bool)
+
 	for dbRes.Next() {
 		err = dbRes.Scan(
 			&ID,
@@ -245,6 +258,12 @@ func (p *Player) fetchTechnologies(data model.Instance) error {
 			return err
 		}
 
+		_, ok := sanity[ID]
+		if ok {
+			return model.ErrInconsistentDB
+		}
+		sanity[ID] = true
+
 		desc, err := data.Technologies.GetTechnologyFromID(ID)
 		if err != nil {
 			return err
@@ -252,10 +271,69 @@ func (p *Player) fetchTechnologies(data model.Instance) error {
 
 		t.TechnologyDesc = desc
 
-		p.Technologies = append(p.Technologies, t)
+		p.Technologies[ID] = t
 	}
 
 	return nil
+}
+
+// SaveToDB :
+// Used to save the content of this player to
+// the DB. In case an error is raised during
+// the operation a comprehensive error is
+// returned.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns any error.
+func (p *Player) SaveToDB(proxy db.Proxy) error {
+	// Check consistency.
+	if err := p.Valid(); err != nil {
+		return err
+	}
+
+	// Create the query and execute it.
+	query := db.InsertReq{
+		Script: "create_player",
+		Args:   []interface{}{p},
+	}
+
+	err := proxy.InsertToDB(query)
+
+	// Analyze the error in order to  provide some
+	// comprehensive message.
+	dbe, ok := err.(db.Error)
+	if !ok {
+		return err
+	}
+
+	dee, ok := dbe.Err.(db.DuplicatedElementError)
+	if ok {
+		switch dee.Constraint {
+		case "players_pkey":
+			return ErrDuplicatedElement
+		case "players_universe_account_key":
+			return ErrMultipleAccountInUniverse
+		case "players_universe_name_key":
+			return ErrNameAlreadyInUse
+		}
+
+		return dee
+	}
+
+	fkve, ok := dbe.Err.(db.ForeignKeyViolationError)
+	if ok {
+		switch fkve.ForeignKey {
+		case "account":
+			return ErrNonExistingAccount
+		case "universe":
+			return ErrNonExistingUniverse
+		}
+
+		return fkve
+	}
+
+	return dbe
 }
 
 // GetTechnology :
@@ -267,36 +345,13 @@ func (p *Player) fetchTechnologies(data model.Instance) error {
 // Returns the technology description corresponding
 // to the input identifier along with any error.
 func (p *Player) GetTechnology(ID string) (TechnologyInfo, error) {
-	// Traverse the list of technologies attached to the
-	// player and search for the input ID.
-	for _, t := range p.Technologies {
-		if t.ID == ID {
-			return t, nil
-		}
+	tech, ok := p.Technologies[ID]
+
+	if !ok {
+		return TechnologyInfo{}, model.ErrInvalidID
 	}
 
-	return TechnologyInfo{}, model.ErrInvalidID
-}
-
-// Convert :
-// Implementation of the `db.Convertible` interface
-// from the DB package in order to only include fields
-// that need to be marshalled in the player's creation.
-//
-// Returns the converted version of the player which
-// only includes relevant fields.
-func (p *Player) Convert() interface{} {
-	return struct {
-		ID       string `json:"id"`
-		Account  string `json:"account"`
-		Universe string `json:"universe"`
-		Name     string `json:"name"`
-	}{
-		ID:       p.ID,
-		Account:  p.Account,
-		Universe: p.Universe,
-		Name:     p.Name,
-	}
+	return tech, nil
 }
 
 // MarshalJSON :

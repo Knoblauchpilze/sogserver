@@ -184,8 +184,8 @@ func (p *PlanetProxy) generateResources(planet *game.Planet) error {
 // created.
 func (p *PlanetProxy) CreateFor(player game.Player) (string, error) {
 	// Check consistency.
-	if !player.Valid() {
-		return "", game.ErrInvalidPlayer
+	if err := player.Valid(); err != nil {
+		return "", err
 	}
 
 	// First we need to fetch the universe related to the

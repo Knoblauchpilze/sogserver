@@ -400,7 +400,8 @@ func (fc *Component) consolidateConsumption(data model.Instance, p *Planet) erro
 func (fc *Component) ConsolidateArrivalTime(data model.Instance, p *Planet) error {
 	// Consistency.
 	if fc.Source != p.ID || fc.SourceType != World {
-		return ErrInvalidPlanet
+		// TODO: Handle this better.
+		return ErrInvalidElementID
 	}
 
 	// Update the time at which this component joined
@@ -487,7 +488,8 @@ func (fc *Component) ConsolidateArrivalTime(data model.Instance, p *Planet) erro
 func (fc *Component) Validate(data model.Instance, source *Planet, target *Planet, f *Fleet) error {
 	// Consistency.
 	if fc.Source != source.ID || fc.SourceType != World {
-		return ErrInvalidPlanet
+		// TODO: Handle this better.
+		return ErrInvalidElementID
 	}
 	if fc.Fleet != f.ID {
 		return ErrInvalidFleetForComponent

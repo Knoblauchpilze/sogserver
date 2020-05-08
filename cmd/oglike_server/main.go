@@ -40,8 +40,7 @@ import (
 // TODO: Refine error messages to include some sort of description of
 // the error like `ErrActionAlreadyStarted` or something similar.
 // TODO: Maybe add some params in the payload of the query to indicate what
-// kind of info should be marshalled and provided. Also we should probably
-// include the gzip operation.
+// kind of info should be marshalled and provided.
 // TODO: Regarding the lock system. What we do for accounts and universes
 // is very interesting because it means that we can fetch info in an atomic
 // way where the data is fetched once and for all so that we don't have to

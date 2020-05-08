@@ -1,11 +1,14 @@
 package routes
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -80,6 +83,18 @@ type GetResourceEndpoint struct {
 	resFilter string
 	module    string
 }
+
+// ErrMarshallingError :
+// Used to indicate an error while marshalling output data.
+var ErrMarshallingError = fmt.Errorf("Unable to marshal data to send back to client")
+
+// ErrGzipCompressionError :
+// Used to indicate an error while gzipping the output data.
+var ErrGzipCompressionError = fmt.Errorf("Unable to gzip content to send back")
+
+// ErrWriteError :
+// Used to indicate an error when sending the data back.
+var ErrWriteError = fmt.Errorf("Unable to send data back to the client")
 
 // NewGetResourceEndpoint :
 // Creates a new empty endpoint description with the provided
@@ -215,7 +230,7 @@ func (gre *GetResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFunc {
 		}
 
 		// Marshal the content of the data.
-		err = marshalAndSend(data, w)
+		err = marshalAndSend(data, w, r)
 		if err != nil {
 			log.Trace(logger.Error, gre.module, fmt.Sprintf("Error while serving route \"%s\" (err: %v)", gre.route, err))
 		}
@@ -322,29 +337,67 @@ func (gre *GetResourceEndpoint) extractFilters(vars RouteVars) []db.Filter {
 }
 
 // marshalAndSend :
-// Used to send the input data after marshalling it to the provided
-// response writer. In case the data cannot be marshalled a `500`
-// error is returned and this is indicated in the return value.
+// Used to send the input data after marshalling it to the
+// provided response writer. In case the data cannot be
+// marshalled a `500` error is returned and this is set in
+// the return value.
 //
 // The `data` represents the data to send back to the client.
 //
-// The `w` represents the response writer to use to send data back.
+// The `w` represents the response writer to use to send
+// data back.
 //
-// Returns any error encountered either when marshalling the data
-// or when sending the data.
-func marshalAndSend(data interface{}, w http.ResponseWriter) error {
-	// Marshal the content before sending it back.
+// The `req` allows to determine whether the client is able
+// to decode gzip content in which case we will perform the
+// conversion to speed up the transfer times.
+//
+// Returns any error encountered either when marshalling
+// the data or when sending the data.
+func marshalAndSend(data interface{}, w http.ResponseWriter, req *http.Request) error {
+	// We want to marshal the input data and send it back to the
+	// response writer provided in input. We will also handle a
+	// request to receive gzipped content (which can speed up
+	// performance in case of large return values). This will
+	// be determined using the input request which should define
+	// whether it accepts the gzip encoding.
+
+	// First marshal the input content: this will be the first
+	// base to build the return value for the client. In case
+	// an error with the gzip compression occurs we will still
+	// be able to return this value.
 	out, err := json.Marshal(data)
 	if err != nil {
 		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
 
-		return err
+		return ErrMarshallingError
+	}
+
+	// Compress to gzip if the client accepts it.
+	if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+		var b bytes.Buffer
+		gz := gzip.NewWriter(&b)
+
+		_, err = gz.Write(out)
+		gz.Close()
+
+		if err != nil {
+			return ErrGzipCompressionError
+		}
+
+		out = b.Bytes()
+
+		// Indicate that the response is gzipped.
+		w.Header().Set("Content-Encoding", "gzip")
 	}
 
 	// Notify the client.
-	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(out)
+	w.WriteHeader(http.StatusOK)
 
-	return err
+	_, err = w.Write(out)
+	if err != nil {
+		return ErrWriteError
+	}
+
+	return nil
 }

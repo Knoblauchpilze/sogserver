@@ -95,16 +95,14 @@ import (
 // The `DefensesConstruction` defines a similar list for
 // defense systems on this planet.
 //
-// The `SourceFleets` defines the identifier of the fleet
-// components in which ships from this planet are taking
-// an active part. It does not define anything beyond the
-// ID of the fleet component and does not define all the
-// components that joined this fleet.
+// The `SourceFleets` defines the identifiers of all the
+// fleets in which ships from this planet are taking an
+// active part. It does not define anything beyond the
+// ID of the fleets. The data can be fetched through the
+// standard fleets route.
 //
-// The `IncomingFleets` defines the identifier of the
-// fleets that have this planet as a target. it does not
-// indicate anything about the actual components of the
-// fleet.
+// The `IncomingFleets` defines a similar list of IDs
+// but for fleets that will land on this planet.
 //
 // The `technologies` defines the technologies that have
 // already been researched by the player owning this tech.
@@ -656,7 +654,7 @@ func (p *Planet) fetchFleets(data model.Instance) error {
 		Props: []string{
 			"id",
 		},
-		Table: "fleet_elements",
+		Table: "fleets",
 		Filters: []db.Filter{
 			{
 				Key:    "source",

@@ -263,7 +263,7 @@ func newComponentFromDB(ID string, data model.Instance) (Component, error) {
 	}
 
 	// Consistency.
-	if c.ID == "" {
+	if !validUUID(c.ID) {
 		return c, ErrInvalidFleetComponent
 	}
 
@@ -581,11 +581,6 @@ func (fc *Component) Validate(data model.Instance, source *Planet, target *Plane
 //
 // Returns any error.
 func (fc *Component) fetchGeneralInfo(data model.Instance) error {
-	// Consistency.
-	if fc.ID == "" {
-		return ErrInvalidFleetComponent
-	}
-
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
@@ -651,11 +646,6 @@ func (fc *Component) fetchGeneralInfo(data model.Instance) error {
 //
 // Returns any error.
 func (fc *Component) fetchShips(data model.Instance) error {
-	// Check whether the fleet component has an identifier assigned.
-	if fc.ID == "" {
-		return ErrInvalidFleetComponent
-	}
-
 	fc.Ships = make([]ShipInFleet, 0)
 
 	// Create the query and execute it.
@@ -711,11 +701,6 @@ func (fc *Component) fetchShips(data model.Instance) error {
 //
 // Returns any error.
 func (fc *Component) fetchCargo(data model.Instance) error {
-	// Check whether the fleet component has an identifier assigned.
-	if fc.ID == "" {
-		return ErrInvalidFleetComponent
-	}
-
 	fc.Cargo = make([]model.ResourceAmount, 0)
 
 	// Create the query and execute it.
@@ -772,11 +757,6 @@ func (fc *Component) fetchCargo(data model.Instance) error {
 //
 // Returns any error.
 func (fc *Component) fetchFleetInfo(data model.Instance) error {
-	// Consistency.
-	if fc.ID == "" {
-		return ErrInvalidFleetComponent
-	}
-
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{

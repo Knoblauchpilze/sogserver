@@ -107,6 +107,11 @@ func NewPlayerFromDB(ID string, data model.Instance) (Player, error) {
 		ID: ID,
 	}
 
+	// Consistency.
+	if !validUUID(p.ID) {
+		return p, ErrInvalidPlayer
+	}
+
 	// Fetch the player's data.
 	err := p.fetchGeneralInfo(data)
 	if err != nil {
@@ -127,11 +132,6 @@ func NewPlayerFromDB(ID string, data model.Instance) (Player, error) {
 //
 // Returns any error.
 func (p *Player) fetchGeneralInfo(data model.Instance) error {
-	// Consistency.
-	if p.ID == "" {
-		return ErrInvalidPlayer
-	}
-
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
@@ -187,11 +187,6 @@ func (p *Player) fetchGeneralInfo(data model.Instance) error {
 //
 // Returns any error.
 func (p *Player) fetchTechnologies(data model.Instance) error {
-	// Consistency.
-	if p.ID == "" {
-		return ErrInvalidPlayer
-	}
-
 	p.Technologies = make([]TechnologyInfo, 0)
 
 	// Before fetching the technologies we need to

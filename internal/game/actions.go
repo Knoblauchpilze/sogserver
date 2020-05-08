@@ -155,7 +155,7 @@ func newProgressActionFromDB(ID string, data model.Instance, table string) (Prog
 	}
 
 	// Consistency.
-	if a.ID == "" {
+	if !validUUID(a.ID) {
 		return a, ErrInvalidAction
 	}
 
@@ -275,7 +275,7 @@ func newFixedActionFromDB(ID string, data model.Instance, table string) (FixedAc
 	}
 
 	// Consistency.
-	if a.ID == "" {
+	if !validUUID(a.ID) {
 		return a, ErrInvalidAction
 	}
 
@@ -574,11 +574,6 @@ func NewBuildingActionFromDB(ID string, data model.Instance) (BuildingAction, er
 //
 // Returns any error.
 func (a *BuildingAction) fetchProductionEffects(data model.Instance) error {
-	// Consistency.
-	if a.ID == "" {
-		return ErrInvalidAction
-	}
-
 	a.Production = make([]ProductionEffect, 0)
 
 	query := db.QueryDesc{
@@ -633,11 +628,6 @@ func (a *BuildingAction) fetchProductionEffects(data model.Instance) error {
 //
 // Returns any error.
 func (a *BuildingAction) fetchStorageEffects(data model.Instance) error {
-	// Consistency.
-	if a.ID == "" {
-		return ErrInvalidAction
-	}
-
 	a.Storage = make([]StorageEffect, 0)
 
 	query := db.QueryDesc{

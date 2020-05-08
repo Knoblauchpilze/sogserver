@@ -124,7 +124,7 @@ func NewFleetFromDB(ID string, data model.Instance) (Fleet, error) {
 	}
 
 	// Consistency.
-	if f.ID == "" {
+	if !validUUID(f.ID) {
 		return f, ErrInvalidFleet
 	}
 
@@ -200,11 +200,6 @@ func (f Fleet) String() string {
 //
 // Returns any error.
 func (f *Fleet) fetchGeneralInfo(data model.Instance) error {
-	// Consistency.
-	if f.ID == "" {
-		return ErrInvalidFleet
-	}
-
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
@@ -293,11 +288,6 @@ func (f *Fleet) fetchGeneralInfo(data model.Instance) error {
 //
 // Returns any error.
 func (f *Fleet) fetchComponents(data model.Instance) error {
-	// Consistency.
-	if f.ID == "" {
-		return ErrInvalidFleet
-	}
-
 	f.Comps = make([]Component, 0)
 
 	// Create the query and execute it.
@@ -400,11 +390,6 @@ func (f *Fleet) Convert() interface{} {
 // and `nil` otherwise (indicating that no obvious
 // errors were detected).
 func (f *Fleet) Validate(data model.Instance) error {
-	// Consistency.
-	if f.ID == "" {
-		return ErrInvalidFleet
-	}
-
 	// Retrieve this fleet's objective's description.
 	obj, err := data.Objectives.GetObjectiveFromID(f.Objective)
 	if err != nil {

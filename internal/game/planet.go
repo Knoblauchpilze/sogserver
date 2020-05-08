@@ -338,7 +338,7 @@ func NewPlanetFromDB(ID string, data model.Instance) (Planet, error) {
 	}
 
 	// Consistency.
-	if p.ID == "" {
+	if !validUUID(p.ID) {
 		return p, ErrInvalidPlanet
 	}
 
@@ -679,11 +679,6 @@ func (p *Planet) generateData() {
 //
 // Returns any error.
 func (p *Planet) updateResources(data model.Instance) error {
-	// Consistency.
-	if p.ID == "" {
-		return ErrInvalidPlanet
-	}
-
 	// Perform the update of the resources for this planet.
 	update := db.InsertReq{
 		Script: "update_resources_for_planet",
@@ -829,11 +824,6 @@ func (p *Planet) fetchFleets(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchBuildingUpgrades(data model.Instance) error {
-	// Consistency.
-	if p.ID == "" {
-		return ErrInvalidPlanet
-	}
-
 	p.BuildingsUpgrade = make([]BuildingAction, 0)
 
 	// Perform the update of the building upgrade actions.
@@ -915,11 +905,6 @@ func (p *Planet) fetchBuildingUpgrades(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchTechnologiesUpgrades(data model.Instance) error {
-	// Consistency.
-	if p.ID == "" {
-		return ErrInvalidPlanet
-	}
-
 	p.TechnologiesUpgrade = make([]TechnologyAction, 0)
 
 	// Perform the update of the technology upgrade actions.
@@ -999,11 +984,6 @@ func (p *Planet) fetchTechnologiesUpgrades(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchShipUpgrades(data model.Instance) error {
-	// Consistency.
-	if p.ID == "" {
-		return ErrInvalidPlanet
-	}
-
 	p.ShipsConstruction = make([]ShipAction, 0)
 
 	// Perform the update of the ships upgrade actions.
@@ -1084,11 +1064,6 @@ func (p *Planet) fetchShipUpgrades(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchDefenseUpgrades(data model.Instance) error {
-	// Consistency.
-	if p.ID == "" {
-		return ErrInvalidPlanet
-	}
-
 	p.DefensesConstruction = make([]DefenseAction, 0)
 
 	// Perform the update of the defenses upgrade actions.
@@ -1169,11 +1144,6 @@ func (p *Planet) fetchDefenseUpgrades(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchGeneralInfo(data model.Instance) error {
-	// Consistency.
-	if p.ID == "" {
-		return ErrInvalidPlanet
-	}
-
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
@@ -1242,11 +1212,6 @@ func (p *Planet) fetchGeneralInfo(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchResources(data model.Instance) error {
-	// Consistency.
-	if p.ID == "" {
-		return ErrInvalidPlanet
-	}
-
 	p.Resources = make([]ResourceInfo, 0)
 
 	// Create the query and execute it.
@@ -1306,11 +1271,6 @@ func (p *Planet) fetchResources(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchBuildings(data model.Instance) error {
-	// Consistency.
-	if p.ID == "" {
-		return ErrInvalidPlanet
-	}
-
 	p.Buildings = make([]BuildingInfo, 0)
 
 	// Create the query and execute it.
@@ -1374,11 +1334,6 @@ func (p *Planet) fetchBuildings(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchShips(data model.Instance) error {
-	// Consistency.
-	if p.ID == "" {
-		return ErrInvalidPlanet
-	}
-
 	p.Ships = make([]ShipInfo, 0)
 
 	// Create the query and execute it.
@@ -1442,11 +1397,6 @@ func (p *Planet) fetchShips(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchDefenses(data model.Instance) error {
-	// Consistency.
-	if p.ID == "" {
-		return ErrInvalidPlanet
-	}
-
 	p.Defenses = make([]DefenseInfo, 0)
 
 	// Create the query and execute it.
@@ -1512,7 +1462,7 @@ func (p *Planet) fetchDefenses(data model.Instance) error {
 // Returns any error.
 func (p *Planet) fetchTechnologies(data model.Instance) error {
 	// Consistency.
-	if p.ID == "" || p.Player == "" {
+	if !validUUID(p.Player) {
 		return ErrInvalidPlanet
 	}
 

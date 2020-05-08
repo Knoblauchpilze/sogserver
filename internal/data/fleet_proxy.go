@@ -372,7 +372,7 @@ func (p *FleetProxy) fetchFleetForComponent(comp *game.Component, universe strin
 
 	// Make sure the fleet is valid.
 	if !f.fleet.Valid(uni) {
-		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet's data %s", f.fleet))
+		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet's data for \"%s\"", comp.ID))
 		return f, ErrInvalidFleet
 	}
 
@@ -389,7 +389,7 @@ func (p *FleetProxy) fetchFleetForComponent(comp *game.Component, universe strin
 	// fleet can be found from the component's id.
 	err = f.fleet.Validate(p.data)
 	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet's data %s (err: %v)", f.fleet, err))
+		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet's data for \"%s\" (err: %v)", comp.ID, err))
 		return f, ErrInvalidFleet
 	}
 

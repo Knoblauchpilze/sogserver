@@ -34,39 +34,39 @@ type Account struct {
 	Password string `json:"password"`
 }
 
-// ErrInvalidAccount :
-// Used to indicate that the account provided in input is
-// not valid.
-var ErrInvalidAccount = fmt.Errorf("Invalid account with no identifier")
+// ErrInvalidPassword : Indicates that the account has an invalid password.
+var ErrInvalidPassword = fmt.Errorf("Empty or invalid identifier provided for element")
 
-// ErrDuplicatedAccount :
-// Used to indicate that the account's identifier provided
-// input is not unique in the DB.
-var ErrDuplicatedAccount = fmt.Errorf("Invalid not unique account")
+// ErrInvalidMail : Indicates that the mail does not seem to have a valid syntax.
+var ErrInvalidMail = fmt.Errorf("Invalid syntax for mail")
+
+// ErrDuplicatedMail : Indicates that the mail associated to an account already exists.
+var ErrDuplicatedMail = fmt.Errorf("Already existing mail")
 
 // Valid :
-// Used to determine whether the parameters defined for this
-// account are consistent with what is expected. It is mostly
-// used to check that the name is valid and that the e-mail
-// address makes sense.
-func (a *Account) Valid() bool {
+// Determines whether the account is valid. By valid we only mean
+// obvious syntax errors.
+//
+// Returns any error or `nil` if the account seems valid.
+func (a *Account) Valid() error {
 	// Note that we *verified* the following regular expression
 	// does compile so we don't check for errors.
 	exp, _ := regexp.Compile("^[a-zA-Z0-9]*[a-zA-Z0-9_.+-][a-zA-Z0-9]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$")
 
-	// Check common properties.
-	return validUUID(a.ID) &&
-		a.Name != "" &&
-		exp.MatchString(a.Mail) &&
-		a.Password != ""
-}
+	if !validUUID(a.ID) {
+		return ErrInvalidElementID
+	}
+	if a.Name == "" {
+		return ErrInvalidName
+	}
+	if a.Password == "" {
+		return ErrInvalidPassword
+	}
+	if !exp.MatchString(a.Mail) {
+		return ErrInvalidMail
+	}
 
-// Implementation of `Stringer` interface to be able to
-// easily display the data related to this account.
-//
-// Returns the corresponding string.
-func (a Account) String() string {
-	return fmt.Sprintf("[id: %s, name: \"%s\", mail: \"%s\"]", a.ID, a.Name, a.Mail)
+	return nil
 }
 
 // NewAccountFromDB :
@@ -92,8 +92,8 @@ func NewAccountFromDB(ID string, data model.Instance) (Account, error) {
 	}
 
 	// Consistency.
-	if a.ID == "" {
-		return a, ErrInvalidAccount
+	if !validUUID(a.ID) {
+		return a, ErrInvalidElementID
 	}
 
 	// Create the query and execute it.
@@ -127,7 +127,7 @@ func NewAccountFromDB(ID string, data model.Instance) (Account, error) {
 	// Scan the account's data.
 	atLeastOne := dbRes.Next()
 	if !atLeastOne {
-		return a, ErrInvalidAccount
+		return a, ErrElementNotFound
 	}
 
 	err = dbRes.Scan(
@@ -139,8 +139,53 @@ func NewAccountFromDB(ID string, data model.Instance) (Account, error) {
 
 	// Make sure that it's the only account.
 	if dbRes.Next() {
-		return a, ErrDuplicatedAccount
+		return a, ErrDuplicatedElement
 	}
 
 	return a, err
+}
+
+// SaveToDB :
+// Used to save the content of this account to
+// the DB. In case an error is raised during the
+// operation a comprehensive error is returned.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns any error.
+func (a *Account) SaveToDB(proxy db.Proxy) error {
+
+	// Check consistency.
+	if err := a.Valid(); err != nil {
+		return err
+	}
+
+	// Create the query and execute it.
+	query := db.InsertReq{
+		Script: "create_account",
+		Args:   []interface{}{a},
+	}
+
+	err := proxy.InsertToDB(query)
+
+	// Analyze the error in order to  provide some
+	// comprehensive message.
+	dbe, ok := err.(db.Error)
+	if !ok {
+		return err
+	}
+
+	dee, ok := dbe.Err.(db.DuplicatedElementError)
+	if ok {
+		switch dee.Constraint {
+		case "accounts_pkey":
+			return ErrDuplicatedElement
+		case "accounts_name_key":
+			return ErrInvalidName
+		case "accounts_mail_key":
+			return ErrDuplicatedMail
+		}
+	}
+
+	return dbe
 }

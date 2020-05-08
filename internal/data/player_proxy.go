@@ -134,7 +134,7 @@ func (p *PlayerProxy) Create(player game.Player) (string, error) {
 
 	// Check consistency.
 	if !player.Valid() {
-		p.trace(logger.Error, fmt.Sprintf("Failed to validate player's data %s", player))
+		p.trace(logger.Error, fmt.Sprintf("Failed to validate player's data \"%s\"", player.Name))
 		return player.ID, game.ErrInvalidPlayer
 	}
 

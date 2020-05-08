@@ -1,6 +1,10 @@
 package game
 
-import "github.com/google/uuid"
+import (
+	"fmt"
+
+	"github.com/google/uuid"
+)
 
 // validUUID :
 // Used to check whether the input string can be interpreted
@@ -14,3 +18,15 @@ func validUUID(id string) bool {
 	_, err := uuid.Parse(id)
 	return err == nil
 }
+
+// ErrInvalidElementID : Indicates that the element has no identifier.
+var ErrInvalidElementID = fmt.Errorf("Empty or invalid identifier provided for element")
+
+// ErrDuplicatedElement : Indicates that the element identifier is not unique.
+var ErrDuplicatedElement = fmt.Errorf("Invalid not unique account")
+
+// ErrElementNotFound : Indicates that no element with specified ID exists.
+var ErrElementNotFound = fmt.Errorf("Identifier does not correspond to any known element")
+
+// ErrInvalidName : Indicates that the name is invalid or already exists.
+var ErrInvalidName = fmt.Errorf("Invalid or already existing name")

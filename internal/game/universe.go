@@ -60,15 +60,6 @@ type Universe struct {
 	SolarSystemSize  int     `json:"solar_system_size"`
 }
 
-// ErrInvalidUniverseID : Indicates that the universe has no identifier.
-var ErrInvalidUniverseID = fmt.Errorf("Empty or invalid identifier provided for universe")
-
-// ErrDuplicatedUniverse : Indicates that the universe identifier is not unique.
-var ErrDuplicatedUniverse = fmt.Errorf("Invalid not unique universe")
-
-// ErrUniverseNotFuond : Indicates that no universe with specified ID exists.
-var ErrUniverseNotFuond = fmt.Errorf("Identifier does not correspond to any known universe")
-
 // ErrDuplicatedCoordinates : Indicates that some coordites appeared twice.
 var ErrDuplicatedCoordinates = fmt.Errorf("Invalid duplicated coordinates")
 
@@ -80,9 +71,6 @@ var ErrInvalidCoordinates = fmt.Errorf("Invalid coordinates relative to universe
 
 // ErrDuplicatedPlanet : Indicates that there several planets share the same coordinates.
 var ErrDuplicatedPlanet = fmt.Errorf("Several planets share the same coordinates")
-
-// ErrInvalidName : Indicates that the name is invalid or already exists.
-var ErrInvalidName = fmt.Errorf("Invalid or already existing name")
 
 // ErrInvalidEcoSpeed : The economic speed is not within admissible range.
 var ErrInvalidEcoSpeed = fmt.Errorf("Economic speed is not within admissible range")
@@ -112,17 +100,13 @@ var ErrGalaxySize = fmt.Errorf("Galaxy size is not within admissible range")
 var ErrSolarSystemSize = fmt.Errorf("Solar system size is not within admissible range")
 
 // Valid :
-// Used to determine whether the parameters defined for this
-// universe are consistent with what is expected. This will
-// typically check that the ratios are in the range `[0; 1]`
-// and some other common assumptions.
-// Note that it requires that the `ID` is valid as well.
+// Determines whether the universe is valid. By valid we only
+// mean obvious syntax errors.
 //
-// Returns `nil` if no obvious errors can be found and an
-// error indicating the problem otherwise.
+// Returns any error or `nil` if the universe seems valid.
 func (u *Universe) Valid() error {
 	if !validUUID(u.ID) {
-		return ErrInvalidUniverseID
+		return ErrInvalidElementID
 	}
 	if u.Name == "" {
 		return ErrInvalidName
@@ -158,15 +142,6 @@ func (u *Universe) Valid() error {
 	return nil
 }
 
-// String :
-// Implementation of the `Stringer` interface to make
-// sure displaying this universe is easy.
-//
-// Returns the corresponding string.
-func (u Universe) String() string {
-	return fmt.Sprintf("[id: %s, name: \"%s\"]", u.ID, u.Name)
-}
-
 // NewUniverseFromDB :
 // Used to fetch the content of the universe from
 // the input DB and populate all internal fields
@@ -191,7 +166,7 @@ func NewUniverseFromDB(ID string, data model.Instance) (Universe, error) {
 
 	// Consistency.
 	if !validUUID(u.ID) {
-		return u, ErrInvalidUniverseID
+		return u, ErrInvalidElementID
 	}
 
 	// Create the query and execute it.
@@ -231,7 +206,7 @@ func NewUniverseFromDB(ID string, data model.Instance) (Universe, error) {
 	// Scan the universe's data.
 	atLeastOne := dbRes.Next()
 	if !atLeastOne {
-		return u, ErrUniverseNotFuond
+		return u, ErrElementNotFound
 	}
 
 	err = dbRes.Scan(
@@ -249,7 +224,7 @@ func NewUniverseFromDB(ID string, data model.Instance) (Universe, error) {
 
 	// Make sure that it's the only universe.
 	if dbRes.Next() {
-		return u, ErrDuplicatedUniverse
+		return u, ErrDuplicatedElement
 	}
 
 	return u, err
@@ -289,7 +264,7 @@ func (u *Universe) SaveToDB(proxy db.Proxy) error {
 	if ok {
 		switch dee.Constraint {
 		case "universes_pkey":
-			return ErrDuplicatedUniverse
+			return ErrDuplicatedElement
 		case "universes_name_key":
 			return ErrInvalidName
 		}

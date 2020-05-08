@@ -125,21 +125,7 @@ func (p *AccountProxy) Create(acc game.Account) (string, error) {
 		acc.ID = uuid.New().String()
 	}
 
-	// Check consistency.
-	if !acc.Valid() {
-		p.trace(logger.Error, fmt.Sprintf("Failed to validate account's data %s", acc))
-		return acc.ID, game.ErrInvalidAccount
-	}
-
-	// Create the query and execute it.
-	query := db.InsertReq{
-		Script: "create_account",
-		Args:   []interface{}{acc},
-	}
-
-	err := p.data.Proxy.InsertToDB(query)
-
-	// Check for errors.
+	err := acc.SaveToDB(p.data.Proxy)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not create account \"%s\" (err: %v)", acc.Name, err))
 		return acc.ID, err

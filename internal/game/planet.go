@@ -208,32 +208,19 @@ type DefenseInfo struct {
 	Amount int `json:"amount"`
 }
 
-// ErrNotEnoughResources :
-// Used to indicate that an upgrade action cannot be
-// performed due to missing resources.
-var ErrNotEnoughResources = fmt.Errorf("Not enough resources available for action")
+// ErrNotEnoughResources : Indicates that there are not enough resources available.
+var ErrNotEnoughResources = fmt.Errorf("Not enough resources available")
 
-// ErrTechDepsNotMet :
-// Used to indicate that an upgrade action cannot be
-// performed due to unmet tech dependencies.
+// ErrTechDepsNotMet : Indicates that the tech dependencies are not met.
 var ErrTechDepsNotMet = fmt.Errorf("Action dependencies not met")
 
-// ErrNoCost :
-// Indicates that the action to perform does not have
-// any costs associated to it (which is probably an
-// issue).
+// ErrNoCost : Indicates that the action does not define any cost.
 var ErrNoCost = fmt.Errorf("No cost provided for action")
 
-// ErrNotEnoughFuel :
-// Used to indicate that there's not enough fuel on
-// a planet to satisfy the requirement of a fleet
-// component.
+// ErrNotEnoughFuel : Indicates that there's not enough fuel for the fleet.
 var ErrNotEnoughFuel = fmt.Errorf("Not enough fuel for fleet")
 
-// ErrNotEnoughShips :
-// Used to indicate that there's not enough ships of
-// a certain kind to deploy as many as needed by the
-// fleet component.
+// ErrNotEnoughShips : Indicates that there's not enough ships for the fleet.
 var ErrNotEnoughShips = fmt.Errorf("Not enough ships for fleet")
 
 // getDefaultPlanetName :
@@ -1401,12 +1388,6 @@ func (p *Planet) fetchDefenses(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchTechnologies(data model.Instance) error {
-	// Consistency.
-	if !validUUID(p.Player) {
-		// TODO: Handle this better.
-		return ErrInvalidElementID
-	}
-
 	p.technologies = make(map[string]int)
 
 	// Create the query and execute it.
@@ -1486,8 +1467,32 @@ func (p *Planet) SaveToDB(proxy db.Proxy) error {
 
 	// Analyze the error in order to provide some
 	// comprehensive message.
-	// TODO: Handle this.
-	return err
+	dbe, ok := err.(db.Error)
+	if !ok {
+		return err
+	}
+
+	dee, ok := dbe.Err.(db.DuplicatedElementError)
+	if ok {
+		switch dee.Constraint {
+		case "planets_pkey":
+			return ErrDuplicatedElement
+		}
+
+		return dee
+	}
+
+	fkve, ok := dbe.Err.(db.ForeignKeyViolationError)
+	if ok {
+		switch fkve.ForeignKey {
+		case "player":
+			return ErrNonExistingPlayer
+		}
+
+		return fkve
+	}
+
+	return dbe
 }
 
 // Convert :

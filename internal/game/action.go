@@ -77,13 +77,13 @@ var ErrMismatchInVerification = fmt.Errorf("Mismatch in verification data for ac
 var ErrInvalidDuration = fmt.Errorf("Cannot convert completion time to duration for action")
 
 // ErrNonExistingPlanet : Indicates the the planet for the action does not exist.
-var ErrNonExistingPlanet = fmt.Errorf("Invalid parent planet for action")
+var ErrNonExistingPlanet = fmt.Errorf("Parent planet does not exist")
 
 // ErrNonExistingElement : Indicates that the element for the action does not exist.
 var ErrNonExistingElement = fmt.Errorf("Invalid upgraded element for action")
 
 // ErrNonExistingPlayer : Indicates that the parent player for the action does not exist.
-var ErrNonExistingPlayer = fmt.Errorf("Invalid parent player for action")
+var ErrNonExistingPlayer = fmt.Errorf("Parent player does not exist")
 
 // valid :
 // Determines whether the action is valid. By valid we only

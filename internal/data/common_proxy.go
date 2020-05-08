@@ -1,7 +1,6 @@
 package data
 
 import (
-	"fmt"
 	"oglike_server/internal/locker"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/logger"
@@ -60,11 +59,6 @@ type commonProxy struct {
 	module string
 	data   model.Instance
 }
-
-// ErrInvalidOperation :
-// Used in case the operation requested to be performed
-// while a lock is held fails.
-var ErrInvalidOperation = fmt.Errorf("Invalid query performed for resource")
 
 // newCommonProxy :
 // Performs the creation of a new common proxy from the

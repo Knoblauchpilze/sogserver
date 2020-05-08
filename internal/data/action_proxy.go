@@ -23,20 +23,6 @@ type ActionProxy struct {
 	commonProxy
 }
 
-// ErrInvalidAction :
-// Used to indicate that the action provided in input
-// could not be analyzed in some way: typically the
-// fetching of the planet attached to this action has
-// failed, etc.
-var ErrInvalidAction = fmt.Errorf("Unable to analyze invalid action")
-
-// ErrImpossibleAction :
-// Used to indicate that the action provided in input
-// cannot be performed in the specified planet. This
-// might mean that there are not enough resources, or
-// an inconsistent tech tree etc.
-var ErrImpossibleAction = fmt.Errorf("Cannot perform action on planet")
-
 // NewActionProxy :
 // Create a new proxy allowing to serve the requests
 // related to actions.
@@ -74,8 +60,8 @@ func (p *ActionProxy) CreateBuildingAction(a game.BuildingAction) (string, error
 	}
 
 	// Make sure that the action is plausible.
-	if !a.Valid() {
-		return a.ID, ErrInvalidAction
+	if err := a.Valid(); err != nil {
+		return a.ID, err
 	}
 
 	// Fetch the planet related to this action and use it
@@ -83,7 +69,7 @@ func (p *ActionProxy) CreateBuildingAction(a game.BuildingAction) (string, error
 	planet, err := game.NewPlanetFromDB(a.Planet, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch planet related to building action (err: %v)", err))
-		return a.ID, ErrInvalidAction
+		return a.ID, game.ErrInvalidPlanetForAction
 	}
 
 	// Consolidate the action (typically completion time
@@ -91,14 +77,14 @@ func (p *ActionProxy) CreateBuildingAction(a game.BuildingAction) (string, error
 	err = a.ConsolidateEffects(p.data, &planet)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not consolidate building action effects (err: %v)", err))
-		return a.ID, ErrInvalidAction
+		return a.ID, err
 	}
 
 	// Validate the action's data against its parent planet
 	err = a.Validate(p.data, &planet)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Cannot perform building action for \"%s\" on \"%s\" (err: %v)", a.Element, planet.ID, err))
-		return a.ID, ErrImpossibleAction
+		return a.ID, err
 	}
 
 	// Create the query and execute it.
@@ -148,8 +134,8 @@ func (p *ActionProxy) CreateTechnologyAction(a game.TechnologyAction) (string, e
 	}
 
 	// Make sure that the action is plausible.
-	if !a.Valid() {
-		return a.ID, ErrInvalidAction
+	if err := a.Valid(); err != nil {
+		return a.ID, err
 	}
 
 	// Fetch the planet related to this action and use it
@@ -157,14 +143,14 @@ func (p *ActionProxy) CreateTechnologyAction(a game.TechnologyAction) (string, e
 	planet, err := game.NewPlanetFromDB(a.Planet, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch planet related to technology action (err: %v)", err))
-		return a.ID, ErrInvalidAction
+		return a.ID, game.ErrInvalidPlanetForAction
 	}
 
 	// Validate the action's data against its parent planet
 	err = a.Validate(p.data, &planet)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Cannot perform technology action for \"%s\" on \"%s\" (err: %v)", a.Element, planet.ID, err))
-		return a.ID, ErrImpossibleAction
+		return a.ID, err
 	}
 
 	// Create the query and execute it.
@@ -210,8 +196,8 @@ func (p *ActionProxy) CreateShipAction(a game.ShipAction) (string, error) {
 	}
 
 	// Make sure that the action is plausible.
-	if !a.Valid() {
-		return a.ID, ErrInvalidAction
+	if err := a.Valid(); err != nil {
+		return a.ID, err
 	}
 
 	// Fetch the planet related to this action and use it
@@ -219,7 +205,7 @@ func (p *ActionProxy) CreateShipAction(a game.ShipAction) (string, error) {
 	planet, err := game.NewPlanetFromDB(a.Planet, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch planet related to ship action (err: %v)", err))
-		return a.ID, ErrInvalidAction
+		return a.ID, game.ErrInvalidPlanetForAction
 	}
 
 	// Consolidate the completion time for this action and
@@ -230,7 +216,7 @@ func (p *ActionProxy) CreateShipAction(a game.ShipAction) (string, error) {
 	err = a.Validate(p.data, &planet)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Cannot perform ship action for \"%s\" on \"%s\" (err: %v)", a.Element, planet.ID, err))
-		return a.ID, ErrImpossibleAction
+		return a.ID, err
 	}
 
 	// Create the query and execute it.
@@ -277,8 +263,8 @@ func (p *ActionProxy) CreateDefenseAction(a game.DefenseAction) (string, error) 
 	}
 
 	// Make sure that the action is plausible.
-	if !a.Valid() {
-		return a.ID, ErrInvalidAction
+	if err := a.Valid(); err != nil {
+		return a.ID, err
 	}
 
 	// Fetch the planet related to this action and use it
@@ -286,7 +272,7 @@ func (p *ActionProxy) CreateDefenseAction(a game.DefenseAction) (string, error) 
 	planet, err := game.NewPlanetFromDB(a.Planet, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch planet related to defense action (err: %v)", err))
-		return a.ID, ErrInvalidAction
+		return a.ID, game.ErrInvalidPlanetForAction
 	}
 
 	// Consolidate the completion time for this action and
@@ -297,7 +283,7 @@ func (p *ActionProxy) CreateDefenseAction(a game.DefenseAction) (string, error) 
 	err = a.Validate(p.data, &planet)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Cannot perform defense action for \"%s\" on \"%s\" (err: %v)", a.Element, planet.ID, err))
-		return a.ID, ErrImpossibleAction
+		return a.ID, err
 	}
 
 	// Create the query and execute it.

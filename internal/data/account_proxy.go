@@ -102,6 +102,10 @@ func (p *AccountProxy) Accounts(filters []db.Filter) ([]game.Account, error) {
 		accounts = append(accounts, acc)
 	}
 
+	if len(accounts) == 0 {
+		return accounts, game.ErrElementNotFound
+	}
+
 	return accounts, nil
 }
 

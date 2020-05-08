@@ -105,6 +105,10 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]game.Player, error) {
 		players = append(players, pla)
 	}
 
+	if len(players) == 0 {
+		return players, game.ErrElementNotFound
+	}
+
 	return players, nil
 }
 

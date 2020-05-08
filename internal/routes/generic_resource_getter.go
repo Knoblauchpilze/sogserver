@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"oglike_server/internal/game"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 	"strings"
@@ -224,7 +225,13 @@ func (gre *GetResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFunc {
 		data, err := gre.fetcher(filters)
 		if err != nil {
 			log.Trace(logger.Error, gre.module, fmt.Sprintf("Unexpected error while fetching data for route \"%s\" (err: %v)", gre.route, err))
-			http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+
+			// Detect special cases of a not found element.
+			if err == game.ErrElementNotFound {
+				http.Error(w, fmt.Sprintf("%v", err), http.StatusNotFound)
+			} else {
+				http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+			}
 
 			return
 		}

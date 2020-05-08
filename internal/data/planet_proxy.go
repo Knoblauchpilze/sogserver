@@ -118,6 +118,10 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]game.Planet, error) {
 		planets = append(planets, pla)
 	}
 
+	if len(planets) == 0 {
+		return planets, game.ErrElementNotFound
+	}
+
 	return planets, nil
 }
 

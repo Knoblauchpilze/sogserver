@@ -254,18 +254,6 @@ func getDefaultPlanetName(isHomeWorld bool) string {
 	return "planet"
 }
 
-// getPlanetTemperatureAmplitude :
-// Used to retrieve the default planet temperature's
-// amplitude. Basically the interval between the min
-// and max temperature will always be equal to this
-// value.
-//
-// Returns the default temperature amplitude for the
-// planets.
-func getPlanetTemperatureAmplitude() int {
-	return 50
-}
-
 // Resources :
 // Convenience define to refer to a slice of resource
 // info. It is used to make that that the array does
@@ -360,14 +348,7 @@ func NewPlanetFromDB(ID string, data model.Instance) (Planet, error) {
 		return p, err
 	}
 
-	// Update the resources existing on the planet so
-	// that the rest of the elements have up-to-date
-	// values available.
-	err = p.updateResources(data)
-	if err != nil {
-		return p, err
-	}
-
+	// Update fleets.
 	err = p.fetchFleets(data)
 	if err != nil {
 		return p, err
@@ -656,30 +637,7 @@ func (p *Planet) generateData() {
 	fMaxTemp := float64(mean) + rng.NormFloat64()*float64(stdDev)
 	clFMaxTemp := math.Max(float64(min), math.Min(float64(max), fMaxTemp))
 	p.MaxTemp = int(math.Round(clFMaxTemp))
-	p.MinTemp = p.MaxTemp - getPlanetTemperatureAmplitude()
-}
-
-// updateResources :
-// Used to perform the update of the resources existing on
-// this planet so that the rest of the processes can have
-// up-to-date information.
-//
-// The `data` defines the object to access the DB.
-//
-// Returns any error.
-func (p *Planet) updateResources(data model.Instance) error {
-	// Perform the update of the resources for this planet.
-	update := db.InsertReq{
-		Script: "update_resources_for_planet",
-		Args: []interface{}{
-			p.ID,
-		},
-		SkipReturn: true,
-	}
-
-	err := data.Proxy.InsertToDB(update)
-
-	return err
+	p.MinTemp = p.MaxTemp - 50
 }
 
 // fetchFleets :
@@ -815,17 +773,7 @@ func (p *Planet) fetchFleets(data model.Instance) error {
 func (p *Planet) fetchBuildingUpgrades(data model.Instance) error {
 	p.BuildingsUpgrade = make([]BuildingAction, 0)
 
-	// Perform the update of the building upgrade actions.
-	update := db.InsertReq{
-		Script: "update_building_upgrade_action",
-		Args: []interface{}{
-			p.ID,
-			"planet",
-		},
-		SkipReturn: true,
-	}
-
-	err := data.Proxy.InsertToDB(update)
+	err := data.UpdateBuildingsForPlanet(p.ID)
 	if err != nil {
 		return err
 	}
@@ -896,16 +844,7 @@ func (p *Planet) fetchBuildingUpgrades(data model.Instance) error {
 func (p *Planet) fetchTechnologiesUpgrades(data model.Instance) error {
 	p.TechnologiesUpgrade = make([]TechnologyAction, 0)
 
-	// Perform the update of the technology upgrade actions.
-	update := db.InsertReq{
-		Script: "update_technology_upgrade_action",
-		Args: []interface{}{
-			p.ID,
-		},
-		SkipReturn: true,
-	}
-
-	err := data.Proxy.InsertToDB(update)
+	err := data.UpdateTechnologiesForPlayer(p.Player)
 	if err != nil {
 		return err
 	}
@@ -975,17 +914,7 @@ func (p *Planet) fetchTechnologiesUpgrades(data model.Instance) error {
 func (p *Planet) fetchShipUpgrades(data model.Instance) error {
 	p.ShipsConstruction = make([]ShipAction, 0)
 
-	// Perform the update of the ships upgrade actions.
-	update := db.InsertReq{
-		Script: "update_ship_upgrade_action",
-		Args: []interface{}{
-			p.ID,
-			"planet",
-		},
-		SkipReturn: true,
-	}
-
-	err := data.Proxy.InsertToDB(update)
+	err := data.UpdateShipsForPlanet(p.ID)
 	if err != nil {
 		return err
 	}
@@ -1055,17 +984,7 @@ func (p *Planet) fetchShipUpgrades(data model.Instance) error {
 func (p *Planet) fetchDefenseUpgrades(data model.Instance) error {
 	p.DefensesConstruction = make([]DefenseAction, 0)
 
-	// Perform the update of the defenses upgrade actions.
-	update := db.InsertReq{
-		Script: "update_defense_upgrade_action",
-		Args: []interface{}{
-			p.ID,
-			"planet",
-		},
-		SkipReturn: true,
-	}
-
-	err := data.Proxy.InsertToDB(update)
+	err := data.UpdateDefensesForPlanet(p.ID)
 	if err != nil {
 		return err
 	}

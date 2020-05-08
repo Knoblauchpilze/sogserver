@@ -47,14 +47,111 @@ type Instance struct {
 	Objectives   *FleetObjectivesModule
 }
 
-// accessMode :
-// Describes the possible ways to access to the
-// resources of a planet. This allows to determine
-// when to release the locker on the planet's data.
-type accessMode int
+// UpdateResourcesForPlanet :
+// Used to perform the update of the resources for the
+// input planet in the DB.
+//
+// The `planet` defines the identifier of the planet.
+//
+// Returns any error.
+func (i Instance) UpdateResourcesForPlanet(planet string) error {
+	// Perform the update of the building upgrade actions.
+	update := db.InsertReq{
+		Script: "update_resources_for_planet",
+		Args: []interface{}{
+			planet,
+		},
+		SkipReturn: true,
+	}
 
-// Define the possible severity level for a log message.
-const (
-	ReadOnly accessMode = iota
-	ReadWrite
-)
+	err := i.Proxy.InsertToDB(update)
+
+	return err
+}
+
+// UpdateBuildingsForPlanet :
+// Used to perform the update of the buildings for
+// the input planet in the DB.
+//
+// The `planet` defines the identifier of the planet.
+//
+// Returns any error.
+func (i Instance) UpdateBuildingsForPlanet(planet string) error {
+	update := db.InsertReq{
+		Script: "update_building_upgrade_action",
+		Args: []interface{}{
+			planet,
+			"planet",
+		},
+		SkipReturn: true,
+	}
+
+	err := i.Proxy.InsertToDB(update)
+
+	return err
+}
+
+// UpdateTechnologiesForPlayer :
+// Used to perform the update of the technologies
+// for the input player in the DB.
+//
+// The `player` defines the ID of the player.
+//
+// Returns any error.
+func (i Instance) UpdateTechnologiesForPlayer(player string) error {
+	update := db.InsertReq{
+		Script: "update_technology_upgrade_action",
+		Args: []interface{}{
+			player,
+		},
+		SkipReturn: true,
+	}
+
+	err := i.Proxy.InsertToDB(update)
+
+	return err
+}
+
+// UpdateShipsForPlanet :
+// Used to perform the update of the ships for the
+// input planet in the DB.
+//
+// The `planet` defines the ID of the planet.
+//
+// Returns any error.
+func (i Instance) UpdateShipsForPlanet(planet string) error {
+	update := db.InsertReq{
+		Script: "update_ship_upgrade_action",
+		Args: []interface{}{
+			planet,
+			"planet",
+		},
+		SkipReturn: true,
+	}
+
+	err := i.Proxy.InsertToDB(update)
+
+	return err
+}
+
+// UpdateDefensesForPlanet :
+// Used to perform the update of the defenses for
+// the input planet in the DB.
+//
+// The `planet` defines the ID of the planet.
+//
+// Returns any error.
+func (i Instance) UpdateDefensesForPlanet(planet string) error {
+	update := db.InsertReq{
+		Script: "update_defense_upgrade_action",
+		Args: []interface{}{
+			planet,
+			"planet",
+		},
+		SkipReturn: true,
+	}
+
+	err := i.Proxy.InsertToDB(update)
+
+	return err
+}

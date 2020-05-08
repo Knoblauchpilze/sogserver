@@ -203,15 +203,7 @@ func (p *Player) fetchTechnologies(data model.Instance) error {
 	// Before fetching the technologies we need to
 	// perform the update of the upgrade actions if
 	// any.
-	update := db.InsertReq{
-		Script: "update_technology_upgrade_action",
-		Args: []interface{}{
-			p.ID,
-		},
-		SkipReturn: true,
-	}
-
-	err := data.Proxy.InsertToDB(update)
+	err := data.UpdateTechnologiesForPlayer(p.ID)
 	if err != nil {
 		return err
 	}

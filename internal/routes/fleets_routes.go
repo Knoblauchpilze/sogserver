@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"oglike_server/internal/model"
+	"oglike_server/internal/game"
 	"oglike_server/pkg/db"
 )
 
@@ -48,7 +48,7 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and
 			// create fleets from it.
-			var comp model.Component
+			var comp game.Component
 			resources := make([]string, 0)
 
 			// Prevent request with no data.
@@ -76,7 +76,7 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 				// Make sure that this component is linked to the
 				// planet and player described in the route.
 				comp.Source = planet
-				comp.SourceType = model.World
+				comp.SourceType = game.World
 				comp.Player = player
 
 				// Create the fleet component.

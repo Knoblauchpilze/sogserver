@@ -154,7 +154,7 @@ func (at *associationTable) getNameFromID(ID string) (string, error) {
 	return name, nil
 }
 
-// getIDFromName :
+// GetIDFromName :
 // Similar to `getNameFromID` but performs the reverse
 // query. Failure scenarios are similar.
 //
@@ -163,7 +163,7 @@ func (at *associationTable) getNameFromID(ID string) (string, error) {
 //
 // Returns the identifier of the element corresponding
 // to the input name.
-func (at *associationTable) getIDFromName(name string) (string, error) {
+func (at *associationTable) GetIDFromName(name string) (string, error) {
 	if !at.valid() {
 		return "", ErrInvalidTable
 	}

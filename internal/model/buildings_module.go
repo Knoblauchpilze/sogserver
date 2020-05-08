@@ -626,7 +626,7 @@ func (bm *BuildingsModule) Buildings(proxy db.Proxy, filters []db.Filter) ([]Bui
 	// Now build the data from the fetched identifiers.
 	descs := make([]BuildingDesc, 0)
 	for _, ID := range IDs {
-		desc, err := bm.getBuildingFromID(ID)
+		desc, err := bm.GetBuildingFromID(ID)
 
 		if err != nil {
 			bm.trace(logger.Error, fmt.Sprintf("Unable to fetch building \"%s\" (err: %v)", ID, err))
@@ -639,7 +639,7 @@ func (bm *BuildingsModule) Buildings(proxy db.Proxy, filters []db.Filter) ([]Bui
 	return descs, nil
 }
 
-// getBuildingFromID :
+// GetBuildingFromID :
 // Used to retrieve a single building by its identifier. It
 // is similar to calling the `Buildings` method but is quite
 // faster as we don't request the DB at all.
@@ -648,7 +648,7 @@ func (bm *BuildingsModule) Buildings(proxy db.Proxy, filters []db.Filter) ([]Bui
 //
 // Returns the description of the building corresponding to
 // the input identifier along with any error.
-func (bm *BuildingsModule) getBuildingFromID(ID string) (BuildingDesc, error) {
+func (bm *BuildingsModule) GetBuildingFromID(ID string) (BuildingDesc, error) {
 	// Attempt to retrieve the building from its identifier.
 	upgradable, err := bm.getDependencyFromID(ID)
 

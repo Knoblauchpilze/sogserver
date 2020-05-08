@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"oglike_server/internal/model"
+	"oglike_server/internal/game"
 )
 
 // registerFunc :
@@ -85,7 +85,7 @@ func (s *Server) registerBuildingAction() http.HandlerFunc {
 		func(input string, routeTokens []string) (string, error) {
 			// Unmarshal the input data into a building upgrade action
 			// and perform the registration through the dedicated func.
-			var action model.BuildingAction
+			var action game.BuildingAction
 
 			err := json.Unmarshal([]byte(input), &action)
 			if err != nil {
@@ -124,7 +124,7 @@ func (s *Server) registerTechnologyAction() http.HandlerFunc {
 		func(input string, routeTokens []string) (string, error) {
 			// Unmarshal the input data into a technology upgrade action
 			// and perform the registration through the dedicated func.
-			var action model.TechnologyAction
+			var action game.TechnologyAction
 
 			err := json.Unmarshal([]byte(input), &action)
 			if err != nil {
@@ -164,7 +164,7 @@ func (s *Server) registerShipAction() http.HandlerFunc {
 			// Unmarshal the input data into a ship upgrade action
 			// and perform the registration through the dedicated
 			// function.
-			var action model.ShipAction
+			var action game.ShipAction
 
 			err := json.Unmarshal([]byte(input), &action)
 			if err != nil {
@@ -204,7 +204,7 @@ func (s *Server) registerDefenseAction() http.HandlerFunc {
 			// Unmarshal the input data into a defense upgrade
 			// action and perform the registration through the
 			// dedicated function.
-			var action model.DefenseAction
+			var action game.DefenseAction
 
 			err := json.Unmarshal([]byte(input), &action)
 			if err != nil {

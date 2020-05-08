@@ -238,7 +238,7 @@ func (tm *TechnologiesModule) Technologies(proxy db.Proxy, filters []db.Filter) 
 	return descs, nil
 }
 
-// getTechnologyFromID :
+// GetTechnologyFromID :
 // Used to retrieve a single technology by its identifier.
 // It is similar to calling the `Technologies` method but
 // is quite faster as we don't request the DB at all.
@@ -248,7 +248,7 @@ func (tm *TechnologiesModule) Technologies(proxy db.Proxy, filters []db.Filter) 
 //
 // Returns the description of the technology corresponding
 // to the input identifier along with any error.
-func (tm *TechnologiesModule) getTechnologyFromID(ID string) (TechnologyDesc, error) {
+func (tm *TechnologiesModule) GetTechnologyFromID(ID string) (TechnologyDesc, error) {
 	// Attempt to retrieve the technology from its identifier.
 	upgradable, err := tm.getDependencyFromID(ID)
 

@@ -1,9 +1,9 @@
-package model
+package game
 
 import (
 	"database/sql"
 	"fmt"
-	"oglike_server/internal/locker"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"time"
 )
@@ -51,14 +51,6 @@ import (
 // The `Comps` defines the list of components defining the
 // fleet. Each component correspond to some ships starting
 // from a single location and travelling as a single unit.
-//
-// The `mode` defines whether the locker on the planet's
-// resources should be kept as long as this object exist
-// or only during the acquisition of the resources.
-//
-// The `locker` defines the object to use to prevent a
-// concurrent process to access to the resources of the
-// planet.
 type Fleet struct {
 	ID          string     `json:"id"`
 	Name        string     `json:"name"`
@@ -68,8 +60,6 @@ type Fleet struct {
 	Body        string     `json:"target,omitempty"`
 	ArrivalTime time.Time  `json:"arrival_time"`
 	Comps       Components `json:"components"`
-	mode        accessMode
-	locker      *locker.Lock
 }
 
 // ErrInvalidFleet :
@@ -111,7 +101,7 @@ const (
 	destroy      purpose = "destroy"
 )
 
-// newFleetFromDB :
+// NewFleetFromDB :
 // Used to fetch the content of the fleet from
 // the input DB and populate all internal fields
 // from it. In case the DB cannot be fetched or
@@ -127,11 +117,10 @@ const (
 //
 // Returns the fleet as fetched from the DB along
 // with any errors.
-func newFleetFromDB(ID string, data Instance, mode accessMode) (Fleet, error) {
+func NewFleetFromDB(ID string, data model.Instance) (Fleet, error) {
 	// Create the fleet.
 	f := Fleet{
-		ID:   ID,
-		mode: mode,
+		ID: ID,
 	}
 
 	// Consistency.
@@ -139,23 +128,8 @@ func newFleetFromDB(ID string, data Instance, mode accessMode) (Fleet, error) {
 		return f, ErrInvalidFleet
 	}
 
-	// Acquire the lock on the planet from the DB.
-	var err error
-	f.locker, err = data.Locker.Acquire(f.ID)
-	if err != nil {
-		return f, err
-	}
-	f.locker.Lock()
-
-	defer func() {
-		// Release the locker if needed.
-		if f.mode == ReadOnly {
-			err = f.locker.Unlock()
-		}
-	}()
-
 	// Fetch the fleet's content.
-	err = f.fetchGeneralInfo(data)
+	err := f.fetchGeneralInfo(data)
 	if err != nil {
 		return f, err
 	}
@@ -168,49 +142,11 @@ func newFleetFromDB(ID string, data Instance, mode accessMode) (Fleet, error) {
 	return f, nil
 }
 
-// NewReadOnlyFleet :
-// Used to wrap the call arounf `newFleetFromDB`
-// to create a fleet with a read only mode. This
-// will indicate that the data will not be used
-// to modify anything on this fleet and thus the
-// resource can be locked for minimum overhead.
-//
-// The `ID` defines the identifier of the fleet
-// to fetch from the DB.
-//
-// The `data` defines a way to access to the DB.
-//
-// Returns the fleet fetched from the DB along
-// with any errors.
-func NewReadOnlyFleet(ID string, data Instance) (Fleet, error) {
-	return newFleetFromDB(ID, data, ReadOnly)
-}
-
-// NewReadWriteFleet :
-// Similar to the `NewReadOnlyFleet` but tells
-// that the fleet will be used to modify it and
-// thus the locker is kept after exiting this
-// function.
-// The user should call the `Close` method when
-// done with the modifications so as to allow
-// other processes to access the fleet.
-//
-// The `ID` defines the identifier of the fleet
-// to fetch from the DB.
-//
-// The `data` defines a way to access to the DB.
-//
-// Returns the fleet fetched from the DB along
-// with any errors.
-func NewReadWriteFleet(ID string, data Instance) (Fleet, error) {
-	return newFleetFromDB(ID, data, ReadWrite)
-}
-
-// NewEmptyReadWriteFleet :
-// Used to perform the creation of a minimalistic
-// fleet from the specified identifier. Nothing
-// else is set apart from the locker which is
-// acquired in read write mode.
+// NewEmptyFleet :
+// Used to perform the creation of a fleet with
+// minimalistic properties from the specified ID.
+// Nothing else is set apart from the ID of the
+// fleet.
 //
 // The `ID` defines the identifier of the fleet.
 //
@@ -218,7 +154,7 @@ func NewReadWriteFleet(ID string, data Instance) (Fleet, error) {
 // this fleet.
 //
 // Returns the created fleet along with any errors.
-func NewEmptyReadWriteFleet(ID string, data Instance) (Fleet, error) {
+func NewEmptyFleet(ID string, data model.Instance) (Fleet, error) {
 	// Consistency.
 	if !validUUID(ID) {
 		return Fleet{}, ErrInvalidFleet
@@ -226,35 +162,10 @@ func NewEmptyReadWriteFleet(ID string, data Instance) (Fleet, error) {
 
 	// Create the fleet.
 	f := Fleet{
-		ID:   ID,
-		mode: ReadWrite,
+		ID: ID,
 	}
-
-	// Try to acquire the lock for this fleet.
-	var err error
-	f.locker, err = data.Locker.Acquire(f.ID)
-	if err != nil {
-		return f, err
-	}
-	f.locker.Lock()
 
 	return f, nil
-}
-
-// Close :
-// Implementation of the `Closer` interface allowing
-// to release the lock this fleet may still detain
-// on the DB resources.
-func (f *Fleet) Close() error {
-	// Only release the locker in case the access mode
-	// indicates so.
-	var err error
-
-	if f.mode == ReadWrite && f.locker != nil {
-		err = f.locker.Unlock()
-	}
-
-	return err
 }
 
 // Valid :
@@ -288,7 +199,7 @@ func (f Fleet) String() string {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (f *Fleet) fetchGeneralInfo(data Instance) error {
+func (f *Fleet) fetchGeneralInfo(data model.Instance) error {
 	// Consistency.
 	if f.ID == "" {
 		return ErrInvalidFleet
@@ -381,7 +292,7 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (f *Fleet) fetchComponents(data Instance) error {
+func (f *Fleet) fetchComponents(data model.Instance) error {
 	// Consistency.
 	if f.ID == "" {
 		return ErrInvalidFleet
@@ -488,7 +399,7 @@ func (f *Fleet) Convert() interface{} {
 // Returns an error in case the fleet is not valid
 // and `nil` otherwise (indicating that no obvious
 // errors were detected).
-func (f *Fleet) Validate(data Instance) error {
+func (f *Fleet) Validate(data model.Instance) error {
 	// Consistency.
 	if f.ID == "" {
 		return ErrInvalidFleet
@@ -505,7 +416,7 @@ func (f *Fleet) Validate(data Instance) error {
 	// sure to change the loop if it ever changes.
 	for _, comp := range f.Comps {
 		for _, ship := range comp.Ships {
-			if obj.canBePerformedBy(ship.ID) {
+			if obj.CanBePerformedBy(ship.ID) {
 				return nil
 			}
 		}
@@ -540,7 +451,7 @@ func (f *Fleet) Validate(data Instance) error {
 // DB if needed.
 //
 // Returns any error.
-func (f *Fleet) simulate(p *Planet, data Instance) error {
+func (f *Fleet) simulate(p *Planet, data model.Instance) error {
 	// We need to check the objective of this fleet
 	// and perform the adequate processing.
 	obj, err := data.Objectives.GetObjectiveFromID(f.Objective)
@@ -598,7 +509,7 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 // able to save the fleet's data.
 //
 // Returns any error.
-func (f *Fleet) persistToDB(data Instance) error {
+func (f *Fleet) persistToDB(data model.Instance) error {
 	// TODO: Handle this.
 	return fmt.Errorf("Not implemented")
 }

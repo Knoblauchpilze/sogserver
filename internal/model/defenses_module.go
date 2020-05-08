@@ -257,7 +257,7 @@ func (dm *DefensesModule) Defenses(proxy db.Proxy, filters []db.Filter) ([]Defen
 	// Now build the data from the fetched identifiers.
 	descs := make([]DefenseDesc, 0)
 	for _, ID := range IDs {
-		desc, err := dm.getDefenseFromID(ID)
+		desc, err := dm.GetDefenseFromID(ID)
 
 		if err != nil {
 			dm.trace(logger.Error, fmt.Sprintf("Unable to fetch defense \"%s\" (err: %v)", ID, err))
@@ -270,7 +270,7 @@ func (dm *DefensesModule) Defenses(proxy db.Proxy, filters []db.Filter) ([]Defen
 	return descs, nil
 }
 
-// getDefenseFromID :
+// GetDefenseFromID :
 // Used to retrieve a single defense by its identifier. It
 // is similar to calling the `Defenses` method but is quite
 // faster as we don't request the DB at all.
@@ -279,7 +279,7 @@ func (dm *DefensesModule) Defenses(proxy db.Proxy, filters []db.Filter) ([]Defen
 //
 // Returns the description of the defense corresponding to
 // the input identifier along with any error.
-func (dm *DefensesModule) getDefenseFromID(ID string) (DefenseDesc, error) {
+func (dm *DefensesModule) GetDefenseFromID(ID string) (DefenseDesc, error) {
 	// Attempt to retrieve the defense from its identifier.
 	upgradable, err := dm.getDependencyFromID(ID)
 

@@ -1,9 +1,10 @@
-package model
+package game
 
 import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"time"
 )
@@ -89,21 +90,21 @@ import (
 // `ArrivalTime` and `ReturnTime`) but actually it is
 // meant to help the computations of these values.
 type Component struct {
-	ID          string             `json:"id"`
-	Player      string             `json:"-"`
-	Source      string             `json:"source"`
-	SourceType  Location           `json:"-"`
-	Speed       float32            `json:"speed"`
-	JoinedAt    time.Time          `json:"joined_at"`
-	ReturnTime  time.Time          `json:"return_time"`
-	Ships       ShipsInFleet       `json:"ships"`
-	Fleet       string             `json:"fleet"`
-	Consumption []ConsumptionValue `json:"-"`
-	Cargo       []ResourceAmount   `json:"cargo"`
-	ArrivalTime time.Time          `json:"-"`
-	Target      Coordinate         `json:"target"`
-	Objective   string             `json:"objective"`
-	Name        string             `json:"name"`
+	ID          string                 `json:"id"`
+	Player      string                 `json:"-"`
+	Source      string                 `json:"source"`
+	SourceType  Location               `json:"-"`
+	Speed       float32                `json:"speed"`
+	JoinedAt    time.Time              `json:"joined_at"`
+	ReturnTime  time.Time              `json:"return_time"`
+	Ships       ShipsInFleet           `json:"ships"`
+	Fleet       string                 `json:"fleet"`
+	Consumption []ConsumptionValue     `json:"-"`
+	Cargo       []model.ResourceAmount `json:"cargo"`
+	ArrivalTime time.Time              `json:"-"`
+	Target      Coordinate             `json:"target"`
+	Objective   string                 `json:"objective"`
+	Name        string                 `json:"name"`
 	flightTime  time.Duration
 }
 
@@ -115,7 +116,7 @@ type Components []Component
 // ConsumptionValue :
 // Used as a convenience define to reference resource
 // amount in a meaningful way.
-type ConsumptionValue ResourceAmount
+type ConsumptionValue model.ResourceAmount
 
 // ShipInFleet :
 // Defines a single ship involved in a fleet component.
@@ -255,7 +256,7 @@ func (fcs Components) valid(objective string, target Coordinate) bool {
 //
 // Returns the component as fetched from the DB along
 // with any errors.
-func newComponentFromDB(ID string, data Instance) (Component, error) {
+func newComponentFromDB(ID string, data model.Instance) (Component, error) {
 	// Create the fleet.
 	c := Component{
 		ID: ID,
@@ -335,7 +336,7 @@ func (fc Component) String() string {
 // is starting the flight.
 //
 // Returns any error.
-func (fc *Component) consolidateConsumption(data Instance, p *Planet) error {
+func (fc *Component) consolidateConsumption(data model.Instance, p *Planet) error {
 	// Compute the distance between the starting position
 	// and the destination of the flight.
 	d := float64(p.Coordinates.distanceTo(fc.Target))
@@ -345,7 +346,7 @@ func (fc *Component) consolidateConsumption(data Instance, p *Planet) error {
 	consumption := make(map[string]float64)
 
 	for _, ship := range fc.Ships {
-		sd, err := data.Ships.getShipFromID(ship.ID)
+		sd, err := data.Ships.GetShipFromID(ship.ID)
 
 		if err != nil {
 			return err
@@ -396,7 +397,7 @@ func (fc *Component) consolidateConsumption(data Instance, p *Planet) error {
 // speed for each ship.
 //
 // Returns any error.
-func (fc *Component) ConsolidateArrivalTime(data Instance, p *Planet) error {
+func (fc *Component) ConsolidateArrivalTime(data model.Instance, p *Planet) error {
 	// Consistency.
 	if fc.Source != p.ID || fc.SourceType != World {
 		return ErrInvalidPlanet
@@ -417,7 +418,7 @@ func (fc *Component) ConsolidateArrivalTime(data Instance, p *Planet) error {
 	maxSpeed := math.MaxInt32
 
 	for _, ship := range fc.Ships {
-		sd, err := data.Ships.getShipFromID(ship.ID)
+		sd, err := data.Ships.GetShipFromID(ship.ID)
 
 		if err != nil {
 			return err
@@ -483,7 +484,7 @@ func (fc *Component) ConsolidateArrivalTime(data Instance, p *Planet) error {
 // The `f` defines the parent fleet for this component.
 //
 // Returns any error.
-func (fc *Component) Validate(data Instance, source *Planet, target *Planet, f *Fleet) error {
+func (fc *Component) Validate(data model.Instance, source *Planet, target *Planet, f *Fleet) error {
 	// Consistency.
 	if fc.Source != source.ID || fc.SourceType != World {
 		return ErrInvalidPlanet
@@ -503,7 +504,7 @@ func (fc *Component) Validate(data Instance, source *Planet, target *Planet, f *
 	totCargo := 0
 
 	for _, ship := range fc.Ships {
-		sd, err := data.Ships.getShipFromID(ship.ID)
+		sd, err := data.Ships.GetShipFromID(ship.ID)
 
 		if err != nil {
 			return err
@@ -579,7 +580,7 @@ func (fc *Component) Validate(data Instance, source *Planet, target *Planet, f *
 // The `data` allows to access to the DB.
 //
 // Returns any error.
-func (fc *Component) fetchGeneralInfo(data Instance) error {
+func (fc *Component) fetchGeneralInfo(data model.Instance) error {
 	// Consistency.
 	if fc.ID == "" {
 		return ErrInvalidFleetComponent
@@ -649,7 +650,7 @@ func (fc *Component) fetchGeneralInfo(data Instance) error {
 // The `data` allows to access to the DB.
 //
 // Returns any error.
-func (fc *Component) fetchShips(data Instance) error {
+func (fc *Component) fetchShips(data model.Instance) error {
 	// Check whether the fleet component has an identifier assigned.
 	if fc.ID == "" {
 		return ErrInvalidFleetComponent
@@ -709,13 +710,13 @@ func (fc *Component) fetchShips(data Instance) error {
 // The `data` allows to access to the DB.
 //
 // Returns any error.
-func (fc *Component) fetchCargo(data Instance) error {
+func (fc *Component) fetchCargo(data model.Instance) error {
 	// Check whether the fleet component has an identifier assigned.
 	if fc.ID == "" {
 		return ErrInvalidFleetComponent
 	}
 
-	fc.Cargo = make([]ResourceAmount, 0)
+	fc.Cargo = make([]model.ResourceAmount, 0)
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
@@ -744,7 +745,7 @@ func (fc *Component) fetchCargo(data Instance) error {
 	}
 
 	// Populate the return value.
-	var ra ResourceAmount
+	var ra model.ResourceAmount
 
 	for dbRes.Next() {
 		err = dbRes.Scan(
@@ -770,7 +771,7 @@ func (fc *Component) fetchCargo(data Instance) error {
 // The `data` allows to access to the DB.
 //
 // Returns any error.
-func (fc *Component) fetchFleetInfo(data Instance) error {
+func (fc *Component) fetchFleetInfo(data model.Instance) error {
 	// Consistency.
 	if fc.ID == "" {
 		return ErrInvalidFleetComponent
@@ -884,14 +885,14 @@ func (fc *Component) Convert() interface{} {
 // along with any error.
 func (fc *Component) MarshalJSON() ([]byte, error) {
 	type lightComponent struct {
-		ID         string           `json:"id"`
-		Source     string           `json:"source"`
-		SourceType Location         `json:"source_type"`
-		Speed      float32          `json:"speed"`
-		JoinedAt   time.Time        `json:"joined_at"`
-		ReturnTime time.Time        `json:"return_time"`
-		Ships      ShipsInFleet     `json:"ships"`
-		Cargo      []ResourceAmount `json:"cargo"`
+		ID         string                 `json:"id"`
+		Source     string                 `json:"source"`
+		SourceType Location               `json:"source_type"`
+		Speed      float32                `json:"speed"`
+		JoinedAt   time.Time              `json:"joined_at"`
+		ReturnTime time.Time              `json:"return_time"`
+		Ships      ShipsInFleet           `json:"ships"`
+		Cargo      []model.ResourceAmount `json:"cargo"`
 	}
 
 	// Copy the planet's data.

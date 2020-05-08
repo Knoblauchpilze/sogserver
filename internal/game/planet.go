@@ -1,11 +1,11 @@
-package model
+package game
 
 import (
 	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
-	"oglike_server/internal/locker"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 
 	"github.com/google/uuid"
@@ -52,10 +52,10 @@ import (
 //
 // The `Name` of the planet as defined by the user.
 //
-// The `Fields` define the number of available fields in
-// the planet. The number of used fields is computed from
-// the infrastructure built on the planet but is derived
-// from the actual level of each building.
+// The `Fields` define the number of available fields
+// in the planet. The number of used fields is computed
+// from the infrastructure built on the planet but is
+// derived from the actual level of each building.
 //
 // The `MinTemp` defines the minimum temperature of the
 // planet in degrees.
@@ -110,14 +110,6 @@ import (
 // already been researched by the player owning this tech.
 // It helps in various cases to be able to fetch player's
 // info about technology.
-//
-// The `mode` defines whether the locker on the planet's
-// resources should be kept as long as this object exist
-// or only during the acquisition of the resources.
-//
-// The `locker` defines the object to use to prevent a
-// concurrent process to access to the resources of the
-// planet.
 type Planet struct {
 	ID                   string             `json:"id"`
 	Player               string             `json:"player"`
@@ -138,8 +130,6 @@ type Planet struct {
 	SourceFleets         []string           `json:"source_fleets,omitempty"`
 	IncomingFleets       []string           `json:"incoming_fleets,omitempty"`
 	technologies         map[string]int
-	mode                 accessMode
-	locker               *locker.Lock
 }
 
 // ResourceInfo :
@@ -186,7 +176,7 @@ type ResourceInfo struct {
 // The `Level` defines the level reached by this
 // building on a particular planet.
 type BuildingInfo struct {
-	BuildingDesc
+	model.BuildingDesc
 
 	Level int `json:"level"`
 }
@@ -201,7 +191,7 @@ type BuildingInfo struct {
 // The `Amount` defines how many of this ship are
 // currently deployed on the planet.
 type ShipInfo struct {
-	ShipDesc
+	model.ShipDesc
 
 	Amount int `json:"amount"`
 }
@@ -213,7 +203,7 @@ type ShipInfo struct {
 // The `Amount` defines how many of this defense
 // system are currently deployed on the planet.
 type DefenseInfo struct {
-	DefenseDesc
+	model.DefenseDesc
 
 	Amount int `json:"amount"`
 }
@@ -325,7 +315,7 @@ func (r Resources) Convert() interface{} {
 	return out
 }
 
-// newPlanetFromDB :
+// NewPlanetFromDB :
 // Used to fetch the content of the planet from the
 // input DB and populate all internal fields from it.
 // In case the DB cannot be fetched or some errors
@@ -339,16 +329,12 @@ func (r Resources) Convert() interface{} {
 // The `data` allows to actually perform the DB
 // requests to fetch the planet's data.
 //
-// The `mode` defines the reading mode for the data
-// access for this planet.
-//
 // Returns the planet as fetched from the DB along
 // with any errors.
-func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) {
+func NewPlanetFromDB(ID string, data model.Instance) (Planet, error) {
 	// Create the planet.
 	p := Planet{
-		ID:   ID,
-		mode: mode,
+		ID: ID,
 	}
 
 	// Consistency.
@@ -356,25 +342,10 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 		return p, ErrInvalidPlanet
 	}
 
-	// Acquire the lock on the planet from the DB.
-	var err error
-	p.locker, err = data.Locker.Acquire(p.ID)
-	if err != nil {
-		return p, err
-	}
-	p.locker.Lock()
-
-	defer func() {
-		// Release the locker if needed.
-		if p.mode == ReadOnly {
-			err = p.locker.Unlock()
-		}
-	}()
-
 	// Fetch general info for this planet. It will
 	// allow to fetch the player's identifier and
 	// be able to update the technologies actions.
-	err = p.fetchGeneralInfo(data)
+	err := p.fetchGeneralInfo(data)
 	if err != nil {
 		return p, err
 	}
@@ -440,56 +411,6 @@ func newPlanetFromDB(ID string, data Instance, mode accessMode) (Planet, error) 
 	}
 
 	return p, err
-}
-
-// NewReadOnlyPlanet :
-// Uses internally the `newPlanetFromDB` specifying
-// that the resources are only used for reading mode.
-// This allows to keep the locker to access to the
-// planet's data only a very limited amount of time.
-//
-// The `ID` defines the identifier of the planet to
-// fetch from the DB.
-//
-// The `data` defines a way to access to the DB.
-//
-// Returns the planet fetched from the DB along with
-// any errors.
-func NewReadOnlyPlanet(ID string, data Instance) (Planet, error) {
-	return newPlanetFromDB(ID, data, ReadOnly)
-}
-
-// NewReadWritePlanet :
-// Defines a planet which will be used to modify some
-// of the data associated to it. It indicates that the
-// locker on the planet's resources should be kept for
-// the existence of the planet.
-//
-// The `ID` defines the identifier of the planet to
-// fetch from the DB.
-//
-// The `data` defines a way to access to the DB.
-//
-// Returns the planet fetched from the DB along with
-// any errors.
-func NewReadWritePlanet(ID string, data Instance) (Planet, error) {
-	return newPlanetFromDB(ID, data, ReadWrite)
-}
-
-// Close :
-// Implementation of the `Closer` interface allowing
-// to release the lock this planet may still detain
-// on the DB resources.
-func (p *Planet) Close() error {
-	// Only release the locker in case the access mode
-	// indicates so.
-	var err error
-
-	if p.mode == ReadWrite && p.locker != nil {
-		err = p.locker.Unlock()
-	}
-
-	return err
 }
 
 // NewPlanet :
@@ -757,7 +678,7 @@ func (p *Planet) generateData() {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) updateResources(data Instance) error {
+func (p *Planet) updateResources(data model.Instance) error {
 	// Consistency.
 	if p.ID == "" {
 		return ErrInvalidPlanet
@@ -795,7 +716,7 @@ func (p *Planet) updateResources(data Instance) error {
 // needed.
 //
 // Returns any error.
-func (p *Planet) fetchFleets(data Instance) error {
+func (p *Planet) fetchFleets(data model.Instance) error {
 	// We need to fetch both the components that were
 	// started from this planet and the fleets that
 	// are directed towards it.
@@ -907,7 +828,7 @@ func (p *Planet) fetchFleets(data Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchBuildingUpgrades(data Instance) error {
+func (p *Planet) fetchBuildingUpgrades(data model.Instance) error {
 	// Consistency.
 	if p.ID == "" {
 		return ErrInvalidPlanet
@@ -993,7 +914,7 @@ func (p *Planet) fetchBuildingUpgrades(data Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchTechnologiesUpgrades(data Instance) error {
+func (p *Planet) fetchTechnologiesUpgrades(data model.Instance) error {
 	// Consistency.
 	if p.ID == "" {
 		return ErrInvalidPlanet
@@ -1077,7 +998,7 @@ func (p *Planet) fetchTechnologiesUpgrades(data Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchShipUpgrades(data Instance) error {
+func (p *Planet) fetchShipUpgrades(data model.Instance) error {
 	// Consistency.
 	if p.ID == "" {
 		return ErrInvalidPlanet
@@ -1162,7 +1083,7 @@ func (p *Planet) fetchShipUpgrades(data Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchDefenseUpgrades(data Instance) error {
+func (p *Planet) fetchDefenseUpgrades(data model.Instance) error {
 	// Consistency.
 	if p.ID == "" {
 		return ErrInvalidPlanet
@@ -1247,7 +1168,7 @@ func (p *Planet) fetchDefenseUpgrades(data Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchGeneralInfo(data Instance) error {
+func (p *Planet) fetchGeneralInfo(data model.Instance) error {
 	// Consistency.
 	if p.ID == "" {
 		return ErrInvalidPlanet
@@ -1320,7 +1241,7 @@ func (p *Planet) fetchGeneralInfo(data Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchResources(data Instance) error {
+func (p *Planet) fetchResources(data model.Instance) error {
 	// Consistency.
 	if p.ID == "" {
 		return ErrInvalidPlanet
@@ -1384,7 +1305,7 @@ func (p *Planet) fetchResources(data Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchBuildings(data Instance) error {
+func (p *Planet) fetchBuildings(data model.Instance) error {
 	// Consistency.
 	if p.ID == "" {
 		return ErrInvalidPlanet
@@ -1432,7 +1353,7 @@ func (p *Planet) fetchBuildings(data Instance) error {
 			return err
 		}
 
-		desc, err := data.Buildings.getBuildingFromID(ID)
+		desc, err := data.Buildings.GetBuildingFromID(ID)
 		if err != nil {
 			return err
 		}
@@ -1452,7 +1373,7 @@ func (p *Planet) fetchBuildings(data Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchShips(data Instance) error {
+func (p *Planet) fetchShips(data model.Instance) error {
 	// Consistency.
 	if p.ID == "" {
 		return ErrInvalidPlanet
@@ -1500,7 +1421,7 @@ func (p *Planet) fetchShips(data Instance) error {
 			return err
 		}
 
-		desc, err := data.Ships.getShipFromID(ID)
+		desc, err := data.Ships.GetShipFromID(ID)
 		if err != nil {
 			return err
 		}
@@ -1520,7 +1441,7 @@ func (p *Planet) fetchShips(data Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchDefenses(data Instance) error {
+func (p *Planet) fetchDefenses(data model.Instance) error {
 	// Consistency.
 	if p.ID == "" {
 		return ErrInvalidPlanet
@@ -1568,7 +1489,7 @@ func (p *Planet) fetchDefenses(data Instance) error {
 			return err
 		}
 
-		desc, err := data.Defenses.getDefenseFromID(ID)
+		desc, err := data.Defenses.GetDefenseFromID(ID)
 		if err != nil {
 			return err
 		}
@@ -1589,7 +1510,7 @@ func (p *Planet) fetchDefenses(data Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchTechnologies(data Instance) error {
+func (p *Planet) fetchTechnologies(data model.Instance) error {
 	// Consistency.
 	if p.ID == "" || p.Player == "" {
 		return ErrInvalidPlanet
@@ -1641,7 +1562,7 @@ func (p *Planet) fetchTechnologies(data Instance) error {
 
 		_, ok := sanity[tech]
 		if ok {
-			return ErrInconsistentDB
+			return model.ErrInconsistentDB
 		}
 		sanity[tech] = level
 
@@ -1796,13 +1717,16 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 // Returns the resource description corresponding
 // to the input identifier along with any error.
 func (p *Planet) GetResource(ID string) (ResourceInfo, error) {
+	// TODO: Should be transformed as a map. Similarly the buildings
+	// and ships and other arrays as well. Only in the `MarshalJSON`
+	// we should transform this to an array.
 	for _, r := range p.Resources {
 		if r.Resource == ID {
 			return r, nil
 		}
 	}
 
-	return ResourceInfo{}, ErrInvalidID
+	return ResourceInfo{}, model.ErrInvalidID
 }
 
 // GetBuilding :
@@ -1822,7 +1746,7 @@ func (p *Planet) GetBuilding(ID string) (BuildingInfo, error) {
 		}
 	}
 
-	return BuildingInfo{}, ErrInvalidID
+	return BuildingInfo{}, model.ErrInvalidID
 }
 
 // GetShip :
@@ -1842,7 +1766,7 @@ func (p *Planet) GetShip(ID string) (ShipInfo, error) {
 		}
 	}
 
-	return ShipInfo{}, ErrInvalidID
+	return ShipInfo{}, model.ErrInvalidID
 }
 
 // validateAction :
@@ -1865,7 +1789,7 @@ func (p *Planet) GetShip(ID string) (ShipInfo, error) {
 // Returns any error. In case the return value is
 // `nil` it means that the action can be performed
 // on this planet.
-func (p *Planet) validateAction(costs map[string]int, desc UpgradableDesc, data Instance) error {
+func (p *Planet) validateAction(costs map[string]int, desc model.UpgradableDesc, data model.Instance) error {
 	// Make sure that there are enough resources on the planet.
 	if len(costs) == 0 {
 		return ErrNoCost
@@ -1945,7 +1869,7 @@ func (p *Planet) validateAction(costs map[string]int, desc UpgradableDesc, data 
 // to the `validateAction` where no error is
 // meant to indicate that the component is a
 // valid one compared to the planet's data.
-func (p *Planet) validateComponent(fuels []ConsumptionValue, cargos []ResourceAmount, ships []ShipInFleet, data Instance) error {
+func (p *Planet) validateComponent(fuels []ConsumptionValue, cargos []model.ResourceAmount, ships []ShipInFleet, data model.Instance) error {
 	// Gather existing resources.
 	available := make(map[string]float32)
 
@@ -2006,42 +1930,31 @@ func (p *Planet) validateComponent(fuels []ConsumptionValue, cargos []ResourceAm
 // The `data` allows to access to the DB.
 //
 // Return any error.
-func (p *Planet) crashIncomingFleets(data Instance) error {
+func (p *Planet) crashIncomingFleets(data model.Instance) error {
 	// For each fleet, retrieve its associated data
 	// and then simulate it against the planetary
 	// infrastructure. Note that we assume that the
 	// fleets registered in the `IncomingFleets` are
 	// indeed sorted by order of arrival.
-	var gErr error
-
 	for _, fID := range p.IncomingFleets {
-		func() {
+		// Fetch the fleet's data.
+		fleet, err := NewFleetFromDB(fID, data)
 
-			fleet, err := NewReadWriteFleet(fID, data)
-			defer func() {
-				err = fleet.Close()
-			}()
+		if err != nil {
+			return err
+		}
 
-			if err != nil {
-				return
-			}
+		// Simulate the effect of the fleet on this
+		// planet.
+		err = fleet.simulate(p, data)
+		if err != nil {
+			return err
+		}
 
-			// Simulate the effect of the fleet on this
-			// planet.
-			gErr = fleet.simulate(p, data)
-			if gErr != nil {
-				return
-			}
-
-			// Save the fleet back to db.
-			gErr = fleet.persistToDB(data)
-			if gErr != nil {
-				return
-			}
-		}()
-
-		if gErr != nil {
-			return gErr
+		// Save the fleet back to db.
+		err = fleet.persistToDB(data)
+		if err != nil {
+			return err
 		}
 	}
 

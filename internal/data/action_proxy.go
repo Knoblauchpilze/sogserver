@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+	"oglike_server/internal/game"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -66,7 +67,7 @@ func NewActionProxy(data model.Instance, log logger.Logger) ActionProxy {
 // be performed: if this is not the case the error is not
 // `nil`. It also provides the identifier of the action
 // that was created by this method.
-func (p *ActionProxy) CreateBuildingAction(a model.BuildingAction) (string, error) {
+func (p *ActionProxy) CreateBuildingAction(a game.BuildingAction) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if a.ID == "" {
 		a.ID = uuid.New().String()
@@ -77,30 +78,9 @@ func (p *ActionProxy) CreateBuildingAction(a model.BuildingAction) (string, erro
 		return a.ID, ErrInvalidAction
 	}
 
-	// Acquire the lock on the player associated to this action.
-	l, err := p.data.Locker.Acquire(a.Player)
-	if err != nil {
-		return a.ID, err
-	}
-	l.Lock()
-
-	defer func() {
-		err := l.Unlock()
-		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not release lock on player \"%s\" (err: %v)", a.Player, err))
-		}
-	}()
-
 	// Fetch the planet related to this action and use it
 	// as read write access.
-	planet, err := model.NewReadWritePlanet(a.Planet, p.data)
-	defer func() {
-		err := planet.Close()
-		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not release lock on planet \"%s\" (err: %v)", planet.ID, err))
-		}
-	}()
-
+	planet, err := game.NewPlanetFromDB(a.Planet, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch planet related to building action (err: %v)", err))
 		return a.ID, ErrInvalidAction
@@ -161,7 +141,7 @@ func (p *ActionProxy) CreateBuildingAction(a model.BuildingAction) (string, erro
 // be performed: if this is not the case the error is not
 // `nil`. It also indicates the identifier of the action
 // that was created.
-func (p *ActionProxy) CreateTechnologyAction(a model.TechnologyAction) (string, error) {
+func (p *ActionProxy) CreateTechnologyAction(a game.TechnologyAction) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if a.ID == "" {
 		a.ID = uuid.New().String()
@@ -172,30 +152,9 @@ func (p *ActionProxy) CreateTechnologyAction(a model.TechnologyAction) (string, 
 		return a.ID, ErrInvalidAction
 	}
 
-	// Acquire the lock on the player associated to this action.
-	l, err := p.data.Locker.Acquire(a.Player)
-	if err != nil {
-		return a.ID, err
-	}
-	l.Lock()
-
-	defer func() {
-		err := l.Unlock()
-		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not release lock on player \"%s\" (err: %v)", a.Player, err))
-		}
-	}()
-
 	// Fetch the planet related to this action and use it
 	// as read write access.
-	planet, err := model.NewReadWritePlanet(a.Planet, p.data)
-	defer func() {
-		err := planet.Close()
-		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not release lock on planet \"%s\" (err: %v)", planet.ID, err))
-		}
-	}()
-
+	planet, err := game.NewPlanetFromDB(a.Planet, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch planet related to technology action (err: %v)", err))
 		return a.ID, ErrInvalidAction
@@ -244,7 +203,7 @@ func (p *ActionProxy) CreateTechnologyAction(a model.TechnologyAction) (string, 
 // be performed: if this is not the case the error is not
 // `nil`. It also indicates the identifier of the action
 // that was created.
-func (p *ActionProxy) CreateShipAction(a model.ShipAction) (string, error) {
+func (p *ActionProxy) CreateShipAction(a game.ShipAction) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if a.ID == "" {
 		a.ID = uuid.New().String()
@@ -255,30 +214,9 @@ func (p *ActionProxy) CreateShipAction(a model.ShipAction) (string, error) {
 		return a.ID, ErrInvalidAction
 	}
 
-	// Acquire the lock on the player associated to this action.
-	l, err := p.data.Locker.Acquire(a.Player)
-	if err != nil {
-		return a.ID, err
-	}
-	l.Lock()
-
-	defer func() {
-		err := l.Unlock()
-		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not release lock on player \"%s\" (err: %v)", a.Player, err))
-		}
-	}()
-
 	// Fetch the planet related to this action and use it
 	// as read write access.
-	planet, err := model.NewReadWritePlanet(a.Planet, p.data)
-	defer func() {
-		err := planet.Close()
-		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not release lock on planet \"%s\" (err: %v)", planet.ID, err))
-		}
-	}()
-
+	planet, err := game.NewPlanetFromDB(a.Planet, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch planet related to ship action (err: %v)", err))
 		return a.ID, ErrInvalidAction
@@ -332,7 +270,7 @@ func (p *ActionProxy) CreateShipAction(a model.ShipAction) (string, error) {
 // be performed: if this is not the case the error is not
 // `nil`. It also indicates the identifier of the action
 // that was created.
-func (p *ActionProxy) CreateDefenseAction(a model.DefenseAction) (string, error) {
+func (p *ActionProxy) CreateDefenseAction(a game.DefenseAction) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if a.ID == "" {
 		a.ID = uuid.New().String()
@@ -343,30 +281,9 @@ func (p *ActionProxy) CreateDefenseAction(a model.DefenseAction) (string, error)
 		return a.ID, ErrInvalidAction
 	}
 
-	// Acquire the lock on the player associated to this action.
-	l, err := p.data.Locker.Acquire(a.Player)
-	if err != nil {
-		return a.ID, err
-	}
-	l.Lock()
-
-	defer func() {
-		err := l.Unlock()
-		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not release lock on player \"%s\" (err: %v)", a.Player, err))
-		}
-	}()
-
 	// Fetch the planet related to this action and use it
 	// as read write access.
-	planet, err := model.NewReadWritePlanet(a.Planet, p.data)
-	defer func() {
-		err := planet.Close()
-		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not release lock on planet \"%s\" (err: %v)", planet.ID, err))
-		}
-	}()
-
+	planet, err := game.NewPlanetFromDB(a.Planet, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch planet related to defense action (err: %v)", err))
 		return a.ID, ErrInvalidAction

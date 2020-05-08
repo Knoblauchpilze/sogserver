@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+	"oglike_server/internal/game"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -42,7 +43,7 @@ type shipInFleetForDB struct {
 	ID          string `json:"id"`
 	FleetCompID string `json:"fleet_element"`
 
-	model.ShipInFleet
+	game.ShipInFleet
 }
 
 // resourceInFleetForDB :
@@ -74,8 +75,8 @@ type resourceInFleetForDB struct {
 // existing in the DB or was created specifically for the
 // component.
 type fleetDesc struct {
-	fleet   model.Fleet
-	target  *model.Planet
+	fleet   game.Fleet
+	target  *game.Planet
 	created bool
 }
 
@@ -138,7 +139,7 @@ func NewFleetProxy(data model.Instance, log logger.Logger) FleetProxy {
 // added to the fleet for some reasons. Returns the
 // identifier of the component that was created as
 // well.
-func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
+func (p *FleetProxy) CreateComponent(comp game.Component) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if comp.ID == "" {
 		comp.ID = uuid.New().String()
@@ -153,14 +154,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 	// Acquire the lock on the player associated to this
 	// fleet component along with the element it should
 	// start from.
-	player, err := model.NewReadWritePlayer(comp.Player, p.data)
-	defer func() {
-		err := player.Close()
-		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not release lock on player \"%s\" (err: %v)", player.ID, err))
-		}
-	}()
-
+	player, err := game.NewPlayerFromDB(comp.Player, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch player \"%s\" to create component for \"%s\" err: %v)", comp.Player, comp.Fleet, err))
 		return "", err
@@ -168,14 +162,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 
 	// Fetch the element related to this fleet and use
 	// it as read write access.
-	source, err := model.NewReadWritePlanet(comp.Source, p.data)
-	defer func() {
-		err := source.Close()
-		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not release lock on element \"%s\" (err: %v)", source.ID, err))
-		}
-	}()
-
+	source, err := game.NewPlanetFromDB(comp.Source, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not fetch element related to fleet component (err: %v)", err))
 		return "", ErrInvalidFleet
@@ -200,20 +187,6 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 	// yet have a fleet associated to it this is
 	// the moment to create it.
 	fDesc, err := p.fetchFleetForComponent(&comp, player.Universe)
-	defer func() {
-		err := fDesc.fleet.Close()
-		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not release lock on fleet \"%s\" (err: %v)", fDesc.fleet.ID, err))
-		}
-
-		if fDesc.target != nil {
-			err = fDesc.target.Close()
-			if err != nil {
-				p.trace(logger.Error, fmt.Sprintf("Could not release lock on element \"%s\" (err: %v)", fDesc.target.ID, err))
-			}
-		}
-	}()
-
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" to create component for \"%s\" (err: %v)", comp.Fleet, comp.Player, err))
 		return fDesc.fleet.ID, ErrInvalidFleet
@@ -323,7 +296,7 @@ func (p *FleetProxy) CreateComponent(comp model.Component) (string, error) {
 // with the target planet (which might be `nil` in case
 // the objective of the fleet is compatible with it) and
 // any errors.
-func (p *FleetProxy) fetchFleetForComponent(comp *model.Component, universe string) (fleetDesc, error) {
+func (p *FleetProxy) fetchFleetForComponent(comp *game.Component, universe string) (fleetDesc, error) {
 	var f fleetDesc
 	var err error
 
@@ -335,21 +308,21 @@ func (p *FleetProxy) fetchFleetForComponent(comp *model.Component, universe stri
 	// So we can try to acquire the lock on the planet as
 	// specified by the target of the component.
 	// We need first to fetch the universe of the planet.
-	uni, err := model.NewUniverseFromDB(universe, p.data)
+	uni, err := game.NewUniverseFromDB(universe, p.data)
 	if err != nil {
-		return f, model.ErrInvalidUniverse
+		return f, game.ErrInvalidUniverse
 	}
 
 	// Retrieve the target planet if needed.
 	f.target, err = uni.GetPlanetAt(comp.Target, p.data)
-	if err != nil && err != model.ErrPlanetNotFound {
+	if err != nil && err != game.ErrPlanetNotFound {
 		return f, err
 	}
 
 	// In case the component has a fleet associated to it
 	// we can fetch it through the dedicated handler.
 	if comp.Fleet != "" {
-		f.fleet, err = model.NewReadWriteFleet(comp.Fleet, p.data)
+		f.fleet, err = game.NewFleetFromDB(comp.Fleet, p.data)
 
 		if err != nil {
 			return f, err
@@ -379,7 +352,7 @@ func (p *FleetProxy) fetchFleetForComponent(comp *model.Component, universe stri
 		planetID = f.target.ID
 	}
 
-	f.fleet, err = model.NewEmptyReadWriteFleet(uuid.New().String(), p.data)
+	f.fleet, err = game.NewEmptyFleet(uuid.New().String(), p.data)
 	if err != nil {
 		return f, nil
 	}
@@ -390,7 +363,7 @@ func (p *FleetProxy) fetchFleetForComponent(comp *model.Component, universe stri
 	f.fleet.Target = comp.Target
 	f.fleet.Body = planetID
 	f.fleet.ArrivalTime = comp.ArrivalTime
-	f.fleet.Comps = []model.Component{
+	f.fleet.Comps = []game.Component{
 		*comp,
 	}
 

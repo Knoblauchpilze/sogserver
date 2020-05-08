@@ -1,7 +1,6 @@
 package model
 
 import (
-	"oglike_server/internal/locker"
 	"oglike_server/pkg/db"
 )
 
@@ -46,7 +45,6 @@ type Instance struct {
 	Defenses     *DefensesModule
 	Resources    *ResourcesModule
 	Objectives   *FleetObjectivesModule
-	Locker       *locker.ConcurrentLocker
 }
 
 // accessMode :

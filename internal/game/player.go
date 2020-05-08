@@ -1,9 +1,9 @@
-package model
+package game
 
 import (
 	"encoding/json"
 	"fmt"
-	"oglike_server/internal/locker"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 )
 
@@ -31,28 +31,12 @@ import (
 // The `Technologies` defines each technology that this
 // player has already researched with their associated
 // level.
-//
-// The `mode` defines whether the data fetched for this
-// player is meant to be read only or written at some
-// point in the future. This will indicate how long the
-// locker on this resource should be kept: either only
-// during the actual fetching of the data or as long as
-// the object exists (in which case it is necessary to
-// call the `Close` method on this element).
-//
-// The `locker` defines the object to use to prevent a
-// concurrent process to access to the resources of the
-// player. This will enforce that only a single thread
-// can perform the update of the technologies registered
-// for this player.
 type Player struct {
 	ID           string           `json:"id"`
 	Account      string           `json:"account"`
 	Universe     string           `json:"universe"`
 	Name         string           `json:"name"`
 	Technologies []TechnologyInfo `json:"technologies"`
-	mode         accessMode
-	locker       *locker.Lock
 }
 
 // TechnologyInfo :
@@ -64,7 +48,7 @@ type Player struct {
 // The `Level` defines the level reached by this
 // technology for a given player.
 type TechnologyInfo struct {
-	TechnologyDesc
+	model.TechnologyDesc
 
 	Level int `json:"level"`
 }
@@ -99,7 +83,7 @@ func (p Player) String() string {
 	return fmt.Sprintf("[id: %s, account: %s, universe: %s, name: \"%s\"]", p.ID, p.Account, p.Universe, p.Name)
 }
 
-// newPlayerFromDB :
+// NewPlayerFromDB :
 // Used to fetch the content of the player from the
 // input DB and populate all internal fields from it.
 // In case the DB cannot be fetched or some errors
@@ -117,30 +101,14 @@ func (p Player) String() string {
 //
 // Returns the player as fetched from the DB along
 // with any errors.
-func newPlayerFromDB(ID string, data Instance, mode accessMode) (Player, error) {
+func NewPlayerFromDB(ID string, data model.Instance) (Player, error) {
 	// Create the player.
 	p := Player{
-		ID:   ID,
-		mode: mode,
+		ID: ID,
 	}
-
-	// Acquire the lock on the player from the DB.
-	var err error
-	p.locker, err = data.Locker.Acquire(p.ID)
-	if err != nil {
-		return p, err
-	}
-	p.locker.Lock()
-
-	defer func() {
-		// Release the locker if needed.
-		if p.mode == ReadOnly {
-			err = p.locker.Unlock()
-		}
-	}()
 
 	// Fetch the player's data.
-	err = p.fetchGeneralInfo(data)
+	err := p.fetchGeneralInfo(data)
 	if err != nil {
 		return p, err
 	}
@@ -148,56 +116,6 @@ func newPlayerFromDB(ID string, data Instance, mode accessMode) (Player, error) 
 	err = p.fetchTechnologies(data)
 
 	return p, err
-}
-
-// NewReadOnlyPlayer :
-// Uses internally the `newPlayerFromDB` specifying
-// that the resources are only used for reading mode.
-// This allows to keep the locker to access to the
-// player's data only a very limited amount of time.
-//
-// The `ID` defines the identifier of the player to
-// fetch from the DB.
-//
-// The `data` defines a way to access to the DB.
-//
-// Returns the player fetched from the DB along with
-// any errors.
-func NewReadOnlyPlayer(ID string, data Instance) (Player, error) {
-	return newPlayerFromDB(ID, data, ReadOnly)
-}
-
-// NewReadWritePlayer :
-// Defines a player which will be used to modify some
-// of the data associated to it. It indicates that the
-// locker on the player's resources should be kept for
-// the existence of the player.
-//
-// The `ID` defines the identifier of the player to
-// fetch from the DB.
-//
-// The `data` defines a way to access to the DB.
-//
-// Returns the player fetched from the DB along with
-// any errors.
-func NewReadWritePlayer(ID string, data Instance) (Player, error) {
-	return newPlayerFromDB(ID, data, ReadWrite)
-}
-
-// Close :
-// Implementation of the `Closer` interface allowing
-// to release the lock this player may still detain
-// on the DB resources.
-func (p *Player) Close() error {
-	// Only release the locker in case the access mode
-	// indicates so.
-	var err error
-
-	if p.mode == ReadWrite && p.locker != nil {
-		err = p.locker.Unlock()
-	}
-
-	return err
 }
 
 // fetchGeneralInfo :
@@ -208,7 +126,7 @@ func (p *Player) Close() error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Player) fetchGeneralInfo(data Instance) error {
+func (p *Player) fetchGeneralInfo(data model.Instance) error {
 	// Consistency.
 	if p.ID == "" {
 		return ErrInvalidPlayer
@@ -268,7 +186,7 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Player) fetchTechnologies(data Instance) error {
+func (p *Player) fetchTechnologies(data model.Instance) error {
 	// Consistency.
 	if p.ID == "" {
 		return ErrInvalidPlayer
@@ -332,7 +250,7 @@ func (p *Player) fetchTechnologies(data Instance) error {
 			return err
 		}
 
-		desc, err := data.Technologies.getTechnologyFromID(ID)
+		desc, err := data.Technologies.GetTechnologyFromID(ID)
 		if err != nil {
 			return err
 		}
@@ -362,7 +280,7 @@ func (p *Player) GetTechnology(ID string) (TechnologyInfo, error) {
 		}
 	}
 
-	return TechnologyInfo{}, ErrInvalidID
+	return TechnologyInfo{}, model.ErrInvalidID
 }
 
 // Convert :

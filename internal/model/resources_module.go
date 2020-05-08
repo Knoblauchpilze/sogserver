@@ -304,7 +304,7 @@ func (rm *ResourcesModule) GetResourceFromID(id string) (ResourceDesc, error) {
 // with any errors.
 func (rm *ResourcesModule) GetResourceFromName(name string) (ResourceDesc, error) {
 	// Find this element in the association table.
-	id, err := rm.getIDFromName(name)
+	id, err := rm.GetIDFromName(name)
 	if err != nil {
 		rm.trace(logger.Error, fmt.Sprintf("Cannot retrieve desc for resource \"%s\" (err: %v)", name, err))
 		return ResourceDesc{}, ErrNotFound

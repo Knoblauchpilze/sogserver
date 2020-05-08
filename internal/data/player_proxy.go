@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+	"oglike_server/internal/game"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -51,7 +52,7 @@ func NewPlayerProxy(data model.Instance, log logger.Logger) PlayerProxy {
 // Returns the list of players registered in the DB and
 // matching the input list of filters. In case the error
 // is not `nil` the value of the array should be ignored.
-func (p *PlayerProxy) Players(filters []db.Filter) ([]model.Player, error) {
+func (p *PlayerProxy) Players(filters []db.Filter) ([]game.Player, error) {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
@@ -67,11 +68,11 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]model.Player, error) {
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch players (err: %v)", err))
-		return []model.Player{}, err
+		return []game.Player{}, err
 	}
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch players (err: %v)", dbRes.Err))
-		return []model.Player{}, dbRes.Err
+		return []game.Player{}, dbRes.Err
 	}
 
 	// We now need to retrieve all the identifiers that matched
@@ -91,10 +92,10 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]model.Player, error) {
 		IDs = append(IDs, ID)
 	}
 
-	players := make([]model.Player, 0)
+	players := make([]game.Player, 0)
 
 	for _, ID = range IDs {
-		pla, err := model.NewReadOnlyPlayer(ID, p.data)
+		pla, err := game.NewPlayerFromDB(ID, p.data)
 
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Unable to fetch player \"%s\" data from DB (err: %v)", ID, err))
@@ -125,7 +126,7 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]model.Player, error) {
 // be created or not (in which case an error describes
 // the failure reason). Also returns the identifier of
 // the player that was created.
-func (p *PlayerProxy) Create(player model.Player) (string, error) {
+func (p *PlayerProxy) Create(player game.Player) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if player.ID == "" {
 		player.ID = uuid.New().String()
@@ -134,7 +135,7 @@ func (p *PlayerProxy) Create(player model.Player) (string, error) {
 	// Check consistency.
 	if !player.Valid() {
 		p.trace(logger.Error, fmt.Sprintf("Failed to validate player's data %s", player))
-		return player.ID, model.ErrInvalidPlayer
+		return player.ID, game.ErrInvalidPlayer
 	}
 
 	// Create the query and execute it.

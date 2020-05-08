@@ -3,7 +3,7 @@ package data
 import (
 	"fmt"
 	"math/rand"
-	"oglike_server/internal/locker"
+	"oglike_server/internal/game"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -65,46 +65,7 @@ func NewPlanetProxy(data model.Instance, log logger.Logger) PlanetProxy {
 // Returns the list of planets registered in the DB and matching
 // the input list of filters. In case the error is not `nil` the
 // value of the array should be ignored.
-func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
-	// We need to retrieve all the identifiers that matched
-	// the input filters and then build the corresponding
-	// planet objects for each one of them.
-	// Note that we should protect the access to the players
-	// by using a locker on each player owning a planet to
-	// return. The only way we have at this step to fetch
-	// the ids of all players is through the filters. So we
-	// will traverse them and lock each player.
-	// In order to have some fail-safe mechanism we will
-	// surround this by a dedicated function.
-	locks := make([]*locker.Lock, 0)
-
-	defer func() {
-		for _, l := range locks {
-			err := l.Unlock()
-
-			if err != nil {
-				p.trace(logger.Error, fmt.Sprintf("Could not release lock on player (err: %v)", err))
-			}
-		}
-	}()
-
-	for _, filter := range filters {
-		if filter.Key == "player" {
-			for _, player := range filter.Values {
-				l, err := p.data.Locker.Acquire(player)
-
-				if err != nil {
-					p.trace(logger.Error, fmt.Sprintf("Unable to lock player \"%s\" to fetch planet (err: %v)", player, err))
-					return []model.Planet{}, err
-				}
-
-				l.Lock()
-
-				locks = append(locks, l)
-			}
-		}
-	}
-
+func (p *PlanetProxy) Planets(filters []db.Filter) ([]game.Planet, error) {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
@@ -120,11 +81,11 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch planets (err: %v)", err))
-		return []model.Planet{}, err
+		return []game.Planet{}, err
 	}
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch planets (err: %v)", dbRes.Err))
-		return []model.Planet{}, dbRes.Err
+		return []game.Planet{}, dbRes.Err
 	}
 
 	// Fetch the data for each planet.
@@ -142,12 +103,12 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
 		IDs = append(IDs, ID)
 	}
 
-	planets := make([]model.Planet, 0)
+	planets := make([]game.Planet, 0)
 
 	for _, ID = range IDs {
 		// Protect the fetching of the planet's data with a
 		// lock on the player.
-		pla, err := model.NewReadOnlyPlanet(ID, p.data)
+		pla, err := game.NewPlanetFromDB(ID, p.data)
 
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Unable to fetch planet \"%s\" data from DB (err: %v)", ID, err))
@@ -171,7 +132,7 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]model.Planet, error) {
 // to be generated.
 //
 // Returns any error.
-func (p *PlanetProxy) generateResources(planet *model.Planet) error {
+func (p *PlanetProxy) generateResources(planet *game.Planet) error {
 	// A planet always has the base amount defined in the DB.
 	resources, err := p.data.Resources.Resources(p.proxy, []db.Filter{})
 	if err != nil {
@@ -185,11 +146,11 @@ func (p *PlanetProxy) generateResources(planet *model.Planet) error {
 	// the identifier of the resources retrieved from the DB
 	// to populate the planet.
 	if planet.Resources == nil {
-		planet.Resources = make([]model.ResourceInfo, 0)
+		planet.Resources = make([]game.ResourceInfo, 0)
 	}
 
 	for _, res := range resources {
-		desc := model.ResourceInfo{
+		desc := game.ResourceInfo{
 			Resource:   res.ID,
 			Amount:     float32(res.BaseAmount),
 			Storage:    float32(res.BaseStorage),
@@ -217,15 +178,15 @@ func (p *PlanetProxy) generateResources(planet *model.Planet) error {
 // with the identifier of the planet that was created. The
 // identifier might be empty in case the planet could not be
 // created.
-func (p *PlanetProxy) CreateFor(player model.Player) (string, error) {
+func (p *PlanetProxy) CreateFor(player game.Player) (string, error) {
 	// Check consistency.
 	if !player.Valid() {
-		return "", model.ErrInvalidPlayer
+		return "", game.ErrInvalidPlayer
 	}
 
 	// First we need to fetch the universe related to the
 	// planet to create.
-	uni, err := model.NewUniverseFromDB(player.Universe, p.data)
+	uni, err := game.NewUniverseFromDB(player.Universe, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Unable to fetch universe \"%s\" to create planet (err: %v)", player.Universe, err))
 		return "", err
@@ -251,7 +212,7 @@ func (p *PlanetProxy) CreateFor(player model.Player) (string, error) {
 		// In case the insertion fails we will add the selected
 		// coordinates to the list of used one so as not to try
 		// to use it again.
-		coord := model.NewPlanetCoordinate(
+		coord := game.NewPlanetCoordinate(
 			rand.Int()%uni.GalaxiesCount,
 			rand.Int()%uni.GalaxySize,
 			rand.Int()%uni.SolarSystemSize,
@@ -266,7 +227,7 @@ func (p *PlanetProxy) CreateFor(player model.Player) (string, error) {
 				exists = false
 			} else {
 				// Pick some new coordinates.
-				coord = model.NewPlanetCoordinate(
+				coord = game.NewPlanetCoordinate(
 					rand.Int()%uni.GalaxiesCount,
 					rand.Int()%uni.GalaxySize,
 					rand.Int()%uni.SolarSystemSize,
@@ -276,7 +237,7 @@ func (p *PlanetProxy) CreateFor(player model.Player) (string, error) {
 
 		// Generate a new planet. We also need to associate
 		// some resources to it.
-		planet := model.NewPlanet(player.ID, coord, true)
+		planet := game.NewPlanet(player.ID, coord, true)
 		err := p.generateResources(planet)
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Unable to generate resources for planet at %s for \"%s\" (err: %v)", coord, player.ID, err))
@@ -321,7 +282,7 @@ func (p *PlanetProxy) CreateFor(player model.Player) (string, error) {
 // Returns an error in case the planet could not be used
 // in the DB (for example because the coordinates already
 // are used).
-func (p *PlanetProxy) createPlanet(planet *model.Planet) error {
+func (p *PlanetProxy) createPlanet(planet *game.Planet) error {
 	// Create the query and execute it.
 	query := db.InsertReq{
 		Script: "create_planet",

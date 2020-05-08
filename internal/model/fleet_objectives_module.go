@@ -109,7 +109,7 @@ func (o *Objective) MarshalJSON() ([]byte, error) {
 	return json.Marshal(oo)
 }
 
-// canBePerformedBy :
+// CanBePerformedBy :
 // Allows to determine whether the ship described by
 // the input identifier can be used to perform this
 // fleet objective.
@@ -122,7 +122,7 @@ func (o *Objective) MarshalJSON() ([]byte, error) {
 //
 // Returns `true` if the ship can be used to serve
 // this objective.
-func (o *Objective) canBePerformedBy(ship string) bool {
+func (o *Objective) CanBePerformedBy(ship string) bool {
 	// In case the `ship` does not exist in the table
 	// for this objective we will get a default value
 	// of `false`: this suits our conservative view
@@ -426,7 +426,7 @@ func (fom *FleetObjectivesModule) GetObjectiveFromID(id string) (Objective, erro
 // with any errors.
 func (fom *FleetObjectivesModule) GetObjectiveFromName(name string) (Objective, error) {
 	// Find this element in the association table.
-	id, err := fom.getIDFromName(name)
+	id, err := fom.GetIDFromName(name)
 	if err != nil {
 		fom.trace(logger.Error, fmt.Sprintf("Cannot retrieve desc for objective \"%s\" (err: %v)", name, err))
 		return Objective{}, ErrNotFound

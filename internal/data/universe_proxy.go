@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+	"oglike_server/internal/game"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -48,7 +49,7 @@ func NewUniverseProxy(data model.Instance, log logger.Logger) UniverseProxy {
 // Returns the list of universes registered in the DB and
 // matching the input list of filters. In case the error
 // is not `nil` the value of the array should be ignored.
-func (p *UniverseProxy) Universes(filters []db.Filter) ([]model.Universe, error) {
+func (p *UniverseProxy) Universes(filters []db.Filter) ([]game.Universe, error) {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
@@ -64,11 +65,11 @@ func (p *UniverseProxy) Universes(filters []db.Filter) ([]model.Universe, error)
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch universes (err: %v)", err))
-		return []model.Universe{}, err
+		return []game.Universe{}, err
 	}
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch universes (err: %v)", dbRes.Err))
-		return []model.Universe{}, dbRes.Err
+		return []game.Universe{}, dbRes.Err
 	}
 
 	// We now need to retrieve all the identifiers that matched
@@ -88,10 +89,10 @@ func (p *UniverseProxy) Universes(filters []db.Filter) ([]model.Universe, error)
 		IDs = append(IDs, ID)
 	}
 
-	universes := make([]model.Universe, 0)
+	universes := make([]game.Universe, 0)
 
 	for _, ID = range IDs {
-		uni, err := model.NewUniverseFromDB(ID, p.data)
+		uni, err := game.NewUniverseFromDB(ID, p.data)
 
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Unable to fetch universe \"%s\" data from DB (err: %v)", ID, err))
@@ -118,7 +119,7 @@ func (p *UniverseProxy) Universes(filters []db.Filter) ([]model.Universe, error)
 // `nil`. It also returns the identifier of the universe
 // that was created: this is helpful in case there is no
 // input identifier provided.
-func (p *UniverseProxy) Create(uni model.Universe) (string, error) {
+func (p *UniverseProxy) Create(uni game.Universe) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if uni.ID == "" {
 		uni.ID = uuid.New().String()
@@ -127,7 +128,7 @@ func (p *UniverseProxy) Create(uni model.Universe) (string, error) {
 	// Check consistency.
 	if !uni.Valid() {
 		p.trace(logger.Error, fmt.Sprintf("Failed to validate universe's data %s", uni))
-		return uni.ID, model.ErrInvalidUniverse
+		return uni.ID, game.ErrInvalidUniverse
 	}
 
 	// Create the query and execute it.

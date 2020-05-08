@@ -685,7 +685,7 @@ func (sm *ShipsModule) Ships(proxy db.Proxy, filters []db.Filter) ([]ShipDesc, e
 	// Now build the data from the fetched identifiers.
 	descs := make([]ShipDesc, 0)
 	for _, ID := range IDs {
-		desc, err := sm.getShipFromID(ID)
+		desc, err := sm.GetShipFromID(ID)
 
 		if err != nil {
 			sm.trace(logger.Error, fmt.Sprintf("Unable to fetch ship \"%s\" (err: %v)", ID, err))
@@ -698,7 +698,7 @@ func (sm *ShipsModule) Ships(proxy db.Proxy, filters []db.Filter) ([]ShipDesc, e
 	return descs, nil
 }
 
-// getShipFromID :
+// GetShipFromID :
 // Used to retrieve a single ship by its identifier. It is
 // similar to calling the `Ships` method but is a bit faster
 // as we don't request the DB at all.
@@ -707,7 +707,7 @@ func (sm *ShipsModule) Ships(proxy db.Proxy, filters []db.Filter) ([]ShipDesc, e
 //
 // Returns the description of the ship corresponding to
 // the input identifier along with any error.
-func (sm *ShipsModule) getShipFromID(ID string) (ShipDesc, error) {
+func (sm *ShipsModule) GetShipFromID(ID string) (ShipDesc, error) {
 	// Attempt to retrieve the ships from its identifier.
 	upgradable, err := sm.getDependencyFromID(ID)
 

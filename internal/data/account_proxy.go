@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+	"oglike_server/internal/game"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -48,7 +49,7 @@ func NewAccountProxy(data model.Instance, log logger.Logger) AccountProxy {
 // Returns the list of accounts registered in the DB and
 // matching the input list of filters. In case the error
 // is not `nil` the value of the array should be ignored.
-func (p *AccountProxy) Accounts(filters []db.Filter) ([]model.Account, error) {
+func (p *AccountProxy) Accounts(filters []db.Filter) ([]game.Account, error) {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
@@ -64,11 +65,11 @@ func (p *AccountProxy) Accounts(filters []db.Filter) ([]model.Account, error) {
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch accounts (err: %v)", err))
-		return []model.Account{}, err
+		return []game.Account{}, err
 	}
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch accounts (err: %v)", dbRes.Err))
-		return []model.Account{}, dbRes.Err
+		return []game.Account{}, dbRes.Err
 	}
 
 	// We now need to retrieve all the identifiers that matched
@@ -88,10 +89,10 @@ func (p *AccountProxy) Accounts(filters []db.Filter) ([]model.Account, error) {
 		IDs = append(IDs, ID)
 	}
 
-	accounts := make([]model.Account, 0)
+	accounts := make([]game.Account, 0)
 
 	for _, ID = range IDs {
-		acc, err := model.NewAccountFromDB(ID, p.data)
+		acc, err := game.NewAccountFromDB(ID, p.data)
 
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Unable to fetch account \"%s\" data from DB (err: %v)", ID, err))
@@ -118,7 +119,7 @@ func (p *AccountProxy) Accounts(filters []db.Filter) ([]model.Account, error) {
 // generated value otherwise it corresponds to the input
 // string) and whether the creation could be performed:
 // if this is not the case the error is not `nil`.
-func (p *AccountProxy) Create(acc model.Account) (string, error) {
+func (p *AccountProxy) Create(acc game.Account) (string, error) {
 	// Assign a valid identifier if this is not already the case.
 	if acc.ID == "" {
 		acc.ID = uuid.New().String()
@@ -127,7 +128,7 @@ func (p *AccountProxy) Create(acc model.Account) (string, error) {
 	// Check consistency.
 	if !acc.Valid() {
 		p.trace(logger.Error, fmt.Sprintf("Failed to validate account's data %s", acc))
-		return acc.ID, model.ErrInvalidAccount
+		return acc.ID, game.ErrInvalidAccount
 	}
 
 	// Create the query and execute it.

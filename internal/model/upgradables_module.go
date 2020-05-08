@@ -347,7 +347,7 @@ func (um *upgradablesModule) getDependencyFromID(id string) (UpgradableDesc, err
 // any errors.
 func (um *upgradablesModule) getDependencyFromName(name string) (UpgradableDesc, error) {
 	// Find this element in the association table.
-	id, err := um.getIDFromName(name)
+	id, err := um.GetIDFromName(name)
 	if err != nil {
 		return UpgradableDesc{}, ErrNotFound
 	}

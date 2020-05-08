@@ -3,7 +3,7 @@ package routes
 import (
 	"encoding/json"
 	"net/http"
-	"oglike_server/internal/model"
+	"oglike_server/internal/game"
 	"oglike_server/pkg/db"
 )
 
@@ -49,7 +49,7 @@ func (s *Server) createPlayer() http.HandlerFunc {
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and
 			// create players from it.
-			var player model.Player
+			var player game.Player
 			resources := make([]string, 0)
 
 			// Prevent request with no data.

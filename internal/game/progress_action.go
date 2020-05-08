@@ -41,6 +41,9 @@ var ErrInvalidLevelForAction = fmt.Errorf("Invalid level provided for action")
 // what's available in the verification data.
 var ErrLevelIncorrect = fmt.Errorf("Invalid level compared to planet for action")
 
+// ErrOnlyOneActionAuthorized : Indicates that another action of the same kind is already running.
+var ErrOnlyOneActionAuthorized = fmt.Errorf("Only a single action of that kind allowed")
+
 // valid :
 // Determines whether this action is valid. By valid we
 // only mean obvious syntax errors.

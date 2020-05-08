@@ -91,8 +91,24 @@ func (a *DefenseAction) SaveToDB(proxy db.Proxy) error {
 
 	// Analyze the error in order to provide some
 	// comprehensive message.
-	// TODO: Handle this.
-	return err
+	dbe, ok := err.(db.Error)
+	if !ok {
+		return err
+	}
+
+	fkve, ok := dbe.Err.(db.ForeignKeyViolationError)
+	if ok {
+		switch fkve.ForeignKey {
+		case "planet":
+			return ErrNonExistingPlanet
+		case "element":
+			return ErrNonExistingElement
+		}
+
+		return fkve
+	}
+
+	return dbe
 }
 
 // consolidateCompletionTime :

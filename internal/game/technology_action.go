@@ -111,8 +111,36 @@ func (a *TechnologyAction) SaveToDB(proxy db.Proxy) error {
 
 	// Analyze the error in order to provide some
 	// comprehensive message.
-	// TODO: Handle this.
-	return err
+	dbe, ok := err.(db.Error)
+	if !ok {
+		return err
+	}
+
+	dee, ok := dbe.Err.(db.DuplicatedElementError)
+	if ok {
+		switch dee.Constraint {
+		case "construction_actions_technologies_player_key":
+			return ErrOnlyOneActionAuthorized
+		}
+
+		return dee
+	}
+
+	fkve, ok := dbe.Err.(db.ForeignKeyViolationError)
+	if ok {
+		switch fkve.ForeignKey {
+		case "planet":
+			return ErrNonExistingPlanet
+		case "element":
+			return ErrNonExistingElement
+		case "player":
+			return ErrNonExistingPlayer
+		}
+
+		return fkve
+	}
+
+	return dbe
 }
 
 // consolidateCompletionTime :

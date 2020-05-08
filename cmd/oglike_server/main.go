@@ -37,10 +37,6 @@ import (
 // planets of the fleets (which is available in the fleet component which is
 // retrieved (or could be) with the planet and get the result of the fleet
 // this way.
-// TODO: Refine error messages to include some sort of description of
-// the error like `ErrActionAlreadyStarted` or something similar.
-// TODO: Maybe add some params in the payload of the query to indicate what
-// kind of info should be marshalled and provided.
 // TODO: Regarding the lock system. What we do for accounts and universes
 // is very interesting because it means that we can fetch info in an atomic
 // way where the data is fetched once and for all so that we don't have to
@@ -138,10 +134,6 @@ import (
 // process that we want, and then release it. It would be very
 // close to actually locking completely the server for every
 // request but on the other hand it might be the simplest option.
-// TODO: We could maybe create a new package called `game` which
-// would contain anything that is not directly related to the
-// data model (like anything above the buildings/technologies
-// complexity probably).
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

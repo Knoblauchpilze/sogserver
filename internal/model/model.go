@@ -1,7 +1,9 @@
 package model
 
 import (
+	"fmt"
 	"oglike_server/pkg/db"
+	"oglike_server/pkg/logger"
 )
 
 // Instance :
@@ -31,12 +33,8 @@ import (
 // The `Objectives` defines the module to access to all
 // the fleet objectives defined in the game.
 //
-// The `Locker` defines an object to use to protect
-// resources of the DB from concurrent accesses. It
-// is used to guarantee that a single process is able
-// for example to update the information of a planet
-// at any time. It helps preventing data races when
-// performing actions on shared elements of the game.
+// The `waiter` allows to lock this instance which will
+// prevent any unauthorized use of the DB.
 type Instance struct {
 	Proxy        db.Proxy
 	Buildings    *BuildingsModule
@@ -45,6 +43,85 @@ type Instance struct {
 	Defenses     *DefensesModule
 	Resources    *ResourcesModule
 	Objectives   *FleetObjectivesModule
+
+	log    logger.Logger
+	waiter *locker
+}
+
+// locker :
+// Defines a common locker that can be used to protect
+// from concurrent accesses in a single-user fashion.
+type locker struct {
+	waiter chan struct{}
+}
+
+// newLocker :
+// Performs the creation of a new locker with a status
+// set to unlocked.
+//
+// Returns the created locker.
+func newLocker() *locker {
+	l := locker{
+		make(chan struct{}, 1),
+	}
+
+	l.waiter <- struct{}{}
+
+	return &l
+}
+
+// lock :
+// Used to perform the lock of the resource managed
+// by this element.
+func (l *locker) lock() {
+	<-l.waiter
+}
+
+// unlock :
+// Used to release the resource managed by this lock.
+func (l *locker) unlock() {
+	l.waiter <- struct{}{}
+}
+
+// NewInstance :
+// Used to create a default instance of a data model
+// with a valid waiter object. Nothing else is set
+// to a meaningful value.
+//
+// The `proxy` represents the DB object to use for
+// this instance.
+//
+// The `log` defines a way to notify information
+// and errors if needed.
+//
+// Returns the created instance.
+func NewInstance(proxy db.Proxy, log logger.Logger) Instance {
+	i := Instance{
+		Proxy: proxy,
+
+		log:    log,
+		waiter: newLocker(),
+	}
+
+	return i
+}
+
+// Lock :
+// Used to acquire the lock on this object. This
+// method will block until the lock is acquired.
+func (i Instance) Lock() {
+	i.log.Trace(logger.Verbose, "lock", fmt.Sprintf("Acquiring lock on DB"))
+	i.waiter.lock()
+	i.log.Trace(logger.Verbose, "lock", fmt.Sprintf("Acquired lock on DB"))
+}
+
+// Unlock :
+// Used to release the lock previously acquired
+// on this object.
+func (i Instance) Unlock() {
+	i.log.Trace(logger.Verbose, "lock", fmt.Sprintf("Releasing lock on DB"))
+	i.waiter.unlock()
+	i.log.Trace(logger.Verbose, "lock", fmt.Sprintf("Released lock on DB"))
 }
 
 // UpdateResourcesForPlanet :

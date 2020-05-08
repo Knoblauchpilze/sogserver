@@ -43,7 +43,7 @@ func (s *Server) createFleetComponent() http.HandlerFunc {
 	ed := NewCreateResourceEndpoint("players")
 
 	// Configure the endpoint.
-	ed.WithDataKey("fleet-data").WithoutPrefix().WithModule("fleets")
+	ed.WithDataKey("fleet-data").WithoutPrefix().WithModule("fleets").WithLocker(s.og)
 	ed.WithCreationFunc(
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and

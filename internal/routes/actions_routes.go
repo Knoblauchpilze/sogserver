@@ -43,7 +43,7 @@ func (s *Server) registerUpgradeAction(f registerFunc) http.HandlerFunc {
 	ed := NewCreateResourceEndpoint("players")
 
 	// Configure the endpoint.
-	ed.WithDataKey("action-data").WithModule("actions")
+	ed.WithDataKey("action-data").WithModule("actions").WithLocker(s.og)
 	ed.WithCreationFunc(
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and

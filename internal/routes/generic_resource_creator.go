@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/logger"
 )
 
@@ -59,12 +60,19 @@ type CreationFunc func(data RouteData) ([]string, error)
 // that the default value is `true`. One can disable this
 // behavior by using the `WithoutPrefix` method. Note however
 // that a '/' prefix is still added.
+//
+// The `lock` allows to define whether a locker should be
+// applied when creating data into the DB. This lock will
+// be automatically acquired before passing on the request
+// to the `creator` function and release afterwards. If it
+// is set to `nil` (default behavior) no lock is acquired.
 type CreateResourceEndpoint struct {
 	route     string
 	key       string
 	creator   CreationFunc
 	module    string
 	prefixRes bool
+	lock      *model.Instance
 }
 
 // ErrNoData :
@@ -131,6 +139,18 @@ func (cre *CreateResourceEndpoint) WithModule(module string) *CreateResourceEndp
 	return cre
 }
 
+// WithLocker :
+// Assigns a new locker element to use when fetching data.
+//
+// The `locker` defines the element to acquire before a
+// request on DB data can be served.
+//
+// Returns this endpoint to allow chain calling.
+func (cre *CreateResourceEndpoint) WithLocker(i model.Instance) *CreateResourceEndpoint {
+	cre.lock = &i
+	return cre
+}
+
 // WithoutPrefix :
 // Used to define that the resources' paths created by the
 // `creator` function should not be prefixed with the name
@@ -168,7 +188,17 @@ func (cre *CreateResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFun
 			panic(err)
 		}
 
-		resNames, err := cre.creator(data)
+		var resNames []string
+
+		func() {
+			if cre.lock != nil {
+				cre.lock.Lock()
+				defer cre.lock.Unlock()
+			}
+
+			resNames, err = cre.creator(data)
+		}()
+
 		if err != nil {
 			log.Trace(logger.Error, cre.module, fmt.Sprintf("Could not create resource from route \"%s\" (err: %v)", cre.route, err))
 

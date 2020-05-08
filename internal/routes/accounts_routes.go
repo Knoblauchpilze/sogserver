@@ -23,7 +23,7 @@ func (s *Server) listAccounts() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("accounts")
+	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("accounts").WithLocker(s.og)
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
 			return s.accounts.Accounts(filters)
@@ -43,7 +43,7 @@ func (s *Server) createAccount() http.HandlerFunc {
 	ed := NewCreateResourceEndpoint("accounts")
 
 	// Configure the endpoint.
-	ed.WithDataKey("account-data").WithModule("accounts")
+	ed.WithDataKey("account-data").WithModule("accounts").WithLocker(s.og)
 	ed.WithCreationFunc(
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and

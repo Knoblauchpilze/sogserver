@@ -22,7 +22,7 @@ func (s *Server) listUniverses() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("universes")
+	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("universes").WithLocker(s.og)
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
 			return s.universes.Universes(filters)
@@ -42,7 +42,7 @@ func (s *Server) createUniverse() http.HandlerFunc {
 	ed := NewCreateResourceEndpoint("universes")
 
 	// Configure the endpoint.
-	ed.WithDataKey("universe-data").WithModule("universes")
+	ed.WithDataKey("universe-data").WithModule("universes").WithLocker(s.og)
 	ed.WithCreationFunc(
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and

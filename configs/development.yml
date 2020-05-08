@@ -15,7 +15,7 @@ Logger:
   Name: "oglike"
   Environment: "dev"
   ForceLocal: true
-  Level: "debug"
+  Level: "verbose"
 # Concurrent lock for upgrade actions
 Concurrent:
   LockCount : 4

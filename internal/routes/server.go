@@ -144,15 +144,14 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 	}
 
 	// Create the data model from it.
-	ogDataModel := model.Instance{
-		Proxy:        proxy,
-		Buildings:    bm,
-		Technologies: tm,
-		Ships:        sm,
-		Defenses:     dm,
-		Resources:    rm,
-		Objectives:   om,
-	}
+	ogDataModel := model.NewInstance(proxy, log)
+
+	ogDataModel.Buildings = bm
+	ogDataModel.Technologies = tm
+	ogDataModel.Ships = sm
+	ogDataModel.Defenses = dm
+	ogDataModel.Resources = rm
+	ogDataModel.Objectives = om
 
 	// Create proxies on composite types.
 	up := data.NewUniverseProxy(ogDataModel, log)

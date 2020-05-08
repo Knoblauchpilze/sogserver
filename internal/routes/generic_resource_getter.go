@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"oglike_server/internal/game"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 	"strings"
@@ -76,6 +77,12 @@ type DataFunc func(filters []db.Filter) (interface{}, error)
 // This string should be unique across the application and is
 // used as a mean to easily distinguish between the different
 // services composing the server.
+//
+// The `lock` allows to define whether a locker should be
+// applied when fetching data from the DB. This lock will
+// be automatically acquired before passing on the request
+// to the `fetcher` function and release afterwards. If it
+// is set to `nil` (default behavior) no lock is acquired.
 type GetResourceEndpoint struct {
 	route     string
 	fetcher   DataFunc
@@ -83,6 +90,7 @@ type GetResourceEndpoint struct {
 	idFilter  string
 	resFilter string
 	module    string
+	lock      *model.Instance
 }
 
 // ErrMarshallingError :
@@ -188,6 +196,18 @@ func (gre *GetResourceEndpoint) WithModule(module string) *GetResourceEndpoint {
 	return gre
 }
 
+// WithLocker :
+// Assigns a new locker element to use when fetching data.
+//
+// The `locker` defines the element to acquire before a
+// request on DB data can be served.
+//
+// Returns this endpoint to allow chain calling.
+func (gre *GetResourceEndpoint) WithLocker(i model.Instance) *GetResourceEndpoint {
+	gre.lock = &i
+	return gre
+}
+
 // ServeRoute :
 // Returns a handler using this endpoint description to be
 // able to serve requests given the data present in this
@@ -222,7 +242,17 @@ func (gre *GetResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFunc {
 			return
 		}
 
-		data, err := gre.fetcher(filters)
+		var data interface{}
+
+		func() {
+			if gre.lock != nil {
+				gre.lock.Lock()
+				defer gre.lock.Unlock()
+			}
+
+			data, err = gre.fetcher(filters)
+		}()
+
 		if err != nil {
 			log.Trace(logger.Error, gre.module, fmt.Sprintf("Unexpected error while fetching data for route \"%s\" (err: %v)", gre.route, err))
 
@@ -232,8 +262,6 @@ func (gre *GetResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFunc {
 			} else {
 				http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
 			}
-
-			return
 		}
 
 		// Marshal the content of the data.

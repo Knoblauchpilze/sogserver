@@ -24,7 +24,7 @@ func (s *Server) listPlayers() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("players")
+	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("players").WithLocker(s.og)
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
 			return s.players.Players(filters)
@@ -44,7 +44,7 @@ func (s *Server) createPlayer() http.HandlerFunc {
 	ed := NewCreateResourceEndpoint("players")
 
 	// Configure the endpoint.
-	ed.WithDataKey("player-data").WithModule("players")
+	ed.WithDataKey("player-data").WithModule("players").WithLocker(s.og)
 	ed.WithCreationFunc(
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and

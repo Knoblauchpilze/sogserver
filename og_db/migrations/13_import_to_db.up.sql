@@ -302,27 +302,22 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
--- Import fleets in the relevant table.
-CREATE OR REPLACE FUNCTION create_fleet(inputs json) RETURNS VOID AS $$
-BEGIN
-  INSERT INTO fleets
-    SELECT *
-    FROM json_populate_record(null::fleets, inputs);
-END
-$$ LANGUAGE plpgsql;
-
 -- Import fleet components in the relevant table.
-CREATE OR REPLACE FUNCTION create_fleet_component(component json, ships json, resources json, consumption json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_fleet(fleet json, ships json, resources json, consumption json) RETURNS VOID AS $$
 BEGIN
-  -- Make sure that the type for this component is valid.
-  IF component->>'source_type' != 'planet' AND component->>'source_type' != 'moon' THEN
-    RAISE EXCEPTION 'Invalid kind % specified for fleet component', component->>'source_type';
+  -- Make sure that the target and source type for this fleet are valid.
+  IF fleet->>'target_type' != 'planet' AND fleet->>'target_type' != 'moon' THEN
+    RAISE EXCEPTION 'Invalid kind % specified for target of fleet', fleet->>'target_type';
+  END IF;
+
+  IF fleet->>'source_type' != 'planet' AND fleet->>'source_type' != 'moon' THEN
+    RAISE EXCEPTION 'Invalid kind % specified for source of fleet', fleet->>'source_type';
   END IF;
 
   -- Insert the fleet element.
-  INSERT INTO fleet_elements
+  INSERT INTO fleets
     SELECT *
-    FROM json_populate_record(null::fleet_elements, component);
+    FROM json_populate_record(null::fleets, fleet);
 
   -- Insert the ships for this fleet element.
   INSERT INTO fleet_ships
@@ -336,11 +331,11 @@ BEGIN
 
   -- Reduce the planet's resources from the amount of the fuel.
   -- Note that depending on the starting location of the fleet
-  -- component we might have to subtract from the planet or the
-  -- moon associated to the component.
+  -- we might have to subtract from the planet or the moon that
+  -- is associated to it.
   -- This can be checked using the `source_type` field in the
-  -- input `component` element.
-  IF (component->>'source_type') = 'planet' THEN
+  -- input `fleet` element.
+  IF (fleet->>'source_type') = 'planet' THEN
     WITH cc AS (
       SELECT
         t.resource,
@@ -353,7 +348,7 @@ BEGIN
     FROM
       cc
     WHERE
-      planet = (component->>'source')::uuid
+      planet = (fleet->>'source')::uuid
       AND res = cc.resource;
 
     -- Reduce the planet's resources from the amount that will be moved.
@@ -369,7 +364,7 @@ BEGIN
     FROM
       cr
     WHERE
-      planet = (component->>'source')::uuid
+      planet = (fleet->>'source')::uuid
       AND res = cr.resource;
 
     -- Reduce the planet's available ships from the ones that will be launched.
@@ -385,11 +380,11 @@ BEGIN
     FROM
       cs
     WHERE
-      planet = (component->>'source')::uuid
+      planet = (fleet->>'source')::uuid
       AND ship = cs.vessel;
   END IF;
 
-  IF (component->>'source_type') = 'moon' THEN
+  IF (fleet->>'source_type') = 'moon' THEN
     WITH cc AS (
       SELECT
         t.resource,
@@ -402,7 +397,7 @@ BEGIN
     FROM
       cc
     WHERE
-      moon = (component->>'source')::uuid
+      moon = (fleet->>'source')::uuid
       AND res = cc.resource;
 
     -- Reduce the planet's resources from the amount that will be moved.
@@ -418,7 +413,7 @@ BEGIN
     FROM
       cr
     WHERE
-      moon = (component->>'source')::uuid
+      moon = (fleet->>'source')::uuid
       AND res = cr.resource;
 
     -- Reduce the planet's available ships from the ones that will be launched.
@@ -434,7 +429,7 @@ BEGIN
     FROM
       cs
     WHERE
-      moon = (component->>'source')::uuid
+      moon = (fleet->>'source')::uuid
       AND ship = cs.vessel;
   END IF;
 END
@@ -879,8 +874,7 @@ BEGIN
       SET amount = pr.amount + fr.amount
     FROM
       fleet_resources fr
-      INNER JOIN fleet_elements fe ON fr.fleet_element = fe.id
-      INNER JOIN fleets f ON fe.fleet = f.id
+      INNER JOIN fleets f ON fr.fleet = f.id
     WHERE
       f.id = fleet_id
       AND pr.res = fr.resource
@@ -890,11 +884,9 @@ BEGIN
     DELETE FROM
       fleet_resources AS fr
       USING
-        fleet_elements AS fe,
         fleets AS f
     WHERE
-      fr.fleet_element = fe.id
-      AND fe.fleet = f.id
+      fr.fleet = f.id
       AND f.id = fleet_id;
   END IF;
 
@@ -903,8 +895,7 @@ BEGIN
       SET amount = mr.amount + fr.amount
     FROM
       fleet_resources fr
-      INNER JOIN fleet_elements fe ON fr.fleet_element = fe.id
-      INNER JOIN fleets f ON fe.fleet = f.id
+      INNER JOIN fleets f ON fr.fleet = f.id
     WHERE
       f.id = fleet_id
       AND mr.res = fr.resource
@@ -914,11 +905,9 @@ BEGIN
     DELETE FROM
       fleet_resources AS fr
       USING
-        fleet_elements AS fe,
         fleets AS f
     WHERE
-      fr.fleet_element = fe.id
-      AND fe.fleet = f.id
+      fr.fleet_element = f.id
       AND f.id = fleet_id;
   END IF;
 
@@ -972,8 +961,7 @@ BEGIN
       SET count = ps.count + fs.count
     FROM
       fleet_ships fs
-      INNER JOIN fleet_elements fe ON fs.fleet_element = fe.id
-      INNER JOIN fleets f ON fe.fleet = f.id
+      INNER JOIN fleets f ON fs.fleet = f.id
     WHERE
       f.id = fleet_id
       AND ps.ship = fs.ship
@@ -985,35 +973,42 @@ BEGIN
       SET count = ms.count + fs.count
     FROM
       fleet_ships fs
-      INNER JOIN fleet_elements fe ON fs.fleet_element = fe.id
-      INNER JOIN fleets f ON fe.fleet = f.id
+      INNER JOIN fleets f ON fs.fleet = f.id
     WHERE
       f.id = fleet_id
       AND ms.ship = fs.ship
       AND ms.moon = target_id;
   END IF;
 
-  -- Remove the ships associated to the components
-  -- of this fleet.
+  -- Remove the ships associated to this fleet.
   DELETE FROM
     fleet_ships AS fs
     USING
-      fleet_elements AS fe,
       fleets AS f
   WHERE
-    fs.fleet_element = fe.id
-    AND fe.fleet = f.id
+    fs.fleet = f.id
     AND f.id = fleet_id;
 
-  -- We will also need to remove the components as
-  -- they're not relevant anymore.
+  -- Remove this fleet from any ACS operation.
   DELETE FROM
-    fleet_elements AS fe
-    USING
-      fleets AS f
+    fleets_acs_components
   WHERE
-    fe.fleet = f.id
-    AND f.id = fleet_id;
+    fleet = fleet_id;
+
+  -- Remove empty ACS operation.
+  DELETE FROM
+    fleets_acs
+  WHERE
+    id NOT IN (
+      SELECT
+        acs
+      FROM
+        fleets_acs_components
+      GROUP BY
+        acs
+      HAVING
+        count(*) > 0
+    );
 
   -- And finally remove the fleet which is now as
   -- empty as my bank account.

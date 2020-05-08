@@ -26,11 +26,8 @@ DROP FUNCTION update_building_upgrade_action(target_id uuid, kind text);
 -- Drop the function to update resources on a given planet.
 DROP FUNCTION update_resources_for_planet(planet_id uuid);
 
--- Drop the fleet components import function.
-DROP FUNCTION create_fleet_component(component json, ships json, resources json, consumption json);
-
 -- Drop the fleet import function.
-DROP FUNCTION create_fleet(inputs json);
+DROP FUNCTION create_fleet(fleet json, ships json, resources json, consumption json);
 
 -- Drop the defense upgrade insertion script.
 DROP FUNCTION create_defense_upgrade_action(upgrade json, costs json, kind text);

@@ -12,58 +12,69 @@ CREATE TABLE fleet_objectives (
 -- Create the table defining fleets.
 CREATE TABLE fleets (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  name text,
   uni uuid NOT NULL,
   objective uuid NOT NULL,
+  player uuid NOT NULL,
+  source uuid NOT NULL,
+  source_type text NOT NULL,
   target_galaxy integer NOT NULL,
   target_solar_system integer NOT NULL,
   target_position integer NOT NULL,
   target uuid,
   target_type text NOT NULL,
+  speed numeric(3, 2) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   arrival_time TIMESTAMP WITH TIME ZONE NOT NULL,
   PRIMARY KEY (id),
   FOREIGN KEY (uni) REFERENCES universes(id),
   FOREIGN KEY (objective) REFERENCES fleet_objectives(id),
-  UNIQUE (uni, name)
+  FOREIGN KEY (player) REFERENCES players(id)
 );
 
 -- Create the trigger on the table to update the `created_at` field.
 CREATE TRIGGER update_fleets_creation BEFORE INSERT ON fleets FOR EACH ROW EXECUTE PROCEDURE update_created_at();
 
--- Create the table grouping fleet elements with each other.
-CREATE TABLE fleet_elements (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  fleet uuid NOT NULL,
-  player uuid NOT NULL,
-  source uuid NOT NULL,
-  source_type text NOT NULL,
-  speed numeric(3, 2) NOT NULL,
-  joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  return_time TIMESTAMP WITH TIME ZONE NOT NULL,
-  PRIMARY KEY (id),
-  FOREIGN KEY (fleet) REFERENCES fleets(id)
-);
-
 -- Create the table for vessels belonging to a fleet.
 CREATE TABLE fleet_ships (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  fleet_element uuid NOT NULL,
+  fleet uuid NOT NULL,
   ship uuid NOT NULL,
   count integer NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
-  FOREIGN KEY (fleet_element) REFERENCES fleet_elements(id),
+  FOREIGN KEY (fleet) REFERENCES fleets(id),
   FOREIGN KEY (ship) REFERENCES ships(id),
-  UNIQUE (fleet_element, ship)
+  UNIQUE (fleet, ship)
 );
 
 -- Create the table for resources transported by each fleet element.
 CREATE TABLE fleet_resources (
-  fleet_element uuid NOT NULL,
+  fleet uuid NOT NULL,
   resource uuid NOT NULL,
   amount numeric(15, 5) NOT NULL,
-  FOREIGN KEY (fleet_element) REFERENCES fleet_elements(id),
+  FOREIGN KEY (fleet) REFERENCES fleets(id),
   FOREIGN KEY (resource) REFERENCES resources(id)
+);
+
+-- Create the table defining the ACS operations.
+CREATE TABLE fleets_acs (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  universe uuid NOT NULL,
+  name text NOT NULL,
+  objective uuid NOT NULL,
+  target uuid NOT NULL,
+  target_type text NOT NULL,
+  PRIMARY KEY (id),
+  FOREIGN KEY (universe) REFERENCES universes(id),
+  FOREIGN KEY (objective) REFERENCES fleet_objectives(id),
+  UNIQUE (universe, name)
+);
+
+-- Create the table registering the participants to an ACS operation.
+CREATE TABLE fleets_acs_components (
+  acs uuid NOT NULL,
+  fleet uuid NOT NULL,
+  FOREIGN KEY (acs) REFERENCES fleets_acs(id),
+  FOREIGN KEY (fleet) REFERENCES fleets(id)
 );
 
 -- Create the table indicating which ship can be used for which missions.

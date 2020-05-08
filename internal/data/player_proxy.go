@@ -133,8 +133,6 @@ func (p *PlayerProxy) Create(player game.Player) (string, error) {
 		player.ID = uuid.New().String()
 	}
 
-	fmt.Println(fmt.Sprintf("Id for %s is %s", player.Name, player.ID))
-
 	err := player.SaveToDB(p.data.Proxy)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not create player \"%s\" (err: %v)", player.Name, err))

@@ -99,12 +99,12 @@ var ErrGalaxySize = fmt.Errorf("Galaxy size is not within admissible range")
 // ErrSolarSystemSize : The size of a solar system is not within admissible range.
 var ErrSolarSystemSize = fmt.Errorf("Solar system size is not within admissible range")
 
-// Valid :
+// valid :
 // Determines whether the universe is valid. By valid we only
 // mean obvious syntax errors.
 //
 // Returns any error or `nil` if the universe seems valid.
-func (u *Universe) Valid() error {
+func (u *Universe) valid() error {
 	if !validUUID(u.ID) {
 		return ErrInvalidElementID
 	}
@@ -239,9 +239,8 @@ func NewUniverseFromDB(ID string, data model.Instance) (Universe, error) {
 //
 // Returns any error.
 func (u *Universe) SaveToDB(proxy db.Proxy) error {
-
 	// Check consistency.
-	if err := u.Valid(); err != nil {
+	if err := u.valid(); err != nil {
 		return err
 	}
 
@@ -253,7 +252,7 @@ func (u *Universe) SaveToDB(proxy db.Proxy) error {
 
 	err := proxy.InsertToDB(query)
 
-	// Analyze the error in order to  provide some
+	// Analyze the error in order to provide some
 	// comprehensive message.
 	dbe, ok := err.(db.Error)
 	if !ok {

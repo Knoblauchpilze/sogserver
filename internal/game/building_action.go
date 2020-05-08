@@ -68,12 +68,12 @@ type StorageEffect struct {
 // ErrNoFieldsLeft : Indicates that there are not fields left to perform the action.
 var ErrNoFieldsLeft = fmt.Errorf("No remaining fields left for action")
 
-// Valid :
+// valid :
 // Determines whether this action is valid. By valid we
 // only mean obvious syntax errors.
 //
 // Returns any error or `nil` if the action seems valid.
-func (a *BuildingAction) Valid() error {
+func (a *BuildingAction) valid() error {
 	if err := a.ProgressAction.valid(); err != nil {
 		return err
 	}
@@ -251,6 +251,41 @@ func (a *BuildingAction) fetchStorageEffects(data model.Instance) error {
 	}
 
 	return nil
+}
+
+// SaveToDB :
+// Used to save the content of this action to
+// the DB. In case an error is raised during
+// the operation a comprehensive error is
+// returned.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns any error.
+func (a *BuildingAction) SaveToDB(proxy db.Proxy) error {
+	// Check consistency.
+	if err := a.valid(); err != nil {
+		return err
+	}
+
+	// Create the query and execute it.
+	query := db.InsertReq{
+		Script: "create_building_upgrade_action",
+		Args: []interface{}{
+			a,
+			a.Costs,
+			a.Production,
+			a.Storage,
+			"planet",
+		},
+	}
+
+	err := proxy.InsertToDB(query)
+
+	// Analyze the error in order to provide some
+	// comprehensive message.
+	// TODO: Handle this.
+	return err
 }
 
 // ConsolidateEffects :

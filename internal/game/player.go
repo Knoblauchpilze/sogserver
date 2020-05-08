@@ -72,12 +72,12 @@ var ErrNonExistingAccount = fmt.Errorf("Inexisting parent account")
 // ErrNonExistingUniverse : Indicates that the universe does not exist for this player.
 var ErrNonExistingUniverse = fmt.Errorf("Inexisting parent universe")
 
-// Valid :
+// valid :
 // Determines whether the player is valid. By valid we only mean
 // obvious syntax errors.
 //
 // Returns any error or `nil` if the player seems valid.
-func (p *Player) Valid() error {
+func (p *Player) valid() error {
 	if !validUUID(p.ID) {
 		return ErrInvalidElementID
 	}
@@ -280,7 +280,7 @@ func (p *Player) fetchTechnologies(data model.Instance) error {
 // Returns any error.
 func (p *Player) SaveToDB(proxy db.Proxy) error {
 	// Check consistency.
-	if err := p.Valid(); err != nil {
+	if err := p.valid(); err != nil {
 		return err
 	}
 
@@ -292,7 +292,7 @@ func (p *Player) SaveToDB(proxy db.Proxy) error {
 
 	err := proxy.InsertToDB(query)
 
-	// Analyze the error in order to  provide some
+	// Analyze the error in order to provide some
 	// comprehensive message.
 	dbe, ok := err.(db.Error)
 	if !ok {

@@ -1431,6 +1431,33 @@ func (p *Planet) fetchTechnologies(data model.Instance) error {
 	return nil
 }
 
+// SaveToDB :
+// Used to save the content of this planet to
+// the DB. In case an error is raised during
+// the operation a comprehensive error is
+// returned.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns any error.
+func (p *Planet) SaveToDB(proxy db.Proxy) error {
+	// Create the query and execute it.
+	query := db.InsertReq{
+		Script: "create_planet",
+		Args: []interface{}{
+			p,
+			p.Resources,
+		},
+	}
+
+	err := proxy.InsertToDB(query)
+
+	// Analyze the error in order to provide some
+	// comprehensive message.
+	// TODO: Handle this.
+	return err
+}
+
 // Convert :
 // Implementation of the `db.Convertible` interface
 // from the DB package in order to only include fields

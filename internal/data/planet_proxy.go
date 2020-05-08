@@ -183,11 +183,6 @@ func (p *PlanetProxy) generateResources(planet *game.Planet) error {
 // identifier might be empty in case the planet could not be
 // created.
 func (p *PlanetProxy) CreateFor(player game.Player) (string, error) {
-	// Check consistency.
-	if err := player.Valid(); err != nil {
-		return "", err
-	}
-
 	// First we need to fetch the universe related to the
 	// planet to create.
 	uni, err := game.NewUniverseFromDB(player.Universe, p.data)
@@ -248,7 +243,7 @@ func (p *PlanetProxy) CreateFor(player game.Player) (string, error) {
 		}
 
 		// Try to create the planet at the specified coordinates.
-		err = p.createPlanet(planet)
+		err = planet.SaveToDB(p.data.Proxy)
 
 		// Check for errors.
 		if err == nil {
@@ -273,35 +268,4 @@ func (p *PlanetProxy) CreateFor(player game.Player) (string, error) {
 	}
 
 	return id, nil
-}
-
-// createPlanet :
-// Used to attempt to create the planet with the specified
-// data. We only try to perform the insertion of the input
-// data into the DB and report in error if it cannot be
-// performed for some reasons.
-//
-// The `planet` defines the data to insert in the DB.
-//
-// Returns an error in case the planet could not be used
-// in the DB (for example because the coordinates already
-// are used).
-func (p *PlanetProxy) createPlanet(planet *game.Planet) error {
-	// Create the query and execute it.
-	query := db.InsertReq{
-		Script: "create_planet",
-		Args: []interface{}{
-			planet,
-			planet.Resources,
-		},
-	}
-
-	err := p.data.Proxy.InsertToDB(query)
-
-	// Check for errors.
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not import planet \"%s\" (err: %v)", planet.Name, err))
-	}
-
-	return err
 }

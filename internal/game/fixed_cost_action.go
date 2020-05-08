@@ -39,12 +39,12 @@ type FixedAction struct {
 // ErrInvalidAmountForAction : Indicates that the action has an invalid amount.
 var ErrInvalidAmountForAction = fmt.Errorf("Invalid amount provided for action")
 
-// Valid :
+// valid :
 // Determines whether this action is valid. By valid we
 // only mean obvious syntax errors.
 //
 // Returns any error or `nil` if the action seems valid.
-func (a *FixedAction) Valid() error {
+func (a *FixedAction) valid() error {
 	if err := a.action.valid(); err != nil {
 		return err
 	}

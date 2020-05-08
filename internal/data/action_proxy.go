@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"oglike_server/internal/game"
 	"oglike_server/internal/model"
-	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 
 	"github.com/google/uuid"
@@ -59,11 +58,6 @@ func (p *ActionProxy) CreateBuildingAction(a game.BuildingAction) (string, error
 		a.ID = uuid.New().String()
 	}
 
-	// Make sure that the action is plausible.
-	if err := a.Valid(); err != nil {
-		return a.ID, err
-	}
-
 	// Fetch the planet related to this action and use it
 	// as read write access.
 	planet, err := game.NewPlanetFromDB(a.Planet, p.data)
@@ -87,21 +81,7 @@ func (p *ActionProxy) CreateBuildingAction(a game.BuildingAction) (string, error
 		return a.ID, err
 	}
 
-	// Create the query and execute it.
-	query := db.InsertReq{
-		Script: "create_building_upgrade_action",
-		Args: []interface{}{
-			a,
-			a.Costs,
-			a.Production,
-			a.Storage,
-			"planet",
-		},
-	}
-
-	err = p.data.Proxy.InsertToDB(query)
-
-	// Check for errors.
+	err = a.SaveToDB(p.data.Proxy)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not create building action on \"%s\" (err: %v)", planet.ID, err))
 		return a.ID, err
@@ -133,11 +113,6 @@ func (p *ActionProxy) CreateTechnologyAction(a game.TechnologyAction) (string, e
 		a.ID = uuid.New().String()
 	}
 
-	// Make sure that the action is plausible.
-	if err := a.Valid(); err != nil {
-		return a.ID, err
-	}
-
 	// Fetch the planet related to this action and use it
 	// as read write access.
 	planet, err := game.NewPlanetFromDB(a.Planet, p.data)
@@ -153,18 +128,7 @@ func (p *ActionProxy) CreateTechnologyAction(a game.TechnologyAction) (string, e
 		return a.ID, err
 	}
 
-	// Create the query and execute it.
-	query := db.InsertReq{
-		Script: "create_technology_upgrade_action",
-		Args: []interface{}{
-			a,
-			a.Costs,
-		},
-	}
-
-	err = p.data.Proxy.InsertToDB(query)
-
-	// Check for errors.
+	err = a.SaveToDB(p.data.Proxy)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not create technology action on \"%s\" (err: %v)", planet.ID, err))
 		return a.ID, err
@@ -195,11 +159,6 @@ func (p *ActionProxy) CreateShipAction(a game.ShipAction) (string, error) {
 		a.ID = uuid.New().String()
 	}
 
-	// Make sure that the action is plausible.
-	if err := a.Valid(); err != nil {
-		return a.ID, err
-	}
-
 	// Fetch the planet related to this action and use it
 	// as read write access.
 	planet, err := game.NewPlanetFromDB(a.Planet, p.data)
@@ -219,19 +178,7 @@ func (p *ActionProxy) CreateShipAction(a game.ShipAction) (string, error) {
 		return a.ID, err
 	}
 
-	// Create the query and execute it.
-	query := db.InsertReq{
-		Script: "create_ship_upgrade_action",
-		Args: []interface{}{
-			a,
-			a.Costs,
-			"planet",
-		},
-	}
-
-	err = p.data.Proxy.InsertToDB(query)
-
-	// Check for errors.
+	err = a.SaveToDB(p.data.Proxy)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not create ship action on \"%s\" (err: %v)", planet.ID, err))
 		return a.ID, err
@@ -262,11 +209,6 @@ func (p *ActionProxy) CreateDefenseAction(a game.DefenseAction) (string, error) 
 		a.ID = uuid.New().String()
 	}
 
-	// Make sure that the action is plausible.
-	if err := a.Valid(); err != nil {
-		return a.ID, err
-	}
-
 	// Fetch the planet related to this action and use it
 	// as read write access.
 	planet, err := game.NewPlanetFromDB(a.Planet, p.data)
@@ -286,19 +228,7 @@ func (p *ActionProxy) CreateDefenseAction(a game.DefenseAction) (string, error) 
 		return a.ID, err
 	}
 
-	// Create the query and execute it.
-	query := db.InsertReq{
-		Script: "create_defense_upgrade_action",
-		Args: []interface{}{
-			a,
-			a.Costs,
-			"planet",
-		},
-	}
-
-	err = p.data.Proxy.InsertToDB(query)
-
-	// Check for errors.
+	err = a.SaveToDB(p.data.Proxy)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not create defense action on \"%s\" (err: %v)", planet.ID, err))
 		return a.ID, err

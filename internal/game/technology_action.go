@@ -15,12 +15,12 @@ type TechnologyAction struct {
 	ProgressAction
 }
 
-// Valid :
+// valid :
 // Determines whether this action is valid. By valid we
 // only mean obvious syntax errors.
 //
 // Returns any error or `nil` if the action seems valid.
-func (a *TechnologyAction) Valid() error {
+func (a *TechnologyAction) valid() error {
 	if err := a.ProgressAction.valid(); err != nil {
 		return err
 	}
@@ -81,6 +81,38 @@ func NewTechnologyActionFromDB(ID string, data model.Instance) (TechnologyAction
 	}
 
 	return a, nil
+}
+
+// SaveToDB :
+// Used to save the content of this action to
+// the DB. In case an error is raised during
+// the operation a comprehensive error is
+// returned.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns any error.
+func (a *TechnologyAction) SaveToDB(proxy db.Proxy) error {
+	// Check consistency.
+	if err := a.valid(); err != nil {
+		return err
+	}
+
+	// Create the query and execute it.
+	query := db.InsertReq{
+		Script: "create_technology_upgrade_action",
+		Args: []interface{}{
+			a,
+			a.Costs,
+		},
+	}
+
+	err := proxy.InsertToDB(query)
+
+	// Analyze the error in order to provide some
+	// comprehensive message.
+	// TODO: Handle this.
+	return err
 }
 
 // consolidateCompletionTime :

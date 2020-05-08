@@ -1,6 +1,9 @@
 package game
 
-import "oglike_server/internal/model"
+import (
+	"oglike_server/internal/model"
+	"oglike_server/pkg/db"
+)
 
 // ShipAction :
 // Used as a convenience define to refer to the action
@@ -58,6 +61,39 @@ func NewShipActionFromDB(ID string, data model.Instance) (ShipAction, error) {
 	}
 
 	return a, nil
+}
+
+// SaveToDB :
+// Used to save the content of this action to
+// the DB. In case an error is raised during
+// the operation a comprehensive error is
+// returned.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns any error.
+func (a *ShipAction) SaveToDB(proxy db.Proxy) error {
+	// Check consistency.
+	if err := a.valid(); err != nil {
+		return err
+	}
+
+	// Create the query and execute it.
+	query := db.InsertReq{
+		Script: "create_ship_upgrade_action",
+		Args: []interface{}{
+			a,
+			a.Costs,
+			"planet",
+		},
+	}
+
+	err := proxy.InsertToDB(query)
+
+	// Analyze the error in order to provide some
+	// comprehensive message.
+	// TODO: Handle this.
+	return err
 }
 
 // consolidateCompletionTime :

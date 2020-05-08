@@ -43,12 +43,12 @@ var ErrInvalidMail = fmt.Errorf("Invalid syntax for mail")
 // ErrDuplicatedMail : Indicates that the mail associated to an account already exists.
 var ErrDuplicatedMail = fmt.Errorf("Already existing mail")
 
-// Valid :
+// valid :
 // Determines whether the account is valid. By valid we only mean
 // obvious syntax errors.
 //
 // Returns any error or `nil` if the account seems valid.
-func (a *Account) Valid() error {
+func (a *Account) valid() error {
 	// Note that we *verified* the following regular expression
 	// does compile so we don't check for errors.
 	exp, _ := regexp.Compile("^[a-zA-Z0-9]*[a-zA-Z0-9_.+-][a-zA-Z0-9]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$")
@@ -154,9 +154,8 @@ func NewAccountFromDB(ID string, data model.Instance) (Account, error) {
 //
 // Returns any error.
 func (a *Account) SaveToDB(proxy db.Proxy) error {
-
 	// Check consistency.
-	if err := a.Valid(); err != nil {
+	if err := a.valid(); err != nil {
 		return err
 	}
 
@@ -168,7 +167,7 @@ func (a *Account) SaveToDB(proxy db.Proxy) error {
 
 	err := proxy.InsertToDB(query)
 
-	// Analyze the error in order to  provide some
+	// Analyze the error in order to provide some
 	// comprehensive message.
 	dbe, ok := err.(db.Error)
 	if !ok {

@@ -122,27 +122,94 @@ func NewFleetProxy(data model.Instance, log logger.Logger) FleetProxy {
 	}
 }
 
-// CreateComponent :
-// Used to perform the creation of a new component for
-// a fleet. The component should describe the player
-// willing to join the fleet along with some info about
-// the starting planet and the ships involved.
+// Fleets :
+// Return a list of fleets registered so far in the DB.
+// The returned list take into account the filters that
+// are provided as input to only include the fleets
+// matching all the criteria. A full description of the
+// fleets is returned..
+//
+// The `filters` define some filtering property that can
+// be applied to the SQL query to only select part of all
+// the fleets available. Each one is appended `as-is` to
+// the query.
+//
+// Returns the list of fleets registered in the DB and
+// matching the input list of filters. In case the error
+// is not `nil` the value of the array should be ignored.
+func (p *FleetProxy) Fleets(filters []db.Filter) ([]game.Fleet, error) {
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table:   "fleets",
+		Filters: filters,
+	}
+
+	dbRes, err := p.data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch fleets (err: %v)", err))
+		return []game.Fleet{}, err
+	}
+	if dbRes.Err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch fleets (err: %v)", dbRes.Err))
+		return []game.Fleet{}, dbRes.Err
+	}
+
+	// We now need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding item
+	// object for each one of them.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Error while fetching fleet ID (err: %v)", err))
+			continue
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	fleets := make([]game.Fleet, 0)
+
+	for _, ID = range IDs {
+		f, err := game.NewFleetFromDB(ID, p.data)
+
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" data from DB (err: %v)", ID, err))
+			continue
+		}
+
+		fleets = append(fleets, f)
+	}
+
+	return fleets, nil
+}
+
+// CreateFleet :
+// Used to perform the creation of a new fleet for a
+// player. The input data should describe the player
+// willing to create a new fleetalong with some info
+// about the starting planet and the ships involved.
 // We will make sure that the player belongs to a uni
-// consistent with the desired target. We will also be
-// making the necessary adjustments to create the fleet
-// that will receive this component if this is not the
-// case.
+// consistent with the desired target.
 //
-// The `comp` defines the fleet component to create.
+// The `fleet` defines the fleet fleet to create.
 //
-// Returns any error in case the component cannot be
-// added to the fleet for some reasons. Returns the
-// identifier of the component that was created as
-// well.
-func (p *FleetProxy) CreateComponent(comp game.Component) (string, error) {
+// Returns any error in case the fleet cannot be
+// created for some reasons. Returns the identifier
+// of the fleet that was created.
+func (p *FleetProxy) CreateFleet(fleet game.Fleet) (string, error) {
 	// Assign a valid identifier if this is not already the case.
-	if comp.ID == "" {
-		comp.ID = uuid.New().String()
+	if fleet.ID == "" {
+		fleet.ID = uuid.New().String()
 	}
 
 	// Check validity of the input fleet component.

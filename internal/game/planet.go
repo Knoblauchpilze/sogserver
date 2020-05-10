@@ -312,8 +312,8 @@ func NewPlanetFromDB(ID string, data model.Instance) (Planet, error) {
 		return p, err
 	}
 
-	// Fetch and update upgrade actions for this planet.
-	err = p.fetchBuildingUpgrades(data)
+	// Fetch upgrade actions for this planet.
+	err = p.fetchBuildingsUpgrades(data)
 	if err != nil {
 		return p, err
 	}
@@ -323,18 +323,23 @@ func NewPlanetFromDB(ID string, data model.Instance) (Planet, error) {
 		return p, err
 	}
 
-	err = p.fetchShipUpgrades(data)
+	err = p.fetchShipsUpgrades(data)
 	if err != nil {
 		return p, err
 	}
 
-	err = p.fetchDefenseUpgrades(data)
+	err = p.fetchDefensesUpgrades(data)
 	if err != nil {
 		return p, err
 	}
 
-	// Update fleets.
-	err = p.fetchFleets(data)
+	// Fetch fleets.
+	err = p.fetchIncomingFleets(data)
+	if err != nil {
+		return p, err
+	}
+
+	err = p.fetchSourceFleets(data)
 	if err != nil {
 		return p, err
 	}
@@ -350,17 +355,17 @@ func NewPlanetFromDB(ID string, data model.Instance) (Planet, error) {
 		return p, err
 	}
 
+	err = p.fetchTechnologies(data)
+	if err != nil {
+		return p, err
+	}
+
 	err = p.fetchShips(data)
 	if err != nil {
 		return p, err
 	}
 
 	err = p.fetchDefenses(data)
-	if err != nil {
-		return p, err
-	}
-
-	err = p.fetchTechnologies(data)
 	if err != nil {
 		return p, err
 	}
@@ -625,25 +630,341 @@ func (p *Planet) generateData() {
 	p.MinTemp = p.MaxTemp - 50
 }
 
-// fetchFleets :
-// Used to perform the update of the fleets that may
-// have an impact on this planet before fetching the
-// rest of the data. Just like for resources, fleets
-// may have an impact on the amount of ships, defenses
-// or resources existing on a planet through the
-// various actions that can be requested of a fleet:
-// attacking a planet will create fights and pacific
-// actions might bring in some resources. This method
-// will perform the needed updates to make sure that
-// everything is up-to-date.
-// Once fleets have been updated the `Fleets` field
-// will be populated.
+// fetchGeneralInfo :
+// Allows to fetch the general information of a planet
+// from the DB such as its diameter, name, coordinates
+// etc.
 //
-// The `data` defines the object to access the DB if
-// needed.
+// The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchFleets(data model.Instance) error {
+func (p *Planet) fetchGeneralInfo(data model.Instance) error {
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"player",
+			"name",
+			"min_temperature",
+			"max_temperature",
+			"fields",
+			"galaxy",
+			"solar_system",
+			"position",
+			"diameter",
+		},
+		Table: "planets",
+		Filters: []db.Filter{
+			{
+				Key:    "id",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Populate the return value.
+	var galaxy, system, position int
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&p.Player,
+			&p.Name,
+			&p.MinTemp,
+			&p.MaxTemp,
+			&p.Fields,
+			&galaxy,
+			&system,
+			&position,
+			&p.Diameter,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		p.Coordinates = NewPlanetCoordinate(galaxy, system, position)
+	}
+
+	return nil
+}
+
+// fetchBuildingsUpgrades :
+// Similar to the `fetchGeneralInfo` method but used
+// to fetch the buildings upgrades for a planet.
+//
+// The `data` defines a way to access to the DB.
+//
+// Returns any error.
+func (p *Planet) fetchBuildingsUpgrades(data model.Instance) error {
+	p.BuildingsUpgrade = make([]BuildingAction, 0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table: "construction_actions_buildings",
+		Filters: []db.Filter{
+			{
+				Key:    "planet",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// We now need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding item
+	// object for each one of them.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			return err
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	for _, ID = range IDs {
+		bu, err := NewBuildingActionFromDB(ID, data)
+
+		if err != nil {
+			return err
+		}
+
+		p.BuildingsUpgrade = append(p.BuildingsUpgrade, bu)
+	}
+
+	return nil
+}
+
+// fetchTechnologiesUpgrades :
+// Similar to the `fetchGeneralInfo` method but used
+// to fetch the technologies upgrades for a planet.
+//
+// The `data` defines a way to access to the DB.
+//
+// Returns any error.
+func (p *Planet) fetchTechnologiesUpgrades(data model.Instance) error {
+	p.TechnologiesUpgrade = make([]TechnologyAction, 0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table: "construction_actions_technologies",
+		Filters: []db.Filter{
+			{
+				Key:    "player",
+				Values: []string{p.Player},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// We now need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding item
+	// object for each one of them.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			return err
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	for _, ID = range IDs {
+		tu, err := NewTechnologyActionFromDB(ID, data)
+
+		if err != nil {
+			return err
+		}
+
+		p.TechnologiesUpgrade = append(p.TechnologiesUpgrade, tu)
+	}
+
+	return nil
+}
+
+// fetchShipsUpgrades :
+// Similar to the `fetchGeneralInfo` method but used
+// to fetch the ships upgrades for a planet.
+//
+// The `data` defines a way to access to the DB.
+//
+// Returns any error.
+func (p *Planet) fetchShipsUpgrades(data model.Instance) error {
+	p.ShipsConstruction = make([]ShipAction, 0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table: "construction_actions_ships",
+		Filters: []db.Filter{
+			{
+				Key:    "planet",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// We now need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding item
+	// object for each one of them.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			return err
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	for _, ID = range IDs {
+		su, err := NewShipActionFromDB(ID, data)
+
+		if err != nil {
+			return err
+		}
+
+		p.ShipsConstruction = append(p.ShipsConstruction, su)
+	}
+
+	return nil
+}
+
+// fetchDefensesUpgrades :
+// Similar to the `fetchGeneralInfo` method but used
+// to fetch the defenses upgrades for a planet.
+//
+// The `data` defines a way to access to the DB.
+//
+// Returns any error.
+func (p *Planet) fetchDefensesUpgrades(data model.Instance) error {
+	p.DefensesConstruction = make([]DefenseAction, 0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table: "construction_actions_defenses",
+		Filters: []db.Filter{
+			{
+				Key:    "planet",
+				Values: []string{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// We now need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding item
+	// object for each one of them.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			return err
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	for _, ID = range IDs {
+		du, err := NewDefenseActionFromDB(ID, data)
+
+		if err != nil {
+			return err
+		}
+
+		p.DefensesConstruction = append(p.DefensesConstruction, du)
+	}
+
+	return nil
+}
+
+// fetchIncomingFleets :
+// Used to fetch the incoming fleets from the DB for
+// this planet. This include only the fleets having
+// their target set for this planet. Hostiles along
+// with friendly fleets will be fetched.
+//
+// The `data` defines the object to access the DB
+// if needed.
+//
+// Returns any error.
+func (p *Planet) fetchIncomingFleets(data model.Instance) error {
 	// We need to fetch both the components that were
 	// started from this planet and the fleets that
 	// are directed towards it.
@@ -746,358 +1067,20 @@ func (p *Planet) fetchFleets(data model.Instance) error {
 	return nil
 }
 
-// fetchBuildingUpgrades :
-// Used internally when building a planet from the
-// DB to update the building upgrade actions that
-// may be outstanding. Allows to get an up-to-date
-// status of the buildings afterwards.
+// fetchSourceFleets :
+// Similar to the `fetchIncomingFleets` but retrieves
+// the fleets that starts from this planet.
 //
-// The `data` defines the object to access the DB.
-//
-// Returns any error.
-func (p *Planet) fetchBuildingUpgrades(data model.Instance) error {
-	p.BuildingsUpgrade = make([]BuildingAction, 0)
-
-	err := data.UpdateBuildingsForPlanet(p.ID)
-	if err != nil {
-		return err
-	}
-
-	// Create the query and execute it.
-	query := db.QueryDesc{
-		Props: []string{
-			"id",
-		},
-		Table: "construction_actions_buildings",
-		Filters: []db.Filter{
-			{
-				Key:    "planet",
-				Values: []string{p.ID},
-			},
-		},
-	}
-
-	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
-
-	// Check for errors.
-	if err != nil {
-		return err
-	}
-	if dbRes.Err != nil {
-		return dbRes.Err
-	}
-
-	// We now need to retrieve all the identifiers that matched
-	// the input filters and then build the corresponding item
-	// object for each one of them.
-	var ID string
-	IDs := make([]string, 0)
-
-	for dbRes.Next() {
-		err = dbRes.Scan(&ID)
-
-		if err != nil {
-			return err
-		}
-
-		IDs = append(IDs, ID)
-	}
-
-	for _, ID = range IDs {
-		bu, err := NewBuildingActionFromDB(ID, data)
-
-		if err != nil {
-			return err
-		}
-
-		p.BuildingsUpgrade = append(p.BuildingsUpgrade, bu)
-	}
-
-	return nil
-}
-
-// fetchTechnologiesUpgrades :
-// Used in a similar way to `fetchBuildingUpgrades`
-// but to get the technologies construction actions
-// that may be registered in the research lab of
-// this planet.
-//
-// The `data` defines the object to access the DB.
+// The `data` defines the object to access the DB if
+// needed.
 //
 // Returns any error.
-func (p *Planet) fetchTechnologiesUpgrades(data model.Instance) error {
-	p.TechnologiesUpgrade = make([]TechnologyAction, 0)
-
-	err := data.UpdateTechnologiesForPlayer(p.Player)
-	if err != nil {
-		return err
-	}
-
-	// Create the query and execute it.
-	query := db.QueryDesc{
-		Props: []string{
-			"id",
-		},
-		Table: "construction_actions_technologies",
-		Filters: []db.Filter{
-			{
-				Key:    "player",
-				Values: []string{p.Player},
-			},
-		},
-	}
-
-	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
-
-	// Check for errors.
-	if err != nil {
-		return err
-	}
-	if dbRes.Err != nil {
-		return dbRes.Err
-	}
-
-	// We now need to retrieve all the identifiers that matched
-	// the input filters and then build the corresponding item
-	// object for each one of them.
-	var ID string
-	IDs := make([]string, 0)
-
-	for dbRes.Next() {
-		err = dbRes.Scan(&ID)
-
-		if err != nil {
-			return err
-		}
-
-		IDs = append(IDs, ID)
-	}
-
-	for _, ID = range IDs {
-		tu, err := NewTechnologyActionFromDB(ID, data)
-
-		if err != nil {
-			return err
-		}
-
-		p.TechnologiesUpgrade = append(p.TechnologiesUpgrade, tu)
-	}
-
-	return nil
-}
-
-// fetchShipUpgrades :
-// Used in a similar way to `fetchBuildingUpgrades`
-// but to get the ships construction actions that
-// may be registered in the shipyard of this planet.
-//
-// The `data` defines the object to access the DB.
-//
-// Returns any error.
-func (p *Planet) fetchShipUpgrades(data model.Instance) error {
-	p.ShipsConstruction = make([]ShipAction, 0)
-
-	err := data.UpdateShipsForPlanet(p.ID)
-	if err != nil {
-		return err
-	}
-
-	// Create the query and execute it.
-	query := db.QueryDesc{
-		Props: []string{
-			"id",
-		},
-		Table: "construction_actions_ships",
-		Filters: []db.Filter{
-			{
-				Key:    "planet",
-				Values: []string{p.ID},
-			},
-		},
-	}
-
-	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
-
-	// Check for errors.
-	if err != nil {
-		return err
-	}
-	if dbRes.Err != nil {
-		return dbRes.Err
-	}
-
-	// We now need to retrieve all the identifiers that matched
-	// the input filters and then build the corresponding item
-	// object for each one of them.
-	var ID string
-	IDs := make([]string, 0)
-
-	for dbRes.Next() {
-		err = dbRes.Scan(&ID)
-
-		if err != nil {
-			return err
-		}
-
-		IDs = append(IDs, ID)
-	}
-
-	for _, ID = range IDs {
-		su, err := NewShipActionFromDB(ID, data)
-
-		if err != nil {
-			return err
-		}
-
-		p.ShipsConstruction = append(p.ShipsConstruction, su)
-	}
-
-	return nil
-}
-
-// fetchDefenseUpgrades :
-// Used in a similar way to `fetchBuildingUpgrades`
-// but to get the defense construction actions that
-// may be registered in the shipyard of this planet.
-//
-// The `data` defines the object to access the DB.
-//
-// Returns any error.
-func (p *Planet) fetchDefenseUpgrades(data model.Instance) error {
-	p.DefensesConstruction = make([]DefenseAction, 0)
-
-	err := data.UpdateDefensesForPlanet(p.ID)
-	if err != nil {
-		return err
-	}
-
-	// Create the query and execute it.
-	query := db.QueryDesc{
-		Props: []string{
-			"id",
-		},
-		Table: "construction_actions_defenses",
-		Filters: []db.Filter{
-			{
-				Key:    "planet",
-				Values: []string{p.ID},
-			},
-		},
-	}
-
-	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
-
-	// Check for errors.
-	if err != nil {
-		return err
-	}
-	if dbRes.Err != nil {
-		return dbRes.Err
-	}
-
-	// We now need to retrieve all the identifiers that matched
-	// the input filters and then build the corresponding item
-	// object for each one of them.
-	var ID string
-	IDs := make([]string, 0)
-
-	for dbRes.Next() {
-		err = dbRes.Scan(&ID)
-
-		if err != nil {
-			return err
-		}
-
-		IDs = append(IDs, ID)
-	}
-
-	for _, ID = range IDs {
-		du, err := NewDefenseActionFromDB(ID, data)
-
-		if err != nil {
-			return err
-		}
-
-		p.DefensesConstruction = append(p.DefensesConstruction, du)
-	}
-
-	return nil
+func (p *Planet) fetchSourceFleets(data model.Instance) error {
+	// TODO: Handle this.
+	return fmt.Errorf("Not implemented")
 }
 
 // fetchResources :
-// Used internally when building a planet from the
-// DB to update the general info of the planet such
-// as its temperature, diameter etc.
-//
-// The `data` defines the object to access the DB.
-//
-// Returns any error.
-func (p *Planet) fetchGeneralInfo(data model.Instance) error {
-	// Create the query and execute it.
-	query := db.QueryDesc{
-		Props: []string{
-			"player",
-			"name",
-			"min_temperature",
-			"max_temperature",
-			"fields",
-			"galaxy",
-			"solar_system",
-			"position",
-			"diameter",
-		},
-		Table: "planets",
-		Filters: []db.Filter{
-			{
-				Key:    "id",
-				Values: []string{p.ID},
-			},
-		},
-	}
-
-	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
-
-	// Check for errors.
-	if err != nil {
-		return err
-	}
-	if dbRes.Err != nil {
-		return dbRes.Err
-	}
-
-	// Populate the return value.
-	var galaxy, system, position int
-
-	for dbRes.Next() {
-		err = dbRes.Scan(
-			&p.Player,
-			&p.Name,
-			&p.MinTemp,
-			&p.MaxTemp,
-			&p.Fields,
-			&galaxy,
-			&system,
-			&position,
-			&p.Diameter,
-		)
-
-		if err != nil {
-			return err
-		}
-
-		p.Coordinates = NewPlanetCoordinate(galaxy, system, position)
-	}
-
-	return nil
-}
-
-// fetchResources :
-// fetchBuildings :
 // Similar to the `fetchGeneralInfo` but handles the
 // retrieval of the planet's resources data.
 //
@@ -1230,6 +1213,71 @@ func (p *Planet) fetchBuildings(data model.Instance) error {
 		b.BuildingDesc = desc
 
 		p.Buildings[ID] = b
+	}
+
+	return nil
+}
+
+// fetchTechnologies :
+// Similar to the `fetchGeneralInfo` but handles the
+// retrieval of the technologies researched by the
+// player owning the planet.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Planet) fetchTechnologies(data model.Instance) error {
+	p.technologies = make(map[string]int)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"technology",
+			"level",
+		},
+		Table: "player_technologies",
+		Filters: []db.Filter{
+			{
+				Key:    "player",
+				Values: []string{p.Player},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Populate the return value.
+	var tech string
+	var level int
+
+	sanity := make(map[string]int)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&tech,
+			&level,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		_, ok := sanity[tech]
+		if ok {
+			return model.ErrInconsistentDB
+		}
+		sanity[tech] = level
+
+		p.technologies[tech] = level
 	}
 
 	return nil
@@ -1372,71 +1420,6 @@ func (p *Planet) fetchDefenses(data model.Instance) error {
 		d.DefenseDesc = desc
 
 		p.Defenses[ID] = d
-	}
-
-	return nil
-}
-
-// fetchTechnologies :
-// Similar to the `fetchGeneralInfo` but handles the
-// retrieval of the technologies researched by the
-// player owning the planet.
-//
-// The `data` defines the object to access the DB.
-//
-// Returns any error.
-func (p *Planet) fetchTechnologies(data model.Instance) error {
-	p.technologies = make(map[string]int)
-
-	// Create the query and execute it.
-	query := db.QueryDesc{
-		Props: []string{
-			"technology",
-			"level",
-		},
-		Table: "player_technologies",
-		Filters: []db.Filter{
-			{
-				Key:    "player",
-				Values: []string{p.Player},
-			},
-		},
-	}
-
-	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
-
-	// Check for errors.
-	if err != nil {
-		return err
-	}
-	if dbRes.Err != nil {
-		return dbRes.Err
-	}
-
-	// Populate the return value.
-	var tech string
-	var level int
-
-	sanity := make(map[string]int)
-
-	for dbRes.Next() {
-		err = dbRes.Scan(
-			&tech,
-			&level,
-		)
-
-		if err != nil {
-			return err
-		}
-
-		_, ok := sanity[tech]
-		if ok {
-			return model.ErrInconsistentDB
-		}
-		sanity[tech] = level
-
-		p.technologies[tech] = level
 	}
 
 	return nil

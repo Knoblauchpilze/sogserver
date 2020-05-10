@@ -33,14 +33,12 @@ BEGIN
       FROM
         json_populate_recordset(null::construction_actions_buildings_storage_effects, storage_effects);
 
-    -- Subtract the cost of the action to the resources existing
-    -- the planet so that it's no longer available. We assume a
-    -- valid amount of resources remaining (no checks to clamp
-    -- to `0` or anything). We will update the existing resource
-    -- on the planet before decreasing in order to make sure we
-    -- have a valid amount.
-    PERFORM update_resources_for_planet((upgrade->>'planet')::uuid);
-
+    -- Decrease the amount of resources existing on the planet
+    -- after the construction of this building. Note that we
+    -- do not update the resources to the current time which
+    -- might lead to negative values if it hasn't been done
+    -- in a long time. We assume the update will be enforced
+    -- by other processes.
     WITH rc AS (
       SELECT
         t.resource,
@@ -111,10 +109,12 @@ BEGIN
     SELECT *
     FROM json_populate_record(null::construction_actions_technologies, upgrade);
 
-  -- Perform the update of the resources by subtracting
-  -- the cost of the action.
-  PERFORM update_resources_for_planet((upgrade->>'planet')::uuid);
-
+    -- Decrease the amount of resources existing on the planet
+    -- after the construction of this technology. Note that we
+    -- do not update the resources to the current time which
+    -- might lead to negative values if it hasn't been done
+    -- in a long time. We assume the update will be enforced
+    -- by other processes.
   WITH rc AS (
     SELECT
       t.resource,
@@ -155,10 +155,11 @@ BEGIN
       SELECT *
       FROM json_populate_record(null::construction_actions_ships, upgrade);
 
-    -- Perform the update of the resources by subtracting
-    -- the cost of the action.
-    PERFORM update_resources_for_planet((upgrade->>'planet')::uuid);
-
+    -- Decrease the amount of resources existing on the planet
+    -- after the construction of this ship. Note that we do not
+    -- update the resources to the current time which might lead
+    -- to negative values if it hasn't been done in a long time.
+    -- We assume the update will be enforced by other processes.
     WITH rc AS (
       SELECT
         t.resource,
@@ -238,10 +239,12 @@ BEGIN
       SELECT *
       FROM json_populate_record(null::construction_actions_defenses, upgrade);
 
-    -- Perform the update of the resources by subtracting
-    -- the cost of the action.
-    PERFORM update_resources_for_planet((upgrade->>'planet')::uuid);
-
+    -- Decrease the amount of resources existing on the planet
+    -- after the construction of this defense. Note that we
+    -- do not update the resources to the current time which
+    -- might lead to negative values if it hasn't been done
+    -- in a long time. We assume the update will be enforced
+    -- by other processes.
     WITH rc AS (
       SELECT
         t.resource,
@@ -306,11 +309,7 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Update resources for a planet.
-CREATE OR REPLACE FUNCTION update_resources_for_planet(planet_id uuid) RETURNS VOID AS $$
-DECLARE
-  -- Save time: this will make sure thatall resources are
-  -- updated at the same time.
-  processing_time TIMESTAMP := NOW();
+CREATE OR REPLACE FUNCTION update_resources_for_planet(planet_id uuid, moment TIMESTAMP WITH TIME ZONE) RETURNS VOID AS $$
 BEGIN
   -- Update the amount of resource to be at most the storage
   -- capacity, and otherwise to increase by the duration that
@@ -319,7 +318,7 @@ BEGIN
   -- we need to extract the number of seconds in order to be
   -- able to obtain fractions of an hour to update the value.
   UPDATE planets_resources
-    SET amount = amount + EXTRACT(EPOCH FROM processing_time - updated_at) * production / 3600.0
+    SET amount = amount + EXTRACT(EPOCH FROM moment - updated_at) * production / 3600.0
   FROM
     resources AS r
   WHERE
@@ -331,6 +330,8 @@ $$ LANGUAGE plpgsql;
 
 -- Update upgrade action for buildings.
 CREATE OR REPLACE FUNCTION update_building_upgrade_action(action_id uuid, kind text) RETURNS VOID AS $$
+DECLARE
+  moment timestamp with time zone;
 BEGIN
   -- We can have building upgrades both for planets and moons.
   -- These actions are stored in different tables and we don't
@@ -359,10 +360,13 @@ BEGIN
     -- planet to its value at the time of the update of
     -- the building.
     -- 2.a) Update resources to reach the current time.
-    -- TODO: Should provide a processing time for this action
-    -- so that we update until this specified time. Maybe it
-    -- could correspond to the completion time of the action.
-    PERFORM update_resources_for_planet(target_id);
+    SELECT completion_time INTO moment FROM construction_actions_buildings WHERE id = action_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Unable to fetch completion time for action %', action_id;
+    END IF;
+
+    PERFORM update_resources_for_planet(target_id, moment);
 
     -- 2.b) Proceed to update the mines with their new prod
     -- values.

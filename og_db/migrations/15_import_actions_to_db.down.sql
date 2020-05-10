@@ -12,7 +12,7 @@ DROP FUNCTION update_technology_upgrade_action(action_id uuid);
 DROP FUNCTION update_building_upgrade_action(action_id uuid, kind text);
 
 -- Drop the function to update resources on a given planet.
-DROP FUNCTION update_resources_for_planet(planet_id uuid);
+DROP FUNCTION update_resources_for_planet(planet_id uuid, , moment TIMESTAMP WITH TIME ZONE);
 
 -- Drop the defense upgrade insertion script.
 DROP FUNCTION create_defense_upgrade_action(upgrade json, costs json, kind text);

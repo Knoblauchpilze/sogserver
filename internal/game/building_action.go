@@ -314,6 +314,33 @@ func (a *BuildingAction) SaveToDB(proxy db.Proxy) error {
 	return dbe
 }
 
+// Convert :
+// Implementation of the `db.Convertible` interface
+// from the DB package in order to only include fields
+// that need to be marshalled in the fleet's creation.
+//
+// Returns the converted version of this action which
+// only includes relevant fields.
+func (a *BuildingAction) Convert() interface{} {
+	return struct {
+		ID             string    `json:"id"`
+		Planet         string    `json:"planet"`
+		Element        string    `json:"element"`
+		CurrentLevel   int       `json:"current_level"`
+		DesiredLevel   int       `json:"desired_level"`
+		CompletionTime time.Time `json:"completion_time"`
+		CreatedAt      time.Time `json:"created_at"`
+	}{
+		ID:             a.ID,
+		Planet:         a.Planet,
+		Element:        a.Element,
+		CurrentLevel:   a.CurrentLevel,
+		DesiredLevel:   a.DesiredLevel,
+		CompletionTime: a.CompletionTime,
+		CreatedAt:      a.creationTime,
+	}
+}
+
 // ConsolidateEffects :
 // Used to make sure that the production and storage
 // effects for this action are consistent with the
@@ -455,7 +482,8 @@ func (a *BuildingAction) consolidateCompletionTime(data model.Instance, p *Plane
 		return ErrInvalidDuration
 	}
 
-	a.CompletionTime = time.Now().Add(t)
+	a.creationTime = time.Now()
+	a.CompletionTime = a.creationTime.Add(t)
 
 	return nil
 }

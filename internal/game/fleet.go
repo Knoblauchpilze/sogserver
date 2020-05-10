@@ -610,7 +610,7 @@ func (f *Fleet) SaveToDB(proxy db.Proxy) error {
 // from the DB package in order to only include fields
 // that need to be marshalled in the fleet's creation.
 //
-// Returns the converted version of the planet which
+// Returns the converted version of the fleet which
 // only includes relevant fields.
 func (f *Fleet) Convert() interface{} {
 	return struct {

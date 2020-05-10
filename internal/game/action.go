@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"time"
 )
 
 // action :
@@ -37,12 +38,16 @@ import (
 // an array of resources and quantities. This is used to
 // actually remove the cost of the action from the res
 // available on the planet where this action is started.
+//
+// The `creationTime` defines the date at which the action
+// is set to start.
 type action struct {
-	ID      string `json:"id"`
-	Planet  string `json:"planet"`
-	Player  string `json:"player"`
-	Element string `json:"element"`
-	Costs   []Cost `json:"-"`
+	ID           string `json:"id"`
+	Planet       string `json:"planet"`
+	Player       string `json:"player"`
+	Element      string `json:"element"`
+	Costs        []Cost `json:"-"`
+	creationTime time.Time
 }
 
 // Cost :

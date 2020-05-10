@@ -129,8 +129,6 @@ import (
 // close to actually locking completely the server for every
 // request but on the other hand it might be the simplest option.
 // TODO: Restore the possibility to create ACS.
-// TODO: Ships and defenses actions should be split into several
-// components.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

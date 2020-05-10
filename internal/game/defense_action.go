@@ -3,6 +3,8 @@ package game
 import (
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
+	"oglike_server/pkg/duration"
+	"time"
 )
 
 // DefenseAction :
@@ -109,6 +111,33 @@ func (a *DefenseAction) SaveToDB(proxy db.Proxy) error {
 	}
 
 	return dbe
+}
+
+// Convert :
+// Implementation of the `db.Convertible` interface
+// from the DB package in order to only include fields
+// that need to be marshalled in the fleet's creation.
+//
+// Returns the converted version of this action which
+// only includes relevant fields.
+func (a *DefenseAction) Convert() interface{} {
+	return struct {
+		ID             string            `json:"id"`
+		Planet         string            `json:"planet"`
+		Element        string            `json:"element"`
+		Amount         int               `json:"amount"`
+		Remaining      int               `json:"remaining"`
+		CompletionTime duration.Duration `json:"completion_time"`
+		CreatedAt      time.Time         `json:"created_at"`
+	}{
+		ID:             a.ID,
+		Planet:         a.Planet,
+		Element:        a.Element,
+		Amount:         a.Amount,
+		Remaining:      a.Remaining,
+		CompletionTime: a.CompletionTime,
+		CreatedAt:      a.creationTime,
+	}
 }
 
 // consolidateCompletionTime :

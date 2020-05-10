@@ -162,6 +162,7 @@ CREATE OR REPLACE FUNCTION fleet_deposit_resources(fleet_id uuid) RETURNS BOOLEA
 DECLARE
   target_id uuid;
   target_kind text;
+  arrival timestamp with time zone;
 BEGIN
   -- Retrieve the ID of the target associated to the
   -- fleet.
@@ -190,7 +191,13 @@ BEGIN
   -- This is only relevant in case the target is indeed
   -- a planet.
   IF target_kind = 'planet' THEN
-    PERFORM update_resources_for_planet(target_id);
+    SELECT arrival_time INTO arrival FROM fleets WHERE id = fleet_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Unable to fetch arrival time for fleet %', fleet_id;
+    END IF;
+
+    PERFORM update_resources_for_planet(target_id, arrival);
   END IF;
 
   -- Add the resources carried by the fleet to the

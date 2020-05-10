@@ -36,9 +36,6 @@ CREATE TABLE construction_actions_buildings_storage_effects (
   UNIQUE (action, resource)
 );
 
--- Create the trigger on the table to update the `created_at` field.
-CREATE TRIGGER update_buildings_action_creation BEFORE INSERT ON construction_actions_buildings FOR EACH ROW EXECUTE PROCEDURE update_created_at();
-
 -- Create the table defining technologies research actions.
 CREATE TABLE construction_actions_technologies (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -55,9 +52,6 @@ CREATE TABLE construction_actions_technologies (
   FOREIGN KEY (planet) REFERENCES planets(id),
   UNIQUE (player)
 );
-
--- Create the trigger on the table to update the `created_at` field.
-CREATE TRIGGER update_technologies_action_creation BEFORE INSERT ON construction_actions_technologies FOR EACH ROW EXECUTE PROCEDURE update_created_at();
 
 -- Create the table defining ships construction actions.
 CREATE TABLE construction_actions_ships (
@@ -101,9 +95,6 @@ CREATE TABLE construction_actions_buildings_moon (
   FOREIGN KEY (element) REFERENCES buildings(id),
   UNIQUE (moon)
 );
-
--- Create the trigger on the table to update the `created_at` field.
-CREATE TRIGGER update_moons_buildings_action_creation BEFORE INSERT ON construction_actions_buildings_moon FOR EACH ROW EXECUTE PROCEDURE update_created_at();
 
 -- Create the table defining ships construction actions for moons.
 CREATE TABLE construction_actions_ships_moon (

@@ -143,6 +143,35 @@ func (a *TechnologyAction) SaveToDB(proxy db.Proxy) error {
 	return dbe
 }
 
+// Convert :
+// Implementation of the `db.Convertible` interface
+// from the DB package in order to only include fields
+// that need to be marshalled in the fleet's creation.
+//
+// Returns the converted version of this action which
+// only includes relevant fields.
+func (a *TechnologyAction) Convert() interface{} {
+	return struct {
+		ID             string    `json:"id"`
+		Planet         string    `json:"planet"`
+		Player         string    `json:"player"`
+		Element        string    `json:"element"`
+		CurrentLevel   int       `json:"current_level"`
+		DesiredLevel   int       `json:"desired_level"`
+		CompletionTime time.Time `json:"completion_time"`
+		CreatedAt      time.Time `json:"created_at"`
+	}{
+		ID:             a.ID,
+		Planet:         a.Planet,
+		Player:         a.Player,
+		Element:        a.Element,
+		CurrentLevel:   a.CurrentLevel,
+		DesiredLevel:   a.DesiredLevel,
+		CompletionTime: a.CompletionTime,
+		CreatedAt:      a.creationTime,
+	}
+}
+
 // consolidateCompletionTime :
 // Used to update the completion time required for this
 // action to complete based on the amount of resources
@@ -217,7 +246,8 @@ func (a *TechnologyAction) consolidateCompletionTime(data model.Instance, p *Pla
 		return ErrInvalidDuration
 	}
 
-	a.CompletionTime = time.Now().Add(t)
+	a.creationTime = time.Now()
+	a.CompletionTime = a.creationTime.Add(t)
 
 	return nil
 }

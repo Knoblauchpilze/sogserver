@@ -221,6 +221,7 @@ func (a *FixedAction) computeCompletionTime(data model.Instance, cost model.Fixe
 		return ErrInvalidDuration
 	}
 
+	a.creationTime = time.Now()
 	a.CompletionTime = duration.Duration{t}
 
 	return nil

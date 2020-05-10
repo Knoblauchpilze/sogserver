@@ -123,8 +123,18 @@ BEGIN
       SET amount = amount - rc.cost
     FROM
       rc
-    WHERE planet = (upgrade->>'planet')::uuid
-    AND res = rc.resource;
+    WHERE
+      planet = (upgrade->>'planet')::uuid
+      AND res = rc.resource;
+
+    -- Register this action in the actions system.
+    INSERT INTO actions_queue
+      SELECT
+        cab.id AS action,
+        cab.completion_time AS completion_time,
+        'building_upgrade' AS type
+      FROM
+        construction_actions_buildings cab;
   END IF;
 
   IF kind = 'moon' THEN
@@ -148,8 +158,18 @@ BEGIN
       SET amount = amount - rc.cost
     FROM
       rc
-    WHERE moon = (upgrade->>'planet')::uuid
-    AND res = rc.resource;
+    WHERE
+      moon = (upgrade->>'planet')::uuid
+      AND res = rc.resource;
+
+    -- Register this action in the actions system.
+    INSERT INTO actions_queue
+      SELECT
+        cabm.id AS action,
+        cabm.completion_time AS completion_time,
+        'building_upgrade' AS type
+      FROM
+        construction_actions_buildings_moon cabm;
   END IF;
 END
 $$ LANGUAGE plpgsql;
@@ -177,8 +197,18 @@ BEGIN
     SET amount = amount - rc.cost
   FROM
     rc
-  WHERE planet = (upgrade->>'planet')::uuid
-  AND res = rc.resource;
+  WHERE
+    planet = (upgrade->>'planet')::uuid
+    AND res = rc.resource;
+
+  -- Register this action in the actions system.
+  INSERT INTO actions_queue
+    SELECT
+      cat.id AS action,
+      cat.completion_time AS completion_time,
+      'technology_upgrade' AS type
+    FROM
+      construction_actions_technologies cat;
 END
 $$ LANGUAGE plpgsql;
 
@@ -214,6 +244,18 @@ BEGIN
     WHERE
       planet = (upgrade->>'planet')::uuid
       AND res = rc.resource;
+
+    -- Register this action in the actions system. Note
+    -- that the completion time will be computed from
+    -- the actual creation time for this action and the
+    -- duration of the construction of a single element.
+    INSERT INTO actions_queue
+      SELECT
+        cas.id AS action,
+        cas.created_at + cas.completion_time AS completion_time,
+        'ship_upgrade' AS type
+      FROM
+        consturction_actions_ships cas;
   END IF;
 
   IF kind = 'moon' THEN
@@ -238,6 +280,15 @@ BEGIN
     WHERE
       moon = (upgrade->>'planet')::uuid
       AND res = rc.resource;
+
+    -- See comment in above section.
+    INSERT INTO actions_queue
+      SELECT
+        casm.id AS action,
+        casm.created_at + casm.completion_time AS completion_time,
+        'ship_upgrade' AS type
+      FROM
+        construction_actions_ships_moon casm;
   END IF;
 END
 $$ LANGUAGE plpgsql;
@@ -273,8 +324,21 @@ BEGIN
       SET amount = amount - rc.cost
     FROM
       rc
-    WHERE planet = (upgrade->>'planet')::uuid
-    AND res = rc.resource;
+    WHERE
+      planet = (upgrade->>'planet')::uuid
+      AND res = rc.resource;
+
+    -- Register this action in the actions system. Note
+    -- that the completion time will be computed from
+    -- the actual creation time for this action and the
+    -- duration of the construction of a single element.
+    INSERT INTO actions_queue
+      SELECT
+        cad.id AS action,
+        cad.created_at + cad.completion_time AS completion_time,
+        'defense_upgrade' AS type
+      FROM
+        construction_actions_defenses cad;
   END IF;
 
   IF kind = 'moon' THEN
@@ -296,8 +360,18 @@ BEGIN
       SET amount = amount - rc.cost
     FROM
       rc
-    WHERE moon = (upgrade->>'planet')::uuid
-    AND res = rc.resource;
+    WHERE
+      moon = (upgrade->>'planet')::uuid
+      AND res = rc.resource;
+
+    -- See comment in above section.
+    INSERT INTO actions_queue
+      SELECT
+        cadm.id AS action,
+        cadm.created_at + cadm.completion_time AS completion_time,
+        'defense_upgrade' AS type
+      FROM
+        construction_actions_defenses_moon cadm;
   END IF;
 END
 $$ LANGUAGE plpgsql;
@@ -441,6 +515,16 @@ BEGIN
       moon = (fleet->>'source')::uuid
       AND ship = cs.vessel;
   END IF;
+
+  -- Register this fleet as part of the actions system.
+  -- Register this action in the actions system.
+  INSERT INTO actions_queue
+    SELECT
+      f.id AS action,
+      f.arrival_time AS completion_time,
+      'fleet' AS type
+    FROM
+      fleets f;
 END
 $$ LANGUAGE plpgsql;
 
@@ -578,7 +662,15 @@ BEGIN
       cab.planet = target_id AND
       cab.completion_time < processing_time;
 
-    -- 4. And finally the processed actions.
+    -- 4. Remove the processed actions from the events queue.
+    DELETE FROM
+      actions_queue
+      USING construction_actions_buildings cab
+    WHERE
+      cab.planet = target_id
+      AND cab.completion_time < processing_time;
+
+    -- 5. And finally delete processed actions.
     DELETE FROM construction_actions_buildings WHERE planet = target_id AND completion_time < processing_time;
   END IF;
 
@@ -609,6 +701,14 @@ BEGIN
     -- delete the corresponding lines in tables.
 
     -- 4. See comment in above section.
+    DELETE FROM
+      actions_queue
+      USING construction_actions_buildings_moon cabm
+    WHERE
+      cabm.moon = target_id
+      AND cabm.completion_time < processing_time;
+
+    -- 5. See comment in above section.
     DELETE FROM construction_actions_buildings_moon WHERE moon = target_id AND completion_time < processing_time;
   END IF;
 END
@@ -642,7 +742,15 @@ BEGIN
     pt.technology = ud.element AND
     pt.level = ud.current_level;
 
-  -- 2. Delete processed actions.
+  -- 2. Remove the processed actions from the events queue.
+    DELETE FROM
+      actions_queue
+      USING construction_actions_technologies cat
+    WHERE
+      cat.planet = target_id
+      AND cat.completion_time < processing_time;
+
+  -- 3. Delete processed actions.
   DELETE FROM construction_actions_technologies WHERE player = player_id AND completion_time < processing_time;
 END
 $$ LANGUAGE plpgsql;
@@ -702,7 +810,10 @@ BEGIN
       planet = target_id AND
       created_at + (amount - (remaining - 1)) * completion_time < processing_time;
 
-    -- 3. Delete actions that don't have any remaining effect.
+    -- 3. Update elements in actions queue based on the next completion time.
+    -- TODO: Handle this.
+
+    -- 4. Delete actions that don't have any remaining effect.
     DELETE FROM construction_actions_ships WHERE planet = target_id AND remaining = 0;
   END IF;
 
@@ -739,6 +850,9 @@ BEGIN
       created_at + (amount - (remaining - 1)) * completion_time < processing_time;
 
     -- 3. See comment in above section.
+    -- TODO: Handle this.
+
+    -- 4. See comment in above section.
     DELETE FROM construction_actions_ships_moon WHERE moon = target_id AND remaining = 0;
   END IF;
 END
@@ -797,7 +911,11 @@ BEGIN
       planet = target_id AND
       created_at + (amount - (remaining - 1)) * completion_time < processing_time;
 
-    -- 3. Delete actions that don't have any remaining effect.
+
+    -- 3. Update elements in actions queue based on the next completion time.
+    -- TODO: Handle this.
+
+    -- 4. Delete actions that don't have any remaining effect.
     DELETE FROM construction_actions_defenses WHERE planet = target_id AND remaining = 0;
   END IF;
 
@@ -833,7 +951,10 @@ BEGIN
       moon = target_id AND
       created_at + (amount - (remaining - 1)) * completion_time < processing_time;
 
-    -- 3. See comment in above section.
+    -- 3. Update elements in actions queue based on the next completion time.
+    -- TODO: Handle this.
+
+    -- 4. See comment in above section.
     DELETE FROM construction_actions_defenses_moon WHERE moon = target_id AND remaining = 0;
   END IF;
 END

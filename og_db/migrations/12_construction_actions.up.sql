@@ -73,9 +73,6 @@ CREATE TABLE construction_actions_ships (
   FOREIGN KEY (element) REFERENCES ships(id)
 );
 
--- Create the trigger on the table to update the `created_at` field.
-CREATE TRIGGER update_ships_action_creation BEFORE INSERT ON construction_actions_ships FOR EACH ROW EXECUTE PROCEDURE update_created_at();
-
 -- Create the table defining defenses construction actions.
 CREATE TABLE construction_actions_defenses (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -89,9 +86,6 @@ CREATE TABLE construction_actions_defenses (
   FOREIGN KEY (planet) REFERENCES planets(id),
   FOREIGN KEY (element) REFERENCES defenses(id)
 );
-
--- Create the trigger on the table to update the `created_at` field.
-CREATE TRIGGER update_defenses_action_creation BEFORE INSERT ON construction_actions_defenses FOR EACH ROW EXECUTE PROCEDURE update_created_at();
 
 -- Create the table defining building construction actions for moons.
 CREATE TABLE construction_actions_buildings_moon (
@@ -125,9 +119,6 @@ CREATE TABLE construction_actions_ships_moon (
   FOREIGN KEY (element) REFERENCES ships(id)
 );
 
--- Create the trigger on the table to update the `created_at` field.
-CREATE TRIGGER update_moons_ships_action_creation BEFORE INSERT ON construction_actions_ships_moon FOR EACH ROW EXECUTE PROCEDURE update_created_at();
-
 -- Create the table defining defenses construction actions for moons.
 CREATE TABLE construction_actions_defenses_moon (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -141,6 +132,3 @@ CREATE TABLE construction_actions_defenses_moon (
   FOREIGN KEY (moon) REFERENCES moons(id),
   FOREIGN KEY (element) REFERENCES defenses(id)
 );
-
--- Create the trigger on the table to update the `created_at` field.
-CREATE TRIGGER update_moons_defenses_action_creation BEFORE INSERT ON construction_actions_defenses_moon FOR EACH ROW EXECUTE PROCEDURE update_created_at();

@@ -226,6 +226,9 @@ var ErrInvalidCargoForFleet = fmt.Errorf("Invalid cargo value for fleet")
 // ErrFleetDirectedTowardsSource : Indicates that the source is identical to the target of a fleet.
 var ErrFleetDirectedTowardsSource = fmt.Errorf("Target is identical to source for fleet")
 
+// ErrNonExistingObjective : Indicates that the objective does not exist for this fleet.
+var ErrNonExistingObjective = fmt.Errorf("Inexisting fleet objective")
+
 // ErrNoShipToPerformObjective : Indicates that no ship can be used to perform the fleet's objective.
 var ErrNoShipToPerformObjective = fmt.Errorf("No ships can perform the fleet's objective")
 
@@ -543,6 +546,63 @@ func (f *Fleet) fetchCargo(data model.Instance) error {
 	}
 
 	return nil
+}
+
+// SaveToDB :
+// Used to save the content of this fleet to
+// the DB. In case an error is raised during
+// the operation a comprehensive error is
+// returned.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns any error.
+func (f *Fleet) SaveToDB(proxy db.Proxy) error {
+	// Create the query and execute it.
+	query := db.InsertReq{
+		Script: "create_fleet",
+		Args: []interface{}{
+			f,
+			f.Ships,
+			f.Cargo,
+			f.Consumption,
+		},
+	}
+
+	err := proxy.InsertToDB(query)
+
+	// Analyze the error in order to provide some
+	// comprehensive message.
+	dbe, ok := err.(db.Error)
+	if !ok {
+		return err
+	}
+
+	dee, ok := dbe.Err.(db.DuplicatedElementError)
+	if ok {
+		switch dee.Constraint {
+		case "fleets_pkey":
+			return ErrDuplicatedElement
+		}
+
+		return dee
+	}
+
+	fkve, ok := dbe.Err.(db.ForeignKeyViolationError)
+	if ok {
+		switch fkve.ForeignKey {
+		case "uni":
+			return ErrNonExistingUniverse
+		case "objective":
+			return ErrNonExistingObjective
+		case "player":
+			return ErrNonExistingPlayer
+		}
+
+		return fkve
+	}
+
+	return dbe
 }
 
 // Convert :

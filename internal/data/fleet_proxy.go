@@ -234,21 +234,8 @@ func (p *FleetProxy) CreateFleet(fleet game.Fleet) (string, error) {
 		return fleet.ID, err
 	}
 
-	// The fleet seems valid, proceed to inserting
-	// the data in the DB.
-	query := db.InsertReq{
-		Script: "create_fleet",
-		Args: []interface{}{
-			&fleet,
-			fleet.Ships,
-			fleet.Cargo,
-			fleet.Consumption,
-		},
-	}
-
-	err = p.data.Proxy.InsertToDB(query)
-
-	// Check for errors.
+	// Import the fleet to the DB.
+	err = fleet.SaveToDB(p.data.Proxy)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not create fleet for \"%s\" for \"%s\" (err: %v)", fleet.ID, fleet.Player, err))
 		return fleet.ID, err

@@ -965,54 +965,10 @@ func (p *Planet) fetchDefensesUpgrades(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchIncomingFleets(data model.Instance) error {
-	// We need to fetch both the components that were
-	// started from this planet and the fleets that
-	// are directed towards it.
+	p.IncomingFleets = make([]string, 0)
 
-	// First query the components that started from
-	// this planet.
+	// Create the query and execute it.
 	query := db.QueryDesc{
-		Props: []string{
-			"id",
-		},
-		Table: "fleets",
-		Filters: []db.Filter{
-			{
-				Key:    "source",
-				Values: []string{p.ID},
-			},
-		},
-	}
-
-	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
-
-	// Check for errors.
-	if err != nil {
-		return err
-	}
-	if dbRes.Err != nil {
-		return dbRes.Err
-	}
-
-	var ID string
-	p.SourceFleets = make([]string, 0)
-
-	for dbRes.Next() {
-		err = dbRes.Scan(&ID)
-
-		if err != nil {
-			return err
-		}
-
-		p.SourceFleets = append(p.SourceFleets, ID)
-	}
-
-	// Then the fleets that are directed towards this
-	// planet. Note that we will order them by arrival
-	// time so that the ones that will hit the planet
-	// first are also in the first slots in the slice.
-	query = db.QueryDesc{
 		Props: []string{
 			"id",
 		},
@@ -1030,8 +986,8 @@ func (p *Planet) fetchIncomingFleets(data model.Instance) error {
 		Ordering: "order by arrival_time desc",
 	}
 
-	dbRes.Close()
-	dbRes, err = data.Proxy.FetchFromDB(query)
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
@@ -1041,7 +997,7 @@ func (p *Planet) fetchIncomingFleets(data model.Instance) error {
 		return dbRes.Err
 	}
 
-	p.IncomingFleets = make([]string, 0)
+	var ID string
 
 	for dbRes.Next() {
 		err = dbRes.Scan(&ID)
@@ -1051,17 +1007,6 @@ func (p *Planet) fetchIncomingFleets(data model.Instance) error {
 		}
 
 		p.IncomingFleets = append(p.IncomingFleets, ID)
-	}
-
-	// Perform the simulation of the fleets incoming
-	// on this planet.
-	// TODO: This does not take care of the fleets that
-	// have their source at this planet. We might want
-	// to simulate these as well but there's an issue
-	// with the lock order.
-	err = p.crashIncomingFleets(data)
-	if err != nil {
-		return err
 	}
 
 	return nil
@@ -1076,8 +1021,50 @@ func (p *Planet) fetchIncomingFleets(data model.Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchSourceFleets(data model.Instance) error {
-	// TODO: Handle this.
-	return fmt.Errorf("Not implemented")
+	p.SourceFleets = make([]string, 0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table: "fleets",
+		Filters: []db.Filter{
+			{
+				Key:    "source",
+				Values: []string{p.ID},
+			},
+			{
+				Key:    "source_type",
+				Values: []string{"planet"},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	var ID string
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			return err
+		}
+
+		p.SourceFleets = append(p.SourceFleets, ID)
+	}
+
+	return nil
 }
 
 // fetchResources :
@@ -1743,48 +1730,6 @@ func (p *Planet) validateFleet(fuels []model.ResourceAmount, cargos []model.Reso
 
 		if !ok || s.Amount < ship.Count {
 			return ErrNotEnoughShips
-		}
-	}
-
-	return nil
-}
-
-// crashIncomingFleets :
-// Used to perform the simulation of the fleets
-// that target this planet. We assume that the
-// internal `IncomingFleets` slice is already
-// populated with the fleets' data. We will not
-// update the fleets starting from this planet
-// in here.
-//
-// The `data` allows to access to the DB.
-//
-// Return any error.
-func (p *Planet) crashIncomingFleets(data model.Instance) error {
-	// For each fleet, retrieve its associated data
-	// and then simulate it against the planetary
-	// infrastructure. Note that we assume that the
-	// fleets registered in the `IncomingFleets` are
-	// indeed sorted by order of arrival.
-	for _, fID := range p.IncomingFleets {
-		// Fetch the fleet's data.
-		fleet, err := NewFleetFromDB(fID, data)
-
-		if err != nil {
-			return err
-		}
-
-		// Simulate the effect of the fleet on this
-		// planet.
-		err = fleet.simulate(p, data)
-		if err != nil {
-			return err
-		}
-
-		// Save the fleet back to db.
-		err = fleet.persistToDB(data)
-		if err != nil {
-			return err
 		}
 	}
 

@@ -108,7 +108,7 @@ type Fleet struct {
 	ArrivalTime  time.Time              `json:"arrival_time"`
 	ReturnTime   time.Time              `json:"return_time"`
 	Ships        ShipsInFleet           `json:"ships"`
-	Consumption  []model.ResourceAmount `json:"consumption,omitempty"`
+	Consumption  []model.ResourceAmount `json:"-"`
 	Cargo        []model.ResourceAmount `json:"cargo"`
 	flightTime   time.Duration
 }

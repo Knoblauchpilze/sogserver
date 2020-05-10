@@ -23,7 +23,7 @@ func validUUID(id string) bool {
 var ErrInvalidElementID = fmt.Errorf("Empty or invalid identifier provided for element")
 
 // ErrDuplicatedElement : Indicates that the element identifier is not unique.
-var ErrDuplicatedElement = fmt.Errorf("Invalid not unique account")
+var ErrDuplicatedElement = fmt.Errorf("Invalid not unique element")
 
 // ErrElementNotFound : Indicates that no element with specified ID exists.
 var ErrElementNotFound = fmt.Errorf("Identifier does not correspond to any known element")

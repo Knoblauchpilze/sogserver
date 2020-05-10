@@ -1222,7 +1222,7 @@ func (p *Planet) fetchTechnologies(data model.Instance) error {
 			"technology",
 			"level",
 		},
-		Table: "player_technologies",
+		Table: "players_technologies",
 		Filters: []db.Filter{
 			{
 				Key:    "player",

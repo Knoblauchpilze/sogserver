@@ -27,7 +27,10 @@ import (
 // interval with no issues) to perform update for players that didn't
 // connect for a long time.
 // TODO: Multiple ships or defenses actions overlaps while they should be
-// added at the end of each other.
+// added at the end of each other. To fix this we just have to find a way
+// to compute the remaining time on all actions for a specific planet/moon
+// and set the created_at value after that.
+// This could be done either through the DB or in the code.
 // TODO: Regarding the lock system. What we do for accounts and universes
 // is very interesting because it means that we can fetch info in an atomic
 // way where the data is fetched once and for all so that we don't have to

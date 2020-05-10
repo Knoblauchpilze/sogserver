@@ -1,14 +1,14 @@
 
--- Drop the function allowing to update defense for a planet or moon.
-DROP FUNCTION update_defense_upgrade_action(target_id uuid, kind text);
+-- Drop the function allowing to update a specific defense action.
+DROP FUNCTION update_defense_upgrade_action(action_id uuid, kind text);
 
--- Drop the function allowing to update ship for a planet or moon.
-DROP FUNCTION update_ship_upgrade_action(target_id uuid, kind text);
+-- Drop the function allowing to update a specific ship action.
+DROP FUNCTION update_ship_upgrade_action(action_id uuid, kind text);
 
--- Drop the function allowing to update technology for a player.
-DROP FUNCTION update_technology_upgrade_action(player_id uuid);
+-- Drop the function allowing to update a specific technology action.
+DROP FUNCTION update_technology_upgrade_action(action_id uuid);
 
--- Drop the function allowing to update building for a planet or moon.
+-- Drop the function allowing to update a specific building action.
 DROP FUNCTION update_building_upgrade_action(action_id uuid, kind text);
 
 -- Drop the function to update resources on a given planet.

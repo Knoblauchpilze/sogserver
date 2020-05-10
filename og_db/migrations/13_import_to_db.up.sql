@@ -886,8 +886,14 @@ BEGIN
   -- fleet's resources.
   -- The table that will be updated depends on the
   -- type of the target.
-  -- TODO: Does this work in case there is no resources
-  -- of this type on the planet ?
+  -- Note that as we only update existing resources
+  -- for planets (or moons) it means that if the
+  -- fleet brings new resources to a planet it will
+  -- not be added correctly to the planet's stocks.
+  -- This is note a problem for now though as for
+  -- now we register all the resources for any new
+  -- planet so all possible resources should already
+  -- be created beforehand.
   IF target_kind = 'planet' THEN
     UPDATE planets_resources AS pr
       SET amount = pr.amount + fr.amount

@@ -18,10 +18,6 @@ import (
 // TODO: Allow to delete a planet.
 // TODO: Use the token mechanism to make sure that a client has access
 // to some information (typically to the data for a planet or a player).
-// TODO: We should maybe find a way to transfer the mechanism for regular
-// expressions used in the route in the `extractRouteVars` framework to allow
-// to actually determine precisely which are the elements from the route and
-// which are the extra pathes.
 // TODO: It seems like some assumptions we make when updating resources in
 // DB (and more precisely resources count) do not play well when intervals
 // reach lengths of more than a month/day/year. See here for details:
@@ -32,11 +28,6 @@ import (
 // connect for a long time.
 // TODO: Multiple ships or defenses actions overlaps while they should be
 // added at the end of each other.
-// TODO: Maybe to fetch the result of the fleets that are not directed towards
-// on of their planet, the players could issue a request to the actual target
-// planets of the fleets (which is available in the fleet component which is
-// retrieved (or could be) with the planet and get the result of the fleet
-// this way.
 // TODO: Regarding the lock system. What we do for accounts and universes
 // is very interesting because it means that we can fetch info in an atomic
 // way where the data is fetched once and for all so that we don't have to
@@ -135,8 +126,6 @@ import (
 // close to actually locking completely the server for every
 // request but on the other hand it might be the simplest option.
 // TODO: Restore the possibility to create ACS.
-// TODO: Restore the fact that we need the consumption in the case
-// of a fleets fetching ?
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

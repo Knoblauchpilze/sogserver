@@ -70,7 +70,7 @@ func (s *Server) listFleetObjectives() http.HandlerFunc {
 // Returns the handler to execute to perform said requests.
 func (s *Server) createFleet() http.HandlerFunc {
 	// Create the endpoint with the suited route.
-	ed := NewCreateResourceEndpoint("players")
+	ed := NewCreateResourceEndpoint("fleets")
 
 	// Configure the endpoint.
 	ed.WithDataKey("fleet-data").WithModule("fleets").WithLocker(s.og)

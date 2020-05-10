@@ -52,12 +52,6 @@ import (
 // or moon to whicht his fleet is directed. Note that
 // this value may be empty if the objective allows it.
 //
-// The `TargetType` defines the type of the target
-// assigned to this fleet. It should be either moon
-// or planet in case the `Target` is not empty or
-// `Debris` in case the fleet is not directed to an
-// existing celestial body.
-//
 // The `Speed` defines the speed percentage that is
 // used by the fleet to travel at. It will be used
 // when computing the flight time and the consumption.
@@ -109,13 +103,12 @@ type Fleet struct {
 	SourceType   Location               `json:"source_type"`
 	TargetCoords Coordinate             `json:"target_coordinates"`
 	Target       string                 `json:"target"`
-	TargetType   Location               `json:"target_type"`
 	Speed        float32                `json:"speed"`
 	CreatedAt    time.Time              `json:"created_at"`
 	ArrivalTime  time.Time              `json:"arrival_time"`
 	ReturnTime   time.Time              `json:"return_time"`
 	Ships        ShipsInFleet           `json:"ships"`
-	Consumption  []model.ResourceAmount `json:"consumption"`
+	Consumption  []model.ResourceAmount `json:"consumption,omitempty"`
 	Cargo        []model.ResourceAmount `json:"cargo"`
 	flightTime   time.Duration
 }
@@ -230,6 +223,9 @@ var ErrInvalidTargetTypeForFleet = fmt.Errorf("Target type for fleet is not vali
 // ErrInvalidCargoForFleet : Indicates that a cargo resource is invalid for a fleet.
 var ErrInvalidCargoForFleet = fmt.Errorf("Invalid cargo value for fleet")
 
+// ErrFleetDirectedTowardsSource : Indicates that the source is identical to the target of a fleet.
+var ErrFleetDirectedTowardsSource = fmt.Errorf("Target is identical to source for fleet")
+
 // ErrNoShipToPerformObjective : Indicates that no ship can be used to perform the fleet's objective.
 var ErrNoShipToPerformObjective = fmt.Errorf("No ships can perform the fleet's objective")
 
@@ -267,7 +263,7 @@ func (f *Fleet) Valid(uni Universe) error {
 	if !validUUID(f.Source) {
 		return ErrInvalidSourceForFleet
 	}
-	if existsLocation(f.SourceType) {
+	if !existsLocation(f.SourceType) {
 		return ErrInvalidSourceTypeForFleet
 	}
 	if !f.TargetCoords.valid(uni.GalaxiesCount, uni.GalaxySize, uni.SolarSystemSize) {
@@ -276,7 +272,7 @@ func (f *Fleet) Valid(uni Universe) error {
 	if f.Target != "" && !validUUID(f.Target) {
 		return ErrInvalidTargetForFleet
 	}
-	if existsLocation(f.TargetType) {
+	if !existsLocation(f.TargetCoords.Type) {
 		return ErrInvalidTargetTypeForFleet
 	}
 	if err := f.Ships.valid(); err != nil {
@@ -286,6 +282,10 @@ func (f *Fleet) Valid(uni Universe) error {
 		if !validUUID(c.Resource) || c.Amount <= 0.0 {
 			return ErrInvalidCargoForFleet
 		}
+	}
+
+	if f.Target == f.Source {
+		return ErrFleetDirectedTowardsSource
 	}
 
 	return nil
@@ -385,8 +385,6 @@ func (f *Fleet) fetchGeneralInfo(data model.Instance) error {
 	}
 
 	// Scan the fleet's data.
-	var g, s, p int
-
 	atLeastOne := dbRes.Next()
 	if !atLeastOne {
 		return ErrElementNotFound
@@ -396,6 +394,9 @@ func (f *Fleet) fetchGeneralInfo(data model.Instance) error {
 	// string in order to account for cases where the string
 	// is not filled (typically for undirected objectives).
 	var ta sql.NullString
+
+	var g, s, p int
+	var loc Location
 
 	err = dbRes.Scan(
 		&f.Universe,
@@ -407,7 +408,7 @@ func (f *Fleet) fetchGeneralInfo(data model.Instance) error {
 		&s,
 		&p,
 		&ta,
-		&f.TargetType,
+		&loc,
 		&f.Speed,
 		&f.CreatedAt,
 		&f.ArrivalTime,
@@ -415,7 +416,7 @@ func (f *Fleet) fetchGeneralInfo(data model.Instance) error {
 	)
 
 	var errC error
-	f.TargetCoords, errC = newCoordinate(g, s, p, Location(f.TargetType))
+	f.TargetCoords, errC = newCoordinate(g, s, p, loc)
 	if errC != nil {
 		return errC
 	}
@@ -562,7 +563,7 @@ func (f *Fleet) Convert() interface{} {
 		Galaxy      int       `json:"target_galaxy"`
 		System      int       `json:"target_solar_system"`
 		Position    int       `json:"target_position"`
-		Target      string    `json:"target"`
+		Target      string    `json:"target,omitempty"`
 		TargetType  Location  `json:"target_type"`
 		Speed       float32   `json:"speed"`
 		ArrivalTime time.Time `json:"arrival_time"`
@@ -578,7 +579,7 @@ func (f *Fleet) Convert() interface{} {
 		System:      f.TargetCoords.System,
 		Position:    f.TargetCoords.Position,
 		Target:      f.Target,
-		TargetType:  f.TargetType,
+		TargetType:  f.TargetCoords.Type,
 		Speed:       f.Speed,
 		ArrivalTime: f.ArrivalTime,
 		ReturnTime:  f.ReturnTime,
@@ -687,8 +688,8 @@ func (f *Fleet) Validate(data model.Instance, source *Planet, target *Planet) er
 	// that there are enough resources to be taken
 	// from the planet.
 	// TODO: Hack to allow creation of fleets without checks.
-	return source.validateComponent(f.Consumption, f.Cargo, f.Ships, data)
-	// return nil
+	// return source.validateFleet(f.Consumption, f.Cargo, f.Ships, data)
+	return nil
 }
 
 // consolidateConsumption :

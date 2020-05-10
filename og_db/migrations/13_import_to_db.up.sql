@@ -306,7 +306,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION create_fleet(fleet json, ships json, resources json, consumption json) RETURNS VOID AS $$
 BEGIN
   -- Make sure that the target and source type for this fleet are valid.
-  IF fleet->>'target_type' != 'planet' AND fleet->>'target_type' != 'moon' THEN
+  IF fleet->>'target_type' != 'planet' AND fleet->>'target_type' != 'moon' AND fleet->>'target_type' != 'debris' THEN
     RAISE EXCEPTION 'Invalid kind % specified for target of fleet', fleet->>'target_type';
   END IF;
 
@@ -321,13 +321,22 @@ BEGIN
 
   -- Insert the ships for this fleet element.
   INSERT INTO fleet_ships
-    SELECT *
-    FROM json_populate_recordset(null::fleet_ships, ships);
+    SELECT
+      uuid_generate_v4() AS id,
+      (fleet->>'id')::uuid AS fleet,
+      t.ship AS ship,
+      t.count AS count
+    FROM
+      json_to_recordset(ships) AS t(ship uuid, count integer);
 
   -- Insert the resources for this fleet element.
   INSERT INTO fleet_resources
-    SELECT *
-    FROM json_populate_recordset(null::fleet_resources, resources);
+    SELECT
+      (fleet->>'id')::uuid AS fleet,
+      t.resource AS resource,
+      t.amount AS amount
+    FROM
+      json_to_recordset(resources) AS t(resource uuid, amount numeric(15, 5));
 
   -- Reduce the planet's resources from the amount of the fuel.
   -- Note that depending on the starting location of the fleet
@@ -843,13 +852,21 @@ DECLARE
   target_kind text;
 BEGIN
   -- Retrieve the ID of the target associated to the
-  -- fleet along with its type.
+  -- fleet.
   SELECT target INTO target_id FROM fleets WHERE id = fleet_id AND target IS NOT NULL;
-  SELECT target_type INTO target_kind FROM fleets WHERE id = fleet_id;
 
   -- If the target does not exist for this fleet, do not
   -- deposit resources. Whether it is an issue will be
   -- determined by the calling script.
+  IF NOT FOUND THEN
+    RETURN FALSE;
+  END IF;
+
+  -- Fetch the target type: if the target type does not
+  -- exist it means that the fleet's identifier is not
+  -- valid.
+  SELECT target_type INTO target_kind FROM fleets WHERE id = fleet_id;
+
   IF NOT FOUND THEN
     RETURN FALSE;
   END IF;
@@ -869,6 +886,8 @@ BEGIN
   -- fleet's resources.
   -- The table that will be updated depends on the
   -- type of the target.
+  -- TODO: Does this work in case there is no resources
+  -- of this type on the planet ?
   IF target_kind = 'planet' THEN
     UPDATE planets_resources AS pr
       SET amount = pr.amount + fr.amount

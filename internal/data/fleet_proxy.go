@@ -27,84 +27,16 @@ type FleetProxy struct {
 	commonProxy
 }
 
-// shipInFleetForDB :
-// Specialization of the `model.ShipInFleet` data structure
-// which allows to append the missing info to perform the
-// insertion of the data to the DB. We basically need to
-// add the identifier of the component and the identifier
-// of the fleet element.
-//
-// The `ID` defines the identifier of this fleet component
-// ship.
-//
-// The `FleetCompID` defines the identifier of the fleet
-// component describing this ship.
-type shipInFleetForDB struct {
-	ID          string `json:"id"`
-	FleetCompID string `json:"fleet_element"`
+// ErrMismatchBetweenTargetCoordsAndID : Indicates that the coordinates of the target is
+// not consistent with the target's identifier.
+var ErrMismatchBetweenTargetCoordsAndID = fmt.Errorf("Target's coordinates not consistent with ID for fleet")
 
-	game.ShipInFleet
-}
+// ErrPlayerDoesNotOwnSource : Indicates that the player for a fleet does not own the source.
+var ErrPlayerDoesNotOwnSource = fmt.Errorf("Player does not own source of a fleet")
 
-// resourceInFleetForDB :
-// Similar to the `shipInFleetForDB` but holds a resource
-// and an amount that is carried by a fleet component.
-//
-// The `FleetCompID` defines the identifier of the fleet
-// component to which this resources is associated.
-type resourceInFleetForDB struct {
-	FleetCompID string `json:"fleet_element"`
-
-	model.ResourceAmount
-}
-
-// fleetDesc :
-// Convenience structure allowing to regroup information
-// fetched for a fleet from a component's description. It
-// defines the target of the fleet, the actual fleet and
-// whether or not this fleet has been created specifically
-// for the component or was already existing.
-//
-// The `fleet` defines the actual fleet object.
-//
-// The `target` defines a planet representing the target
-// of the fleet. Can either be fetched from the existing
-// fleet or created from the component's target.
-//
-// The `created` boolean defines whether this fleet was
-// existing in the DB or was created specifically for the
-// component.
-type fleetDesc struct {
-	fleet   game.Fleet
-	target  *game.Planet
-	created bool
-}
-
-// ErrInvalidFleet :
-// Used to indicate that the fleet component provided
-// in input could not be analyzed in some way: it is
-// usually because fetching some related data failed
-// but can also indicate that the input values were
-// not correct.
-var ErrInvalidFleet = fmt.Errorf("Unable to analyze invalid action")
-
-// ErrImpossibleFleet :
-// Used to indicate that the creation of the fleet
-// component cannot be performed on the planet due
-// to a lack of ships, fuel or resources.
-var ErrImpossibleFleet = fmt.Errorf("Cannot perform creation of fleet component on planet")
-
-// ErrPlayerNotInUniverse :
-// Used to indicate that the player's identifier associated
-// to a fleet component is not consistent with the universe
-// associated to the fleet.
-var ErrPlayerNotInUniverse = fmt.Errorf("Invalid player identifier compared to universe")
-
-// ErrComponentAtDestination :
-// Used to indicate that a fleet component is actually set
-// to start from the destination of the fleet it is meant
-// to join. This is not possible.
-var ErrComponentAtDestination = fmt.Errorf("Fleet component cannot join fleet directed towards starting position")
+// ErrUniverseMismatchForFleet : Indicates that one ore more element of the fleet do not
+// belong to the fleet's universe.
+var ErrUniverseMismatchForFleet = fmt.Errorf("Universe specified for fleet does not match the components")
 
 // NewFleetProxy :
 // Create a new proxy allowing to serve the requests
@@ -212,123 +144,105 @@ func (p *FleetProxy) CreateFleet(fleet game.Fleet) (string, error) {
 		fleet.ID = uuid.New().String()
 	}
 
-	// Check validity of the input fleet component.
-	if !comp.Valid() {
-		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet component's data %s", comp))
-		return "", ErrInvalidFleet
+	// In order to make sure that the fleet is valid we
+	// have to check the coordinates against the parent
+	// universe. This means that we should first assign
+	// the universe before calling the `fleet.Valid()`.
+	// This might fail in case the universe's ID in the
+	// fleet is not valid. We will report this as an
+	// error of the fleet in this case.
+	uni, err := game.NewUniverseFromDB(fleet.Universe, p.data)
+	if err == game.ErrInvalidElementID {
+		return fleet.ID, game.ErrInvalidUniverseForFleet
 	}
 
-	// Acquire the lock on the player associated to this
-	// fleet component along with the element it should
-	// start from.
-	player, err := game.NewPlayerFromDB(comp.Player, p.data)
+	// Check validity of the input fleet.
+	if err := fleet.Valid(uni); err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet's data (err: %v)", err))
+		return fleet.ID, err
+	}
+
+	// In order to validate and import the fleet's data
+	// to the DB we need to retrieve the source planet
+	// or moon and the target element (if it exists).
+	source, err := game.NewPlanetFromDB(fleet.Source, p.data)
 	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not fetch player \"%s\" to create component for \"%s\" err: %v)", comp.Player, comp.Fleet, err))
+		p.trace(logger.Error, fmt.Sprintf("Unable to fetch source for fleet (err: %v)", err))
+		return fleet.ID, game.ErrInvalidSourceForFleet
+	}
+
+	var target *game.Planet
+	if fleet.Target != "" {
+		vTarget, err := game.NewPlanetFromDB(fleet.Target, p.data)
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Unable to fetch target for fleet (err: %v)", err))
+			return fleet.ID, game.ErrInvalidTargetForFleet
+		}
+
+		target = &vTarget
+	}
+
+	// Check that the source and the target are distinct and
+	// that the target's coordinates are consistent with the
+	// actual values defined in the input data.
+	if target != nil && fleet.TargetCoords != target.Coordinates {
+		return fleet.ID, ErrMismatchBetweenTargetCoordsAndID
+	}
+	if source.Player != fleet.Player {
+		return fleet.ID, ErrPlayerDoesNotOwnSource
+	}
+
+	// Consolidate the universe's identifier from the fleet's
+	// data. We will force the fleet's universe to match its
+	// source's player and check that the target is consistent
+	// with it.
+	player, err := game.NewPlayerFromDB(fleet.Player, p.data)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Unable to fetch player for fleet (err: %v)", err))
+		return fleet.ID, game.ErrInvalidPlayerForFleet
+	}
+
+	if player.Universe != fleet.Universe {
+		return fleet.ID, ErrUniverseMismatchForFleet
+	}
+
+	if target != nil {
+		tPlayer, err := game.NewPlayerFromDB(target.Player, p.data)
+
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Unable to fetch target player for fleet (err: %v)", err))
+			return fleet.ID, game.ErrInvalidTargetForFleet
+		}
+
+		if tPlayer.Universe != fleet.Universe {
+			p.trace(logger.Error, fmt.Sprintf("Target player of fleet belongs to universe \"%s\" not consistent with fleet's \"%s\"", tPlayer.Universe, fleet.Universe))
+			return fleet.ID, game.ErrInvalidTargetForFleet
+		}
+	}
+
+	// Consolidate the arrival time for this fleet.
+	err = fleet.ConsolidateArrivalTime(p.data, &source)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not consolidate arrival time for fleet (err: %v)", err))
 		return "", err
 	}
 
-	// Fetch the element related to this fleet and use
-	// it as read write access.
-	source, err := game.NewPlanetFromDB(comp.Source, p.data)
+	// Validate the fleet against planet's data.
+	err = fleet.Validate(p.data, &source, target)
 	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not fetch element related to fleet component (err: %v)", err))
-		return "", ErrInvalidFleet
+		p.trace(logger.Error, fmt.Sprintf("Unable to validate fleet's data for \"%s\" (err: %v)", fleet.Player, err))
+		return fleet.ID, err
 	}
 
-	// Make sure that the component is not directed towards
-	// its started position.
-	if comp.Target == source.Coordinates {
-		p.trace(logger.Error, fmt.Sprintf("Fleet component is directed towards \"%s\" which is its started location at %s", source.ID, comp.Target))
-		return "", ErrInvalidFleet
-	}
-
-	// Consolidate the arrival time for this component.
-	err = comp.ConsolidateArrivalTime(p.data, &source)
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not consolidate arrival time for component (err: %v)", err))
-		return "", ErrInvalidFleet
-	}
-
-	// Fetch the fleet related to this component.
-	// Note that in case the component does not
-	// yet have a fleet associated to it this is
-	// the moment to create it.
-	fDesc, err := p.fetchFleetForComponent(&comp, player.Universe)
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Unable to fetch fleet \"%s\" to create component for \"%s\" (err: %v)", comp.Fleet, comp.Player, err))
-		return fDesc.fleet.ID, ErrInvalidFleet
-	}
-
-	// Make sure that the target of the fleet is not
-	// the source of the component.
-	if source.Coordinates == fDesc.fleet.Target {
-		p.trace(logger.Error, fmt.Sprintf("Fleet component is starting from the fleet's destination at %s", source.Coordinates))
-		return fDesc.fleet.ID, ErrComponentAtDestination
-	}
-
-	// Validate the component against planet's data.
-	err = comp.Validate(p.data, &source, fDesc.target, &fDesc.fleet)
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Cannot create fleet component for \"%s\" from \"%s\" (err: %v)", comp.Player, source.ID, err))
-		return fDesc.fleet.ID, ErrImpossibleFleet
-	}
-
-	// We can perform the insertion of both the fleet and the
-	// component now that we know that both are valid. Note
-	// that the insertion of the fleet is only required in
-	// case the component is not being attached to an existing
-	// one.
-	if fDesc.created {
-		query := db.InsertReq{
-			Script: "create_fleet",
-			Args: []interface{}{
-				&fDesc.fleet,
-			},
-		}
-
-		err = p.data.Proxy.InsertToDB(query)
-
-		// Check for errors.
-		if err != nil {
-			p.trace(logger.Error, fmt.Sprintf("Could not create fleet for \"%s\" from \"%s\" (err: %v)", comp.Player, comp.Source, err))
-			return fDesc.fleet.ID, err
-		}
-
-		p.trace(logger.Notice, fmt.Sprintf("Created new fleet \"%s\" from component \"%s\"", fDesc.fleet.ID, comp.ID))
-	}
-
-	// Convert the input ships to something that can be directly
-	// inserted into the DB. We need to manually create the ID
-	// and assign the identifier of the parent fleet component.
-	shipsForDB := make([]shipInFleetForDB, len(comp.Ships))
-
-	for id, ship := range comp.Ships {
-		shipsForDB[id] = shipInFleetForDB{
-			ID:          uuid.New().String(),
-			FleetCompID: comp.ID,
-			ShipInFleet: ship,
-		}
-	}
-
-	// Perform a similar operation on the cargo defined for
-	// this component.
-	resForDB := make([]resourceInFleetForDB, len(comp.Cargo))
-
-	for id, res := range comp.Cargo {
-		resForDB[id] = resourceInFleetForDB{
-			FleetCompID:    comp.ID,
-			ResourceAmount: res,
-		}
-	}
-
-	// Create the query and execute it.
+	// The fleet seems valid, proceed to inserting
+	// the data in the DB.
 	query := db.InsertReq{
-		Script: "create_fleet_component",
+		Script: "create_fleet",
 		Args: []interface{}{
-			&comp,
-			shipsForDB,
-			resForDB,
-			comp.Consumption,
+			&fleet,
+			fleet.Ships,
+			fleet.Cargo,
+			fleet.Consumption,
 		},
 	}
 
@@ -336,129 +250,11 @@ func (p *FleetProxy) CreateFleet(fleet game.Fleet) (string, error) {
 
 	// Check for errors.
 	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Could not create component for \"%s\" in \"%s\" (err: %v)", comp.Player, fDesc.fleet.ID, err))
-		return fDesc.fleet.ID, err
+		p.trace(logger.Error, fmt.Sprintf("Could not create fleet for \"%s\" for \"%s\" (err: %v)", fleet.ID, fleet.Player, err))
+		return fleet.ID, err
 	}
 
-	p.trace(logger.Notice, fmt.Sprintf("Created new fleet component \"%s\" for \"%s\" in \"%s\"", comp.ID, comp.Player, fDesc.fleet.ID))
+	p.trace(logger.Notice, fmt.Sprintf("Created new fleet \"%s\" for \"%s\"", fleet.ID, fleet.Player))
 
-	return fDesc.fleet.ID, nil
-}
-
-// fetchFleetForComponent :
-// Used to fetch the fleet related to the input component.
-// This might either mean fetch it from the DB in case it
-// already exists or create a new fleet if the fleet does
-// not exist yet.
-//
-// The `comp` defines the fleet component for which the
-// fleet should be fetched.
-//
-// The `universe` defines the identifier of the universe
-// which is associated to the player owning the input
-// fleet component. It will be used in case a fleet for
-// the component does not exist yet to fetch some props.
-//
-// Returns the fleet associated to this component along
-// with the target planet (which might be `nil` in case
-// the objective of the fleet is compatible with it) and
-// any errors.
-func (p *FleetProxy) fetchFleetForComponent(comp *game.Component, universe string) (fleetDesc, error) {
-	var f fleetDesc
-	var err error
-
-	// We assume that even in the case of a fleet provided
-	// in the component the target will be provided. This
-	// will help us lock the target planet *before* locking
-	// the fleet and thus be consistent with the scenario
-	// when the user wants to fetch the target planet.
-	// So we can try to acquire the lock on the planet as
-	// specified by the target of the component.
-	// We need first to fetch the universe of the planet.
-	uni, err := game.NewUniverseFromDB(universe, p.data)
-	if err != nil {
-		return f, err
-	}
-
-	// Retrieve the target planet if needed.
-	f.target, err = uni.GetPlanetAt(comp.Target, p.data)
-	if err != nil && err != game.ErrPlanetNotFound {
-		return f, err
-	}
-
-	// In case the component has a fleet associated to it
-	// we can fetch it through the dedicated handler.
-	if comp.Fleet != "" {
-		f.fleet, err = game.NewFleetFromDB(comp.Fleet, p.data)
-
-		if err != nil {
-			return f, err
-		}
-
-		// Override the information provided by the fleet in
-		// the component.
-		comp.Objective = f.fleet.Objective
-		comp.Target = f.fleet.Target
-		comp.Name = f.fleet.Name
-
-		// Register this component as a member of the fleet.
-		f.fleet.Comps = append(f.fleet.Comps, *comp)
-	}
-
-	// In case the fleet was valid, return now.
-	if f.fleet.ID != "" {
-		return f, nil
-	}
-
-	// Otherwise we need to create the fleet and then
-	// register it in the DB.
-	f.created = true
-
-	planetID := ""
-	if err == nil {
-		planetID = f.target.ID
-	}
-
-	f.fleet, err = game.NewEmptyFleet(uuid.New().String(), p.data)
-	if err != nil {
-		return f, nil
-	}
-
-	f.fleet.Name = comp.Name
-	f.fleet.Universe = uni.ID
-	f.fleet.Objective = comp.Objective
-	f.fleet.Target = comp.Target
-	f.fleet.Body = planetID
-	f.fleet.ArrivalTime = comp.ArrivalTime
-	f.fleet.Comps = []game.Component{
-		*comp,
-	}
-
-	// Associate the component with the fleet.
-	comp.Fleet = f.fleet.ID
-
-	// Make sure the fleet is valid.
-	if !f.fleet.Valid(uni) {
-		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet's data for \"%s\"", comp.ID))
-		return f, ErrInvalidFleet
-	}
-
-	// Make sure that the objective specified for the
-	// fleet is consistent with the ships existing in
-	// the component.
-	// Indeed as this is the first component that is
-	// joining the fleet it *has* to be allowed for
-	// the objective. Other elements joining later
-	// will be allowed to not contain any ship that
-	// can perform the action but the first one is
-	// special.
-	// That is why no check is performed when the
-	// fleet can be found from the component's id.
-	err = f.fleet.Validate(p.data)
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet's data for \"%s\" (err: %v)", comp.ID, err))
-		return f, ErrInvalidFleet
-	}
-
-	return f, nil
+	return fleet.ID, nil
 }

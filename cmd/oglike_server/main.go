@@ -135,6 +135,8 @@ import (
 // close to actually locking completely the server for every
 // request but on the other hand it might be the simplest option.
 // TODO: Restore the possibility to create ACS.
+// TODO: Restore the fact that we need the consumption in the case
+// of a fleets fetching ?
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

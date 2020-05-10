@@ -210,7 +210,7 @@ BEGIN
     UPDATE planets_resources AS pr
       SET amount = pr.amount + fr.amount
     FROM
-      fleet_resources fr
+      fleet_resources AS fr
       INNER JOIN fleets f ON fr.fleet = f.id
     WHERE
       f.id = fleet_id
@@ -220,8 +220,7 @@ BEGIN
     -- Remove the resources carried by this fleet.
     DELETE FROM
       fleet_resources AS fr
-      USING
-        fleets AS f
+      USING fleets AS f
     WHERE
       fr.fleet = f.id
       AND f.id = fleet_id;
@@ -231,7 +230,7 @@ BEGIN
     UPDATE moons_resources AS mr
       SET amount = mr.amount + fr.amount
     FROM
-      fleet_resources fr
+      fleet_resources AS fr
       INNER JOIN fleets f ON fr.fleet = f.id
     WHERE
       f.id = fleet_id
@@ -241,8 +240,7 @@ BEGIN
     -- Remove the resources carried by this fleet.
     DELETE FROM
       fleet_resources AS fr
-      USING
-        fleets AS f
+      USING fleets AS f
     WHERE
       fr.fleet_element = f.id
       AND f.id = fleet_id;
@@ -297,7 +295,7 @@ BEGIN
     UPDATE planets_ships AS ps
       SET count = ps.count + fs.count
     FROM
-      fleet_ships fs
+      fleet_ships AS fs
       INNER JOIN fleets f ON fs.fleet = f.id
     WHERE
       f.id = fleet_id
@@ -309,7 +307,7 @@ BEGIN
     UPDATE moons_ships AS ms
       SET count = ms.count + fs.count
     FROM
-      fleet_ships fs
+      fleet_ships AS fs
       INNER JOIN fleets f ON fs.fleet = f.id
     WHERE
       f.id = fleet_id
@@ -320,17 +318,13 @@ BEGIN
   -- Remove the ships associated to this fleet.
   DELETE FROM
     fleet_ships AS fs
-    USING
-      fleets AS f
+    USING fleets AS f
   WHERE
     fs.fleet = f.id
     AND f.id = fleet_id;
 
   -- Remove this fleet from any ACS operation.
-  DELETE FROM
-    fleets_acs_components
-  WHERE
-    fleet = fleet_id;
+  DELETE FROM fleets_acs_components WHERE fleet = fleet_id;
 
   -- Remove empty ACS operation.
   DELETE FROM
@@ -349,10 +343,7 @@ BEGIN
 
   -- And finally remove the fleet which is now as
   -- empty as my bank account.
-  DELETE FROM
-    fleets
-  WHERE
-    id = fleet_id;
+  DELETE FROM fleets WHERE id = fleet_id;
 END
 $$ LANGUAGE plpgsql;
 
@@ -369,7 +360,7 @@ BEGIN
   UPDATE fleet_resources AS fr
     SET amount = fr.amount + dfr.amount
   FROM
-    debris_fields_resources dfr
+    debris_fields_resources AS dfr
     INNER JOIN debris_fields df ON dfr.field=df.id
     INNER JOIN fleets f ON (
       df.universe = f.uni
@@ -393,7 +384,7 @@ BEGIN
     dfr.res AS resource,
     dfr.amount AS amount
   FROM
-    debris_fields_resources dfr
+    debris_fields_resources AS dfr
     INNER JOIN debris_fields df ON dfr.field = df.id
     INNER JOIN fleets f ON (
       df.universe = f.uni

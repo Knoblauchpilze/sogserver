@@ -3,6 +3,7 @@ package game
 import (
 	"database/sql"
 	"fmt"
+	"math"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"time"
@@ -10,77 +11,175 @@ import (
 
 // Fleet :
 // Defines a fleet in the OG context. A fleet is composed of
-// several ships, that can be grouped in distinct components.
-// Several players can join a fleet meaning that the starting
-// point of the fleet cannot be expressed as a single coord.
-// However a fleet always has a single destination which is
-// reached by all the components at the same time.
+// several ships and several fleets can be grouped into a so
+// called ACS operation (for Alliance Combat System).
+// A fleet is characterized by a source location which has
+// to be a valid planet/moon and a target which can either
+// be another planet or moon or an unassigned location for
+// some objectives.
 //
 // The `ID` represents a way to uniquely identify the fleet.
 //
-// The `Name` defines the name that the user provided when
-// the fleet was created. It might be empty in case no name
-// was provided.
+// The `Universe` defines the ID of the universe this fleet
+// belongs to. This allows to check the coordinates of the
+// source and target to be sure that they're valid.
 //
-// The `Universe` defines the identifier of the universe this
-// fleet belongs to. Indeed a fleet is linked to some coords
-// which are linked to a universe. It also is used to make
-// sure that only players of this universe can participate in
-// the fleet.
+// The `Objective` defines the identifier of the objective
+// this fleet is serving. It is checked to make sure it is
+// consistent with the rest of the data (typically if no
+// target is provided, the objective should allow it).
 //
-// The `Objective` is a string defining the action intended
-// for this fleet. It is a way to determine which purpose
-// the fleet serves. This string represents an identifier
-// in the objectives description table.
+// The `Player` defines the identifier of the player to
+// which this fleet is related to. It should also be the
+// owner of the source of the fleet.
 //
-// The `Target` defines the destination coordinates of the
-// fleet. Note that depending on the objective of the fleet
-// it might not always refer to an existing planet.
+// The `Source` defines the identifier of the fleet's
+// source. It should correspond to a valid planet or
+// moon within the specified universe.
 //
-// The `Body` attribute defines the potential identifier
-// of the planet or moon this fleet is targetting. This
-// value is meant to be used in case a celestial body is
-// already existing at the location indicated by `target`
-// coordinates. It is left empty in case nothing exists
-// there (typically in the case of a colonization mission).
+// The `SourceType` defines the type of element that is
+// represented by the source. It is used to distinguish
+// between a planet and a moon as starting coordinates.
 //
-// The `ArrivalTime` describes the time at which the fleet
-// is meant to reach its destination without taking into
-// account the potential delays.
+// The `TargetCoords` defines the coordinates of the
+// target destination of the fleet. It can either be
+// the only indication of the purpose of the fleet in
+// case the objective allows a fleet not directed to
+// a target or the coordinates of the planet/moon to
+// which this fleet is directed to.
 //
-// The `Comps` defines the list of components defining the
-// fleet. Each component correspond to some ships starting
-// from a single location and travelling as a single unit.
+// The `Target` defines the identifier of the planet
+// or moon to whicht his fleet is directed. Note that
+// this value may be empty if the objective allows it.
+//
+// The `TargetType` defines the type of the target
+// assigned to this fleet. It should be either moon
+// or planet in case the `Target` is not empty or
+// `Debris` in case the fleet is not directed to an
+// existing celestial body.
+//
+// The `Speed` defines the speed percentage that is
+// used by the fleet to travel at. It will be used
+// when computing the flight time and the consumption.
+// This value should be in the range `[0; 1]`.
+//
+// The `CreatedAt` defines the time at which the
+// fleet was created. It is the launch time.
+//
+// The `ArrivalTime` represents the time at which
+// the fleet should arrive at its destination. This
+// value is computed in the server and any data
+// provided when registering the fleet is overriden.
+//
+// The `ReturnTime` defines the time at which the
+// fleet will be back to its starting location in
+// case the fleet proceeds to its destination. This
+// value may be updated if the user calls back the
+// fleet beforehand, or ignored altogether in case
+// the fleet is no longer able to perform its duty
+// (like a completely destroyed fleet during a fight
+// or a deployment mission).
+//
+// The `Ships` defines the ships that are part of
+// the fleet along with the amount of each one of
+// them included in the fleet.
+//
+// The `Consumption` defines a slice containing all
+// the fuel needed for this fleet. It contains the
+// list of resources that need to be existing on the
+// launch body to be able to create the fleet. This
+// value is computed internally.
+//
+// The `Cargo` defines the requested resources to
+// be transported by the fleet. It will be checked
+// against the available resources on the source
+// body.
+//
+// The `flightTime` represents the duration of the
+// flight from the source destination to the target
+// in seconds. This should be the interval between
+// the `CreatedAt` and `ArrivalTime` but also from
+// `ArrivalTime` to `ReturnTime`.
 type Fleet struct {
-	ID          string     `json:"id"`
-	Name        string     `json:"name"`
-	Universe    string     `json:"universe"`
-	Objective   string     `json:"objective"`
-	Target      Coordinate `json:"target_coordinates"`
-	Body        string     `json:"target,omitempty"`
-	ArrivalTime time.Time  `json:"arrival_time"`
-	Comps       Components `json:"components"`
+	ID           string                 `json:"id"`
+	Universe     string                 `json:"universe"`
+	Objective    string                 `json:"objective"`
+	Player       string                 `json:"player"`
+	Source       string                 `json:"source"`
+	SourceType   Location               `json:"source_type"`
+	TargetCoords Coordinate             `json:"target_coordinates"`
+	Target       string                 `json:"target"`
+	TargetType   Location               `json:"target_type"`
+	Speed        float32                `json:"speed"`
+	CreatedAt    time.Time              `json:"created_at"`
+	ArrivalTime  time.Time              `json:"arrival_time"`
+	ReturnTime   time.Time              `json:"return_time"`
+	Ships        ShipsInFleet           `json:"ships"`
+	Consumption  []model.ResourceAmount `json:"consumption"`
+	Cargo        []model.ResourceAmount `json:"cargo"`
+	flightTime   time.Duration
 }
 
-// ErrInvalidFleet :
-// Used to indicate that the fleet provided in input is
-// not valid.
-var ErrInvalidFleet = fmt.Errorf("Invalid fleet with no identifier")
+// ShipInFleet :
+// Defines a single ship involved in a fleet. This
+// is the building blocks of fleets: it defines the
+// ID of the ship and the number of ships of this
+// type that are included in a fleet.
+// All the ships belong to a single player and are
+// launched from a single planet.
+//
+// The `ID` defines the identifier of the ship that
+// is involved in the fleet.
+//
+// The `Count` defines how many ships of this type
+// are involved.
+type ShipInFleet struct {
+	ID    string `json:"ship"`
+	Count int    `json:"count"`
+}
 
-// ErrDuplicatedFleet :
-// Used to indicate that the fleet's identifier provided
-// input is not unique in the DB.
-var ErrDuplicatedFleet = fmt.Errorf("Invalid not unique fleet")
+// ShipsInFleet :
+// Convenience define to refer to a list of ships
+// belonging to a fleet component. Allows to define
+// some methods on this type to ease the consistency
+// checks.
+type ShipsInFleet []ShipInFleet
 
-// ErrNoShipToPerformObjective :
-// Indicates that none of the ships taking part in the
-// fleet are able to perform the fleet's objective.
-var ErrNoShipToPerformObjective = fmt.Errorf("No ships can perform the fleet's objective")
+// valid :
+// Determines whether the ship is valid. By valid we
+// only mean obvious syntax errors.
+//
+// Returns any error or `nil` if the ship seems valid.
+func (sif ShipInFleet) valid() error {
+	if !validUUID(sif.ID) {
+		return ErrInvalidElementID
+	}
+	if sif.Count <= 0 {
+		return ErrInvalidShipCount
+	}
 
-// ErrInvalidTargetForObjective :
-// Used to indicate that the objective is not valid
-// compared to the target of a fleet.
-var ErrInvalidTargetForObjective = fmt.Errorf("Target cannot be used for fleet's objective")
+	return nil
+}
+
+// valid :
+// Used to perform a chain validation on all the ships
+// sets defined in the slice.
+//
+// Returns `nil` if all individual components are
+// valid.
+func (sifs ShipsInFleet) valid() error {
+	for _, sif := range sifs {
+		if err := sif.valid(); err != nil {
+			return err
+		}
+	}
+
+	if len(sifs) == 0 {
+		return ErrNoShipsInFleet
+	}
+
+	return nil
+}
 
 // purpose :
 // Convenience define to refer to the purpose of a fleet
@@ -100,6 +199,97 @@ const (
 	espionage    purpose = "espionage"
 	destroy      purpose = "destroy"
 )
+
+// ErrInvalidShipCount : Indicates that an invalid number of ships is requested.
+var ErrInvalidShipCount = fmt.Errorf("Invalid number of ships requested for fleet")
+
+// ErrNoShipsInFleet : Indicates that no ships are associated to a fleet.
+var ErrNoShipsInFleet = fmt.Errorf("No ships associated to fleet")
+
+// ErrInvalidUniverseForFleet : Indicates that no valid universe is provided for a fleet.
+var ErrInvalidUniverseForFleet = fmt.Errorf("No valid universe for fleet")
+
+// ErrInvalidObjectiveForFleet : Indicates that the objective provided for a fleet is not valid.
+var ErrInvalidObjectiveForFleet = fmt.Errorf("No valid objective for a fleet")
+
+// ErrInvalidPlayerForFleet : Indicates that the player provided for a fleet is not valid.
+var ErrInvalidPlayerForFleet = fmt.Errorf("No valid player for fleet")
+
+// ErrInvalidSourceForFleet : Indicates that the source of a fleet is not valid.
+var ErrInvalidSourceForFleet = fmt.Errorf("Source for fleet is not valid")
+
+// ErrInvalidSourceTypeForFleet : Indicates that the source type for a fleet is not valid.
+var ErrInvalidSourceTypeForFleet = fmt.Errorf("Source type for fleet is not valid")
+
+// ErrInvalidTargetForFleet : Indicates that the target of a fleet is not valid.
+var ErrInvalidTargetForFleet = fmt.Errorf("Target for fleet is not valid")
+
+// ErrInvalidTargetTypeForFleet : Indicates that the target type for a fleet is not valid.
+var ErrInvalidTargetTypeForFleet = fmt.Errorf("Target type for fleet is not valid")
+
+// ErrInvalidCargoForFleet : Indicates that a cargo resource is invalid for a fleet.
+var ErrInvalidCargoForFleet = fmt.Errorf("Invalid cargo value for fleet")
+
+// ErrNoShipToPerformObjective : Indicates that no ship can be used to perform the fleet's objective.
+var ErrNoShipToPerformObjective = fmt.Errorf("No ships can perform the fleet's objective")
+
+// ErrInvalidTargetForObjective : Indicates that the target is not consistent with the fleet's objective.
+var ErrInvalidTargetForObjective = fmt.Errorf("Target cannot be used for fleet's objective")
+
+// ErrCargoNotMovable : Indicates that one of the resource defined in the cargo is not movable.
+var ErrCargoNotMovable = fmt.Errorf("Resource cannot be moved by a fleet")
+
+// ErrInsufficientCargoForFleet : Indicates that the fleet has insufficient cargo space.
+var ErrInsufficientCargoForFleet = fmt.Errorf("Insufficient cargo space to hold resources in fleet")
+
+// ErrInvalidPropulsionSystem : Indicates that the propulsion system of a ship is not compatible with
+// the researched technologies of the starting location of a fleet.
+var ErrInvalidPropulsionSystem = fmt.Errorf("Unknown propulsion system for ship for a fleet")
+
+// Valid :
+// Determines whether the fleet is valid. By valid we only
+// mean obvious syntax errors.
+//
+// Returns any error or `nil` if the fleet seems valid.
+func (f *Fleet) Valid(uni Universe) error {
+	if !validUUID(f.ID) {
+		return ErrInvalidElementID
+	}
+	if !validUUID(f.Universe) {
+		return ErrInvalidUniverseForFleet
+	}
+	if !validUUID(f.Objective) {
+		return ErrInvalidObjectiveForFleet
+	}
+	if !validUUID(f.Player) {
+		return ErrInvalidPlayerForFleet
+	}
+	if !validUUID(f.Source) {
+		return ErrInvalidSourceForFleet
+	}
+	if existsLocation(f.SourceType) {
+		return ErrInvalidSourceTypeForFleet
+	}
+	if !f.TargetCoords.valid(uni.GalaxiesCount, uni.GalaxySize, uni.SolarSystemSize) {
+		return ErrInvalidCoordinates
+	}
+	if f.Target != "" && !validUUID(f.Target) {
+		return ErrInvalidTargetForFleet
+	}
+	if existsLocation(f.TargetType) {
+		return ErrInvalidTargetTypeForFleet
+	}
+	if err := f.Ships.valid(); err != nil {
+		return err
+	}
+	for _, c := range f.Cargo {
+		if !validUUID(c.Resource) || c.Amount <= 0.0 {
+			return ErrInvalidCargoForFleet
+		}
+	}
+
+	return nil
+}
 
 // NewFleetFromDB :
 // Used to fetch the content of the fleet from
@@ -125,7 +315,7 @@ func NewFleetFromDB(ID string, data model.Instance) (Fleet, error) {
 
 	// Consistency.
 	if !validUUID(f.ID) {
-		return f, ErrInvalidFleet
+		return f, ErrInvalidElementID
 	}
 
 	// Fetch the fleet's content.
@@ -134,61 +324,17 @@ func NewFleetFromDB(ID string, data model.Instance) (Fleet, error) {
 		return f, err
 	}
 
-	err = f.fetchComponents(data)
+	err = f.fetchShips(data)
+	if err != nil {
+		return f, err
+	}
+
+	err = f.fetchCargo(data)
 	if err != nil {
 		return f, err
 	}
 
 	return f, nil
-}
-
-// NewEmptyFleet :
-// Used to perform the creation of a fleet with
-// minimalistic properties from the specified ID.
-// Nothing else is set apart from the ID of the
-// fleet.
-//
-// The `ID` defines the identifier of the fleet.
-//
-// The `data` allows to register the locker for
-// this fleet.
-//
-// Returns the created fleet along with any errors.
-func NewEmptyFleet(ID string, data model.Instance) (Fleet, error) {
-	// Consistency.
-	if !validUUID(ID) {
-		return Fleet{}, ErrInvalidFleet
-	}
-
-	// Create the fleet.
-	f := Fleet{
-		ID: ID,
-	}
-
-	return f, nil
-}
-
-// Valid :
-// Defines whether this fleet is valid given the bounds
-// for the coordinates that are admissible in the uni
-// this fleet evolves in.
-//
-// Returns `true` if the fleet is valid.
-func (f *Fleet) Valid(uni Universe) bool {
-	return validUUID(f.ID) &&
-		validUUID(f.Universe) &&
-		validUUID(f.Objective) &&
-		f.Target.valid(uni.GalaxiesCount, uni.GalaxySize, uni.SolarSystemSize) &&
-		f.Comps.valid(f.Objective, f.Target)
-}
-
-// String :
-// Implementation of the `Stringer` interface to make
-// sure displaying this fleet is easy.
-//
-// Returns the corresponding string.
-func (f Fleet) String() string {
-	return fmt.Sprintf("[id: %s, universe: %s, target: %s]", f.ID, f.Universe, f.Target)
 }
 
 // fetchGeneralInfo :
@@ -203,15 +349,20 @@ func (f *Fleet) fetchGeneralInfo(data model.Instance) error {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"name",
 			"uni",
 			"objective",
+			"player",
+			"source",
+			"source_type",
 			"target_galaxy",
 			"target_solar_system",
 			"target_position",
 			"target",
 			"target_type",
+			"speed",
+			"created_at",
 			"arrival_time",
+			"return_time",
 		},
 		Table: "fleets",
 		Filters: []db.Filter{
@@ -235,67 +386,71 @@ func (f *Fleet) fetchGeneralInfo(data model.Instance) error {
 
 	// Scan the fleet's data.
 	var g, s, p int
-	var loc Location
 
 	atLeastOne := dbRes.Next()
 	if !atLeastOne {
-		return ErrInvalidFleet
+		return ErrElementNotFound
 	}
 
-	// Note that we have to query the `planet` in a nullable
+	// Note that we have to query the `target` in a nullable
 	// string in order to account for cases where the string
 	// is not filled (typically for undirected objectives).
-	var pl sql.NullString
+	var ta sql.NullString
 
 	err = dbRes.Scan(
-		&f.Name,
 		&f.Universe,
 		&f.Objective,
+		&f.Player,
+		&f.Source,
+		&f.SourceType,
 		&g,
 		&s,
 		&p,
-		&pl,
-		&loc,
+		&ta,
+		&f.TargetType,
+		&f.Speed,
+		&f.CreatedAt,
 		&f.ArrivalTime,
+		&f.ReturnTime,
 	)
 
 	var errC error
-	f.Target, errC = newCoordinate(g, s, p, loc)
+	f.TargetCoords, errC = newCoordinate(g, s, p, Location(f.TargetType))
 	if errC != nil {
 		return errC
 	}
 
-	if pl.Valid {
-		f.Body = pl.String
+	if ta.Valid {
+		f.Target = ta.String
 	}
+
+	f.flightTime = f.ArrivalTime.Sub(f.CreatedAt)
 
 	// Make sure that it's the only fleet.
 	if dbRes.Next() {
-		return ErrDuplicatedFleet
+		return ErrDuplicatedElement
 	}
 
 	return err
 }
 
-// fetchComponents :
-// Used to fetch data related to a fleet: this is
-// meant to represent all the individual components
-// of the fleest meaning the various waves of ships
-// that have been created by the players that joined
-// the fleet.
+// fetchShips :
+// Similar to `fetchGeneralInfo` but allows to
+// fetch the ships associated to the fleet.
 //
-// The `data` defines the object to access the DB.
+// The `data` allows to access to the DB.
 //
 // Returns any error.
-func (f *Fleet) fetchComponents(data model.Instance) error {
-	f.Comps = make([]Component, 0)
+func (f *Fleet) fetchShips(data model.Instance) error {
+	f.Ships = make([]ShipInFleet, 0)
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"id",
+			"ship",
+			"count",
 		},
-		Table: "fleet_elements",
+		Table: "fleet_ships",
 		Filters: []db.Filter{
 			{
 				Key:    "fleet",
@@ -315,30 +470,75 @@ func (f *Fleet) fetchComponents(data model.Instance) error {
 		return dbRes.Err
 	}
 
-	// Extract each component for this fleet.
-	var ID string
-	IDs := make([]string, 0)
+	// Populate the return value.
+	var sif ShipInFleet
 
 	for dbRes.Next() {
-		err = dbRes.Scan(&ID)
+		err = dbRes.Scan(
+			&sif.ID,
+			&sif.Count,
+		)
 
 		if err != nil {
 			return err
 		}
 
-		IDs = append(IDs, ID)
+		f.Ships = append(f.Ships, sif)
 	}
 
-	f.Comps = make([]Component, 0)
+	return nil
+}
 
-	for _, ID = range IDs {
-		comp, err := newComponentFromDB(ID, data)
+// fetchCargo :
+// Similar to `fetchGeneralInfo` but allows to
+// fetch the cargo associated to the fleet.
+//
+// The `data` allows to access to the DB.
+//
+// Returns any error.
+func (f *Fleet) fetchCargo(data model.Instance) error {
+	f.Cargo = make([]model.ResourceAmount, 0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"resource",
+			"amount",
+		},
+		Table: "fleet_resources",
+		Filters: []db.Filter{
+			{
+				Key:    "fleet",
+				Values: []string{f.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Populate the return value.
+	var ra model.ResourceAmount
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&ra.Resource,
+			&ra.Amount,
+		)
 
 		if err != nil {
 			return err
 		}
 
-		f.Comps = append(f.Comps, comp)
+		f.Cargo = append(f.Cargo, ra)
 	}
 
 	return nil
@@ -354,26 +554,34 @@ func (f *Fleet) fetchComponents(data model.Instance) error {
 func (f *Fleet) Convert() interface{} {
 	return struct {
 		ID          string    `json:"id"`
-		Name        string    `json:"name"`
 		Universe    string    `json:"uni"`
 		Objective   string    `json:"objective"`
+		Player      string    `json:"player"`
+		Source      string    `json:"source"`
+		SourceType  Location  `json:"source_type"`
 		Galaxy      int       `json:"target_galaxy"`
 		System      int       `json:"target_solar_system"`
 		Position    int       `json:"target_position"`
-		Target      string    `json:"target,omitempty"`
+		Target      string    `json:"target"`
 		TargetType  Location  `json:"target_type"`
+		Speed       float32   `json:"speed"`
 		ArrivalTime time.Time `json:"arrival_time"`
+		ReturnTime  time.Time `json:"return_time"`
 	}{
 		ID:          f.ID,
-		Name:        f.Name,
 		Universe:    f.Universe,
 		Objective:   f.Objective,
-		Galaxy:      f.Target.Galaxy,
-		System:      f.Target.System,
-		Position:    f.Target.Position,
-		Target:      f.Body,
-		TargetType:  f.Target.Type,
+		Player:      f.Player,
+		Source:      f.Source,
+		SourceType:  f.SourceType,
+		Galaxy:      f.TargetCoords.Galaxy,
+		System:      f.TargetCoords.System,
+		Position:    f.TargetCoords.Position,
+		Target:      f.Target,
+		TargetType:  f.TargetType,
+		Speed:       f.Speed,
 		ArrivalTime: f.ArrivalTime,
+		ReturnTime:  f.ReturnTime,
 	}
 }
 
@@ -386,40 +594,240 @@ func (f *Fleet) Convert() interface{} {
 //
 // The `data` allows to access data from the DB.
 //
+// The `source` defines the planet attached to this
+// fleet: it represents the mandatory location from
+// where the fleet is launched.
+//
+// The `target` defines the potential planet to which
+// this fleet is directed. It might be `nil` in case
+// the objective allows it (typically in case of a
+// colonization operation).
+//
 // Returns an error in case the fleet is not valid
 // and `nil` otherwise (indicating that no obvious
 // errors were detected).
-func (f *Fleet) Validate(data model.Instance) error {
-	// Retrieve this fleet's objective's description.
+func (f *Fleet) Validate(data model.Instance, source *Planet, target *Planet) error {
+	// Update consumption.
+	err := f.consolidateConsumption(data, source)
+	if err != nil {
+		return err
+	}
+
+	// Retrieve this fleet's objective's description
+	// and check that at least a ship is able to be
+	// used to perform the objective.
 	obj, err := data.Objectives.GetObjectiveFromID(f.Objective)
 	if err != nil {
 		return err
 	}
 
-	// We will return as early as possible because
-	// for now there's nothing else to check. Make
-	// sure to change the loop if it ever changes.
-	for _, comp := range f.Comps {
-		for _, ship := range comp.Ships {
-			if obj.CanBePerformedBy(ship.ID) {
-				return nil
-			}
-		}
+	objDoable := false
+	for id := 0; id < len(f.Ships) && !objDoable; id++ {
+		objDoable = obj.CanBePerformedBy(f.Ships[id].ID)
+	}
+
+	if !objDoable {
+		return ErrNoShipToPerformObjective
 	}
 
 	// Make sure that the location of the target
 	// is consistent with the objective.
-	if purpose(obj.Name) == harvesting && f.Target.Type != Debris {
+	if purpose(obj.Name) == harvesting && f.TargetCoords.Type != Debris {
 		return ErrInvalidTargetForObjective
 	}
-	if purpose(obj.Name) != harvesting && f.Target.Type == Debris {
+	if purpose(obj.Name) != harvesting && f.TargetCoords.Type == Debris {
 		return ErrInvalidTargetForObjective
 	}
-	if purpose(obj.Name) == destroy && f.Target.Type != Moon {
+	if purpose(obj.Name) == destroy && f.TargetCoords.Type != Moon {
+		return ErrInvalidTargetForObjective
+	}
+	if obj.Directed && target == nil {
+		return ErrInvalidTargetForObjective
+	}
+	if obj.Hostile && target == nil {
+		return ErrInvalidTargetForObjective
+	}
+	if obj.Hostile && source.Player == target.Player {
 		return ErrInvalidTargetForObjective
 	}
 
-	return ErrNoShipToPerformObjective
+	// Make sure that the cargo defined for this fleet
+	// component can be stored in the ships.
+	totCargo := 0
+
+	for _, ship := range f.Ships {
+		sd, err := data.Ships.GetShipFromID(ship.ID)
+
+		if err != nil {
+			return err
+		}
+
+		totCargo += (ship.Count * sd.Cargo)
+	}
+
+	var totNeeded float32
+	for _, res := range f.Cargo {
+		rDesc, err := data.Resources.GetResourceFromID(res.Resource)
+		if err != nil {
+			return err
+		}
+		if !rDesc.Movable {
+			return ErrCargoNotMovable
+		}
+
+		totNeeded += res.Amount
+	}
+
+	if totNeeded > float32(totCargo) {
+		return ErrInsufficientCargoForFleet
+	}
+
+	// Validate the amount of fuel available on the
+	// planet compared to the amount required and
+	// that there are enough resources to be taken
+	// from the planet.
+	// TODO: Hack to allow creation of fleets without checks.
+	return source.validateComponent(f.Consumption, f.Cargo, f.Ships, data)
+	// return nil
+}
+
+// consolidateConsumption :
+// Used to perform the consolidation of the consumption
+// required for this fleet to take off. It does not
+// handle the fact that the parent planet actually has
+// the needed fuel but only to compute it.
+// The result of the computations will be saved in the
+// fleet itself.
+//
+// The `data` allows to get information from the DB on
+// the consumption of ships.
+//
+// The `p` defines the planet from where this fleet is
+// starting the flight.
+//
+// Returns any error.
+func (f *Fleet) consolidateConsumption(data model.Instance, p *Planet) error {
+	// Compute the distance between the starting position
+	// and the destination of the flight.
+	d := float64(p.Coordinates.distanceTo(f.TargetCoords))
+
+	// Now we can compute the total consumption by summing
+	// the individual consumptions of ships.
+	consumption := make(map[string]float64)
+
+	for _, ship := range f.Ships {
+		sd, err := data.Ships.GetShipFromID(ship.ID)
+
+		if err != nil {
+			return err
+		}
+
+		for _, fuel := range sd.Consumption {
+			// The values and formulas are extracted from here:
+			// https://ogame.fandom.com/wiki/Talk:Fuel_Consumption
+			// The flight time is expressed internally in millisecs.
+			ftSec := float64(f.flightTime) / float64(time.Second)
+
+			sk := 35000.0 * math.Sqrt(d*10.0/float64(sd.Speed)) / (ftSec - 10.0)
+			cons := float64(fuel.Amount*float32(ship.Count)) * d * math.Pow(1.0+sk/10.0, 2.0) / 35000.0
+
+			ex := consumption[fuel.Resource]
+			ex += cons
+			consumption[fuel.Resource] = ex
+		}
+	}
+
+	// Save the data in the fleet itself.
+	f.Consumption = make([]model.ResourceAmount, 0)
+
+	for res, fuel := range consumption {
+		value := model.ResourceAmount{
+			Resource: res,
+			Amount:   float32(fuel),
+		}
+
+		f.Consumption = append(f.Consumption, value)
+	}
+
+	return nil
+}
+
+// ConsolidateArrivalTime :
+// Used to perform the update of the arrival time for
+// this fleet based on the technologies of the planet
+// it starts from.
+// We will assume that the input `p` corresponds to
+// the source location of the fleet.
+//
+// The `data` allows to get information from the DB
+// related to the propulsion used by each ships and
+// their consumption.
+//
+// The `p` defines the planet from which this fleet
+// should start and will be used to update the values
+// of the techs that should be used for computing a
+// speed for each ship.
+//
+// Returns any error.
+func (f *Fleet) ConsolidateArrivalTime(data model.Instance, p *Planet) error {
+	// Update the time at which this component joined
+	// the fleet.
+	f.CreatedAt = time.Now()
+
+	// Compute the time of arrival for this component. It
+	// is function of the percentage of the maximum speed
+	// used by the ships and the slowest ship's speed.
+	d := float64(p.Coordinates.distanceTo(f.TargetCoords))
+
+	// Compute the maximum speed of the fleet. This will
+	// correspond to the speed of the slowest ship in the
+	// component.
+	maxSpeed := math.MaxInt32
+
+	for _, ship := range f.Ships {
+		sd, err := data.Ships.GetShipFromID(ship.ID)
+
+		if err != nil {
+			return err
+		}
+
+		level, ok := p.technologies[sd.Propulsion.Propulsion]
+		if !ok {
+			return ErrInvalidPropulsionSystem
+		}
+
+		speed := sd.Propulsion.ComputeSpeed(sd.Speed, level)
+
+		if speed < maxSpeed {
+			maxSpeed = speed
+		}
+	}
+
+	// Compute the duration of the flight given the distance.
+	// Note that the speed percentage is interpreted as such:
+	//  - 100% -> 10
+	//  -  50% -> 5
+	//  -  10% -> 1
+	speedRatio := f.Speed * 10.0
+	flightTimeSec := 35000.0/float64(speedRatio)*math.Sqrt(float64(d)*10.0/float64(maxSpeed)) + 10.0
+
+	// TODO: Hack to speed up fleets by a lot.
+	flightTimeSec /= 200.0
+
+	// Compute the flight time by converting this duration in
+	// milliseconds: this will allow to keep more precision.
+	f.flightTime = time.Duration(1000.0*flightTimeSec) * time.Millisecond
+
+	// The arrival time is just this duration in the future.
+	// We will use the milliseconds in order to keep more
+	// precision before rounding.
+	f.ArrivalTime = f.CreatedAt.Add(f.flightTime)
+
+	// The return time is separated from the arrival time
+	// by an additional full flight time.
+	f.ReturnTime = f.ArrivalTime.Add(f.flightTime)
+
+	return nil
 }
 
 // simulate :

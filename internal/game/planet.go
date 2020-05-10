@@ -1720,7 +1720,7 @@ func (p *Planet) validateAction(costs map[string]int, desc model.UpgradableDesc,
 // to the `validateAction` where no error is
 // meant to indicate that the component is a
 // valid one compared to the planet's data.
-func (p *Planet) validateComponent(fuels []ConsumptionValue, cargos []model.ResourceAmount, ships []ShipInFleet, data model.Instance) error {
+func (p *Planet) validateComponent(fuels []model.ResourceAmount, cargos []model.ResourceAmount, ships []ShipInFleet, data model.Instance) error {
 	// Gather existing resources.
 	available := make(map[string]float32)
 

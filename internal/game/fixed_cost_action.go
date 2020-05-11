@@ -92,17 +92,16 @@ func newFixedActionFromDB(ID string, data model.Instance, table string) (FixedAc
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"t.planet",
-			"t.element",
-			"t.amount",
-			"t.remaining",
-			"t.completion_time",
-			"p.player",
+			"planet",
+			"element",
+			"amount",
+			"remaining",
+			"completion_time",
 		},
-		Table: fmt.Sprintf("%s t inner join planets p on t.planet = p.id", table),
+		Table: table,
 		Filters: []db.Filter{
 			{
-				Key:    "t.id",
+				Key:    "id",
 				Values: []string{a.ID},
 			},
 		},
@@ -133,7 +132,6 @@ func newFixedActionFromDB(ID string, data model.Instance, table string) (FixedAc
 		&a.Amount,
 		&a.Remaining,
 		&t,
-		&a.Player,
 	)
 
 	a.CompletionTime = duration.Duration{t}

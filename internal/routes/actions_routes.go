@@ -2,7 +2,6 @@ package routes
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"oglike_server/internal/game"
 )
@@ -96,20 +95,13 @@ func (s *Server) registerBuildingAction() http.HandlerFunc {
 			// so we can override any value provided by the act
 			// itself to maintain consistency.
 			if len(routeTokens) > 0 {
-				action.Player = routeTokens[0]
-			}
-			if len(routeTokens) > 3 {
-				action.Planet = routeTokens[2]
+				action.Planet = routeTokens[0]
 			}
 
 			// Create the upgrade action.
 			_, err = s.actions.CreateBuildingAction(action)
 
-			// Build the path to access to the resource: we need to
-			// include the player and planet's identifier in the route.
-			res := fmt.Sprintf("%s/planets/%s", action.Player, action.Planet)
-
-			return res, err
+			return action.Planet, err
 		},
 	)
 }
@@ -135,20 +127,13 @@ func (s *Server) registerTechnologyAction() http.HandlerFunc {
 			// the planet's id so we can override any value provided
 			// in the upgrade action.
 			if len(routeTokens) > 0 {
-				action.Player = routeTokens[0]
-			}
-			if len(routeTokens) > 3 {
-				action.Planet = routeTokens[2]
+				action.Planet = routeTokens[0]
 			}
 
 			// Create the upgrade action.
 			_, err = s.actions.CreateTechnologyAction(action)
 
-			// Build the path to access to the resource: we need to
-			// include the player and planet's identifier in the route.
-			res := fmt.Sprintf("%s/planets/%s", action.Player, action.Planet)
-
-			return res, err
+			return action.Planet, err
 		},
 	)
 }
@@ -175,20 +160,13 @@ func (s *Server) registerShipAction() http.HandlerFunc {
 			// so we can override any value provided by the act
 			// itself to maintain consistency.
 			if len(routeTokens) > 0 {
-				action.Player = routeTokens[0]
-			}
-			if len(routeTokens) > 3 {
-				action.Planet = routeTokens[2]
+				action.Planet = routeTokens[0]
 			}
 
 			// Create the upgrade action.
 			_, err = s.actions.CreateShipAction(action)
 
-			// Build the path to access to the resource: we need to
-			// include the player and planet's identifier in the route.
-			res := fmt.Sprintf("%s/planets/%s", action.Player, action.Planet)
-
-			return res, err
+			return action.Planet, err
 		},
 	)
 }
@@ -215,20 +193,13 @@ func (s *Server) registerDefenseAction() http.HandlerFunc {
 			// so we can override any value provided by the act
 			// itself to maintain consistency.
 			if len(routeTokens) > 0 {
-				action.Player = routeTokens[0]
-			}
-			if len(routeTokens) > 3 {
-				action.Planet = routeTokens[2]
+				action.Planet = routeTokens[0]
 			}
 
 			// Create the upgrade action.
 			_, err = s.actions.CreateDefenseAction(action)
 
-			// Build the path to access to the resource: we need to
-			// include the player and planet's identifier in the route.
-			res := fmt.Sprintf("%s/planets/%s", action.Player, action.Planet)
-
-			return res, err
+			return action.Planet, err
 		},
 	)
 }

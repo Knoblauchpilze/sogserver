@@ -95,17 +95,16 @@ func newProgressActionFromDB(ID string, data model.Instance, table string) (Prog
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"t.planet",
-			"t.element",
-			"t.current_level",
-			"t.desired_level",
-			"t.completion_time",
-			"p.player",
+			"planet",
+			"element",
+			"current_level",
+			"desired_level",
+			"completion_time",
 		},
-		Table: fmt.Sprintf("%s t inner join planets p on t.planet = p.id", table),
+		Table: table,
 		Filters: []db.Filter{
 			{
-				Key:    "t.id",
+				Key:    "id",
 				Values: []string{a.ID},
 			},
 		},
@@ -134,7 +133,6 @@ func newProgressActionFromDB(ID string, data model.Instance, table string) (Prog
 		&a.CurrentLevel,
 		&a.DesiredLevel,
 		&a.CompletionTime,
-		&a.Player,
 	)
 
 	// Make sure that it's the only action.

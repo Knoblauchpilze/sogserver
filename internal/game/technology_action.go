@@ -11,9 +11,17 @@ import (
 // Used as a way to refine the `ProgressAction` for the
 // specific case of technologies. It mostly add the info
 // to compute the completion time for a technology.
+//
+// The `Player` defines the player owning the planet on
+// which this action is performed.
 type TechnologyAction struct {
 	ProgressAction
+
+	Player string `json:"player"`
 }
+
+// ErrNonExistingPlayer : Indicates that the parent player for the action does not exist.
+var ErrNonExistingPlayer = fmt.Errorf("Parent player does not exist")
 
 // valid :
 // Determines whether this action is valid. By valid we
@@ -25,7 +33,10 @@ func (a *TechnologyAction) valid() error {
 		return err
 	}
 
-	if a.DesiredLevel == a.CurrentLevel+1 {
+	if !validUUID(a.Player) {
+		return ErrInvalidPlayerForAction
+	}
+	if a.DesiredLevel != a.CurrentLevel+1 {
 		return ErrInvalidLevelForAction
 	}
 

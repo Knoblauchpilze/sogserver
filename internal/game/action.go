@@ -26,9 +26,6 @@ import (
 // All the action require a parent planet to be scheduled.
 // Note that it can refer to either a planet or a moon.
 //
-// The `Player` defines the player owning the planet on
-// which this action is performed.
-//
 // The `Element` defines the identifier of the element to
 // link to the action. It can either be the identifier of
 // the building that is built, the identifier of the ship
@@ -44,7 +41,6 @@ import (
 type action struct {
 	ID           string `json:"id"`
 	Planet       string `json:"planet"`
-	Player       string `json:"player"`
 	Element      string `json:"element"`
 	Costs        []Cost `json:"-"`
 	creationTime time.Time
@@ -87,9 +83,6 @@ var ErrNonExistingPlanet = fmt.Errorf("Parent planet does not exist")
 // ErrNonExistingElement : Indicates that the element for the action does not exist.
 var ErrNonExistingElement = fmt.Errorf("Invalid upgraded element for action")
 
-// ErrNonExistingPlayer : Indicates that the parent player for the action does not exist.
-var ErrNonExistingPlayer = fmt.Errorf("Parent player does not exist")
-
 // valid :
 // Determines whether the action is valid. By valid we only
 // mean obvious syntax errors.
@@ -101,9 +94,6 @@ func (a *action) valid() error {
 	}
 	if !validUUID(a.Planet) {
 		return ErrInvalidPlanetForAction
-	}
-	if !validUUID(a.Player) {
-		return ErrInvalidPlayerForAction
 	}
 	if !validUUID(a.Element) {
 		return ErrInvalidElementForAction

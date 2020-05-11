@@ -78,7 +78,7 @@ func (a *BuildingAction) valid() error {
 		return err
 	}
 
-	if math.Abs(float64(a.DesiredLevel)-float64(a.CurrentLevel)) == 1 {
+	if math.Abs(float64(a.DesiredLevel)-float64(a.CurrentLevel)) != 1 {
 		return ErrInvalidLevelForAction
 	}
 

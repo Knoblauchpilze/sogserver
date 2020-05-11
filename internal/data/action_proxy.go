@@ -121,6 +121,9 @@ func (p *ActionProxy) CreateTechnologyAction(a game.TechnologyAction) (string, e
 		return a.ID, game.ErrInvalidPlanetForAction
 	}
 
+	// Force the action to be associated to this player.
+	a.Player = planet.Player
+
 	// Validate the action's data against its parent planet
 	err = a.Validate(p.data, &planet)
 	if err != nil {

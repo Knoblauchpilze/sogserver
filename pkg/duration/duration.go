@@ -24,6 +24,18 @@ type Duration struct {
 // be unmarshalled into a valid duration.
 var ErrInvalidInput = fmt.Errorf("Could not umarshal value to duration")
 
+// NewDuration :
+// Creates a new duration from a base time.Duration.
+//
+// The `t` defines the wrapped duration.
+//
+// Returns the created duration.
+func NewDuration(t time.Duration) Duration {
+	return Duration{
+		t,
+	}
+}
+
 // MarshalJSON :
 // Imlepementation of the marshaller interface to be
 // able to use this object out-of-the-box with the

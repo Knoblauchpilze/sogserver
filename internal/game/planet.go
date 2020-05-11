@@ -848,6 +848,7 @@ func (p *Planet) fetchShipsUpgrades(data model.Instance) error {
 				Values: []string{p.ID},
 			},
 		},
+		Ordering: "order by created_at",
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
@@ -912,6 +913,7 @@ func (p *Planet) fetchDefensesUpgrades(data model.Instance) error {
 				Values: []string{p.ID},
 			},
 		},
+		Ordering: "order by created_at",
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)

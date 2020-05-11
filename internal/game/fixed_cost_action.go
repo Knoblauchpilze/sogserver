@@ -97,6 +97,7 @@ func newFixedActionFromDB(ID string, data model.Instance, table string) (FixedAc
 			"amount",
 			"remaining",
 			"completion_time",
+			"created_at",
 		},
 		Table: table,
 		Filters: []db.Filter{
@@ -132,9 +133,10 @@ func newFixedActionFromDB(ID string, data model.Instance, table string) (FixedAc
 		&a.Amount,
 		&a.Remaining,
 		&t,
+		&a.creationTime,
 	)
 
-	a.CompletionTime = duration.Duration{t}
+	a.CompletionTime = duration.NewDuration(t)
 
 	// Make sure that it's the only action.
 	if dbRes.Next() {
@@ -219,8 +221,45 @@ func (a *FixedAction) computeCompletionTime(data model.Instance, cost model.Fixe
 		return ErrInvalidDuration
 	}
 
+	// The creation time for this action should be as
+	// soon as the last action finishes. We have all
+	// the relevant information from the input planet
+	// to compute it.
+	// We also now that the slice fetches the ships
+	// and defenses actions in ascending order which
+	// means that the last action to finish will be
+	// put in last position. In case no construction
+	// is available, use the current time as a ref.
+	// Note finally that in case the creation time
+	// as defined by the last construction action is
+	// in the past, we will still use the current
+	// time as it probably means that the action is
+	// actually some leftover not yet processed.
 	a.creationTime = time.Now()
-	a.CompletionTime = duration.Duration{t}
+	timeToStart := time.Now()
+
+	if len(p.ShipsConstruction) > 0 {
+		s := p.ShipsConstruction[len(p.ShipsConstruction)-1]
+
+		completionTime := s.creationTime.Add(time.Duration(s.Remaining) * s.CompletionTime.Duration)
+		if completionTime.After(timeToStart) {
+			timeToStart = completionTime
+		}
+	}
+	if len(p.DefensesConstruction) > 0 {
+		d := p.DefensesConstruction[len(p.DefensesConstruction)-1]
+
+		completionTime := d.creationTime.Add(time.Duration(d.Remaining) * d.CompletionTime.Duration)
+		if completionTime.After(timeToStart) {
+			timeToStart = completionTime
+		}
+	}
+
+	if timeToStart.After(a.creationTime) {
+		a.creationTime = timeToStart
+	}
+
+	a.CompletionTime = duration.NewDuration(t)
 
 	return nil
 }

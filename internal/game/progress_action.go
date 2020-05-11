@@ -100,6 +100,7 @@ func newProgressActionFromDB(ID string, data model.Instance, table string) (Prog
 			"current_level",
 			"desired_level",
 			"completion_time",
+			"created_at",
 		},
 		Table: table,
 		Filters: []db.Filter{
@@ -133,6 +134,7 @@ func newProgressActionFromDB(ID string, data model.Instance, table string) (Prog
 		&a.CurrentLevel,
 		&a.DesiredLevel,
 		&a.CompletionTime,
+		&a.creationTime,
 	)
 
 	// Make sure that it's the only action.

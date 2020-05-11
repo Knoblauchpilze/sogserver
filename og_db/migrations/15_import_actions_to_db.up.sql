@@ -61,7 +61,9 @@ BEGIN
         cab.completion_time AS completion_time,
         'building_upgrade' AS type
       FROM
-        construction_actions_buildings cab;
+        construction_actions_buildings cab
+      WHERE
+        cab.id = (upgrade->>'id')::uuid;
   END IF;
 
   IF kind = 'moon' THEN
@@ -96,7 +98,9 @@ BEGIN
         cabm.completion_time AS completion_time,
         'building_upgrade' AS type
       FROM
-        construction_actions_buildings_moon cabm;
+        construction_actions_buildings_moon cabm
+      WHERE
+        cabm.id = (upgrade->>'id')::uuid;
   END IF;
 END
 $$ LANGUAGE plpgsql;
@@ -137,7 +141,9 @@ BEGIN
       cat.completion_time AS completion_time,
       'technology_upgrade' AS type
     FROM
-      construction_actions_technologies cat;
+      construction_actions_technologies cat
+    WHERE
+      cat.id = (upgrade->>'id')::uuid;
 END
 $$ LANGUAGE plpgsql;
 
@@ -185,7 +191,9 @@ BEGIN
         cas.created_at + cas.completion_time AS completion_time,
         'ship_upgrade' AS type
       FROM
-        consturction_actions_ships cas;
+        construction_actions_ships cas
+      WHERE
+        cas.id = (upgrade->>'id')::uuid;
   END IF;
 
   IF kind = 'moon' THEN
@@ -218,7 +226,9 @@ BEGIN
         casm.created_at + casm.completion_time AS completion_time,
         'ship_upgrade' AS type
       FROM
-        construction_actions_ships_moon casm;
+        construction_actions_ships_moon casm
+      WHERE
+        casm.id = (upgrade->>'id')::uuid;
   END IF;
 END
 $$ LANGUAGE plpgsql;
@@ -270,7 +280,9 @@ BEGIN
         cad.created_at + cad.completion_time AS completion_time,
         'defense_upgrade' AS type
       FROM
-        construction_actions_defenses cad;
+        construction_actions_defenses cad
+      WHERE
+        cad.id = (upgrade->>'id')::uuid;
   END IF;
 
   IF kind = 'moon' THEN
@@ -303,7 +315,9 @@ BEGIN
         cadm.created_at + cadm.completion_time AS completion_time,
         'defense_upgrade' AS type
       FROM
-        construction_actions_defenses_moon cadm;
+        construction_actions_defenses_moon cadm
+      WHERE
+        cadm.id = (upgrade->>'id')::uuid;
   END IF;
 END
 $$ LANGUAGE plpgsql;

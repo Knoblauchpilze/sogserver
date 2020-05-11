@@ -19,17 +19,17 @@ func (s *Server) routes() {
 	s.route("GET", "/ships", s.listShips())
 	s.route("GET", "/defenses", s.listDefenses())
 	s.route("GET", "/players", s.listPlayers())
-	s.route("GET", "/players/[a-zA-Z0-9-]+/planets", s.listPlanets())
+	s.route("GET", "/planets", s.listPlanets())
 	s.route("GET", "/fleets", s.listFleets())
 	s.route("GET", "/fleets/objectives", s.listFleetObjectives())
 
 	s.route("POST", "/universes", s.createUniverse())
 	s.route("POST", "/accounts", s.createAccount())
 	s.route("POST", "/players", s.createPlayer())
-	s.route("POST", "/players/[a-zA-Z0-9-]+/planets/[a-zA-Z0-9-]+/actions/technologies", s.registerTechnologyAction())
-	s.route("POST", "/players/[a-zA-Z0-9-]+/planets/[a-zA-Z0-9-]+/actions/buildings", s.registerBuildingAction())
-	s.route("POST", "/players/[a-zA-Z0-9-]+/planets/[a-zA-Z0-9-]+/actions/ships", s.registerShipAction())
-	s.route("POST", "/players/[a-zA-Z0-9-]+/planets/[a-zA-Z0-9-]+/actions/defenses", s.registerDefenseAction())
+	s.route("POST", "/planets/[a-zA-Z0-9-]+/actions/technologies", s.registerTechnologyAction())
+	s.route("POST", "/planets/[a-zA-Z0-9-]+/actions/buildings", s.registerBuildingAction())
+	s.route("POST", "/planets/[a-zA-Z0-9-]+/actions/ships", s.registerShipAction())
+	s.route("POST", "/planets/[a-zA-Z0-9-]+/actions/defenses", s.registerDefenseAction())
 	s.route("POST", "/fleets", s.createFleet())
 }
 

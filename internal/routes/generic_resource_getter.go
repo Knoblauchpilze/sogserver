@@ -262,6 +262,8 @@ func (gre *GetResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFunc {
 			} else {
 				http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
 			}
+
+			return
 		}
 
 		// Marshal the content of the data.

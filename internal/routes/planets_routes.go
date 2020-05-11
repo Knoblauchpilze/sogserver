@@ -12,17 +12,18 @@ import (
 // Returns the handler that can be executed to serve said reqs.
 func (s *Server) listPlanets() http.HandlerFunc {
 	// Create the endpoint with the suited route.
-	ed := NewGetResourceEndpoint("players")
+	ed := NewGetResourceEndpoint("planets")
 
 	allowed := map[string]string{
 		"id":           "id",
 		"name":         "name",
 		"galaxy":       "galaxy",
 		"solar_system": "solar_system",
+		"player":       "player",
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithResourceFilter("id").WithIDFilter("player").WithModule("planets").WithLocker(s.og)
+	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("planets").WithLocker(s.og)
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
 			return s.planets.Planets(filters)

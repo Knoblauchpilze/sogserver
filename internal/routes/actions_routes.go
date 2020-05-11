@@ -40,7 +40,7 @@ type registerFunc func(input string, routeTokens []string) (string, error)
 // Returns the handler to execute to perform said requests.
 func (s *Server) registerUpgradeAction(f registerFunc) http.HandlerFunc {
 	// Create the endpoint with the suited route.
-	ed := NewCreateResourceEndpoint("players")
+	ed := NewCreateResourceEndpoint("planets")
 
 	// Configure the endpoint.
 	ed.WithDataKey("action-data").WithModule("actions").WithLocker(s.og)

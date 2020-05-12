@@ -295,8 +295,11 @@ func (gre *GetResourceEndpoint) extractFilters(vars RouteVars) []db.Filter {
 
 		if ok && len(values) > 0 {
 			filter := db.Filter{
-				Key:    filterName,
-				Values: values,
+				Key: filterName,
+			}
+
+			for _, v := range values {
+				filter.Values = append(filter.Values, v)
 			}
 
 			filters = append(filters, filter)
@@ -332,7 +335,7 @@ func (gre *GetResourceEndpoint) extractFilters(vars RouteVars) []db.Filter {
 					filters,
 					db.Filter{
 						Key:    gre.idFilter,
-						Values: []string{filter},
+						Values: []interface{}{filter},
 					},
 				)
 			}
@@ -363,7 +366,7 @@ func (gre *GetResourceEndpoint) extractFilters(vars RouteVars) []db.Filter {
 					filters,
 					db.Filter{
 						Key:    gre.resFilter,
-						Values: []string{filter},
+						Values: []interface{}{filter},
 					},
 				)
 			}

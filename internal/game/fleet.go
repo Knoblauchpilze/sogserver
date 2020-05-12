@@ -52,6 +52,10 @@ import (
 // or moon to whicht his fleet is directed. Note that
 // this value may be empty if the objective allows it.
 //
+// The `ACS` defines the identifier of the ACS into
+// which this fleet is included. This value might be
+// empty in case the fleet is not related to any ACS.
+//
 // The `Speed` defines the speed percentage that is
 // used by the fleet to travel at. It will be used
 // when computing the flight time and the consumption.
@@ -103,6 +107,7 @@ type Fleet struct {
 	SourceType   Location               `json:"source_type"`
 	TargetCoords Coordinate             `json:"target_coordinates"`
 	Target       string                 `json:"target"`
+	ACS          string                 `json:"acs"`
 	Speed        float32                `json:"speed"`
 	CreatedAt    time.Time              `json:"created_at"`
 	ArrivalTime  time.Time              `json:"arrival_time"`
@@ -371,7 +376,7 @@ func (f *Fleet) fetchGeneralInfo(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "id",
-				Values: []string{f.ID},
+				Values: []interface{}{f.ID},
 			},
 		},
 	}
@@ -458,7 +463,7 @@ func (f *Fleet) fetchShips(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "fleet",
-				Values: []string{f.ID},
+				Values: []interface{}{f.ID},
 			},
 		},
 	}
@@ -513,7 +518,7 @@ func (f *Fleet) fetchCargo(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "fleet",
-				Values: []string{f.ID},
+				Values: []interface{}{f.ID},
 			},
 		},
 	}

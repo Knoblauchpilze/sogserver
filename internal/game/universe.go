@@ -187,7 +187,7 @@ func NewUniverseFromDB(ID string, data model.Instance) (Universe, error) {
 		Filters: []db.Filter{
 			{
 				Key:    "id",
-				Values: []string{u.ID},
+				Values: []interface{}{u.ID},
 			},
 		},
 	}
@@ -303,7 +303,7 @@ func (u *Universe) UsedCoords(proxy db.Proxy) (map[int]Coordinate, error) {
 		Filters: []db.Filter{
 			{
 				Key:    "pl.universe",
-				Values: []string{u.ID},
+				Values: []interface{}{u.ID},
 			},
 		},
 	}
@@ -383,15 +383,15 @@ func (u *Universe) GetPlanetAt(coord Coordinate, data model.Instance) (*Planet, 
 		Filters: []db.Filter{
 			{
 				Key:    "galaxy",
-				Values: []string{gas},
+				Values: []interface{}{gas},
 			},
 			{
 				Key:    "solar_system",
-				Values: []string{sas},
+				Values: []interface{}{sas},
 			},
 			{
 				Key:    "position",
-				Values: []string{pas},
+				Values: []interface{}{pas},
 			},
 		},
 	}

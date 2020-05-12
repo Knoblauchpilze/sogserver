@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
+	"time"
 )
 
 // Instance :
@@ -47,6 +48,21 @@ type Instance struct {
 	log    logger.Logger
 	waiter *locker
 }
+
+// actionKind :
+// Describes the possible kind for an action to perform.
+// It is linked to the upgrade action and the fleets to
+// process in the game.
+type actionKind string
+
+// Define the possible kind of actions.
+const (
+	building   actionKind = "building_upgrade"
+	technology actionKind = "technology_upgrade"
+	ship       actionKind = "ship_upgrade"
+	defense    actionKind = "defense_upgrade"
+	fleet      actionKind = "fleet"
+)
 
 // locker :
 // Defines a common locker that can be used to protect
@@ -106,32 +122,125 @@ func NewInstance(proxy db.Proxy, log logger.Logger) Instance {
 	return i
 }
 
+// trace :
+// Wrapper around the internal logger method to be
+// able to provide always the same `module` string.
+//
+// The `level` defines the severity of the message
+// to log.
+//
+// The `msg` defines the content of the log.
+func (i Instance) trace(level logger.Severity, msg string) {
+	i.log.Trace(level, "lock", msg)
+}
+
 // Lock :
 // Used to acquire the lock on this object. This
 // method will block until the lock is acquired.
+// It will also perform an update of the actions
+// that are outstanding when the lock is acquired.
 func (i Instance) Lock() {
-	i.log.Trace(logger.Verbose, "lock", fmt.Sprintf("Acquiring lock on DB"))
+	i.trace(logger.Verbose, fmt.Sprintf("Acquiring lock on DB"))
 	i.waiter.lock()
-	i.log.Trace(logger.Verbose, "lock", fmt.Sprintf("Acquired lock on DB"))
+	i.trace(logger.Verbose, fmt.Sprintf("Acquired lock on DB"))
+
+	// Schedule the execution of the outstanding actions
+	// now that the lock is acquired.
+	err := i.scheduleActions()
+	if err != nil {
+		i.trace(logger.Error, fmt.Sprintf("Unable to execute outstanding actions (err: %v)", err))
+	}
 }
 
 // Unlock :
 // Used to release the lock previously acquired
 // on this object.
 func (i Instance) Unlock() {
-	i.log.Trace(logger.Verbose, "lock", fmt.Sprintf("Releasing lock on DB"))
+	i.trace(logger.Verbose, fmt.Sprintf("Releasing lock on DB"))
 	i.waiter.unlock()
-	i.log.Trace(logger.Verbose, "lock", fmt.Sprintf("Released lock on DB"))
+	i.trace(logger.Verbose, fmt.Sprintf("Released lock on DB"))
 }
 
-// UpdateResourcesForPlanet :
+// scheduleActions :
+// Used to perform the execution of all the pending
+// actions in the actions queue. It will fetch all
+// actions that have completed but not yet been
+// executed and process them in order.
+//
+// Returns any error.
+func (i Instance) scheduleActions() error {
+	// First, we need to fetch the identifiers of the
+	// actions that have completed but have not yet
+	// been executed.
+	now := time.Now()
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"action",
+			"type",
+			"completion_time",
+		},
+		Table: "actions_queue",
+		Filters: []db.Filter{
+			{
+				Key:      "completion_time",
+				Values:   []interface{}{now},
+				Operator: db.LessThan,
+			},
+		},
+		Ordering: "order by completion_time",
+	}
+
+	dbRes, err := i.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Analyze actions to perform.
+	var action string
+	var kind actionKind
+	var completion time.Time
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&action,
+			&kind,
+			&completion,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		switch kind {
+		case building:
+		case technology:
+		case ship:
+		case defense:
+		case fleet:
+		default:
+			i.trace(logger.Error, fmt.Sprintf("Unknown action \"%s\" with kind \"%s\" not processed", action, kind))
+		}
+	}
+
+	return nil
+}
+
+// updateResourcesForPlanet :
 // Used to perform the update of the resources for the
 // input planet in the DB.
 //
 // The `planet` defines the identifier of the planet.
 //
 // Returns any error.
-func (i Instance) UpdateResourcesForPlanet(planet string) error {
+func (i Instance) updateResourcesForPlanet(planet string) error {
 	// Perform the update of the building upgrade actions.
 	update := db.InsertReq{
 		Script: "update_resources_for_planet",
@@ -146,14 +255,14 @@ func (i Instance) UpdateResourcesForPlanet(planet string) error {
 	return err
 }
 
-// UpdateBuildingsForPlanet :
+// updateBuildingsForPlanet :
 // Used to perform the update of the buildings for
 // the input planet in the DB.
 //
 // The `planet` defines the identifier of the planet.
 //
 // Returns any error.
-func (i Instance) UpdateBuildingsForPlanet(planet string) error {
+func (i Instance) updateBuildingsForPlanet(planet string) error {
 	update := db.InsertReq{
 		Script: "update_building_upgrade_action",
 		Args: []interface{}{
@@ -168,14 +277,14 @@ func (i Instance) UpdateBuildingsForPlanet(planet string) error {
 	return err
 }
 
-// UpdateTechnologiesForPlayer :
+// updateTechnologiesForPlayer :
 // Used to perform the update of the technologies
 // for the input player in the DB.
 //
 // The `player` defines the ID of the player.
 //
 // Returns any error.
-func (i Instance) UpdateTechnologiesForPlayer(player string) error {
+func (i Instance) updateTechnologiesForPlayer(player string) error {
 	update := db.InsertReq{
 		Script: "update_technology_upgrade_action",
 		Args: []interface{}{
@@ -189,14 +298,14 @@ func (i Instance) UpdateTechnologiesForPlayer(player string) error {
 	return err
 }
 
-// UpdateShipsForPlanet :
+// updateShipsForPlanet :
 // Used to perform the update of the ships for the
 // input planet in the DB.
 //
 // The `planet` defines the ID of the planet.
 //
 // Returns any error.
-func (i Instance) UpdateShipsForPlanet(planet string) error {
+func (i Instance) updateShipsForPlanet(planet string) error {
 	update := db.InsertReq{
 		Script: "update_ship_upgrade_action",
 		Args: []interface{}{
@@ -211,14 +320,14 @@ func (i Instance) UpdateShipsForPlanet(planet string) error {
 	return err
 }
 
-// UpdateDefensesForPlanet :
+// updateDefensesForPlanet :
 // Used to perform the update of the defenses for
 // the input planet in the DB.
 //
 // The `planet` defines the ID of the planet.
 //
 // Returns any error.
-func (i Instance) UpdateDefensesForPlanet(planet string) error {
+func (i Instance) updateDefensesForPlanet(planet string) error {
 	update := db.InsertReq{
 		Script: "update_defense_upgrade_action",
 		Args: []interface{}{

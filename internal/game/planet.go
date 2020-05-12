@@ -656,7 +656,7 @@ func (p *Planet) fetchGeneralInfo(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "id",
-				Values: []string{p.ID},
+				Values: []interface{}{p.ID},
 			},
 		},
 	}
@@ -717,7 +717,7 @@ func (p *Planet) fetchBuildingsUpgrades(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "planet",
-				Values: []string{p.ID},
+				Values: []interface{}{p.ID},
 			},
 		},
 	}
@@ -781,7 +781,7 @@ func (p *Planet) fetchTechnologiesUpgrades(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "player",
-				Values: []string{p.Player},
+				Values: []interface{}{p.Player},
 			},
 		},
 	}
@@ -845,7 +845,7 @@ func (p *Planet) fetchShipsUpgrades(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "planet",
-				Values: []string{p.ID},
+				Values: []interface{}{p.ID},
 			},
 		},
 		Ordering: "order by created_at",
@@ -910,7 +910,7 @@ func (p *Planet) fetchDefensesUpgrades(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "planet",
-				Values: []string{p.ID},
+				Values: []interface{}{p.ID},
 			},
 		},
 		Ordering: "order by created_at",
@@ -978,11 +978,11 @@ func (p *Planet) fetchIncomingFleets(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "target",
-				Values: []string{p.ID},
+				Values: []interface{}{p.ID},
 			},
 			{
 				Key:    "target_type",
-				Values: []string{"planet"},
+				Values: []interface{}{"planet"},
 			},
 		},
 		Ordering: "order by arrival_time desc",
@@ -1034,11 +1034,11 @@ func (p *Planet) fetchSourceFleets(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "source",
-				Values: []string{p.ID},
+				Values: []interface{}{p.ID},
 			},
 			{
 				Key:    "source_type",
-				Values: []string{"planet"},
+				Values: []interface{}{"planet"},
 			},
 		},
 	}
@@ -1091,7 +1091,7 @@ func (p *Planet) fetchResources(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "planet",
-				Values: []string{p.ID},
+				Values: []interface{}{p.ID},
 			},
 		},
 	}
@@ -1156,7 +1156,7 @@ func (p *Planet) fetchBuildings(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "planet",
-				Values: []string{p.ID},
+				Values: []interface{}{p.ID},
 			},
 		},
 	}
@@ -1228,7 +1228,7 @@ func (p *Planet) fetchTechnologies(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "player",
-				Values: []string{p.Player},
+				Values: []interface{}{p.Player},
 			},
 		},
 	}
@@ -1292,7 +1292,7 @@ func (p *Planet) fetchShips(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "planet",
-				Values: []string{p.ID},
+				Values: []interface{}{p.ID},
 			},
 		},
 	}
@@ -1363,7 +1363,7 @@ func (p *Planet) fetchDefenses(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "planet",
-				Values: []string{p.ID},
+				Values: []interface{}{p.ID},
 			},
 		},
 	}

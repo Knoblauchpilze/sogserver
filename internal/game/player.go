@@ -154,7 +154,7 @@ func (p *Player) fetchGeneralInfo(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "id",
-				Values: []string{p.ID},
+				Values: []interface{}{p.ID},
 			},
 		},
 	}
@@ -200,14 +200,6 @@ func (p *Player) fetchGeneralInfo(data model.Instance) error {
 func (p *Player) fetchTechnologies(data model.Instance) error {
 	p.Technologies = make(map[string]TechnologyInfo, 0)
 
-	// Before fetching the technologies we need to
-	// perform the update of the upgrade actions if
-	// any.
-	err := data.UpdateTechnologiesForPlayer(p.ID)
-	if err != nil {
-		return err
-	}
-
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
@@ -218,7 +210,7 @@ func (p *Player) fetchTechnologies(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "player",
-				Values: []string{p.ID},
+				Values: []interface{}{p.ID},
 			},
 		},
 	}

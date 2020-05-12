@@ -106,7 +106,7 @@ func newProgressActionFromDB(ID string, data model.Instance, table string) (Prog
 		Filters: []db.Filter{
 			{
 				Key:    "id",
-				Values: []string{a.ID},
+				Values: []interface{}{a.ID},
 			},
 		},
 	}

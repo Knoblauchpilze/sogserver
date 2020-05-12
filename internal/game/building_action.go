@@ -164,7 +164,7 @@ func (a *BuildingAction) fetchProductionEffects(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "action",
-				Values: []string{a.ID},
+				Values: []interface{}{a.ID},
 			},
 		},
 	}
@@ -218,7 +218,7 @@ func (a *BuildingAction) fetchStorageEffects(data model.Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "action",
-				Values: []string{a.ID},
+				Values: []interface{}{a.ID},
 			},
 		},
 	}

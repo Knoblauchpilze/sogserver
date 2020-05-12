@@ -103,7 +103,7 @@ func newFixedActionFromDB(ID string, data model.Instance, table string) (FixedAc
 		Filters: []db.Filter{
 			{
 				Key:    "id",
-				Values: []string{a.ID},
+				Values: []interface{}{a.ID},
 			},
 		},
 	}

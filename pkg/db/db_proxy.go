@@ -74,6 +74,7 @@ func (q QueryDesc) generate() string {
 			if id > 0 {
 				str += " and"
 			}
+
 			str += fmt.Sprintf(" %s", filter)
 		}
 	}

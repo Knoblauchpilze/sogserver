@@ -108,7 +108,7 @@ func NewAccountFromDB(ID string, data model.Instance) (Account, error) {
 		Filters: []db.Filter{
 			{
 				Key:    "id",
-				Values: []string{a.ID},
+				Values: []interface{}{a.ID},
 			},
 		},
 	}

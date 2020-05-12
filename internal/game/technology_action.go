@@ -310,7 +310,7 @@ func (a *TechnologyAction) fetchResearchPower(data model.Instance, planet *Plane
 		Filters: []db.Filter{
 			{
 				Key:    "p.player",
-				Values: []string{planet.Player},
+				Values: []interface{}{planet.Player},
 			},
 		},
 		// Note that we add `1` to the number of research labs in order

@@ -193,12 +193,13 @@ func (a *ShipAction) Validate(data model.Instance, p *Planet) error {
 
 	// Compute the total cost of this action and validate
 	// against planet's data.
-	sd, err := data.Ships.GetShipFromID(a.Element)
+	_, err = data.Ships.GetShipFromID(a.Element)
 	if err != nil {
 		return err
 	}
 
-	costs := sd.Cost.ComputeCost(a.Remaining)
+	// costs := sd.Cost.ComputeCost(a.Remaining)
 
-	return p.validateAction(costs, sd.UpgradableDesc, data)
+	// return p.validateAction(costs, sd.UpgradableDesc, data)
+	return nil
 }

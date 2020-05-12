@@ -57,11 +57,14 @@ type actionKind string
 
 // Define the possible kind of actions.
 const (
-	building   actionKind = "building_upgrade"
-	technology actionKind = "technology_upgrade"
-	ship       actionKind = "ship_upgrade"
-	defense    actionKind = "defense_upgrade"
-	fleet      actionKind = "fleet"
+	planetBuilding actionKind = "building_upgrade"
+	moonBuilding   actionKind = "building_upgrade_moon"
+	technology     actionKind = "technology_upgrade"
+	planetShip     actionKind = "ship_upgrade"
+	moonShip       actionKind = "ship_upgrade_moon"
+	planetDefense  actionKind = "defense_upgrade"
+	moonDefense    actionKind = "defense_upgrade_moon"
+	fleet          actionKind = "fleet"
 )
 
 // locker :
@@ -220,13 +223,28 @@ func (i Instance) scheduleActions() error {
 		}
 
 		switch kind {
-		case building:
+		case planetBuilding:
+			err = i.performBuildingAction(action, "planet")
+		case moonBuilding:
+			err = i.performBuildingAction(action, "moon")
 		case technology:
-		case ship:
-		case defense:
+			err = i.performTechnologyAction(action)
+		case planetShip:
+			err = i.performShipAction(action, "planet")
+		case moonShip:
+			err = i.performShipAction(action, "moon")
+		case planetDefense:
+			err = i.performDefenseAction(action, "planet")
+		case moonDefense:
+			err = i.performDefenseAction(action, "moon")
 		case fleet:
+			err = i.performFleetAction(action)
 		default:
 			i.trace(logger.Error, fmt.Sprintf("Unknown action \"%s\" with kind \"%s\" not processed", action, kind))
+		}
+
+		if err != nil {
+			i.trace(logger.Error, fmt.Sprintf("Failed to perform action \"%s\" (err: %v)", action, err))
 		}
 	}
 
@@ -241,7 +259,8 @@ func (i Instance) scheduleActions() error {
 //
 // Returns any error.
 func (i Instance) updateResourcesForPlanet(planet string) error {
-	// Perform the update of the building upgrade actions.
+	i.trace(logger.Verbose, fmt.Sprintf("Updating resources for planet %s", planet))
+
 	update := db.InsertReq{
 		Script: "update_resources_for_planet",
 		Args: []interface{}{
@@ -255,19 +274,26 @@ func (i Instance) updateResourcesForPlanet(planet string) error {
 	return err
 }
 
-// updateBuildingsForPlanet :
-// Used to perform the update of the buildings for
-// the input planet in the DB.
+// performBuildingAction :
+// Used to perform the execution of the action related
+// to the input identifier. It should correspond to a
+// building action otherwise the update will fail.
 //
-// The `planet` defines the identifier of the planet.
+// The `action` defines the identifier of the action
+// to perform.
+//
+// The `location` defines where the action is taking
+// place, i.e. either a planet or a moon.
 //
 // Returns any error.
-func (i Instance) updateBuildingsForPlanet(planet string) error {
+func (i Instance) performBuildingAction(action string, location string) error {
+	i.trace(logger.Verbose, fmt.Sprintf("Executing action %s (type: \"building\", location: \"%s\")", action, location))
+
 	update := db.InsertReq{
 		Script: "update_building_upgrade_action",
 		Args: []interface{}{
-			planet,
-			"planet",
+			action,
+			location,
 		},
 		SkipReturn: true,
 	}
@@ -277,18 +303,23 @@ func (i Instance) updateBuildingsForPlanet(planet string) error {
 	return err
 }
 
-// updateTechnologiesForPlayer :
-// Used to perform the update of the technologies
-// for the input player in the DB.
+// performTechnologyAction :
+// Similar to the `performBuildingAction` but for
+// the case of technology actions. Note that this
+// is the only case where there's no need to give
+// a location indication as a technology is always
+// researched from a planet.
 //
-// The `player` defines the ID of the player.
+// The `action` defines the ID of the action.
 //
 // Returns any error.
-func (i Instance) updateTechnologiesForPlayer(player string) error {
+func (i Instance) performTechnologyAction(action string) error {
+	i.trace(logger.Verbose, fmt.Sprintf("Executing action %s (type: \"technology\", location: \"planet\")", action))
+
 	update := db.InsertReq{
 		Script: "update_technology_upgrade_action",
 		Args: []interface{}{
-			player,
+			action,
 		},
 		SkipReturn: true,
 	}
@@ -298,19 +329,24 @@ func (i Instance) updateTechnologiesForPlayer(player string) error {
 	return err
 }
 
-// updateShipsForPlanet :
-// Used to perform the update of the ships for the
-// input planet in the DB.
+// performShipAction :
+// Similar to the `performBuildingAction` but for
+// the case of ship actions.
 //
-// The `planet` defines the ID of the planet.
+// The `action` defines the ID of the action.
+//
+// The `location` defines where the action is set
+// to occur, i.e. either a planet or a moon.
 //
 // Returns any error.
-func (i Instance) updateShipsForPlanet(planet string) error {
+func (i Instance) performShipAction(action string, location string) error {
+	i.trace(logger.Verbose, fmt.Sprintf("Executing action %s (type: \"ship\", location: \"%s\")", action, location))
+
 	update := db.InsertReq{
 		Script: "update_ship_upgrade_action",
 		Args: []interface{}{
-			planet,
-			"planet",
+			action,
+			location,
 		},
 		SkipReturn: true,
 	}
@@ -320,19 +356,24 @@ func (i Instance) updateShipsForPlanet(planet string) error {
 	return err
 }
 
-// updateDefensesForPlanet :
-// Used to perform the update of the defenses for
-// the input planet in the DB.
+// performDefenseAction :
+// Similar to the `performBuildingAction` but for
+// the case of defense actions.
 //
-// The `planet` defines the ID of the planet.
+// The `action` defines the ID of the action.
+//
+// The `location` defines where the action is set
+// to occur, i.e. either a planet or a moon.
 //
 // Returns any error.
-func (i Instance) updateDefensesForPlanet(planet string) error {
+func (i Instance) performDefenseAction(action string, location string) error {
+	i.trace(logger.Verbose, fmt.Sprintf("Executing action %s (type: \"defense\", location: \"%s\")", action, location))
+
 	update := db.InsertReq{
 		Script: "update_defense_upgrade_action",
 		Args: []interface{}{
-			planet,
-			"planet",
+			action,
+			location,
 		},
 		SkipReturn: true,
 	}
@@ -340,4 +381,22 @@ func (i Instance) updateDefensesForPlanet(planet string) error {
 	err := i.Proxy.InsertToDB(update)
 
 	return err
+}
+
+// performFleetAction :
+// Used to perform the simulation of the effects
+// of the fleet described by the input ID. It is
+// fetched from the actions queue and when this
+// method is reached we know that everything is
+// up-to-date until this point.
+//
+// The `ID` defines the identifier of the fleet
+// to simulate.
+//
+// Returns any error.
+func (i Instance) performFleetAction(ID string) error {
+	i.trace(logger.Verbose, fmt.Sprintf("Executing fleet %s", ID))
+
+	// TODO: Handle this.
+	return nil
 }

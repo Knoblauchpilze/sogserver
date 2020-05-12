@@ -96,7 +96,7 @@ BEGIN
       SELECT
         cabm.id AS action,
         cabm.completion_time AS completion_time,
-        'building_upgrade' AS type
+        'building_upgrade_moon' AS type
       FROM
         construction_actions_buildings_moon cabm
       WHERE
@@ -224,7 +224,7 @@ BEGIN
       SELECT
         casm.id AS action,
         casm.created_at + casm.completion_time AS completion_time,
-        'ship_upgrade' AS type
+        'ship_upgrade_moon' AS type
       FROM
         construction_actions_ships_moon casm
       WHERE
@@ -313,7 +313,7 @@ BEGIN
       SELECT
         cadm.id AS action,
         cadm.created_at + cadm.completion_time AS completion_time,
-        'defense_upgrade' AS type
+        'defense_upgrade_moon' AS type
       FROM
         construction_actions_defenses_moon cadm
       WHERE
@@ -346,6 +346,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION update_building_upgrade_action(action_id uuid, kind text) RETURNS VOID AS $$
 DECLARE
   moment timestamp with time zone;
+  planet_id uuid;
 BEGIN
   -- We can have building upgrades both for planets and moons.
   -- These actions are stored in different tables and we don't
@@ -380,7 +381,13 @@ BEGIN
       RAISE EXCEPTION 'Unable to fetch completion time for action %', action_id;
     END IF;
 
-    PERFORM update_resources_for_planet(target_id, moment);
+    SELECT planet INTO planet_id FROM construction_actions_buildings WHERE id = action_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Unable to fetch planet id for action %', action_id;
+    END IF;
+
+    PERFORM update_resources_for_planet(planet_id, moment);
 
     -- 2.b) Proceed to update the mines with their new prod
     -- values.
@@ -465,7 +472,7 @@ BEGIN
     construction_actions_technologies AS cat
   WHERE
     cat.id = action_id
-    AND pt.player = cab.player
+    AND pt.player = cat.player
     AND pt.technology = cat.element
     AND pt.level = cat.current_level;
 

@@ -124,16 +124,15 @@ Similar to the rest, the endpoint is `/defenses` and the properties are `id` and
 
 ## Planets
 
-The planets endpoint allows to query planets on a variety of criteria. The main endpoint is accessible through the `/players/player_id/planets` route and serves all the planets for a player. The user can query a particular planet by providing its identifier in the route (e.g. `/players/player_id/planets/planet_id`).
-We require to perform a research first on the player as it's the main resource we want to protect.
+The planets endpoint allows to query planets on a variety of criteria. The main endpoint is accessible through the `/planets` route and serves all the planets matching the query filters. The user can query a particular planet by providing its identifier in the route (e.g. `/planets/planet_id`).
 
 The user also has access to some query parameters:
- * `id`: defines a filter on the player owning the planet.
+ * `player`: defines a filter on the player owning the planet.
  * `name`: defines a filter on the name of the planet.
  * `galaxy` : defines a filter on the galaxy of the planet.
  * `solar_system` : defines a filter on the solar system of the planet.
  * `universe` : defines a filter on the position of the planet.
- * `id` : defines a filter on the identifier of the player owning the planet.
+ * `id` : defines a filter on the identifier of the planet.
 
 These filters can be combined between each other and it's always the case in a `AND` semantic (meaning that a planet must match all filters to be returned). The individual description of the planet regroups the ships existing on the planet, the buildings built on it, the defenses installed on it and also the resources that are currently present on it. It also defines the upgrade actions attached to the planet which are actions that aim at improving the infrastructure available on the planet.
 
@@ -154,5 +153,69 @@ It is possible to create a new player, which represents the instance of an accou
  * `name`: the display name of the player in the universe. Should be unique but does not need to be (maybe we should modify that at some point).
 
 ## Construction actions
+
+The `/planets` routes also serves the upgrade actions that are registered for a given planet. Upgrade actions are the core mechanism of the game allowing a player to improve a planet by building more levels of a building, research or more ships. It is always linked to a planet as we need the resources to perform the action.
+Any upgrade action can be performed provided that the conditions are met for example regarding technologies dependencies or buildings dependencies in the case of ships for example. Various endpoints allow to create upgrade action for a planet through the `planets/planet_id/actions/XYZ` syntax where `XYZ` is one of `buildings`, `technologies`, `ships` or `defenses`.
+In any case the data to provide to create a new upgrade action should be registered under the key `action-data`.
+
+### Buildings
+
+Buildings upgrade action should match either an upgrade of a building of one level or a destruction of the last level of a building. The `json` object to provide to create such an action should look like below:
+
+```json:
+{
+	"element": "element_id",
+  "current_level": 1,
+  "desired_level": 2
+}
+```
+
+Where the `"element"` key references an identifier describing the building to upgrade and the `"current_level"` and `"desired_level"` the current level of the building on the planet and its desired level. Internally this action also relies on the index of the planet and the completion time but these information are computed from the route on one part and computed internally on the second part (so that there's no possibility for someone to cheat).
+Only one action of this type can be active at any moment for a given planet.
+
+### Technologies
+
+The technologies upgrade action allows to research a new technology for a player. While the technology will be applied to all the planets of the player at once when it's finished, only a single planet can be used to actually perform the research. The `json` object to provide to create such an action should look like below:
+
+```json:
+{
+  "element": "element_id",
+  "current_level": 0,
+  "desired_level": 1
+}
+```
+
+The `"element"` key defines the identifier of the technology which should be researched and both levels give indication on the current state for the player and the desired state. Note that unlike buildings, technologies cannot be un-researched. Internally the technology action is set up with the player owning the planet where it's started.
+Only one action of this type can be active at any moment for a single player.
+
+### Ships
+
+The ships upgrade are a bit different from the technologies and buildings counterparts in the sense that they can be queued and there's no limit as to how many actions can be scheduled concurrently. The ships are built in the shipyard of the planet and they are queued after the last existing action. Typically if an action still requires 30 minutes to finish, requesting a new ship construction action will queue it after the 30 minutes of the current action have passed.
+
+The `json` object to provide to the route looks like below:
+
+```json:
+{
+  "element": "element_id",
+  "amount": 25
+}
+```
+
+The `"element"` describes the identifier of the ship to build and the `"amount"` defines how many ships should be built.
+
+### Defenses
+
+The defenses upgrade action is very similar to the `ships` case but it concerns actions. The actions are queued indifferently after the last construction action (either a defense one or a ship one). The associated `json` object is very similar to the one used for ships:
+
+```json:
+{
+  "element": "element_id",
+  "amount": 25
+}
+```
+
+The `"element"` defines the identifier of the defense system to build while the `"amount"` defines the number of defense systems to build.
+
+## Fleets
 
 TODO: Should implement this.

@@ -164,7 +164,7 @@ Buildings upgrade action should match either an upgrade of a building of one lev
 
 ```json:
 {
-	"element": "element_id",
+  "element": "element_id",
   "current_level": 1,
   "desired_level": 2
 }
@@ -210,7 +210,7 @@ The defenses upgrade action is very similar to the `ships` case but it concerns 
 ```json:
 {
   "element": "element_id",
-  "amount": 25
+  "amount": 3
 }
 ```
 

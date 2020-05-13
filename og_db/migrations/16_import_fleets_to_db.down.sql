@@ -8,6 +8,9 @@ DROP FUNCTION fleet_deployment(fleet_id uuid);
 -- Drop the function allowing to perform the transport action of a fleet.
 DROP FUNCTION fleet_transport(fleet_id uuid);
 
+-- Drop the function allowing to update the fleet's position in the actions queue.
+DROP FUNCTION fleet_update_to_return_time(fleet_id uuid);
+
 -- Drop the function allowing to delete a fleet from the DB.
 DROP FUNCTION fleet_deletion(fleet_id uuid);
 

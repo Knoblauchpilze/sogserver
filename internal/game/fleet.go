@@ -250,6 +250,10 @@ var ErrInsufficientCargoForFleet = fmt.Errorf("Insufficient cargo space to hold 
 // the researched technologies of the starting location of a fleet.
 var ErrInvalidPropulsionSystem = fmt.Errorf("Unknown propulsion system for ship for a fleet")
 
+// ErrFleetObjectiveNotCorrect : Indicates that the fleet objective associated to the fleet is not
+// correct and cannot be performed by the server.
+var ErrFleetObjectiveNotCorrect = fmt.Errorf("Unknown fleet objective in simulation phase")
+
 // Valid :
 // Determines whether the fleet is valid. By valid we only
 // mean obvious syntax errors.
@@ -918,30 +922,55 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 		return err
 	}
 
+	// In order to process the fleet we need to know
+	// whether some server side processing should be
+	// done and the script to use to update the data
+	// for the fleet if any.
+	// We will perform the simulation of the fleet
+	// first and then use the specified script to
+	// finalize the operation. In case the fleet is
+	// not needing a simulation phase, we directly
+	// run the script.
 	var script string
 
-	// TODO: Handle missing cases.
 	switch obj.Name {
 	case "deployment":
 		script = "fleet_deployment"
 	case "transport":
 		script = "fleet_transport"
+	case "harvesting":
+		script = "fleet_harvesting"
 	case "colonization":
-		return fmt.Errorf("Not implemented")
+		err = f.colonize(data)
+		script = "fleet_update_to_return_time"
+	case "attacking":
+		err = f.attack(p)
+		script = "fleet_update_to_return_time"
+	case "espionage":
+		err = f.spy(p)
+		script = "fleet_update_to_return_time"
+	case "destroy":
+		err = f.destroy(p)
+		script = "fleet_update_to_return_time"
 	case "expedition":
 		return fmt.Errorf("Not implemented")
 	case "ACSdefend'":
-		return fmt.Errorf("Not implemented")
+		fallthrough
 	case "ACSattack'":
-		return fmt.Errorf("Not implemented")
-	case "harvesting":
-		script = "fleet_harvesting"
-	case "attacking":
-		return fmt.Errorf("Not implemented")
-	case "espionage":
-		return fmt.Errorf("Not implemented")
-	case "destroy":
-		return fmt.Errorf("Not implemented")
+		// The `ACS` are not actually valid objectives
+		// for a fleet. It is converted when creating
+		// the fleet and the corresponding ACS element.
+		// We will handle the case of an unknown fleet
+		// objective in a similar fashion.
+		fallthrough
+	default:
+		return ErrFleetObjectiveNotCorrect
+	}
+
+	// Make sure that no errors occured while the
+	// fleet was being simulated.
+	if err != nil {
+		return err
 	}
 
 	// Execute the script allowing to perform
@@ -958,17 +987,56 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 	return err
 }
 
-// persistToDB :
-// Used to persist the content of this fleet to
-// the DB. Most of the process will be done by
-// calling the dedicated script with the valid
-// data.
+// colonize :
+// Used to perform the attempt at the colonization
+// for a fleet. We will try to create a new planet
+// for the player owning the fleet.
 //
-// The `data` allows to access to the DB to be
-// able to save the fleet's data.
+// The `data` allows to access to the DB.
 //
-// Returns any error.
-func (f *Fleet) persistToDB(data Instance) error {
-	// TODO: Handle this.
+// Return any error.
+func (f *Fleet) colonize(data Instance) error {
+	// TODO: Implement this.
+	return fmt.Errorf("Not implemented")
+}
+
+// attack :
+// Used to perform the attack of the input planet
+// by this fleet. Note that only the units that
+// are deployed on the planet at this moment will
+// be included in the fight.
+//
+// The `p` represents the element to be attacked.
+// It can either be a planet or a moon.
+//
+// Return any error.
+func (f *Fleet) attack(p *Planet) error {
+	// TODO: Implement this.
+	return fmt.Errorf("Not implemented")
+}
+
+// spy :
+// Used to perform a spying operation on the planet
+// by the fleet. This can lead to a fight in case
+// the fleet is spotted.
+//
+// The `p` represents the planet to spy.
+//
+// Return any error.
+func (f *Fleet) spy(p *Planet) error {
+	// TODO: Implement this.
+	return fmt.Errorf("Not implemented")
+}
+
+// destroy :
+// Used to attempt to destroy the moon in argument
+// by this fleet. This may fail and result in the
+// total destruction of the fleet.
+//
+// The `m` represents the moon to destroy.
+//
+// Return any error.
+func (f *Fleet) destroy(m *Planet) error {
+	// TODO: Implement this.
 	return fmt.Errorf("Not implemented")
 }

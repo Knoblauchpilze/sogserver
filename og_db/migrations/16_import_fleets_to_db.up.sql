@@ -140,7 +140,6 @@ BEGIN
   END IF;
 
   -- Register this fleet as part of the actions system.
-  -- Register this action in the actions system.
   INSERT INTO actions_queue
     SELECT
       f.id AS action,
@@ -158,32 +157,10 @@ $$ LANGUAGE plpgsql;
 -- The return value indicates whether the target to
 -- deposit the resources to (computed with the data
 -- from the input fleet) actually existed.
-CREATE OR REPLACE FUNCTION fleet_deposit_resources(fleet_id uuid) RETURNS BOOLEAN AS $$
+CREATE OR REPLACE FUNCTION fleet_deposit_resources(fleet_id uuid, target_id uuid, target_kind text) RETURNS VOID AS $$
 DECLARE
-  target_id uuid;
-  target_kind text;
   arrival timestamp with time zone;
 BEGIN
-  -- Retrieve the ID of the target associated to the
-  -- fleet.
-  SELECT target INTO target_id FROM fleets WHERE id = fleet_id AND target IS NOT NULL;
-
-  -- If the target does not exist for this fleet, do not
-  -- deposit resources. Whether it is an issue will be
-  -- determined by the calling script.
-  IF NOT FOUND THEN
-    RETURN FALSE;
-  END IF;
-
-  -- Fetch the target type: if the target type does not
-  -- exist it means that the fleet's identifier is not
-  -- valid.
-  SELECT target_type INTO target_kind FROM fleets WHERE id = fleet_id;
-
-  IF NOT FOUND THEN
-    RETURN FALSE;
-  END IF;
-
   -- Perform the update of the resources on the planet
   -- so as to be sure that the player gets the max of
   -- its production in case the new deposit brings the
@@ -252,52 +229,16 @@ BEGIN
       fr.fleet_element = f.id
       AND f.id = fleet_id;
   END IF;
-
-  RETURN TRUE;
 END
 $$ LANGUAGE plpgsql;
 
--- Perform updates to account for a transport fleet.
-CREATE OR REPLACE FUNCTION fleet_transport(fleet_id uuid) RETURNS VOID AS $$
-DECLARE
-  target_was_found BOOLEAN;
+-- Performs the registration of the ships of a fleet
+-- to the specified target (defined by its identifier
+-- and its kind).
+CREATE OR REPLACE FUNCTION fleet_ships_deployment(fleet_id uuid, target_id uuid, target_kind text) RETURNS VOID AS $$
 BEGIN
-  -- Use the dedicated script to perform the deposit
-  -- of the resources.
-  SELECT fleet_deposit_resources(fleet_id) INTO target_was_found;
-
-  -- Raise an error in case the target associated to
-  -- the fleet does not exist.
-  IF NOT target_was_found THEN
-    RAISE EXCEPTION 'Fleet % is not directed towards a valid target', fleet_id;
-  END IF;
-END
-$$ LANGUAGE plpgsql;
-
--- Perform updates to account for a deployment fleet.
-CREATE OR REPLACE FUNCTION fleet_deployment(fleet_id uuid) RETURNS VOID AS $$
-DECLARE
-  target_was_found BOOLEAN;
-  target_id uuid;
-  target_kind text;
-BEGIN
-  -- Make the resources carried by the fleet drop on
-  -- the target element.
-  SELECT fleet_deposit_resources(fleet_id) INTO target_was_found;
-
-  -- Raise an error in case the target associated to
-  -- the fleet does not exist.
-  IF NOT target_was_found THEN
-    RAISE EXCEPTION 'Fleet % is not directed towards a valid target', fleet_id;
-  END IF;
-
-  -- At this point we know that the fleet exists and
-  -- that its target also exists so we can fetch it.
-  SELECT target INTO target_id FROM fleets WHERE id = fleet_id AND target IS NOT NULL;
-  SELECT target_type INTO target_kind FROM fleets WHERE id = fleet_id;
-
-  -- Assign the ships to the target: either the planet
-  -- or the moon based on the kind of the target.
+  -- Now we can add the ships composing the fleet to the
+  -- destination celestial body.
   IF target_kind = 'planet' THEN
     UPDATE planets_ships AS ps
       SET count = ps.count + fs.count
@@ -321,6 +262,20 @@ BEGIN
       AND ms.ship = fs.ship
       AND ms.moon = target_id;
   END IF;
+END
+$$ LANGUAGE plpgsql;
+
+-- Performs the deletion of the fleet from the DB
+-- along with its erasing from ACS and other tables.
+CREATE OR REPLACE FUNCTIOn fleet_deletion(fleet_id uuid) RETURNS VOID AS $$
+BEGIN
+  -- Remove the resources carried by the fleet.
+  DELETE FROM
+    fleet_resources AS fr
+    USING fleets AS f
+  WHERE
+    fs.fleet = f.id
+    AND f.id = fleet_id;
 
   -- Remove the ships associated to this fleet.
   DELETE FROM
@@ -348,9 +303,119 @@ BEGIN
         count(*) > 0
     );
 
+  -- Remove from the actions' queue.
+  DELETE FROM actions_queue WHERE action = fleet_id;
+
   -- And finally remove the fleet which is now as
   -- empty as my bank account.
   DELETE FROM fleets WHERE id = fleet_id;
+END
+$$ LANGUAGE plpgsql;
+
+-- Perform updates to account for a transport fleet.
+CREATE OR REPLACE FUNCTION fleet_transport(fleet_id uuid) RETURNS VOID AS $$
+DECLARE
+  processing_time timestamp with time zone = NOW();
+  target_id uuid;
+  target_kind text;
+  arrival_date timestamp with time zone;
+  return_date timestamp with time zone;
+BEGIN
+  -- The transport mission has two main events associated
+  -- to it: the first one corresponds to when it arrives
+  -- to the target and the second one when it returns back
+  -- to its source.
+  -- In the first case the resources carried by the fleet
+  -- should be dumped to the target while on the second
+  -- case the ships should be added to the source object
+  -- and the fleet destroyed.
+  SELECT arrival_time INTO arrival_date FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid arrival time for fleet %', fleet_id;
+  END IF;
+  SELECT return_time INTO return_date FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid return time for fleet %', fleet_id;
+  END IF;
+
+  -- In case the current time is posterior to the arrival
+  -- time, dump the resources to the target element.
+  IF arrival_date < processing_time THEN
+    -- Retrieve the ID of the target associated to this
+    -- fleet along with its type.
+    SELECT target INTO target_id FROM fleets WHERE id = fleet_id AND target IS NOT NULL;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Invalid target destination for fleet % in transport operation', fleet_id;
+    END IF;
+
+    SELECT target_type INTO target_kind FROM fleets WHERE id = fleet_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Invalid target kind for fleet % in transport operation', fleet_id;
+    END IF;
+
+    PERFORM fleet_deposit_resources(fleet_id, target_id, target_kind);
+
+    -- Update the next time the fleet needs processing
+    -- to be the return time.
+    UPDATE actions_queue
+      SET completion_time = return_time
+    FROM
+      fleets AS f
+    WHERE
+      f.id = fleet_id
+      AND action = fleet_id;
+  END IF;
+
+  -- Handle the return of the fleet to its source in case
+  -- the processing time indicates so.
+  IF return_date < processing_time THEN
+    -- Fetch the source's data.
+    SELECT source INTO target_id FROM fleets WHERE id = fleet_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Invalid source destination for fleet %', fleet_id;
+    END IF;
+
+    SELECT source_type INTO target_kind FROM fleets WHERE id = fleet_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Invalid source kind for fleet %', fleet_id;
+    END IF;
+
+    -- Restore the ships to the source.
+    PERFORM fleet_ships_deployment(fleet_id, target_id, target_kind);
+
+    -- Delete the fleet from the DB.
+    PERFORM fleet_deletion(fleet_id);
+  END IF;
+END
+$$ LANGUAGE plpgsql;
+
+-- Perform updates to account for a deployment fleet.
+CREATE OR REPLACE FUNCTION fleet_deployment(fleet_id uuid) RETURNS VOID AS $$
+DECLARE
+  target_id uuid;
+  target_kind text;
+BEGIN
+  -- Fetch the target of the fleet along with its kind.
+  SELECT target INTO target_id FROM fleets WHERE id = fleet_id AND target IS NOT NULL;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid target destination for fleet % in deploy operation', fleet_id;
+  END IF;
+
+  SELECT target_type INTO target_kind FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid target kind for fleet % in deploy operation', fleet_id;
+  END IF;
+
+  -- Deposit the resources of the fleet at the target
+  -- destination.
+  PERFORM fleet_deposit_resources(fleet_id, target_id, target_kind);
+
+  -- Add the ships in the target destination.
+  PERFORM fleet_ships_deployment(fleet_id, target_id, target_kind);
+
+  -- Delete the fleet from the DB as its mission is
+  -- now complete.
+  PERFORM fleet_deletion(fleet_id);
 END
 $$ LANGUAGE plpgsql;
 

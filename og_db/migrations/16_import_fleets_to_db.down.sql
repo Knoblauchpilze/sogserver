@@ -8,8 +8,14 @@ DROP FUNCTION fleet_deployment(fleet_id uuid);
 -- Drop the function allowing to perform the transport action of a fleet.
 DROP FUNCTION fleet_transport(fleet_id uuid);
 
--- Drop convenience script allowing to deposit resources on a target.
-DROP FUNCTION fleet_deposit_resources(fleet_id uuid);
+-- Drop the function allowing to delete a fleet from the DB.
+DROP FUNCTION fleet_deletion(fleet_id uuid);
+
+-- Drop the function allowing to deploy ships on a location.
+DROP FUNCTION fleet_ships_deployment(fleet_id uuid, target_id uuid, target_kind text);
+
+-- Drop the function allowing to deposit resources on a location.
+DROP FUNCTION fleet_deposit_resources(fleet_id uuid, target_id uuid, target_kind text);
 
 -- Drop the fleet import function.
 DROP FUNCTION create_fleet(fleet json, ships json, resources json, consumption json);

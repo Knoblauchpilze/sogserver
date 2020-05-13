@@ -3,7 +3,6 @@ package data
 import (
 	"fmt"
 	"oglike_server/internal/game"
-	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 
@@ -48,7 +47,7 @@ var ErrUniverseMismatchForFleet = fmt.Errorf("Universe specified for fleet does 
 // The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
-func NewFleetProxy(data model.Instance, log logger.Logger) FleetProxy {
+func NewFleetProxy(data game.Instance, log logger.Logger) FleetProxy {
 	return FleetProxy{
 		commonProxy: newCommonProxy(data, log, "fleets"),
 	}

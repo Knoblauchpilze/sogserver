@@ -315,7 +315,7 @@ func (f *Fleet) Valid(uni Universe) error {
 //
 // Returns the fleet as fetched from the DB along
 // with any errors.
-func NewFleetFromDB(ID string, data model.Instance) (Fleet, error) {
+func NewFleetFromDB(ID string, data Instance) (Fleet, error) {
 	// Create the fleet.
 	f := Fleet{
 		ID: ID,
@@ -353,7 +353,7 @@ func NewFleetFromDB(ID string, data model.Instance) (Fleet, error) {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (f *Fleet) fetchGeneralInfo(data model.Instance) error {
+func (f *Fleet) fetchGeneralInfo(data Instance) error {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
@@ -450,7 +450,7 @@ func (f *Fleet) fetchGeneralInfo(data model.Instance) error {
 // The `data` allows to access to the DB.
 //
 // Returns any error.
-func (f *Fleet) fetchShips(data model.Instance) error {
+func (f *Fleet) fetchShips(data Instance) error {
 	f.Ships = make([]ShipInFleet, 0)
 
 	// Create the query and execute it.
@@ -505,7 +505,7 @@ func (f *Fleet) fetchShips(data model.Instance) error {
 // The `data` allows to access to the DB.
 //
 // Returns any error.
-func (f *Fleet) fetchCargo(data model.Instance) error {
+func (f *Fleet) fetchCargo(data Instance) error {
 	f.Cargo = make([]model.ResourceAmount, 0)
 
 	// Create the query and execute it.
@@ -672,7 +672,7 @@ func (f *Fleet) Convert() interface{} {
 // Returns an error in case the fleet is not valid
 // and `nil` otherwise (indicating that no obvious
 // errors were detected).
-func (f *Fleet) Validate(data model.Instance, source *Planet, target *Planet) error {
+func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 	// Update consumption.
 	err := f.consolidateConsumption(data, source)
 	if err != nil {
@@ -772,7 +772,7 @@ func (f *Fleet) Validate(data model.Instance, source *Planet, target *Planet) er
 // starting the flight.
 //
 // Returns any error.
-func (f *Fleet) consolidateConsumption(data model.Instance, p *Planet) error {
+func (f *Fleet) consolidateConsumption(data Instance, p *Planet) error {
 	// Compute the distance between the starting position
 	// and the destination of the flight.
 	d := float64(p.Coordinates.distanceTo(f.TargetCoords))
@@ -835,7 +835,7 @@ func (f *Fleet) consolidateConsumption(data model.Instance, p *Planet) error {
 // speed for each ship.
 //
 // Returns any error.
-func (f *Fleet) ConsolidateArrivalTime(data model.Instance, p *Planet) error {
+func (f *Fleet) ConsolidateArrivalTime(data Instance, p *Planet) error {
 	// Update the time at which this component joined
 	// the fleet.
 	f.CreatedAt = time.Now()
@@ -910,7 +910,7 @@ func (f *Fleet) ConsolidateArrivalTime(data model.Instance, p *Planet) error {
 // DB if needed.
 //
 // Returns any error.
-func (f *Fleet) simulate(p *Planet, data model.Instance) error {
+func (f *Fleet) simulate(p *Planet, data Instance) error {
 	// We need to check the objective of this fleet
 	// and perform the adequate processing.
 	obj, err := data.Objectives.GetObjectiveFromID(f.Objective)
@@ -968,7 +968,7 @@ func (f *Fleet) simulate(p *Planet, data model.Instance) error {
 // able to save the fleet's data.
 //
 // Returns any error.
-func (f *Fleet) persistToDB(data model.Instance) error {
+func (f *Fleet) persistToDB(data Instance) error {
 	// TODO: Handle this.
 	return fmt.Errorf("Not implemented")
 }

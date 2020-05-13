@@ -1,7 +1,8 @@
-package model
+package game
 
 import (
 	"fmt"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 	"time"
@@ -38,12 +39,12 @@ import (
 // prevent any unauthorized use of the DB.
 type Instance struct {
 	Proxy        db.Proxy
-	Buildings    *BuildingsModule
-	Technologies *TechnologiesModule
-	Ships        *ShipsModule
-	Defenses     *DefensesModule
-	Resources    *ResourcesModule
-	Objectives   *FleetObjectivesModule
+	Buildings    *model.BuildingsModule
+	Technologies *model.TechnologiesModule
+	Ships        *model.ShipsModule
+	Defenses     *model.DefensesModule
+	Resources    *model.ResourcesModule
+	Objectives   *model.FleetObjectivesModule
 
 	log    logger.Logger
 	waiter *locker
@@ -397,6 +398,28 @@ func (i Instance) performDefenseAction(action string, location string) error {
 func (i Instance) performFleetAction(ID string) error {
 	i.trace(logger.Verbose, fmt.Sprintf("Executing fleet %s", ID))
 
-	// TODO: Handle this.
-	return nil
+	// Retrieve the fleet corresponding to the ID
+	// in argument.
+	f, err := NewFleetFromDB(ID, i)
+	if err != nil {
+		return err
+	}
+
+	// Retrieve the target planet of the fleet to
+	// be able to simulate it. In case the fleet
+	// does not have a target, use a `nil` value.
+	var p *Planet
+
+	if f.Target != "" && f.TargetCoords.Type == World {
+		rp, err := NewPlanetFromDB(f.Target, i)
+		if err != nil {
+			return err
+		}
+
+		p = &rp
+	}
+
+	err = f.simulate(p, i)
+
+	return err
 }

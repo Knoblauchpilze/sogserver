@@ -491,7 +491,7 @@ DECLARE
   -- problem where for example an action is not complete
   -- when the 1. is performed and complete when the 2. is
   -- performed (resulting in a ship never being built).
-  processing_time TIMESTAMP := NOW();
+  processing_time timestamp with time zone := NOW();
 BEGIN
   -- We can have building upgrades both for planets and moons.
   -- These actions are stored in different tables and we don't
@@ -606,7 +606,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION update_defense_upgrade_action(action_id uuid, kind text) RETURNS VOID AS $$
 DECLARE
   -- Similar mechanism to the one used for ships.
-  processing_time TIMESTAMP := NOW();
+  processing_time timestamp with time zone := NOW();
 BEGIN
   -- We can have building upgrades both for planets and moons.
   -- These actions are stored in different tables and we don't

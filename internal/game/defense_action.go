@@ -1,7 +1,6 @@
 package game
 
 import (
-	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/duration"
 	"time"
@@ -27,7 +26,7 @@ type DefenseAction struct {
 //
 // Returns the corresponding defense action along
 // with any error.
-func NewDefenseActionFromDB(ID string, data model.Instance) (DefenseAction, error) {
+func NewDefenseActionFromDB(ID string, data Instance) (DefenseAction, error) {
 	// Create the action.
 	a := DefenseAction{}
 
@@ -154,7 +153,7 @@ func (a *DefenseAction) Convert() interface{} {
 // concurrency easier.
 //
 // Returns any error.
-func (a *DefenseAction) consolidateCompletionTime(data model.Instance, p *Planet) error {
+func (a *DefenseAction) consolidateCompletionTime(data Instance, p *Planet) error {
 	// First, we need to determine the cost for each of
 	// the individual unit to produce.
 	dd, err := data.Defenses.GetDefenseFromID(a.Element)
@@ -178,7 +177,7 @@ func (a *DefenseAction) consolidateCompletionTime(data model.Instance, p *Planet
 // locking is easier.
 //
 // Returns any error.
-func (a *DefenseAction) Validate(data model.Instance, p *Planet) error {
+func (a *DefenseAction) Validate(data Instance, p *Planet) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrMismatchInVerification

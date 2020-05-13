@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"oglike_server/internal/game"
-	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 	"strings"
@@ -90,7 +89,7 @@ type GetResourceEndpoint struct {
 	idFilter  string
 	resFilter string
 	module    string
-	lock      *model.Instance
+	lock      *game.Instance
 }
 
 // ErrMarshallingError :
@@ -203,7 +202,7 @@ func (gre *GetResourceEndpoint) WithModule(module string) *GetResourceEndpoint {
 // request on DB data can be served.
 //
 // Returns this endpoint to allow chain calling.
-func (gre *GetResourceEndpoint) WithLocker(i model.Instance) *GetResourceEndpoint {
+func (gre *GetResourceEndpoint) WithLocker(i game.Instance) *GetResourceEndpoint {
 	gre.lock = &i
 	return gre
 }

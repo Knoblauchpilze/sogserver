@@ -293,7 +293,7 @@ func (r Resources) Convert() interface{} {
 //
 // Returns the planet as fetched from the DB along
 // with any errors.
-func NewPlanetFromDB(ID string, data model.Instance) (Planet, error) {
+func NewPlanetFromDB(ID string, data Instance) (Planet, error) {
 	// Create the planet.
 	p := Planet{
 		ID: ID,
@@ -638,7 +638,7 @@ func (p *Planet) generateData() {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchGeneralInfo(data model.Instance) error {
+func (p *Planet) fetchGeneralInfo(data Instance) error {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
@@ -705,7 +705,7 @@ func (p *Planet) fetchGeneralInfo(data model.Instance) error {
 // The `data` defines a way to access to the DB.
 //
 // Returns any error.
-func (p *Planet) fetchBuildingsUpgrades(data model.Instance) error {
+func (p *Planet) fetchBuildingsUpgrades(data Instance) error {
 	p.BuildingsUpgrade = make([]BuildingAction, 0)
 
 	// Create the query and execute it.
@@ -769,7 +769,7 @@ func (p *Planet) fetchBuildingsUpgrades(data model.Instance) error {
 // The `data` defines a way to access to the DB.
 //
 // Returns any error.
-func (p *Planet) fetchTechnologiesUpgrades(data model.Instance) error {
+func (p *Planet) fetchTechnologiesUpgrades(data Instance) error {
 	p.TechnologiesUpgrade = make([]TechnologyAction, 0)
 
 	// Create the query and execute it.
@@ -833,7 +833,7 @@ func (p *Planet) fetchTechnologiesUpgrades(data model.Instance) error {
 // The `data` defines a way to access to the DB.
 //
 // Returns any error.
-func (p *Planet) fetchShipsUpgrades(data model.Instance) error {
+func (p *Planet) fetchShipsUpgrades(data Instance) error {
 	p.ShipsConstruction = make([]ShipAction, 0)
 
 	// Create the query and execute it.
@@ -898,7 +898,7 @@ func (p *Planet) fetchShipsUpgrades(data model.Instance) error {
 // The `data` defines a way to access to the DB.
 //
 // Returns any error.
-func (p *Planet) fetchDefensesUpgrades(data model.Instance) error {
+func (p *Planet) fetchDefensesUpgrades(data Instance) error {
 	p.DefensesConstruction = make([]DefenseAction, 0)
 
 	// Create the query and execute it.
@@ -966,7 +966,7 @@ func (p *Planet) fetchDefensesUpgrades(data model.Instance) error {
 // if needed.
 //
 // Returns any error.
-func (p *Planet) fetchIncomingFleets(data model.Instance) error {
+func (p *Planet) fetchIncomingFleets(data Instance) error {
 	p.IncomingFleets = make([]string, 0)
 
 	// Create the query and execute it.
@@ -1022,7 +1022,7 @@ func (p *Planet) fetchIncomingFleets(data model.Instance) error {
 // needed.
 //
 // Returns any error.
-func (p *Planet) fetchSourceFleets(data model.Instance) error {
+func (p *Planet) fetchSourceFleets(data Instance) error {
 	p.SourceFleets = make([]string, 0)
 
 	// Create the query and execute it.
@@ -1076,7 +1076,7 @@ func (p *Planet) fetchSourceFleets(data model.Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchResources(data model.Instance) error {
+func (p *Planet) fetchResources(data Instance) error {
 	p.Resources = make(map[string]ResourceInfo, 0)
 
 	// Create the query and execute it.
@@ -1143,7 +1143,7 @@ func (p *Planet) fetchResources(data model.Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchBuildings(data model.Instance) error {
+func (p *Planet) fetchBuildings(data Instance) error {
 	p.Buildings = make(map[string]BuildingInfo, 0)
 
 	// Create the query and execute it.
@@ -1215,7 +1215,7 @@ func (p *Planet) fetchBuildings(data model.Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchTechnologies(data model.Instance) error {
+func (p *Planet) fetchTechnologies(data Instance) error {
 	p.technologies = make(map[string]int)
 
 	// Create the query and execute it.
@@ -1279,7 +1279,7 @@ func (p *Planet) fetchTechnologies(data model.Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchShips(data model.Instance) error {
+func (p *Planet) fetchShips(data Instance) error {
 	p.Ships = make(map[string]ShipInfo, 0)
 
 	// Create the query and execute it.
@@ -1350,7 +1350,7 @@ func (p *Planet) fetchShips(data model.Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Planet) fetchDefenses(data model.Instance) error {
+func (p *Planet) fetchDefenses(data Instance) error {
 	p.Defenses = make(map[string]DefenseInfo, 0)
 
 	// Create the query and execute it.
@@ -1625,7 +1625,7 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 // Returns any error. In case the return value is
 // `nil` it means that the action can be performed
 // on this planet.
-func (p *Planet) validateAction(costs map[string]int, desc model.UpgradableDesc, data model.Instance) error {
+func (p *Planet) validateAction(costs map[string]int, desc model.UpgradableDesc, data Instance) error {
 	// Make sure that there are enough resources on the planet.
 	if len(costs) == 0 {
 		return ErrNoCost
@@ -1692,7 +1692,7 @@ func (p *Planet) validateAction(costs map[string]int, desc model.UpgradableDesc,
 // to the `validateAction` where no error is
 // meant to indicate that the component is a
 // valid one compared to the planet's data.
-func (p *Planet) validateFleet(fuels []model.ResourceAmount, cargos []model.ResourceAmount, ships []ShipInFleet, data model.Instance) error {
+func (p *Planet) validateFleet(fuels []model.ResourceAmount, cargos []model.ResourceAmount, ships []ShipInFleet, data Instance) error {
 	// Gather existing resources.
 	available := make(map[string]float32)
 

@@ -27,6 +27,7 @@ import (
 // interval with no issues) to perform update for players that didn't
 // connect for a long time.
 // TODO: Restore the possibility to create ACS.
+// TODO: Handle moons.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

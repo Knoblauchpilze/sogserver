@@ -1,8 +1,8 @@
 package data
 
 import (
+	"oglike_server/internal/game"
 	"oglike_server/internal/locker"
-	"oglike_server/internal/model"
 	"oglike_server/pkg/logger"
 )
 
@@ -57,7 +57,7 @@ type commonProxy struct {
 	log    logger.Logger
 	lock   *locker.ConcurrentLocker
 	module string
-	data   model.Instance
+	data   game.Instance
 }
 
 // newCommonProxy :
@@ -78,7 +78,7 @@ type commonProxy struct {
 //
 // Returns the created object and panics if something is
 // not right when creating the proxy.
-func newCommonProxy(data model.Instance, log logger.Logger, module string) commonProxy {
+func newCommonProxy(data game.Instance, log logger.Logger, module string) commonProxy {
 	return commonProxy{
 		log:    log,
 		lock:   locker.NewConcurrentLocker(log),

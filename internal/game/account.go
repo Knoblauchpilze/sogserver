@@ -2,7 +2,6 @@ package game
 
 import (
 	"fmt"
-	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"regexp"
 )
@@ -85,7 +84,7 @@ func (a *Account) valid() error {
 //
 // Returns the account as fetched from the DB
 // along with any errors.
-func NewAccountFromDB(ID string, data model.Instance) (Account, error) {
+func NewAccountFromDB(ID string, data Instance) (Account, error) {
 	// Create the account.
 	a := Account{
 		ID: ID,

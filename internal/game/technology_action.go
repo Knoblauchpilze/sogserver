@@ -2,7 +2,6 @@ package game
 
 import (
 	"fmt"
-	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"time"
 )
@@ -57,7 +56,7 @@ func (a *TechnologyAction) valid() error {
 //
 // Returns the corresponding technology action
 // along with any error.
-func NewTechnologyActionFromDB(ID string, data model.Instance) (TechnologyAction, error) {
+func NewTechnologyActionFromDB(ID string, data Instance) (TechnologyAction, error) {
 	// Create the return value and fetch the base
 	// data for this action.
 	a := TechnologyAction{}
@@ -201,7 +200,7 @@ func (a *TechnologyAction) Convert() interface{} {
 // by the action creation process.
 //
 // Returns any error.
-func (a *TechnologyAction) consolidateCompletionTime(data model.Instance, p *Planet) error {
+func (a *TechnologyAction) consolidateCompletionTime(data Instance, p *Planet) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrMismatchInVerification
@@ -278,7 +277,7 @@ func (a *TechnologyAction) consolidateCompletionTime(data model.Instance, p *Pla
 //
 // Returns the research power available including the
 // power brought by this planet along with any error.
-func (a *TechnologyAction) fetchResearchPower(data model.Instance, planet *Planet) (int, error) {
+func (a *TechnologyAction) fetchResearchPower(data Instance, planet *Planet) (int, error) {
 	// First, fetch the level of the research lab on the
 	// planet associated to this action: this will be the
 	// base of the research.
@@ -372,7 +371,7 @@ func (a *TechnologyAction) fetchResearchPower(data model.Instance, planet *Plane
 // locking is easier.
 //
 // Returns any error.
-func (a *TechnologyAction) Validate(data model.Instance, p *Planet) error {
+func (a *TechnologyAction) Validate(data Instance, p *Planet) error {
 	// Consistency.
 	if a.Planet != p.ID || a.Player != p.Player {
 		return ErrMismatchInVerification

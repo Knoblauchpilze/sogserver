@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"oglike_server/internal/model"
+	"oglike_server/internal/game"
 	"oglike_server/pkg/logger"
 )
 
@@ -72,7 +72,7 @@ type CreateResourceEndpoint struct {
 	creator   CreationFunc
 	module    string
 	prefixRes bool
-	lock      *model.Instance
+	lock      *game.Instance
 }
 
 // ErrNoData :
@@ -146,7 +146,7 @@ func (cre *CreateResourceEndpoint) WithModule(module string) *CreateResourceEndp
 // request on DB data can be served.
 //
 // Returns this endpoint to allow chain calling.
-func (cre *CreateResourceEndpoint) WithLocker(i model.Instance) *CreateResourceEndpoint {
+func (cre *CreateResourceEndpoint) WithLocker(i game.Instance) *CreateResourceEndpoint {
 	cre.lock = &i
 	return cre
 }

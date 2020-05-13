@@ -112,7 +112,7 @@ func (p *Player) valid() error {
 //
 // Returns the player as fetched from the DB along
 // with any errors.
-func NewPlayerFromDB(ID string, data model.Instance) (Player, error) {
+func NewPlayerFromDB(ID string, data Instance) (Player, error) {
 	// Create the player.
 	p := Player{
 		ID: ID,
@@ -142,7 +142,7 @@ func NewPlayerFromDB(ID string, data model.Instance) (Player, error) {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Player) fetchGeneralInfo(data model.Instance) error {
+func (p *Player) fetchGeneralInfo(data Instance) error {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
@@ -197,7 +197,7 @@ func (p *Player) fetchGeneralInfo(data model.Instance) error {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (p *Player) fetchTechnologies(data model.Instance) error {
+func (p *Player) fetchTechnologies(data Instance) error {
 	p.Technologies = make(map[string]TechnologyInfo, 0)
 
 	// Create the query and execute it.

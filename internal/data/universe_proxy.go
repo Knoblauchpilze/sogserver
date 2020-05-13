@@ -3,7 +3,6 @@ package data
 import (
 	"fmt"
 	"oglike_server/internal/game"
-	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 
@@ -29,7 +28,7 @@ type UniverseProxy struct {
 // The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
-func NewUniverseProxy(data model.Instance, log logger.Logger) UniverseProxy {
+func NewUniverseProxy(data game.Instance, log logger.Logger) UniverseProxy {
 	return UniverseProxy{
 		commonProxy: newCommonProxy(data, log, "universes"),
 	}

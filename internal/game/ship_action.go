@@ -1,7 +1,6 @@
 package game
 
 import (
-	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/duration"
 	"time"
@@ -28,7 +27,7 @@ type ShipAction struct {
 //
 // Returns the corresponding ship action along with
 // any error.
-func NewShipActionFromDB(ID string, data model.Instance) (ShipAction, error) {
+func NewShipActionFromDB(ID string, data Instance) (ShipAction, error) {
 	// Create the action.
 	a := ShipAction{}
 
@@ -154,7 +153,7 @@ func (a *ShipAction) Convert() interface{} {
 // concurrency easier.
 //
 // Returns any error.
-func (a *ShipAction) consolidateCompletionTime(data model.Instance, p *Planet) error {
+func (a *ShipAction) consolidateCompletionTime(data Instance, p *Planet) error {
 	// First, we need to determine the cost for each of
 	// the individual unit to produce.
 	sd, err := data.Ships.GetShipFromID(a.Element)
@@ -179,7 +178,7 @@ func (a *ShipAction) consolidateCompletionTime(data model.Instance, p *Planet) e
 // locking is easier.
 //
 // Returns any error.
-func (a *ShipAction) Validate(data model.Instance, p *Planet) error {
+func (a *ShipAction) Validate(data Instance, p *Planet) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrMismatchInVerification

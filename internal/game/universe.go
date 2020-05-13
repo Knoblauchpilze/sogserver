@@ -2,7 +2,6 @@ package game
 
 import (
 	"fmt"
-	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"strconv"
 )
@@ -158,7 +157,7 @@ func (u *Universe) valid() error {
 //
 // Returns the universe as fetched from the DB
 // along with any errors.
-func NewUniverseFromDB(ID string, data model.Instance) (Universe, error) {
+func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 	// Create the universe.
 	u := Universe{
 		ID: ID,
@@ -363,7 +362,7 @@ func (u *Universe) UsedCoords(proxy db.Proxy) (map[int]Coordinate, error) {
 //
 // Returns the planet at the specified coordinates (or
 // `nil` in case no planet exists) along with any error.
-func (u *Universe) GetPlanetAt(coord Coordinate, data model.Instance) (*Planet, error) {
+func (u *Universe) GetPlanetAt(coord Coordinate, data Instance) (*Planet, error) {
 	// Make sure that the coordinate are valid for this universe.
 	if !coord.valid(u.GalaxiesCount, u.GalaxySize, u.SolarSystemSize) {
 		return nil, ErrInvalidCoordinates

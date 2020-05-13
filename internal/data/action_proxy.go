@@ -3,7 +3,6 @@ package data
 import (
 	"fmt"
 	"oglike_server/internal/game"
-	"oglike_server/internal/model"
 	"oglike_server/pkg/logger"
 
 	"github.com/google/uuid"
@@ -32,7 +31,7 @@ type ActionProxy struct {
 // The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
-func NewActionProxy(data model.Instance, log logger.Logger) ActionProxy {
+func NewActionProxy(data game.Instance, log logger.Logger) ActionProxy {
 	return ActionProxy{
 		commonProxy: newCommonProxy(data, log, "actions"),
 	}

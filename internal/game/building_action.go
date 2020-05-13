@@ -3,7 +3,6 @@ package game
 import (
 	"fmt"
 	"math"
-	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"time"
 )
@@ -98,7 +97,7 @@ func (a *BuildingAction) valid() error {
 //
 // Returns the corresponding building action along
 // with any error.
-func NewBuildingActionFromDB(ID string, data model.Instance) (BuildingAction, error) {
+func NewBuildingActionFromDB(ID string, data Instance) (BuildingAction, error) {
 	// Create the return value and fetch the base
 	// data for this action.
 	a := BuildingAction{}
@@ -152,7 +151,7 @@ func NewBuildingActionFromDB(ID string, data model.Instance) (BuildingAction, er
 // The `data` provide a way to access to the DB.
 //
 // Returns any error.
-func (a *BuildingAction) fetchProductionEffects(data model.Instance) error {
+func (a *BuildingAction) fetchProductionEffects(data Instance) error {
 	a.Production = make([]ProductionEffect, 0)
 
 	query := db.QueryDesc{
@@ -206,7 +205,7 @@ func (a *BuildingAction) fetchProductionEffects(data model.Instance) error {
 // The `data` provide a way to access to the DB.
 //
 // Returns any error.
-func (a *BuildingAction) fetchStorageEffects(data model.Instance) error {
+func (a *BuildingAction) fetchStorageEffects(data Instance) error {
 	a.Storage = make([]StorageEffect, 0)
 
 	query := db.QueryDesc{
@@ -360,7 +359,7 @@ func (a *BuildingAction) Convert() interface{} {
 // more easily.
 //
 // Returns any error.
-func (a *BuildingAction) ConsolidateEffects(data model.Instance, p *Planet) error {
+func (a *BuildingAction) ConsolidateEffects(data Instance, p *Planet) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrMismatchInVerification
@@ -419,7 +418,7 @@ func (a *BuildingAction) ConsolidateEffects(data model.Instance, p *Planet) erro
 // it should be fetched before validating the action.
 //
 // Returns any error.
-func (a *BuildingAction) consolidateCompletionTime(data model.Instance, p *Planet) error {
+func (a *BuildingAction) consolidateCompletionTime(data Instance, p *Planet) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrMismatchInVerification
@@ -501,7 +500,7 @@ func (a *BuildingAction) consolidateCompletionTime(data model.Instance, p *Plane
 // locking is easier.
 //
 // Returns any error.
-func (a *BuildingAction) Validate(data model.Instance, p *Planet) error {
+func (a *BuildingAction) Validate(data Instance, p *Planet) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrMismatchInVerification

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 	"oglike_server/internal/game"
-	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 )
@@ -45,7 +44,7 @@ var ErrTooManyTrials = fmt.Errorf("Could not create planet after %d trial(s)", p
 // The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
-func NewPlanetProxy(data model.Instance, log logger.Logger) PlanetProxy {
+func NewPlanetProxy(data game.Instance, log logger.Logger) PlanetProxy {
 	return PlanetProxy{
 		commonProxy: newCommonProxy(data, log, "planets"),
 	}

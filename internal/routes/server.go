@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
+	"oglike_server/internal/game"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/dispatcher"
@@ -85,7 +86,7 @@ type Server struct {
 	fleets    data.FleetProxy
 	actions   data.ActionProxy
 
-	og    model.Instance
+	og    game.Instance
 	proxy db.Proxy
 	log   logger.Logger
 }
@@ -144,7 +145,7 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 	}
 
 	// Create the data model from it.
-	ogDataModel := model.NewInstance(proxy, log)
+	ogDataModel := game.NewInstance(proxy, log)
 
 	ogDataModel.Buildings = bm
 	ogDataModel.Technologies = tm

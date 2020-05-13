@@ -77,7 +77,7 @@ func (a *FixedAction) valid() error {
 // queried for this action.
 //
 // Returns the progress action along with any error.
-func newFixedActionFromDB(ID string, data model.Instance, table string) (FixedAction, error) {
+func newFixedActionFromDB(ID string, data Instance, table string) (FixedAction, error) {
 	// Create the action.
 	a := FixedAction{}
 
@@ -164,7 +164,7 @@ func newFixedActionFromDB(ID string, data model.Instance, table string) (FixedAc
 // handling easier.
 //
 // Returns any error.
-func (a *FixedAction) computeCompletionTime(data model.Instance, cost model.FixedCost, p *Planet) error {
+func (a *FixedAction) computeCompletionTime(data Instance, cost model.FixedCost, p *Planet) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrMismatchInVerification

@@ -2,7 +2,6 @@ package game
 
 import (
 	"fmt"
-	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"time"
 )
@@ -80,7 +79,7 @@ func (a *ProgressAction) valid() error {
 //
 // Returns the progress action along with any
 // error.
-func newProgressActionFromDB(ID string, data model.Instance, table string) (ProgressAction, error) {
+func newProgressActionFromDB(ID string, data Instance, table string) (ProgressAction, error) {
 	// Create the action.
 	a := ProgressAction{}
 

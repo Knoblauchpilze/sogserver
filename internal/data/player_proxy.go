@@ -3,7 +3,6 @@ package data
 import (
 	"fmt"
 	"oglike_server/internal/game"
-	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 
@@ -32,7 +31,7 @@ type PlayerProxy struct {
 // The `log` allows to notify errors and information.
 //
 // Returns the created proxy.
-func NewPlayerProxy(data model.Instance, log logger.Logger) PlayerProxy {
+func NewPlayerProxy(data game.Instance, log logger.Logger) PlayerProxy {
 	return PlayerProxy{
 		commonProxy: newCommonProxy(data, log, "players"),
 	}

@@ -1,12 +1,12 @@
 
--- Drop the function allowing to handle harvesting operation of a fleet.
-DROP FUNCTION fleet_harvesting(fleet_id uuid);
-
 -- Drop the function allowing to handle deployment of a fleet.
 DROP FUNCTION fleet_deployment(fleet_id uuid);
 
 -- Drop the function allowing to perform the transport action of a fleet.
 DROP FUNCTION fleet_transport(fleet_id uuid);
+
+-- Drop the function allowing to make a fleet return to its base.
+DROP FUNCTION fleet_return_to_base(fleet_id uuid);
 
 -- Drop the function allowing to update the fleet's position in the actions queue.
 DROP FUNCTION fleet_update_to_return_time(fleet_id uuid);

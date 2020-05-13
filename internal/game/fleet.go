@@ -939,19 +939,15 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 	case "transport":
 		script = "fleet_transport"
 	case "harvesting":
-		script = "fleet_harvesting"
+		script, err = f.harvest(data)
 	case "colonization":
-		err = f.colonize(data)
-		script = "fleet_update_to_return_time"
+		script, err = f.colonize(data)
 	case "attacking":
-		err = f.attack(p)
-		script = "fleet_update_to_return_time"
+		script, err = f.attack(p)
 	case "espionage":
-		err = f.spy(p)
-		script = "fleet_update_to_return_time"
+		script, err = f.spy(p)
 	case "destroy":
-		err = f.destroy(p)
-		script = "fleet_update_to_return_time"
+		script, err = f.destroy(p)
 	case "expedition":
 		return fmt.Errorf("Not implemented")
 	case "ACSdefend'":
@@ -988,16 +984,33 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 }
 
 // colonize :
+// Used to perform the harvesting of resources that
+// are dispersed in the debris field specified by
+// the target of the fleet.
+//
+// The `data` allows to access to the DB.
+//
+// Return any error along with the name of the
+// script to execute to finalize the execution of
+// the fleet.
+func (f *Fleet) harvest(data Instance) (string, error) {
+	// TODO: Implement this.
+	return "fleet_return_to_base", fmt.Errorf("Not implemented")
+}
+
+// colonize :
 // Used to perform the attempt at the colonization
 // for a fleet. We will try to create a new planet
 // for the player owning the fleet.
 //
 // The `data` allows to access to the DB.
 //
-// Return any error.
-func (f *Fleet) colonize(data Instance) error {
+// Return any error along with the name of the
+// script to execute to finalize the execution of
+// the fleet.
+func (f *Fleet) colonize(data Instance) (string, error) {
 	// TODO: Implement this.
-	return fmt.Errorf("Not implemented")
+	return "fleet_return_to_base", fmt.Errorf("Not implemented")
 }
 
 // attack :
@@ -1009,10 +1022,12 @@ func (f *Fleet) colonize(data Instance) error {
 // The `p` represents the element to be attacked.
 // It can either be a planet or a moon.
 //
-// Return any error.
-func (f *Fleet) attack(p *Planet) error {
+// Return any error along with the name of the
+// script to execute to finalize the execution of
+// the fleet.
+func (f *Fleet) attack(p *Planet) (string, error) {
 	// TODO: Implement this.
-	return fmt.Errorf("Not implemented")
+	return "fleet_return_to_base", fmt.Errorf("Not implemented")
 }
 
 // spy :
@@ -1022,10 +1037,12 @@ func (f *Fleet) attack(p *Planet) error {
 //
 // The `p` represents the planet to spy.
 //
-// Return any error.
-func (f *Fleet) spy(p *Planet) error {
+// Return any error along with the name of the
+// script to execute to finalize the execution of
+// the fleet.
+func (f *Fleet) spy(p *Planet) (string, error) {
 	// TODO: Implement this.
-	return fmt.Errorf("Not implemented")
+	return "fleet_return_to_base", fmt.Errorf("Not implemented")
 }
 
 // destroy :
@@ -1035,8 +1052,10 @@ func (f *Fleet) spy(p *Planet) error {
 //
 // The `m` represents the moon to destroy.
 //
-// Return any error.
-func (f *Fleet) destroy(m *Planet) error {
+// Return any error along with the name of the
+// script to execute to finalize the execution of
+// the fleet.
+func (f *Fleet) destroy(m *Planet) (string, error) {
 	// TODO: Implement this.
-	return fmt.Errorf("Not implemented")
+	return "fleet_return_to_base", fmt.Errorf("Not implemented")
 }

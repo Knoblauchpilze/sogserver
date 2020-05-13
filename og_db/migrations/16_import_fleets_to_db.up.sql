@@ -327,6 +327,58 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
+-- Perform the deletion of the fleet and the assignement
+-- of the resources carried by it to the source object.
+CREATE OR REPLACE FUNCTION fleet_return_to_base(fleet_id uuid) RETURNS VOID AS $$
+DECLARE
+  processing_time timestamp with time zone = NOW();
+  target_id uuid;
+  target_kind text;
+  arrival_date timestamp with time zone;
+  return_date timestamp with time zone;
+BEGIN
+  SELECT arrival_time INTO arrival_date FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid arrival time for fleet % in return to base operation', fleet_id;
+  END IF;
+  SELECT return_time INTO return_date FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid return time for fleet % in return to base operation', fleet_id;
+  END IF;
+
+  -- Update the next activation time for this fleet if it
+  -- is consistent with the current time.
+  IF arrival_date < processing_time THEN
+    PERFORM fleet_update_to_return_time(fleet_id);
+  END IF;
+
+  -- Handle the return of the fleet to its source in case
+  -- the processing time indicates so.
+  IF return_date < processing_time THEN
+    -- Fetch the source's data.
+    SELECT source INTO target_id FROM fleets WHERE id = fleet_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Invalid source destination for fleet % in harvesting operation', fleet_id;
+    END IF;
+
+    SELECT source_type INTO target_kind FROM fleets WHERE id = fleet_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Invalid source kind for fleet % in harvesting operation', fleet_id;
+    END IF;
+
+    -- Deposit the resources that were fetched from the
+    -- debris field to the source location.
+    PERFORM fleet_deposit_resources(fleet_id, target_id, target_kind);
+
+    -- Restore the ships to the source.
+    PERFORM fleet_ships_deployment(fleet_id, target_id, target_kind);
+
+    -- Delete the fleet from the DB.
+    PERFORM fleet_deletion(fleet_id);
+  END IF;
+END
+$$ LANGUAGE plpgsql;
+
 -- Perform updates to account for a transport fleet.
 CREATE OR REPLACE FUNCTION fleet_transport(fleet_id uuid) RETURNS VOID AS $$
 DECLARE
@@ -425,68 +477,5 @@ BEGIN
   -- Delete the fleet from the DB as its mission is
   -- now complete.
   PERFORM fleet_deletion(fleet_id);
-END
-$$ LANGUAGE plpgsql;
-
--- Perform updates to account for a harvesting fleet.
-CREATE OR REPLACE FUNCTION fleet_harvesting(fleet_id uuid) RETURNS VOID AS $$
-DECLARE
-  processing_time timestamp with time zone = NOW();
-  target_id uuid;
-  target_kind text;
-  arrival_date timestamp with time zone;
-  return_date timestamp with time zone;
-BEGIN
-  -- The harvesting mission is similar to the transport
-  -- on in the sense that it is also divided into two
-  -- main steps: first gathering the resources from the
-  -- debris fields, and then bringing them back to the
-  -- source of the fleet.
-  SELECT arrival_time INTO arrival_date FROM fleets WHERE id = fleet_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid arrival time for fleet % in harvesting operation', fleet_id;
-  END IF;
-  SELECT return_time INTO return_date FROM fleets WHERE id = fleet_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid return time for fleet % in harvesting operation', fleet_id;
-  END IF;
-
-  -- In case the current time is posterior to the arrival
-  -- time, harvest the resources remaining in the debris
-  -- field.
-  IF arrival_date < processing_time THEN
-    -- TODO: Handle fetching of resources from the debris field including the
-    -- cargo and the available space.
-
-    -- Update the next time the fleet needs processing
-    -- to be the return time.
-    PERFORM fleet_update_to_return_time(fleet_id);
-  END IF;
-
-
-  -- Handle the return of the fleet to its source in case
-  -- the processing time indicates so.
-  IF return_date < processing_time THEN
-    -- Fetch the source's data.
-    SELECT source INTO target_id FROM fleets WHERE id = fleet_id;
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Invalid source destination for fleet % in harvesting operation', fleet_id;
-    END IF;
-
-    SELECT source_type INTO target_kind FROM fleets WHERE id = fleet_id;
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Invalid source kind for fleet % in harvesting operation', fleet_id;
-    END IF;
-
-    -- Deposit the resources that were fetched from the
-    -- debris field to the source location.
-    PERFORM fleet_deposit_resources(fleet_id, target_id, target_kind);
-
-    -- Restore the ships to the source.
-    PERFORM fleet_ships_deployment(fleet_id, target_id, target_kind);
-
-    -- Delete the fleet from the DB.
-    PERFORM fleet_deletion(fleet_id);
-  END IF;
 END
 $$ LANGUAGE plpgsql;

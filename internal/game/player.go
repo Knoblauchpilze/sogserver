@@ -31,12 +31,16 @@ import (
 // The `Technologies` defines each technology that this
 // player has already researched with their associated
 // level.
+//
+// The `planetsCount` allows to count how many planets
+// this player already possesses.
 type Player struct {
 	ID           string                    `json:"id"`
 	Account      string                    `json:"account"`
 	Universe     string                    `json:"universe"`
 	Name         string                    `json:"name"`
 	Technologies map[string]TechnologyInfo `json:"-"`
+	planetsCount int
 }
 
 // TechnologyInfo :
@@ -71,6 +75,10 @@ var ErrNonExistingAccount = fmt.Errorf("Inexisting parent account")
 
 // ErrNonExistingUniverse : Indicates that the universe does not exist for this player.
 var ErrNonExistingUniverse = fmt.Errorf("Inexisting parent universe")
+
+// ErrInconsistentPlanetFound : Indicates that inconsistencies were found for the
+// planets of a player.
+var ErrInconsistentPlanetFound = fmt.Errorf("Inconsistencies found for planets of a player")
 
 // valid :
 // Determines whether the player is valid. By valid we only mean
@@ -130,6 +138,11 @@ func NewPlayerFromDB(ID string, data Instance) (Player, error) {
 	}
 
 	err = p.fetchTechnologies(data)
+	if err != nil {
+		return p, err
+	}
+
+	err = p.fetchPlanetsCount(data)
 
 	return p, err
 }
@@ -261,6 +274,61 @@ func (p *Player) fetchTechnologies(data Instance) error {
 	return nil
 }
 
+// fetchPlanetsCount :
+// Similar to `fetchGeneralInfo` but allows to
+// retrieve the number of planets possessed by
+// a player.
+//
+// The `data` defines the object to access the
+// DB.
+//
+// Returns any error.
+func (p *Player) fetchPlanetsCount(data Instance) error {
+	p.planetsCount = 0
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"count(*)",
+		},
+		Table: "planets",
+		Filters: []db.Filter{
+			{
+				Key:    "player",
+				Values: []interface{}{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Scan the fleet's data.
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return ErrInconsistentPlanetFound
+	}
+
+	err = dbRes.Scan(
+		&p.planetsCount,
+	)
+
+	// Make sure that it's the only player.
+	if dbRes.Next() {
+		return ErrInconsistentPlanetFound
+	}
+
+	return nil
+}
+
 // SaveToDB :
 // Used to save the content of this player to
 // the DB. In case an error is raised during
@@ -336,6 +404,65 @@ func (p *Player) GetTechnology(ID string) (TechnologyInfo, error) {
 	}
 
 	return tech, nil
+}
+
+// CanColonize :
+// Used to determine whether this player is able to
+// perform a colonization operation given its level
+// of astrophysics research and the count of planets
+// he already owns.
+//
+// The `data` allows to fetch information about the
+// colonization process.
+//
+// Returns `true` if the player can colonize a new
+// planet along with any error.
+func (p *Player) CanColonize(data Instance) (bool, error) {
+	// We will compare the level of the astrophysics
+	// research against the number of planets already
+	// colonized by the player.
+	astroID, err := data.Technologies.GetIDFromName("astrophysics")
+	if err != nil {
+		return false, err
+	}
+
+	astro, ok := p.Technologies[astroID]
+
+	if !ok {
+		// The astrophysics technology is not researhced,
+		// the player cannot colonize beyond the homeworld.
+		return false, nil
+	}
+
+	// Every two levels of astrophysics, a new colony
+	// can be added to a player's empire. So the level
+	// `0` means no colony, the `1`st level allows the
+	// first colony, the `3`rd level allows the second
+	// etc.
+	// This gives the array below:
+	//
+	// +-------+----------+---------+
+	// | Level | Colonies | Planets |
+	// +-------+----------+---------+
+	// |   0   |    0     |    1    |
+	// +-------+----------+---------+
+	// |   1   |    1     |    2    |
+	// +-------+----------+---------+
+	// |   2   |    1     |    2    |
+	// +-------+----------+---------+
+	// |   3   |    2     |    3    |
+	// +-------+----------+---------+
+	// |   4   |    2     |    3    |
+	// +-------+----------+---------+
+	// |   5   |    3     |    4    |
+	// +-------+----------+---------+
+	//
+	// So the general formula seems to be the following:
+	//
+	// planets = 2 + (level - 1) / 2
+	maxPlanetsCount := 2 + (astro.Level-1)/2
+
+	return p.planetsCount < maxPlanetsCount, nil
 }
 
 // MarshalJSON :

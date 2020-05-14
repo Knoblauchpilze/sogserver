@@ -317,6 +317,7 @@ $$ LANGUAGE plpgsql;
 -- of the fleet.
 CREATE OR REPLACE FUNCTION fleet_update_to_return_time(fleet_id uuid) RETURNS VOID AS $$
 BEGIN
+  -- Update the corresponding entry in the actions queue.
   UPDATE actions_queue
     SET completion_time = return_time
   FROM
@@ -324,6 +325,13 @@ BEGIN
   WHERE
     f.id = fleet_id
     AND action = fleet_id;
+
+  -- Indicate that this fleet is now returning to its
+  -- source.
+  UPDATE fleets
+    SET is_returning = 'true'
+  WHERE
+    id = fleet_id;
 END
 $$ LANGUAGE plpgsql;
 
@@ -477,5 +485,44 @@ BEGIN
   -- Delete the fleet from the DB as its mission is
   -- now complete.
   PERFORM fleet_deletion(fleet_id);
+END
+$$ LANGUAGE plpgsql;
+
+-- In case a colonization succeeeded, we need to register
+-- the new planet along with providing a message to the
+-- player explaining the success of the operation.
+CREATE OR REPLACE FUNCTION fleet_colonization_success(fleet_id uuid, coordinates text, planet json, resources json) RETURNS VOID AS $$
+DECLARE
+  player_id uuid;
+BEGIN
+  -- Create the planet as provided in input.
+  PERFORM create_planet(planet, resources);
+
+  -- Register the message indicating that the colonization
+  -- was sucessful.
+  SELECT player INTO player_id FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid player for fleet % in colonization operation', fleet_id;
+  END IF;
+
+  PERFORM create_message_for(player, 'colonization_suceeded', coordinates);
+END
+$$ LANGUAGE plpgsql;
+
+-- In case a colonization fails, we need to register
+-- a new message to the player and make the fleet
+-- return to its source.
+CREATE OR REPLACE FUNCTION fleet_colonization_failed(fleet_id uuid, coordinates text) RETURNS VOID AS $$
+DECLARE
+  player_id uuid;
+BEGIN
+  -- We need to register a new message indicating the
+  -- coordinate that was not colonizable.
+  SELECT player INTO player_id FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid player for fleet % in colonization operation', fleet_id;
+  END IF;
+
+  PERFORM create_message_for(player, 'colonization_failed', coordinates);
 END
 $$ LANGUAGE plpgsql;

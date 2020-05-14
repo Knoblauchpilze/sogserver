@@ -98,6 +98,9 @@ import (
 // in seconds. This should be the interval between
 // the `CreatedAt` and `ArrivalTime` but also from
 // `ArrivalTime` to `ReturnTime`.
+//
+// The `returning` allows to determine whether the
+// fleet is returning to its source or not.
 type Fleet struct {
 	ID           string                 `json:"id"`
 	Universe     string                 `json:"universe"`
@@ -116,6 +119,7 @@ type Fleet struct {
 	Consumption  []model.ResourceAmount `json:"-"`
 	Cargo        []model.ResourceAmount `json:"cargo"`
 	flightTime   time.Duration
+	returning    bool
 }
 
 // ShipInFleet :
@@ -254,6 +258,9 @@ var ErrInvalidPropulsionSystem = fmt.Errorf("Unknown propulsion system for ship 
 // correct and cannot be performed by the server.
 var ErrFleetObjectiveNotCorrect = fmt.Errorf("Unknown fleet objective in simulation phase")
 
+// ErrUnableToSimulateFleet : Indicates that an error occurred while simulating the fleet.
+var ErrUnableToSimulateFleet = fmt.Errorf("Error occurred while simulating fleet")
+
 // Valid :
 // Determines whether the fleet is valid. By valid we only
 // mean obvious syntax errors.
@@ -375,6 +382,7 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 			"created_at",
 			"arrival_time",
 			"return_time",
+			"is_returning",
 		},
 		Table: "fleets",
 		Filters: []db.Filter{
@@ -425,6 +433,7 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 		&f.CreatedAt,
 		&f.ArrivalTime,
 		&f.ReturnTime,
+		&f.returning,
 	)
 
 	var errC error
@@ -969,8 +978,12 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 		return err
 	}
 
-	// Execute the script allowing to perform
-	// the objective of the fleet.
+	// Execute the script allowing to perform the
+	// objective of the fleet if any was provided.
+	if script == "" {
+		return nil
+	}
+
 	query := db.InsertReq{
 		Script: script,
 		Args: []interface{}{
@@ -1009,8 +1022,74 @@ func (f *Fleet) harvest(data Instance) (string, error) {
 // script to execute to finalize the execution of
 // the fleet.
 func (f *Fleet) colonize(data Instance) (string, error) {
-	// TODO: Implement this.
-	return "fleet_return_to_base", fmt.Errorf("Not implemented")
+	// The colonization operation is meant to create
+	// a new planet for the player at the coordinates
+	// indicated by the target of the fleet. There is
+	// a possibility that the operation fails: this
+	// can occur if another player already colonized
+	// the planet before this fleet or if the level
+	// of astrophysics of the player is not suited to
+	// a new colony.
+
+	// If the fleet is not returning yet, process the
+	// colonization operation.
+	if !f.returning {
+		// Fetch the player's data.
+		p, err := NewPlayerFromDB(f.Player, data)
+		if err != nil {
+			return "", ErrUnableToSimulateFleet
+		}
+
+		allowed, err := p.CanColonize(data)
+		if err != nil {
+			return "", ErrUnableToSimulateFleet
+		}
+
+		if !allowed {
+			// In case the colonization cannot be performed
+			// register a message for the player.
+			query := db.InsertReq{
+				Script: "fleet_colonization_failed",
+				Args: []interface{}{
+					f.ID,
+					fmt.Sprintf("[%d:%d:%d]", f.TargetCoords.Galaxy, f.TargetCoords.System, f.TargetCoords.Position),
+				},
+			}
+
+			err = data.Proxy.InsertToDB(query)
+			if err != nil {
+				return "", err
+			}
+		} else {
+			// In case the colonization can be performed we
+			// will use the parent universe to create the
+			// planet for this player at the specified coords.
+			var p *Planet
+			// TODO: Handle this.
+
+			// Register this informaiton in the DB.
+			query := db.InsertReq{
+				Script: "fleet_colonization_success",
+				Args: []interface{}{
+					f.ID,
+					fmt.Sprintf("[%d:%d:%d]", f.TargetCoords.Galaxy, f.TargetCoords.System, f.TargetCoords.Position),
+					p,
+					p.Resources,
+				},
+			}
+
+			err = data.Proxy.InsertToDB(query)
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+
+	// The `fleet_return_to_base` script is actually
+	// safe to call even in the case of a fleet that
+	// should not yet return to its base. So we will
+	// abuse this fact.
+	return "fleet_return_to_base", nil
 }
 
 // attack :

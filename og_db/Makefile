@@ -4,7 +4,7 @@ DB_HOST ?= localhost
 DB_PORT ?= 5500
 DB_USER ?= og_administrator
 DB_PASSWORD ?= Ww76hQWbbt7zi2ItM6cNo4YYT
-DEMIGRATION_STEPS ?= 2
+DEMIGRATION_STEPS ?= 7
 
 # Target allowing to build the docker image for the db.
 docker_db:

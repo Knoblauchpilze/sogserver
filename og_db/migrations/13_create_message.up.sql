@@ -11,9 +11,11 @@ CREATE TABLE messages_types (
 CREATE TABLE messages_ids (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   type uuid NOT NULL,
+  name text NOT NULL,
   content text NOT NULL,
   PRIMARY KEY (id),
-  FOREIGN KEY (type) REFERENCES messages_types(id)
+  FOREIGN KEY (type) REFERENCES messages_types(id),
+  UNIQUE (name)
 );
 
 -- Create the table referencing messages for players.
@@ -38,3 +40,24 @@ CREATE TABLE messages_arguments (
   FOREIGN KEY (message) REFERENCES messages_players(id),
   UNIQUE (message, position)
 );
+
+-- Seed the messages types.
+INSERT INTO public.messages_types ("type") VALUES('fleets');
+INSERT INTO public.messages_types ("type") VALUES('communication');
+INSERT INTO public.messages_types ("type") VALUES('economy');
+INSERT INTO public.messages_types ("type") VALUES('universe');
+INSERT INTO public.messages_types ("type") VALUES('system');
+
+-- Seed the messages identifiers.
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'colonization_suceeded',
+    'the fleet has arrived at the assigned coordinates %1, found a new planet there and are beginning to develop upon it immediately'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'colonization_failed',
+    'the fleet has arrived at the assigned coordinates %1 and could not perform the colonization process so they are returning home'
+  );

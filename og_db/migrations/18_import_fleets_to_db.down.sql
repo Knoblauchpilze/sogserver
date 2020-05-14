@@ -1,4 +1,10 @@
 
+-- Drop the function allowing to notify a colonization failure.
+DROP FUNCTION fleet_colonization_failed(fleet_id uuid, coordinates text);
+
+-- Drop the function allowing to notify a colonization success.
+DROP FUNCTION fleet_colonization_success(fleet_id uuid, coordinates text, planet json, resources json);
+
 -- Drop the function allowing to handle deployment of a fleet.
 DROP FUNCTION fleet_deployment(fleet_id uuid);
 

@@ -33,7 +33,7 @@ func (s *Server) listUniverses() http.HandlerFunc {
 }
 
 // createUniverse :
-// Used to perform the creation of a handler allowing to server
+// Used to perform the creation of a handler allowing to serve
 // the requests to create universes.
 //
 // Returns the handler to execute to perform said requests.

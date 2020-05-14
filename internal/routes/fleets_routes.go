@@ -39,7 +39,7 @@ func (s *Server) listFleets() http.HandlerFunc {
 }
 
 // listFleetObjectives :
-// Used to perform the creation of a handler allowing to server
+// Used to perform the creation of a handler allowing to serve
 // the requests on fleet objectives.
 //
 // Returns the created handler.
@@ -64,7 +64,7 @@ func (s *Server) listFleetObjectives() http.HandlerFunc {
 }
 
 // createFleetComponent :
-// Used to perform the creation of a handler allowing to server
+// Used to perform the creation of a handler allowing to serve
 // the requests to create fleet components.
 //
 // Returns the handler to execute to perform said requests.

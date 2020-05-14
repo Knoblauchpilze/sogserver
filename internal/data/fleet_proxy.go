@@ -60,10 +60,10 @@ func NewFleetProxy(data game.Instance, log logger.Logger) FleetProxy {
 // matching all the criteria. A full description of the
 // fleets is returned..
 //
-// The `filters` define some filtering property that can
-// be applied to the SQL query to only select part of all
-// the fleets available. Each one is appended `as-is` to
-// the query.
+// The `filters` define some filtering properties that
+// can be applied to the SQL query to only select part
+// of all the fleets available. Each one is appende
+// `as-is` to the query.
 //
 // Returns the list of fleets registered in the DB and
 // matching the input list of filters. In case the error

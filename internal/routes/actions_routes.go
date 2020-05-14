@@ -28,7 +28,7 @@ import (
 type registerFunc func(input string, routeTokens []string) (string, error)
 
 // registerUpgradeAction :
-// Used to perform the creation of a handler allowing to server
+// Used to perform the creation of a handler allowing to serve
 // the requests to create generic upgrade actions. The precise
 // creation process will be configured through values provided
 // as input.
@@ -75,7 +75,7 @@ func (s *Server) registerUpgradeAction(f registerFunc) http.HandlerFunc {
 }
 
 // registerBuildingAction :
-// Used to perform the creation of a handler allowing to server
+// Used to perform the creation of a handler allowing to serve
 // the requests to create building upgrade actions.
 //
 // Returns the handler to execute to perform said requests.
@@ -107,7 +107,7 @@ func (s *Server) registerBuildingAction() http.HandlerFunc {
 }
 
 // registerTechnologyAction :
-// Used to perform the creation of a handler allowing to server
+// Used to perform the creation of a handler allowing to serve
 // the requests to create technology upgrade actions.
 //
 // Returns the handler to execute to perform said requests.
@@ -139,7 +139,7 @@ func (s *Server) registerTechnologyAction() http.HandlerFunc {
 }
 
 // registerShipAction :
-// Used to perform the creation of a handler allowing to server
+// Used to perform the creation of a handler allowing to serve
 // the requests to create ship upgrade actions.
 //
 // Returns the handler to execute to perform said requests.
@@ -172,7 +172,7 @@ func (s *Server) registerShipAction() http.HandlerFunc {
 }
 
 // registerDefenseAction :
-// Used to perform the creation of a handler allowing to server
+// Used to perform the creation of a handler allowing to serve
 // the requests to create defense upgrade actions.
 //
 // Returns the handler to execute to perform said requests.

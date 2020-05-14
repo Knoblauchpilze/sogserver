@@ -34,8 +34,32 @@ func (s *Server) listPlayers() http.HandlerFunc {
 	return ed.ServeRoute(s.log)
 }
 
+// listMessages :
+// Used to perform the creation of a handler allowing to serve
+// the requests to list messages.
+//
+// Returns the handler to execute to perform said requests.
+func (s *Server) listMessages() http.HandlerFunc {
+	// Create the endpoint with the suited route.
+	ed := NewGetResourceEndpoint("players")
+
+	allowed := map[string]string{
+		"type": "mi.type",
+	}
+
+	// Configure the endpoint.
+	ed.WithFilters(allowed).WithIDFilter("mp.player").WithResourceFilter("mp.id").WithModule("players").WithLocker(s.og)
+	ed.WithDataFunc(
+		func(filters []db.Filter) (interface{}, error) {
+			return s.players.Messages(filters)
+		},
+	)
+
+	return ed.ServeRoute(s.log)
+}
+
 // createPlayer :
-// Used to perform the creation of a handler allowing to server
+// Used to perform the creation of a handler allowing to serve
 // the requests to create players.
 //
 // Returns the handler to execute to perform said requests.

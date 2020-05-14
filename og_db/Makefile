@@ -4,6 +4,7 @@ DB_HOST ?= localhost
 DB_PORT ?= 5500
 DB_USER ?= og_administrator
 DB_PASSWORD ?= Ww76hQWbbt7zi2ItM6cNo4YYT
+DEMIGRATION_STEPS ?= 2
 
 # Target allowing to build the docker image for the db.
 docker_db:
@@ -41,4 +42,4 @@ demigrate:
 
 # Demigrate only the last step of the DB creation.
 demigrateO:
-	migrate -path ${PWD}/migrations -database postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable down 1
+	migrate -path ${PWD}/migrations -database postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable down ${DEMIGRATION_STEPS}

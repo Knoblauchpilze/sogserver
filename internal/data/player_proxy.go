@@ -43,10 +43,10 @@ func NewPlayerProxy(data game.Instance, log logger.Logger) PlayerProxy {
 // to narrow the search a bit by providing an account to
 // look for and a uni to look into.
 //
-// The `filters` define some filtering property that can be
-// applied to the SQL query to only select part of all the
-// players available. Each one is appended `as-is` to the
-// query.
+// The `filters` define some filtering properties that can
+// be applied to the SQL query to only select part of all
+// the players available. Each one is appended `as-is` to
+// the query.
 //
 // Returns the list of players registered in the DB and
 // matching the input list of filters. In case the error
@@ -109,6 +109,72 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]game.Player, error) {
 	}
 
 	return players, nil
+}
+
+// Messages :
+// Return a list of the messages for a given player and
+// matching the input filters. The messages are returned
+// along with their types and arguments.
+//
+// The `filters` define some filtering properties to be
+// applied when querying the messages.
+//
+// Returns the list of messages for this player as the
+// DB defines it.
+func (p *PlayerProxy) Messages(filters []db.Filter) ([]game.Message, error) {
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"mp.id",
+		},
+		Table:   "messages_players mp inner join messages_ids mi on mp.message = mi.id",
+		Filters: filters,
+	}
+
+	dbRes, err := p.data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch messages (err: %v)", err))
+		return []game.Message{}, err
+	}
+	if dbRes.Err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch messages (err: %v)", dbRes.Err))
+		return []game.Message{}, dbRes.Err
+	}
+
+	// We now need to retrieve all the identifiers that matched
+	// the input filters and then build the corresponding players
+	// object for each one of them.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Error while fetching message ID (err: %v)", err))
+			continue
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	messages := make([]game.Message, 0)
+
+	for _, ID = range IDs {
+		msg, err := game.NewMessageFromDB(ID, p.data)
+
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Unable to fetch message \"%s\" data from DB (err: %v)", ID, err))
+			continue
+		}
+
+		messages = append(messages, msg)
+	}
+
+	return messages, nil
 }
 
 // Create :

@@ -19,6 +19,7 @@ func (s *Server) routes() {
 	s.route("GET", "/ships", s.listShips())
 	s.route("GET", "/defenses", s.listDefenses())
 	s.route("GET", "/players", s.listPlayers())
+	s.route("GET", "/players/[a-zA-Z0-9-]+/messages", s.listMessages())
 	s.route("GET", "/planets", s.listPlanets())
 	s.route("GET", "/fleets", s.listFleets())
 	s.route("GET", "/fleets/objectives", s.listFleetObjectives())

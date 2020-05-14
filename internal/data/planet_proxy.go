@@ -56,10 +56,10 @@ func NewPlanetProxy(data game.Instance, log logger.Logger) PlanetProxy {
 // search a bit by providing coordinates to look for and a uni
 // to look into.
 //
-// The `filters` define some filtering property that can be
-// applied to the SQL query to only select part of all the
-// planets available. Each one is appended `as-is` to the
-// query.
+// The `filters` define some filtering properties that can
+// be applied to the SQL query to only select part of all
+// the planets available. Each one is appended `as-is` to
+// the query.
 //
 // Returns the list of planets registered in the DB and matching
 // the input list of filters. In case the error is not `nil` the

@@ -40,7 +40,7 @@ func NewUniverseProxy(data game.Instance, log logger.Logger) UniverseProxy {
 // to narrow the search a bit by providing some properties
 // the universe to look for should have.
 //
-// The `filters` define some filtering property that can
+// The `filters` define some filtering properties that can
 // be applied to the SQL query to only select part of all
 // the universes available. Each one is appended `as-is`
 // to the query.

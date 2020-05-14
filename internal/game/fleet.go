@@ -229,6 +229,9 @@ var ErrInvalidTargetForFleet = fmt.Errorf("Target for fleet is not valid")
 // ErrInvalidTargetTypeForFleet : Indicates that the target type for a fleet is not valid.
 var ErrInvalidTargetTypeForFleet = fmt.Errorf("Target type for fleet is not valid")
 
+// ErrInvalidSpeedForFleet : Indicates that the speed provided for a fleet is not valid.
+var ErrInvalidSpeedForFleet = fmt.Errorf("Speed for fleet is not valid")
+
 // ErrInvalidCargoForFleet : Indicates that a cargo resource is invalid for a fleet.
 var ErrInvalidCargoForFleet = fmt.Errorf("Invalid cargo value for fleet")
 
@@ -293,6 +296,9 @@ func (f *Fleet) Valid(uni Universe) error {
 	}
 	if !existsLocation(f.TargetCoords.Type) {
 		return ErrInvalidTargetTypeForFleet
+	}
+	if f.Speed <= 0.0 || f.Speed > 1.0 {
+		return ErrInvalidSpeedForFleet
 	}
 	if err := f.Ships.valid(); err != nil {
 		return err
@@ -646,6 +652,7 @@ func (f *Fleet) Convert() interface{} {
 		Speed       float32   `json:"speed"`
 		ArrivalTime time.Time `json:"arrival_time"`
 		ReturnTime  time.Time `json:"return_time"`
+		IsReturning bool      `json:"is_returning"`
 	}{
 		ID:          f.ID,
 		Universe:    f.Universe,
@@ -661,6 +668,7 @@ func (f *Fleet) Convert() interface{} {
 		Speed:       f.Speed,
 		ArrivalTime: f.ArrivalTime,
 		ReturnTime:  f.ReturnTime,
+		IsReturning: f.returning,
 	}
 }
 
@@ -742,6 +750,10 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 		}
 
 		totCargo += (ship.Count * sd.Cargo)
+	}
+
+	if f.Cargo == nil {
+		f.Cargo = make([]model.ResourceAmount, 0)
 	}
 
 	var totNeeded float32
@@ -905,6 +917,9 @@ func (f *Fleet) ConsolidateArrivalTime(data Instance, p *Planet) error {
 	// The return time is separated from the arrival time
 	// by an additional full flight time.
 	f.ReturnTime = f.ArrivalTime.Add(f.flightTime)
+
+	// The fleet is not yet retruning from its mission.
+	f.returning = false
 
 	return nil
 }

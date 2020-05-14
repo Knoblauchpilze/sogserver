@@ -510,6 +510,24 @@ BEGIN
   -- Dump the resources transported by the fleet to the
   -- new planet.
   PERFORM fleet_deposit_resources(fleet_id, (planet->>'id')::uuid, 'planet');
+
+  -- Remove one colony ship from the fleet. We know that
+  -- there should be at least one.
+  UPDATE fleet_ships AS fs
+    SET count = count - 1
+  FROM
+    ships AS s
+  WHERE
+    s.id = fs.ship
+    AND fs.fleet = fleet_id
+    AND s.name = 'colony ship';
+
+  -- Delete empty entries in the `fleets_ships` table.
+  DELETE FROM
+    fleet_ships
+  WHERE
+    fleet = fleet_id
+    AND count = 0;
 END
 $$ LANGUAGE plpgsql;
 

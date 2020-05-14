@@ -1,4 +1,36 @@
 
+-- Create a function allowing to register a message with
+-- the specified type for a given player.
+CREATE OR REPLACE FUNCTION create_message_for(player_id uuid, message_name text, VARIADIC args text[]) RETURNS VOID AS $$
+DECLARE
+  msg_id uuid := uuid_generate_v4();
+  pos integer := 0;
+  arg text;
+BEGIN
+  -- Insert the message itself.
+  INSERT INTO messages_players(id, player, message)
+    SELECT
+      msg_id,
+      player_id,
+      mi.id
+    FROM
+      messages_ids AS mi
+    WHERE
+      mi.name = message_name;
+
+  -- And then all its arguments. We need a counter to
+  -- determine the position of the arg and preserve
+  -- the input order.
+  FOREACH arg IN ARRAY args
+  LOOP
+    INSERT INTO messages_arguments("message", "position", "argument")
+      VALUES(msg_id, pos, arg);
+
+    pos := pos + 1;
+  END LOOP;
+END
+$$ LANGUAGE plpgsql;
+
 -- Import fleet components in the relevant table.
 CREATE OR REPLACE FUNCTION create_fleet(fleet json, ships json, resources json, consumption json) RETURNS VOID AS $$
 BEGIN
@@ -17,7 +49,7 @@ BEGIN
     FROM json_populate_record(null::fleets, fleet);
 
   -- Insert the ships for this fleet element.
-  INSERT INTO fleet_ships
+  INSERT INTO fleets_ships
     SELECT
       uuid_generate_v4() AS id,
       (fleet->>'id')::uuid AS fleet,
@@ -27,7 +59,7 @@ BEGIN
       json_to_recordset(ships) AS t(ship uuid, count integer);
 
   -- Insert the resources for this fleet element.
-  INSERT INTO fleet_resources
+  INSERT INTO fleets_resources
     SELECT
       (fleet->>'id')::uuid AS fleet,
       t.resource AS resource,
@@ -194,7 +226,7 @@ BEGIN
     UPDATE planets_resources AS pr
       SET amount = pr.amount + fr.amount
     FROM
-      fleet_resources AS fr
+      fleets_resources AS fr
       INNER JOIN fleets f ON fr.fleet = f.id
     WHERE
       f.id = fleet_id
@@ -203,7 +235,7 @@ BEGIN
 
     -- Remove the resources carried by this fleet.
     DELETE FROM
-      fleet_resources AS fr
+      fleets_resources AS fr
       USING fleets AS f
     WHERE
       fr.fleet = f.id
@@ -214,7 +246,7 @@ BEGIN
     UPDATE moons_resources AS mr
       SET amount = mr.amount + fr.amount
     FROM
-      fleet_resources AS fr
+      fleets_resources AS fr
       INNER JOIN fleets f ON fr.fleet = f.id
     WHERE
       f.id = fleet_id
@@ -223,7 +255,7 @@ BEGIN
 
     -- Remove the resources carried by this fleet.
     DELETE FROM
-      fleet_resources AS fr
+      fleets_resources AS fr
       USING fleets AS f
     WHERE
       fr.fleet_element = f.id
@@ -243,7 +275,7 @@ BEGIN
     UPDATE planets_ships AS ps
       SET count = ps.count + fs.count
     FROM
-      fleet_ships AS fs
+      fleets_ships AS fs
       INNER JOIN fleets f ON fs.fleet = f.id
     WHERE
       f.id = fleet_id
@@ -255,7 +287,7 @@ BEGIN
     UPDATE moons_ships AS ms
       SET count = ms.count + fs.count
     FROM
-      fleet_ships AS fs
+      fleets_ships AS fs
       INNER JOIN fleets f ON fs.fleet = f.id
     WHERE
       f.id = fleet_id
@@ -271,15 +303,15 @@ CREATE OR REPLACE FUNCTIOn fleet_deletion(fleet_id uuid) RETURNS VOID AS $$
 BEGIN
   -- Remove the resources carried by the fleet.
   DELETE FROM
-    fleet_resources AS fr
+    fleets_resources AS fr
     USING fleets AS f
   WHERE
-    fs.fleet = f.id
+    fr.fleet = f.id
     AND f.id = fleet_id;
 
   -- Remove the ships associated to this fleet.
   DELETE FROM
-    fleet_ships AS fs
+    fleets_ships AS fs
     USING fleets AS f
   WHERE
     fs.fleet = f.id
@@ -505,7 +537,7 @@ BEGIN
     RAISE EXCEPTION 'Invalid player for fleet % in colonization operation', fleet_id;
   END IF;
 
-  PERFORM create_message_for(player, 'colonization_suceeded', coordinates);
+  PERFORM create_message_for(player_id, 'colonization_suceeded', coordinates);
 
   -- Dump the resources transported by the fleet to the
   -- new planet.
@@ -513,7 +545,7 @@ BEGIN
 
   -- Remove one colony ship from the fleet. We know that
   -- there should be at least one.
-  UPDATE fleet_ships AS fs
+  UPDATE fleets_ships AS fs
     SET count = count - 1
   FROM
     ships AS s
@@ -524,7 +556,7 @@ BEGIN
 
   -- Delete empty entries in the `fleets_ships` table.
   DELETE FROM
-    fleet_ships
+    fleets_ships
   WHERE
     fleet = fleet_id
     AND count = 0;
@@ -545,6 +577,6 @@ BEGIN
     RAISE EXCEPTION 'Invalid player for fleet % in colonization operation', fleet_id;
   END IF;
 
-  PERFORM create_message_for(player, 'colonization_failed', coordinates);
+  PERFORM create_message_for(player_id, 'colonization_failed', coordinates);
 END
 $$ LANGUAGE plpgsql;

@@ -218,7 +218,7 @@ func (fom *FleetObjectivesModule) fetchObjectives(proxy db.Proxy) error {
 			"hostile",
 			"directed",
 		},
-		Table:   "fleet_objectives",
+		Table:   "fleets_objectives",
 		Filters: []db.Filter{},
 	}
 
@@ -465,7 +465,7 @@ func (fom *FleetObjectivesModule) Objectives(proxy db.Proxy, filters []db.Filter
 		Props: []string{
 			"id",
 		},
-		Table:   "fleet_objectives",
+		Table:   "fleets_objectives",
 		Filters: filters,
 	}
 

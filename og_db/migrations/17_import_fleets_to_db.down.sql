@@ -28,3 +28,6 @@ DROP FUNCTION fleet_deposit_resources(fleet_id uuid, target_id uuid, target_kind
 
 -- Drop the fleet import function.
 DROP FUNCTION create_fleet(fleet json, ships json, resources json, consumption json);
+
+-- Drop the message creation function.
+DROP FUNCTION create_message_for(player_id uuid, message_name text, VARIADIC args text[]);

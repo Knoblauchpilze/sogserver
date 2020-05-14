@@ -506,6 +506,10 @@ BEGIN
   END IF;
 
   PERFORM create_message_for(player, 'colonization_suceeded', coordinates);
+
+  -- Dump the resources transported by the fleet to the
+  -- new planet.
+  PERFORM fleet_deposit_resources(fleet_id, (planet->>'id')::uuid, 'planet');
 END
 $$ LANGUAGE plpgsql;
 

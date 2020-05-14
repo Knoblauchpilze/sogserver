@@ -124,48 +124,6 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]game.Planet, error) {
 	return planets, nil
 }
 
-// generateResources :
-// Used to perform the creation of the default resources for
-// a planet when it's being created. This translate the fact
-// that a planet is never really `empty` in the game.
-// This function will create all the necessary entries in the
-// planet input object but does not create anything in the DB.
-//
-// The `planet` defines the element for which resources need
-// to be generated.
-//
-// Returns any error.
-func (p *PlanetProxy) generateResources(planet *game.Planet) error {
-	// A planet always has the base amount defined in the DB.
-	resources, err := p.data.Resources.Resources(p.data.Proxy, []db.Filter{})
-	if err != nil {
-		p.trace(logger.Error, fmt.Sprintf("Unable to generate resources for planet (err: %v)", err))
-		return err
-	}
-
-	// We will consider that we have a certain number of each
-	// resources readily available on each planet upon its
-	// creation. The values are hard-coded there and we use
-	// the identifier of the resources retrieved from the DB
-	// to populate the planet.
-	if planet.Resources == nil {
-		planet.Resources = make(map[string]game.ResourceInfo, 0)
-	}
-
-	for _, res := range resources {
-		desc := game.ResourceInfo{
-			Resource:   res.ID,
-			Amount:     float32(res.BaseAmount),
-			Storage:    float32(res.BaseStorage),
-			Production: float32(res.BaseProd),
-		}
-
-		planet.Resources[res.ID] = desc
-	}
-
-	return nil
-}
-
 // CreateFor :
 // Used to handle the creation of a planet for the specified
 // player. This method is only used when a new player needs
@@ -235,8 +193,7 @@ func (p *PlanetProxy) CreateFor(player game.Player) (string, error) {
 
 		// Generate a new planet. We also need to associate
 		// some resources to it.
-		planet := game.NewPlanet(player.ID, coord, true)
-		err := p.generateResources(planet)
+		planet, err := game.NewPlanet(player.ID, coord, true, p.data)
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Unable to generate resources for planet at %s for \"%s\" (err: %v)", coord, player.ID, err))
 		}

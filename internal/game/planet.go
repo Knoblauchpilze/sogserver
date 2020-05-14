@@ -391,8 +391,11 @@ func NewPlanetFromDB(ID string, data Instance) (Planet, error) {
 // that the name should be different from another
 // random planet).
 //
-// Returns the generated planet.
-func NewPlanet(player string, coords Coordinate, homeworld bool) *Planet {
+// The `data` allow to generate a default amount
+// of resources on the planet.
+//
+// Returns the generated planet along with any error.
+func NewPlanet(player string, coords Coordinate, homeworld bool, data Instance) (*Planet, error) {
 	// Create default properties.
 	p := &Planet{
 		ID:          uuid.New().String(),
@@ -410,9 +413,9 @@ func NewPlanet(player string, coords Coordinate, homeworld bool) *Planet {
 	}
 
 	// Generate diameter and fields count.
-	p.generateData()
+	err := p.generateData(data)
 
-	return p
+	return p, err
 }
 
 // AverageTemperature :
@@ -442,7 +445,14 @@ func (p *Planet) RemainingFields() int {
 // also the temperature on the surface of the planet. Both
 // values depend on the actual position of the planet in the
 // parent solar system.
-func (p *Planet) generateData() {
+//
+// The `data ` will help generating the resources that are
+// present on the planet upon starting it. It corresponds to
+// a starting budget for the player to start building some
+// stuff on the planet.
+//
+// Returns any error.
+func (p *Planet) generateData(data Instance) error {
 	// Create a random source to be used for the generation of
 	// the planet's properties. We will use a procedural algo
 	// which will be based on the position of the planet in its
@@ -628,6 +638,27 @@ func (p *Planet) generateData() {
 	clFMaxTemp := math.Max(float64(min), math.Min(float64(max), fMaxTemp))
 	p.MaxTemp = int(math.Round(clFMaxTemp))
 	p.MinTemp = p.MaxTemp - 50
+
+	// Generate default resources for this planet.
+	p.Resources = make(map[string]ResourceInfo, 0)
+
+	allRes, err := data.Resources.Resources(data.Proxy, []db.Filter{})
+	if err != nil {
+		return err
+	}
+
+	for _, res := range allRes {
+		desc := ResourceInfo{
+			Resource:   res.ID,
+			Amount:     float32(res.BaseAmount),
+			Storage:    float32(res.BaseStorage),
+			Production: float32(res.BaseProd),
+		}
+
+		p.Resources[res.ID] = desc
+	}
+
+	return nil
 }
 
 // fetchGeneralInfo :

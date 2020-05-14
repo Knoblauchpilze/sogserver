@@ -1078,10 +1078,10 @@ func (f *Fleet) colonize(data Instance) (string, error) {
 			// In case the colonization can be performed we
 			// will use the parent universe to create the
 			// planet for this player at the specified coords.
-			var p *Planet
-			// TODO: Handle this: we should move the creation
-			// of the planet in the `Universe` object and the
-			// `generateResources` in the `Planet` object.
+			p, err := NewPlanet(f.Player, f.TargetCoords, false, data)
+			if err != nil {
+				return "", ErrUnableToSimulateFleet
+			}
 
 			// Register this informaiton in the DB.
 			query := db.InsertReq{

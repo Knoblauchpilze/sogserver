@@ -1,0 +1,20 @@
+Create universe:
+
+curl http://localhost:3000/universes -d 'universe-data={"id":"1c44a525-126d-4a5f-9bd5-973011ef15dc","name":"oberon","economic_speed":2,"fleet_speed":3,"research_speed":4,"fleets_to_ruins_ratio":0.3,"defenses_to_ruins_ratio":0.1,"fleets_consumption_ratio":1.0,"galaxies_count":1,"galaxy_size":499,"solar_system_size":15}' | jq
+
+Create account:
+
+curl http://localhost:3000/accounts -d 'account-data={"id":"05c76bcf-3ba2-479d-beb2-446db5bcb946","name":"tttttttttttttttttttt","mail":"maxime.rigaud@tutanota.com","password":"thisisnotsosecure"}' | jq
+
+Create player:
+
+curl http://localhost:3000/players -d 'player-data={"id":"1593543f-fbb5-49d8-8e2c-ce9255e8f979","account":"05c76bcf-3ba2-479d-beb2-446db5bcb946","universe":"1c44a525-126d-4a5f-9bd5-973011ef15dc","name":"cavapeter"}' | jq
+
+Create fleet:
+For colonization:
+curl http://localhost:3000/fleets -d 'fleet-data={"universe":"1c44a525-126d-4a5f-9bd5-973011ef15dc","player":"1593543f-fbb5-49d8-8e2c-ce9255e8f979","source_type":"planet","target_coordinates":{"galaxy":0,"system":260,"position":7,"location":"planet"},"source":"","objective":"","ships":[{"ship":"","count":2},{"ship":"","count":1}],"speed":1.0,"cargo":[{"resource":"","amount":320},{"resource":"","amount":119}]}' | jq
+
+For harvesting:
+curl http://localhost:3000/fleets -d 'fleet-data={"universe":"1c44a525-126d-4a5f-9bd5-973011ef15dc","player":"1593543f-fbb5-49d8-8e2c-ce9255e8f979","source_type":"planet","target_coordinates":{"galaxy":0,"system":260,"position":7,"location":"debris"},"source":"","objective":"","ships":[{"ship":"","count":2},{"ship":"","count":1}],"speed":1.0,"cargo":[{"resource":"","amount":320},{"resource":"","amount":119}]}' | jq
+
+

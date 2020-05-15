@@ -2,6 +2,7 @@ package game
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"math"
 	"oglike_server/internal/model"
@@ -102,22 +103,22 @@ import (
 // The `returning` allows to determine whether the
 // fleet is returning to its source or not.
 type Fleet struct {
-	ID           string                 `json:"id"`
-	Universe     string                 `json:"universe"`
-	Objective    string                 `json:"objective"`
-	Player       string                 `json:"player"`
-	Source       string                 `json:"source"`
-	SourceType   Location               `json:"source_type"`
-	TargetCoords Coordinate             `json:"target_coordinates"`
-	Target       string                 `json:"target"`
-	ACS          string                 `json:"acs"`
-	Speed        float32                `json:"speed"`
-	CreatedAt    time.Time              `json:"created_at"`
-	ArrivalTime  time.Time              `json:"arrival_time"`
-	ReturnTime   time.Time              `json:"return_time"`
-	Ships        ShipsInFleet           `json:"ships"`
-	Consumption  []model.ResourceAmount `json:"-"`
-	Cargo        []model.ResourceAmount `json:"cargo"`
+	ID           string                          `json:"id"`
+	Universe     string                          `json:"universe"`
+	Objective    string                          `json:"objective"`
+	Player       string                          `json:"player"`
+	Source       string                          `json:"source"`
+	SourceType   Location                        `json:"source_type"`
+	TargetCoords Coordinate                      `json:"target_coordinates"`
+	Target       string                          `json:"target"`
+	ACS          string                          `json:"acs"`
+	Speed        float32                         `json:"speed"`
+	CreatedAt    time.Time                       `json:"created_at"`
+	ArrivalTime  time.Time                       `json:"arrival_time"`
+	ReturnTime   time.Time                       `json:"return_time"`
+	Ships        ShipsInFleet                    `json:"ships"`
+	Consumption  []model.ResourceAmount          `json:"-"`
+	Cargo        map[string]model.ResourceAmount `json:"cargo"`
 	flightTime   time.Duration
 	returning    bool
 }
@@ -525,7 +526,7 @@ func (f *Fleet) fetchShips(data Instance) error {
 //
 // Returns any error.
 func (f *Fleet) fetchCargo(data Instance) error {
-	f.Cargo = make([]model.ResourceAmount, 0)
+	f.Cargo = make(map[string]model.ResourceAmount)
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
@@ -566,7 +567,17 @@ func (f *Fleet) fetchCargo(data Instance) error {
 			return err
 		}
 
-		f.Cargo = append(f.Cargo, ra)
+		// We consider that we will add any resource
+		// if it already exist.
+		res, ok := f.Cargo[ra.Resource]
+
+		if !ok {
+			res = ra
+		} else {
+			res.Amount += ra.Amount
+		}
+
+		f.Cargo[ra.Resource] = res
 	}
 
 	return nil
@@ -582,13 +593,19 @@ func (f *Fleet) fetchCargo(data Instance) error {
 //
 // Returns any error.
 func (f *Fleet) SaveToDB(proxy db.Proxy) error {
+	// Convert the cargo to a marshallable slice.
+	resources := make([]model.ResourceAmount, 0)
+	for _, res := range f.Cargo {
+		resources = append(resources, res)
+	}
+
 	// Create the query and execute it.
 	query := db.InsertReq{
 		Script: "create_fleet",
 		Args: []interface{}{
 			f,
 			f.Ships,
-			f.Cargo,
+			resources,
 			f.Consumption,
 		},
 	}
@@ -627,6 +644,127 @@ func (f *Fleet) SaveToDB(proxy db.Proxy) error {
 	}
 
 	return dbe
+}
+
+// MarshalJSON :
+// Implementation of the `json.Marshaler` interface
+// in order to convert some of the internal props to
+// an output format easier to manipulate.
+//
+// Returns the marshalled bytes for this planet along
+// with any error.
+func (f *Fleet) MarshalJSON() ([]byte, error) {
+	type outFleet struct {
+		ID           string                 `json:"id"`
+		Universe     string                 `json:"universe"`
+		Objective    string                 `json:"objective"`
+		Player       string                 `json:"player"`
+		Source       string                 `json:"source"`
+		SourceType   Location               `json:"source_type"`
+		TargetCoords Coordinate             `json:"target_coordinates"`
+		Target       string                 `json:"target"`
+		ACS          string                 `json:"acs"`
+		Speed        float32                `json:"speed"`
+		CreatedAt    time.Time              `json:"created_at"`
+		ArrivalTime  time.Time              `json:"arrival_time"`
+		ReturnTime   time.Time              `json:"return_time"`
+		Ships        ShipsInFleet           `json:"ships"`
+		Cargo        []model.ResourceAmount `json:"cargo"`
+	}
+
+	// Copy the fleet's data.
+	of := outFleet{
+		ID:           f.ID,
+		Universe:     f.Universe,
+		Objective:    f.Objective,
+		Player:       f.Player,
+		Source:       f.Source,
+		SourceType:   f.SourceType,
+		TargetCoords: f.TargetCoords,
+		Target:       f.Target,
+		ACS:          f.ACS,
+		Speed:        f.Speed,
+		CreatedAt:    f.CreatedAt,
+		ArrivalTime:  f.ArrivalTime,
+		ReturnTime:   f.ReturnTime,
+		Ships:        f.Ships,
+	}
+
+	for _, r := range f.Cargo {
+		of.Cargo = append(of.Cargo, r)
+	}
+
+	return json.Marshal(of)
+}
+
+// UnmarshalJSON :
+// Implementation of the `json.Unmarshaler` interface
+// in order to allow the passing of the cargo values
+// for a fleet through a slice rather than a map. It
+// will then be converted for internal use within
+// this function.
+//
+// The `raw` represents the data to unmarshal.
+//
+// Returns any error.
+func (f *Fleet) UnmarshalJSON(raw []byte) error {
+	// Define an input structure that will be used to
+	// populate the fleet's data.
+	type inFleet struct {
+		ID           string                 `json:"id"`
+		Universe     string                 `json:"universe"`
+		Objective    string                 `json:"objective"`
+		Player       string                 `json:"player"`
+		Source       string                 `json:"source"`
+		SourceType   Location               `json:"source_type"`
+		TargetCoords Coordinate             `json:"target_coordinates"`
+		Target       string                 `json:"target"`
+		ACS          string                 `json:"acs"`
+		Speed        float32                `json:"speed"`
+		CreatedAt    time.Time              `json:"created_at"`
+		ArrivalTime  time.Time              `json:"arrival_time"`
+		ReturnTime   time.Time              `json:"return_time"`
+		Ships        ShipsInFleet           `json:"ships"`
+		Cargo        []model.ResourceAmount `json:"cargo"`
+	}
+
+	var in inFleet
+
+	err := json.Unmarshal(raw, &in)
+	if err != nil {
+		return err
+	}
+
+	// Equalize field.
+	f.ID = in.ID
+	f.Universe = in.Universe
+	f.Objective = in.Objective
+	f.Player = in.Player
+	f.Source = in.Source
+	f.SourceType = in.SourceType
+	f.TargetCoords = in.TargetCoords
+	f.Target = in.Target
+	f.ACS = in.ACS
+	f.Speed = in.Speed
+	f.CreatedAt = in.CreatedAt
+	f.ArrivalTime = in.ArrivalTime
+	f.ReturnTime = in.ReturnTime
+	f.Ships = in.Ships
+
+	f.Cargo = make(map[string]model.ResourceAmount)
+	for _, c := range in.Cargo {
+		res, ok := f.Cargo[c.Resource]
+
+		if !ok {
+			res = c
+		} else {
+			res.Amount += c.Amount
+		}
+
+		f.Cargo[c.Resource] = res
+	}
+
+	return nil
 }
 
 // Convert :
@@ -738,6 +876,21 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 		return ErrInvalidTargetForObjective
 	}
 
+	// In the case of a harvesting mission we need
+	// to make sure that the debris fields actually
+	// exist.
+	if purpose(obj.Name) == harvesting {
+		_, err = NewDebrisFieldFromDB(f.TargetCoords, f.Universe, data)
+
+		if err != nil && err != ErrElementNotFound {
+			return err
+		}
+
+		if err == ErrElementNotFound {
+			return ErrInvalidTargetForObjective
+		}
+	}
+
 	// Make sure that the cargo defined for this fleet
 	// component can be stored in the ships.
 	totCargo := 0
@@ -753,7 +906,7 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 	}
 
 	if f.Cargo == nil {
-		f.Cargo = make([]model.ResourceAmount, 0)
+		f.Cargo = make(map[string]model.ResourceAmount, 0)
 	}
 
 	var totNeeded float32
@@ -1022,8 +1175,105 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 // script to execute to finalize the execution of
 // the fleet.
 func (f *Fleet) harvest(data Instance) (string, error) {
-	// TODO: Implement this.
-	return "fleet_return_to_base", fmt.Errorf("Not implemented")
+	// The harvesting operation requires to harvest a
+	// part or all the resources that are dispersed in
+	// a given debris field. The capacity available to
+	// harvest is given by the cargo space of all the
+	// recyclers belonging to the fleet.
+	// We will assume that this function is only called
+	// when the fleet is actually ready to process the
+	// debris field and we won't check whether it is
+	// the case.
+
+	// If the fleet is not returning yet, process the
+	// harvesting operation.
+	if !f.returning {
+		// Compute the harvesting capacity of the fleet.
+		totalHarvestingCapacity := 0
+		totalCargoSpace := 0
+		usedCargoSpace := float32(0.0)
+
+		for _, s := range f.Ships {
+			sd, err := data.Ships.GetShipFromID(s.ID)
+			if err != nil {
+				return "", ErrUnableToSimulateFleet
+			}
+
+			totalCargoSpace += sd.Cargo
+
+			if sd.Name == "recycler" {
+				totalHarvestingCapacity += sd.Cargo
+			}
+		}
+
+		for _, c := range f.Cargo {
+			usedCargoSpace += c.Amount
+		}
+
+		// We consider that the gharvesting capacity
+		// is taken last. So we first compute the
+		// remaining cargo space available (through
+		// `totalCargoSpace - usedCargoSpace`. This
+		// value is:
+		//   - either positive in case none of the
+		//     harvesting space is used (so the cargo
+		//     carried by the fleet is well within
+		//     the capacity).
+		//   - null if all the harvesting cargo is
+		//     available.
+		//   - negative if some cargo space is used
+		//     already by regular resources.
+		// By adding the total harvesting capacity
+		// we can deduce the available space left
+		// to harvest the debris.
+		harvestingCapacity := float32(totalCargoSpace) - usedCargoSpace + float32(totalHarvestingCapacity)
+
+		// Retrieve the description of the debris
+		// field from the DB.
+		df, err := NewDebrisFieldFromDB(f.TargetCoords, f.Universe, data)
+		if err != nil {
+			return "", ErrUnableToSimulateFleet
+		}
+
+		// We will now try to fetch as much resources
+		// from the debris field as possible. The base
+		// repartition is to get an equal amount of
+		// each resource. If this depletes one resource
+		// type and there is still some available cargo
+		// space we will divide the remaining resources
+		// equally and so on. The process ends either
+		// when there's no more resources in the field
+		// or there's no available cargo space left.
+		resourcesRemaining := df.amountDispersed()
+
+		for harvestingCapacity > 0.0 && resourcesRemaining > 0.0 {
+			toHarvest := harvestingCapacity / float32(len(df.Resources))
+
+			for _, dfRes := range df.Resources {
+				carried, ok := f.Cargo[dfRes.Resource]
+
+				if !ok {
+					carried.Resource = dfRes.Resource
+				}
+
+				collected := float32(math.Min(float64(dfRes.Amount), float64(toHarvest)))
+
+				fmt.Println(fmt.Sprintf("Collected %f/%f of resource (existing: %f, expected: %f)", collected, dfRes.Amount, carried.Amount, toHarvest))
+
+				harvestingCapacity -= collected
+				dfRes.Amount -= collected
+				carried.Amount += collected
+
+				f.Cargo[dfRes.Resource] = carried
+			}
+		}
+	}
+
+	// The `fleet_return_to_base` script is actually
+	// safe to call even in the case of a fleet that
+	// should not yet return to its base. So we will
+	// abuse this fact.
+	return "fleet_return_to_base", nil
 }
 
 // colonize :

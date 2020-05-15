@@ -27,7 +27,8 @@ CREATE TABLE moons (
   diameter integer NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  FOREIGN KEY (planet) REFERENCES planets(id)
+  FOREIGN KEY (planet) REFERENCES planets(id),
+  UNIQUE (planet)
 );
 
 -- Create the trigger on the table to update the `created_at` field.
@@ -42,7 +43,8 @@ CREATE TABLE debris_fields (
   position integer NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  FOREIGN KEY (universe) REFERENCES universes(id)
+  FOREIGN KEY (universe) REFERENCES universes(id),
+  UNIQUE (universe, galaxy, solar_system, position)
 );
 
 -- Create the trigger on the table to update the `created_at` field.
@@ -57,7 +59,8 @@ CREATE TABLE planets_resources (
   storage_capacity numeric(15, 5) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (planet) REFERENCES planets(id),
-  FOREIGN KEY (res) REFERENCES resources(id)
+  FOREIGN KEY (res) REFERENCES resources(id),
+  UNIQUE (planet, res)
 );
 
 -- Create the trigger on the table to update the `updated_at` field.
@@ -69,7 +72,8 @@ CREATE TABLE moons_resources (
   res uuid NOT NULL,
   amount numeric(15, 5) NOT NULL,
   FOREIGN KEY (moon) REFERENCES moons(id),
-  FOREIGN KEY (res) REFERENCES resources(id)
+  FOREIGN KEY (res) REFERENCES resources(id),
+  UNIQUE (moon, res)
 );
 
 -- Create the table referencing resources in debris fields.
@@ -78,7 +82,8 @@ CREATE TABLE debris_fields_resources (
   res uuid NOT NULL,
   amount numeric(15, 5) NOT NULL,
   FOREIGN KEY (field) REFERENCES debris_fields(id),
-  FOREIGN KEY (res) REFERENCES resources(id)
+  FOREIGN KEY (res) REFERENCES resources(id),
+  UNIQUE (field, res)
 );
 
 -- Create the buildings per planet table.
@@ -87,7 +92,8 @@ CREATE TABLE planets_buildings (
   building uuid NOT NULL,
   level integer NOT NULL DEFAULT 0,
   FOREIGN KEY (planet) REFERENCES planets(id),
-  FOREIGN KEY (building) REFERENCES buildings(id)
+  FOREIGN KEY (building) REFERENCES buildings(id),
+  UNIQUE (planet, building)
 );
 
 -- Create the table containing the ships on each planet.
@@ -96,7 +102,8 @@ CREATE TABLE planets_ships (
   ship uuid NOT NULL,
   count integer NOT NULL,
   FOREIGN KEY (planet) REFERENCES planets(id),
-  FOREIGN KEY (ship) REFERENCES ships(id)
+  FOREIGN KEY (ship) REFERENCES ships(id),
+  UNIQUE (planet, ship)
 );
 
 -- Create the table containing the defenses on each planet.
@@ -105,7 +112,8 @@ CREATE TABLE planets_defenses (
   defense uuid NOT NULL,
   count integer NOT NULL,
   FOREIGN KEY (planet) REFERENCES planets(id),
-  FOREIGN KEY (defense) REFERENCES defenses(id)
+  FOREIGN KEY (defense) REFERENCES defenses(id),
+  UNIQUE (planet, defense)
 );
 
 -- Create the buildings per moon table.
@@ -114,7 +122,8 @@ CREATE TABLE moons_buildings (
   building uuid NOT NULL,
   level integer NOT NULL DEFAULT 0,
   FOREIGN KEY (moon) REFERENCES moons(id),
-  FOREIGN KEY (building) REFERENCES buildings(id)
+  FOREIGN KEY (building) REFERENCES buildings(id),
+  UNIQUE (moon, building)
 );
 
 -- Create the table containing the ships on each moon.
@@ -123,7 +132,8 @@ CREATE TABLE moons_ships (
   ship uuid NOT NULL,
   count integer NOT NULL,
   FOREIGN KEY (moon) REFERENCES moons(id),
-  FOREIGN KEY (ship) REFERENCES ships(id)
+  FOREIGN KEY (ship) REFERENCES ships(id),
+  UNIQUE (moon, ship)
 );
 
 -- Create the table containing the defenses on each moon.
@@ -132,6 +142,7 @@ CREATE TABLE moons_defenses (
   defense uuid NOT NULL,
   count integer NOT NULL,
   FOREIGN KEY (moon) REFERENCES moons(id),
-  FOREIGN KEY (defense) REFERENCES defenses(id)
+  FOREIGN KEY (defense) REFERENCES defenses(id),
+  UNIQUE (moon, defense)
 );
 

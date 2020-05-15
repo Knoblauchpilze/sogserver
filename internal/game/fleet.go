@@ -1056,7 +1056,7 @@ func (f *Fleet) ConsolidateArrivalTime(data Instance, p *Planet) error {
 	flightTimeSec := 35000.0/float64(speedRatio)*math.Sqrt(float64(d)*10.0/float64(maxSpeed)) + 10.0
 
 	// TODO: Hack to speed up fleets by a lot.
-	flightTimeSec /= 400.0
+	flightTimeSec /= 600.0
 
 	// Compute the flight time by converting this duration in
 	// milliseconds: this will allow to keep more precision.
@@ -1199,10 +1199,10 @@ func (f *Fleet) harvest(data Instance) (string, error) {
 				return "", ErrUnableToSimulateFleet
 			}
 
-			totalCargoSpace += sd.Cargo
+			totalCargoSpace += s.Count * sd.Cargo
 
 			if sd.Name == "recycler" {
-				totalHarvestingCapacity += sd.Cargo
+				totalHarvestingCapacity += s.Count * sd.Cargo
 			}
 		}
 
@@ -1226,7 +1226,12 @@ func (f *Fleet) harvest(data Instance) (string, error) {
 		// By adding the total harvesting capacity
 		// we can deduce the available space left
 		// to harvest the debris.
-		harvestingCapacity := float32(totalCargoSpace) - usedCargoSpace + float32(totalHarvestingCapacity)
+		availableCargo := float32(totalCargoSpace) - usedCargoSpace
+		harvestingCapacity := availableCargo + float32(totalHarvestingCapacity)
+
+		if harvestingCapacity > float32(totalHarvestingCapacity) {
+			harvestingCapacity = float32(totalHarvestingCapacity)
+		}
 
 		// Retrieve the description of the debris
 		// field from the DB.
@@ -1245,11 +1250,18 @@ func (f *Fleet) harvest(data Instance) (string, error) {
 		// when there's no more resources in the field
 		// or there's no available cargo space left.
 		resourcesRemaining := df.amountDispersed()
+		resourcesTypesToCarry := len(df.Resources)
 
-		for harvestingCapacity > 0.0 && resourcesRemaining > 0.0 {
-			toHarvest := harvestingCapacity / float32(len(df.Resources))
+		fmt.Println(fmt.Sprintf("Debris contains %v", df.Resources))
+		fmt.Println(fmt.Sprintf("Fleet has %d total capacity, %f used, %d harvesting, %f remaining", totalCargoSpace, usedCargoSpace, totalHarvestingCapacity, harvestingCapacity))
 
-			for _, dfRes := range df.Resources {
+		for harvestingCapacity > 0.1 && resourcesRemaining > 0.1 {
+			toHarvest := harvestingCapacity / float32(resourcesTypesToCarry)
+			fmt.Println(fmt.Sprintf("Fleet has %f harvesting capacity, will fetch %f of each of the %d resource(s)", harvestingCapacity, toHarvest, resourcesTypesToCarry))
+
+			for id := range df.Resources {
+				dfRes := &df.Resources[id]
+
 				carried, ok := f.Cargo[dfRes.Resource]
 
 				if !ok {
@@ -1258,15 +1270,25 @@ func (f *Fleet) harvest(data Instance) (string, error) {
 
 				collected := float32(math.Min(float64(dfRes.Amount), float64(toHarvest)))
 
-				fmt.Println(fmt.Sprintf("Collected %f/%f of resource (existing: %f, expected: %f)", collected, dfRes.Amount, carried.Amount, toHarvest))
+				fmt.Println(fmt.Sprintf("Collected %f/%f of resource (maximum was %f). Already %f carried so far, %f resources still dispersed (capacity: %f, check: %t,%t)", collected, dfRes.Amount, toHarvest, carried.Amount, resourcesRemaining, harvestingCapacity, harvestingCapacity > 0.0, resourcesRemaining > 0.0))
 
 				harvestingCapacity -= collected
 				dfRes.Amount -= collected
 				carried.Amount += collected
+				resourcesRemaining -= collected
+
+				if dfRes.Amount <= 0.0 {
+					resourcesTypesToCarry--
+				}
 
 				f.Cargo[dfRes.Resource] = carried
 			}
 		}
+
+		fmt.Println(fmt.Sprintf("Collected %v resources", f.Cargo))
+
+		// TODO: Should perform the saving of the debris
+		// field updated resources and fleet cargo.
 	}
 
 	// The `fleet_return_to_base` script is actually

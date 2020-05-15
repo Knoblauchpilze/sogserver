@@ -869,6 +869,9 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 	if obj.Directed && target == nil {
 		return ErrInvalidTargetForObjective
 	}
+	if !obj.Directed && target != nil {
+		return ErrInvalidTargetForObjective
+	}
 	if obj.Hostile && target == nil {
 		return ErrInvalidTargetForObjective
 	}

@@ -28,6 +28,8 @@ import (
 // connect for a long time.
 // TODO: Restore the possibility to create ACS.
 // TODO: Handle moons.
+// TODO: Maybe allow the script of harvest success to be run even in
+// case nothing is harvested ?
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

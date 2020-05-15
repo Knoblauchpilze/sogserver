@@ -1,3 +1,5 @@
+-- Drop the function performing the update of debris fields after harvesting.
+DROP FUNCTION fleet_harvesting_success(fleet_id uuid, debris_id uuid, resources json, coordinates text, dispersed text, gathered text);
 
 -- Drop the function allowing to notify a colonization failure.
 DROP FUNCTION fleet_colonization_failed(fleet_id uuid, coordinates text);

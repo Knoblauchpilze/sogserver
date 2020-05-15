@@ -61,3 +61,10 @@ INSERT INTO public.messages_ids ("type", "name", "content")
     'colonization_failed',
     'the fleet has arrived at the assigned coordinates %1 and could not perform the colonization process so they are returning home'
   );
+
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'harvesting_report',
+    'the fleet has arrived at coordinates %1: %2 are dispersed in this debris field. %3 were collected'
+  );

@@ -1240,6 +1240,11 @@ func (f *Fleet) harvest(data Instance) (string, error) {
 			return "", ErrUnableToSimulateFleet
 		}
 
+		dispersed, err := df.description(data.Resources)
+		if err != nil {
+			return "", ErrUnableToSimulateFleet
+		}
+
 		// We will now try to fetch as much resources
 		// from the debris field as possible. The base
 		// repartition is to get an equal amount of
@@ -1252,43 +1257,86 @@ func (f *Fleet) harvest(data Instance) (string, error) {
 		resourcesRemaining := df.amountDispersed()
 		resourcesTypesToCarry := len(df.Resources)
 
-		fmt.Println(fmt.Sprintf("Debris contains %v", df.Resources))
-		fmt.Println(fmt.Sprintf("Fleet has %d total capacity, %f used, %d harvesting, %f remaining", totalCargoSpace, usedCargoSpace, totalHarvestingCapacity, harvestingCapacity))
+		collected := make(map[string]float32)
 
 		for harvestingCapacity > 0.1 && resourcesRemaining > 0.1 {
 			toHarvest := harvestingCapacity / float32(resourcesTypesToCarry)
-			fmt.Println(fmt.Sprintf("Fleet has %f harvesting capacity, will fetch %f of each of the %d resource(s)", harvestingCapacity, toHarvest, resourcesTypesToCarry))
 
 			for id := range df.Resources {
 				dfRes := &df.Resources[id]
 
-				carried, ok := f.Cargo[dfRes.Resource]
+				carried := collected[dfRes.Resource]
 
-				if !ok {
-					carried.Resource = dfRes.Resource
-				}
+				collectedAmount := float32(math.Min(float64(dfRes.Amount), float64(toHarvest)))
 
-				collected := float32(math.Min(float64(dfRes.Amount), float64(toHarvest)))
-
-				fmt.Println(fmt.Sprintf("Collected %f/%f of resource (maximum was %f). Already %f carried so far, %f resources still dispersed (capacity: %f, check: %t,%t)", collected, dfRes.Amount, toHarvest, carried.Amount, resourcesRemaining, harvestingCapacity, harvestingCapacity > 0.0, resourcesRemaining > 0.0))
-
-				harvestingCapacity -= collected
-				dfRes.Amount -= collected
-				carried.Amount += collected
-				resourcesRemaining -= collected
+				harvestingCapacity -= collectedAmount
+				dfRes.Amount -= collectedAmount
+				carried += collectedAmount
+				resourcesRemaining -= collectedAmount
 
 				if dfRes.Amount <= 0.0 {
 					resourcesTypesToCarry--
 				}
 
-				f.Cargo[dfRes.Resource] = carried
+				collected[dfRes.Resource] = carried
 			}
 		}
 
-		fmt.Println(fmt.Sprintf("Collected %v resources", f.Cargo))
+		// Update the resources of the debris field and
+		// carried by the fleet in the DB if needed.
+		if len(collected) > 0 {
+			// Convert the resources collected into a slice
+			// and build the report message in the meantime.
+			resources := make([]model.ResourceAmount, 0)
 
-		// TODO: Should perform the saving of the debris
-		// field updated resources and fleet cargo.
+			gathered := ""
+
+			id := 0
+			count := len(collected)
+
+			for res, amount := range collected {
+				r := model.ResourceAmount{
+					Resource: res,
+					Amount:   amount,
+				}
+
+				rData, err := data.Resources.GetResourceFromID(res)
+				if err != nil {
+					return "", ErrUnableToSimulateFleet
+				}
+
+				if gathered != "" {
+					if id == count-1 {
+						gathered += " and "
+					} else {
+						gathered += ", "
+					}
+				}
+
+				gathered += fmt.Sprintf("%d %s", int(amount), rData.Name)
+
+				resources = append(resources, r)
+
+				id++
+			}
+
+			query := db.InsertReq{
+				Script: "fleet_harvesting_success",
+				Args: []interface{}{
+					f.ID,
+					df.ID,
+					resources,
+					fmt.Sprintf("%s", df.Coordinates),
+					dispersed,
+					gathered,
+				},
+			}
+
+			err = data.Proxy.InsertToDB(query)
+			if err != nil {
+				return "", err
+			}
+		}
 	}
 
 	// The `fleet_return_to_base` script is actually

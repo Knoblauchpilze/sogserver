@@ -580,3 +580,82 @@ BEGIN
   PERFORM create_message_for(player_id, 'colonization_failed', coordinates);
 END
 $$ LANGUAGE plpgsql;
+
+-- In case a harvesting mission manages to collect at
+-- least a single resource we need to update the data
+-- of the field and the cargo carried by the fleet.
+CREATE OR REPLACE FUNCTION fleet_harvesting_success(fleet_id uuid, debris_id uuid, resources json, coordinates text, dispersed text, gathered text) RETURNS VOID AS $$
+DECLARE
+  player_id uuid;
+BEGIN
+  -- Attempt to retrieve the player as it will be
+  -- needed afterwards anyways.
+  SELECT player INTO player_id FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid player for fleet % in harvesting operation', fleet_id;
+  END IF;
+
+  -- Add the resources to the fleet's data. We need
+  -- to account both for resources that are already
+  -- carried by the fleet and the ones that should
+  -- be added.
+  WITH rc AS (
+    SELECT
+      t.resource,
+      t.amount
+    FROM
+      json_to_recordset(resources) AS t(resource uuid, amount numeric(15, 5))
+  )
+  UPDATE fleets_resources AS fr
+    SET amount = fr.amount + rc.amount
+  FROM
+    rc
+  WHERE
+    fr.fleet = fleet_id
+    AND fr.resource = rc.resource;
+
+  -- Insert the resources for this fleet element.
+  INSERT INTO fleets_resources ("fleet", "resource", "amount")
+    SELECT
+      fleet_id,
+      t.resource,
+      t.amount
+    FROM
+      json_to_recordset(resources) AS t(resource uuid, amount numeric(15, 5))
+    WHERE
+      t.resource NOT IN (
+        SELECT
+          resource
+        FROM
+          fleets_resources
+        WHERE
+          fleet = fleet_id
+      );
+
+  -- Remove resources from the debris field.
+  WITH rc AS (
+    SELECT
+      t.resource,
+      t.amount
+    FROM
+      json_to_recordset(resources) AS t(resource uuid, amount numeric(15, 5))
+  )
+  UPDATE debris_fields_resources AS dfr
+    SET amount = dfr.amount - rc.amount
+  FROM
+    rc
+  WHERE
+    dfr.field = debris_id
+    AND rc.resource = dfr.res;
+
+  -- Delete empty lines in debris field resources.
+  DELETE FROM debris_fields_resources
+  WHERE
+    field = debris_id
+    AND amount <= 0.0;
+
+  -- We need to register a new message indicating the
+  -- resources that were harvested.
+  PERFORM create_message_for(player_id, 'harvesting_report', coordinates, dispersed, gathered);
+END
+$$ LANGUAGE plpgsql;

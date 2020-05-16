@@ -63,9 +63,6 @@ CREATE TABLE planets_resources (
   UNIQUE (planet, res)
 );
 
--- Create the trigger on the table to update the `updated_at` field.
-CREATE TRIGGER update_resources_refresh BEFORE INSERT OR UPDATE ON planets_resources FOR EACH ROW EXECUTE PROCEDURE update_updated_at();
-
 -- Create the table referencing resources on moons.
 CREATE TABLE moons_resources (
   moon uuid NOT NULL,

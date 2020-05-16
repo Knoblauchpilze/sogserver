@@ -335,7 +335,9 @@ BEGIN
   -- we need to extract the number of seconds in order to be
   -- able to obtain fractions of an hour to update the value.
   UPDATE planets_resources
-    SET amount = amount + EXTRACT(EPOCH FROM moment - updated_at) * production / 3600.0
+  SET
+    amount = amount + EXTRACT(EPOCH FROM moment - updated_at) * production / 3600.0,
+    updated_at = moment
   FROM
     resources AS r
   WHERE

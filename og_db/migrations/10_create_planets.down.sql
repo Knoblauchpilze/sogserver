@@ -23,8 +23,7 @@ DROP TABLE debris_fields_resources;
 -- Drop the resources per moons.
 DROP TABLE moons_resources;
 
--- Drop the resources per planet table and its associated trigger.
-DROP TRIGGER update_resources_refresh ON planets_resources;
+-- Drop the resources per planet table.
 DROP TABLE planets_resources;
 
 -- Drop the debris fields table and its associated trigger.

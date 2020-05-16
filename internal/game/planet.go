@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -1475,6 +1476,7 @@ func (p *Planet) SaveToDB(proxy db.Proxy) error {
 		Args: []interface{}{
 			p,
 			p.Resources,
+			time.Now(),
 		},
 	}
 

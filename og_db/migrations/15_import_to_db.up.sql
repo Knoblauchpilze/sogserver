@@ -41,7 +41,7 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Import planet into the corresponding table.
-CREATE OR REPLACE FUNCTION create_planet(planet_data json, resources json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_planet(planet_data json, resources json, moment TIMESTAMP WITH TIME ZONE) RETURNS VOID AS $$
 BEGIN
   -- Insert the planet in the planets table.
   INSERT INTO planets
@@ -49,13 +49,14 @@ BEGIN
     FROM json_populate_record(null::planets, planet_data);
 
   -- Insert the base resources of the planet.
-  INSERT INTO planets_resources(planet, res, amount, production, storage_capacity)
+  INSERT INTO planets_resources(planet, res, amount, production, storage_capacity, updated_at)
     SELECT
       (planet_data->>'id')::uuid,
       res,
       amount,
       production,
-      storage_capacity
+      storage_capacity,
+      moment
     FROM
       json_populate_recordset(null::planets_resources, resources);
 

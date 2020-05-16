@@ -566,10 +566,19 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION fleet_colonization_success(fleet_id uuid, planet json, resources json) RETURNS VOID AS $$
 DECLARE
   player_id uuid;
+  arrival_date timestamp with time zone;
   coordinates text;
 BEGIN
+  -- Retrieve the arrival time of the fleet: it will be
+  -- used as a reference for when the resources of the
+  -- planet have been updated.
+  SELECT arrival_time INTO arrival_date FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid arrival time for fleet % in colonization operation', fleet_id;
+  END IF;
+
   -- Create the planet as provided in input.
-  PERFORM create_planet(planet, resources);
+  PERFORM create_planet(planet, resources, arrival_date);
 
   -- Register the message indicating that the colonization
   -- was sucessful.

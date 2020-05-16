@@ -388,3 +388,42 @@ func (rm *ResourcesModule) Resources(proxy db.Proxy, filters []db.Filter) ([]Res
 
 	return descs, nil
 }
+
+// Description :
+// Used to build a string describing the input set
+// of resources with a syntax similar to the below
+// example:
+// `X res_name_1, Y res_name_2 and Z res_name_3`.
+//
+// The `resources` defines the list of resources
+// for which a description string should be built.
+//
+// Returns the output string along with any error.
+func (rm *ResourcesModule) Description(resources []ResourceAmount) (string, error) {
+	out := ""
+
+	if len(out) == 0 {
+		return "no resources", nil
+	}
+
+	count := len(resources)
+
+	for id, res := range resources {
+		r, err := rm.GetResourceFromID(res.Resource)
+		if err != nil {
+			return "no resources", err
+		}
+
+		if out != "" {
+			if id == count-1 {
+				out += " and "
+			} else {
+				out += ", "
+			}
+		}
+
+		out += fmt.Sprintf("%d %s", int(res.Amount), r.Name)
+	}
+
+	return out, nil
+}

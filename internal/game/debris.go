@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"time"
@@ -217,43 +216,4 @@ func (df *DebrisField) amountDispersed() float32 {
 	}
 
 	return tot
-}
-
-// description :
-// Builds a string representing the amount of
-// resources existing in this debris field.
-//
-// The `data` allows to fetch information about
-// the name of the resource dispersed.
-//
-// Returns the string corresponding to the
-// resources dispersed in this field along
-// with any error.
-func (df *DebrisField) description(data *model.ResourcesModule) (string, error) {
-	dispersed := ""
-
-	if len(df.Resources) == 0 {
-		return "no resources", nil
-	}
-
-	count := len(df.Resources)
-
-	for id, res := range df.Resources {
-		r, err := data.GetResourceFromID(res.Resource)
-		if err != nil {
-			return "", err
-		}
-
-		if dispersed != "" {
-			if id == count-1 {
-				dispersed += " and "
-			} else {
-				dispersed += ", "
-			}
-		}
-
-		dispersed += fmt.Sprintf("%d %s", int(res.Amount), r.Name)
-	}
-
-	return dispersed, nil
 }

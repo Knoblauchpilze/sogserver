@@ -80,8 +80,13 @@ func newHarvestingProps(f *Fleet, ships *model.ShipsModule) (harvestingProps, er
 	// We consider that the harvesting capacity
 	// is taken last. So we first compute the
 	// remaining cargo space available (through
-	// `totalCargoSpace - usedCargoSpace`. This
-	// value is:
+	// `conventionalCargoSpace - usedCargoSpace`.
+	// The `conventionalCargoSpace` is the diff
+	// between the harvestgin cargo space and
+	// the rest of the cargo which serves no
+	// particular purpose but cannot be used to
+	// harvest some resources.
+	// This value is:
 	//   - either positive in case none of the
 	//     harvesting space is used (so the cargo
 	//     carried by the fleet is well within
@@ -93,7 +98,9 @@ func newHarvestingProps(f *Fleet, ships *model.ShipsModule) (harvestingProps, er
 	// By adding the total harvesting capacity
 	// we can deduce the available space left
 	// to harvest the debris.
-	availableCargoSpace := totalCargoSpace - usedCargoSpace
+	conventionalCargoSpace := totalCargoSpace - float32(hp.capacity)
+
+	availableCargoSpace := conventionalCargoSpace - usedCargoSpace
 	hp.available = availableCargoSpace + float32(hp.capacity)
 
 	if hp.available > float32(hp.capacity) {

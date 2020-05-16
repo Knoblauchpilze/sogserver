@@ -70,6 +70,14 @@ import (
 // value is computed in the server and any data
 // provided when registering the fleet is overriden.
 //
+// The `DeploymentTime` defines the duration in seconds
+// of the deployment phase of this fleet. This might be
+// `0` in case the fleet does not deploy but for example
+// in the case of expeditions or ACS defend, the fleet
+// will be deployed for a certain amount of time at its
+// destination. This duration is taken into account when
+// the `ReturnTime` is computed.
+//
 // The `ReturnTime` defines the time at which the
 // fleet will be back to its starting location in
 // case the fleet proceeds to its destination. This
@@ -103,24 +111,25 @@ import (
 // The `returning` allows to determine whether the
 // fleet is returning to its source or not.
 type Fleet struct {
-	ID           string                          `json:"id"`
-	Universe     string                          `json:"universe"`
-	Objective    string                          `json:"objective"`
-	Player       string                          `json:"player"`
-	Source       string                          `json:"source"`
-	SourceType   Location                        `json:"source_type"`
-	TargetCoords Coordinate                      `json:"target_coordinates"`
-	Target       string                          `json:"target"`
-	ACS          string                          `json:"acs"`
-	Speed        float32                         `json:"speed"`
-	CreatedAt    time.Time                       `json:"created_at"`
-	ArrivalTime  time.Time                       `json:"arrival_time"`
-	ReturnTime   time.Time                       `json:"return_time"`
-	Ships        ShipsInFleet                    `json:"ships"`
-	Consumption  []model.ResourceAmount          `json:"-"`
-	Cargo        map[string]model.ResourceAmount `json:"cargo"`
-	flightTime   time.Duration
-	returning    bool
+	ID             string                          `json:"id"`
+	Universe       string                          `json:"universe"`
+	Objective      string                          `json:"objective"`
+	Player         string                          `json:"player"`
+	Source         string                          `json:"source"`
+	SourceType     Location                        `json:"source_type"`
+	TargetCoords   Coordinate                      `json:"target_coordinates"`
+	Target         string                          `json:"target"`
+	ACS            string                          `json:"acs"`
+	Speed          float32                         `json:"speed"`
+	CreatedAt      time.Time                       `json:"created_at"`
+	ArrivalTime    time.Time                       `json:"arrival_time"`
+	DeploymentTime int                             `json:"deployment_time"`
+	ReturnTime     time.Time                       `json:"return_time"`
+	Ships          ShipsInFleet                    `json:"ships"`
+	Consumption    []model.ResourceAmount          `json:"-"`
+	Cargo          map[string]model.ResourceAmount `json:"cargo"`
+	flightTime     time.Duration
+	returning      bool
 }
 
 // ShipInFleet :
@@ -388,6 +397,7 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 			"speed",
 			"created_at",
 			"arrival_time",
+			"deployment_time",
 			"return_time",
 			"is_returning",
 		},
@@ -439,6 +449,7 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 		&f.Speed,
 		&f.CreatedAt,
 		&f.ArrivalTime,
+		&f.DeploymentTime,
 		&f.ReturnTime,
 		&f.returning,
 	)
@@ -655,39 +666,41 @@ func (f *Fleet) SaveToDB(proxy db.Proxy) error {
 // with any error.
 func (f *Fleet) MarshalJSON() ([]byte, error) {
 	type outFleet struct {
-		ID           string                 `json:"id"`
-		Universe     string                 `json:"universe"`
-		Objective    string                 `json:"objective"`
-		Player       string                 `json:"player"`
-		Source       string                 `json:"source"`
-		SourceType   Location               `json:"source_type"`
-		TargetCoords Coordinate             `json:"target_coordinates"`
-		Target       string                 `json:"target"`
-		ACS          string                 `json:"acs"`
-		Speed        float32                `json:"speed"`
-		CreatedAt    time.Time              `json:"created_at"`
-		ArrivalTime  time.Time              `json:"arrival_time"`
-		ReturnTime   time.Time              `json:"return_time"`
-		Ships        ShipsInFleet           `json:"ships"`
-		Cargo        []model.ResourceAmount `json:"cargo"`
+		ID             string                 `json:"id"`
+		Universe       string                 `json:"universe"`
+		Objective      string                 `json:"objective"`
+		Player         string                 `json:"player"`
+		Source         string                 `json:"source"`
+		SourceType     Location               `json:"source_type"`
+		TargetCoords   Coordinate             `json:"target_coordinates"`
+		Target         string                 `json:"target"`
+		ACS            string                 `json:"acs"`
+		Speed          float32                `json:"speed"`
+		CreatedAt      time.Time              `json:"created_at"`
+		ArrivalTime    time.Time              `json:"arrival_time"`
+		DeploymentTime int                    `json:"deployment_time"`
+		ReturnTime     time.Time              `json:"return_time"`
+		Ships          ShipsInFleet           `json:"ships"`
+		Cargo          []model.ResourceAmount `json:"cargo"`
 	}
 
 	// Copy the fleet's data.
 	of := outFleet{
-		ID:           f.ID,
-		Universe:     f.Universe,
-		Objective:    f.Objective,
-		Player:       f.Player,
-		Source:       f.Source,
-		SourceType:   f.SourceType,
-		TargetCoords: f.TargetCoords,
-		Target:       f.Target,
-		ACS:          f.ACS,
-		Speed:        f.Speed,
-		CreatedAt:    f.CreatedAt,
-		ArrivalTime:  f.ArrivalTime,
-		ReturnTime:   f.ReturnTime,
-		Ships:        f.Ships,
+		ID:             f.ID,
+		Universe:       f.Universe,
+		Objective:      f.Objective,
+		Player:         f.Player,
+		Source:         f.Source,
+		SourceType:     f.SourceType,
+		TargetCoords:   f.TargetCoords,
+		Target:         f.Target,
+		ACS:            f.ACS,
+		Speed:          f.Speed,
+		CreatedAt:      f.CreatedAt,
+		ArrivalTime:    f.ArrivalTime,
+		DeploymentTime: f.DeploymentTime,
+		ReturnTime:     f.ReturnTime,
+		Ships:          f.Ships,
 	}
 
 	for _, r := range f.Cargo {
@@ -711,21 +724,22 @@ func (f *Fleet) UnmarshalJSON(raw []byte) error {
 	// Define an input structure that will be used to
 	// populate the fleet's data.
 	type inFleet struct {
-		ID           string                 `json:"id"`
-		Universe     string                 `json:"universe"`
-		Objective    string                 `json:"objective"`
-		Player       string                 `json:"player"`
-		Source       string                 `json:"source"`
-		SourceType   Location               `json:"source_type"`
-		TargetCoords Coordinate             `json:"target_coordinates"`
-		Target       string                 `json:"target"`
-		ACS          string                 `json:"acs"`
-		Speed        float32                `json:"speed"`
-		CreatedAt    time.Time              `json:"created_at"`
-		ArrivalTime  time.Time              `json:"arrival_time"`
-		ReturnTime   time.Time              `json:"return_time"`
-		Ships        ShipsInFleet           `json:"ships"`
-		Cargo        []model.ResourceAmount `json:"cargo"`
+		ID             string                 `json:"id"`
+		Universe       string                 `json:"universe"`
+		Objective      string                 `json:"objective"`
+		Player         string                 `json:"player"`
+		Source         string                 `json:"source"`
+		SourceType     Location               `json:"source_type"`
+		TargetCoords   Coordinate             `json:"target_coordinates"`
+		Target         string                 `json:"target"`
+		ACS            string                 `json:"acs"`
+		Speed          float32                `json:"speed"`
+		CreatedAt      time.Time              `json:"created_at"`
+		ArrivalTime    time.Time              `json:"arrival_time"`
+		DeploymentTime int                    `json:"deployment_time"`
+		ReturnTime     time.Time              `json:"return_time"`
+		Ships          ShipsInFleet           `json:"ships"`
+		Cargo          []model.ResourceAmount `json:"cargo"`
 	}
 
 	var in inFleet
@@ -748,6 +762,7 @@ func (f *Fleet) UnmarshalJSON(raw []byte) error {
 	f.Speed = in.Speed
 	f.CreatedAt = in.CreatedAt
 	f.ArrivalTime = in.ArrivalTime
+	f.DeploymentTime = in.DeploymentTime
 	f.ReturnTime = in.ReturnTime
 	f.Ships = in.Ships
 
@@ -776,37 +791,39 @@ func (f *Fleet) UnmarshalJSON(raw []byte) error {
 // only includes relevant fields.
 func (f *Fleet) Convert() interface{} {
 	return struct {
-		ID          string    `json:"id"`
-		Universe    string    `json:"uni"`
-		Objective   string    `json:"objective"`
-		Player      string    `json:"player"`
-		Source      string    `json:"source"`
-		SourceType  Location  `json:"source_type"`
-		Galaxy      int       `json:"target_galaxy"`
-		System      int       `json:"target_solar_system"`
-		Position    int       `json:"target_position"`
-		Target      string    `json:"target,omitempty"`
-		TargetType  Location  `json:"target_type"`
-		Speed       float32   `json:"speed"`
-		ArrivalTime time.Time `json:"arrival_time"`
-		ReturnTime  time.Time `json:"return_time"`
-		IsReturning bool      `json:"is_returning"`
+		ID             string    `json:"id"`
+		Universe       string    `json:"uni"`
+		Objective      string    `json:"objective"`
+		Player         string    `json:"player"`
+		Source         string    `json:"source"`
+		SourceType     Location  `json:"source_type"`
+		Galaxy         int       `json:"target_galaxy"`
+		System         int       `json:"target_solar_system"`
+		Position       int       `json:"target_position"`
+		Target         string    `json:"target,omitempty"`
+		TargetType     Location  `json:"target_type"`
+		Speed          float32   `json:"speed"`
+		ArrivalTime    time.Time `json:"arrival_time"`
+		DeploymentTime int       `json:"deployment_time"`
+		ReturnTime     time.Time `json:"return_time"`
+		IsReturning    bool      `json:"is_returning"`
 	}{
-		ID:          f.ID,
-		Universe:    f.Universe,
-		Objective:   f.Objective,
-		Player:      f.Player,
-		Source:      f.Source,
-		SourceType:  f.SourceType,
-		Galaxy:      f.TargetCoords.Galaxy,
-		System:      f.TargetCoords.System,
-		Position:    f.TargetCoords.Position,
-		Target:      f.Target,
-		TargetType:  f.TargetCoords.Type,
-		Speed:       f.Speed,
-		ArrivalTime: f.ArrivalTime,
-		ReturnTime:  f.ReturnTime,
-		IsReturning: f.returning,
+		ID:             f.ID,
+		Universe:       f.Universe,
+		Objective:      f.Objective,
+		Player:         f.Player,
+		Source:         f.Source,
+		SourceType:     f.SourceType,
+		Galaxy:         f.TargetCoords.Galaxy,
+		System:         f.TargetCoords.System,
+		Position:       f.TargetCoords.Position,
+		Target:         f.Target,
+		TargetType:     f.TargetCoords.Type,
+		Speed:          f.Speed,
+		ArrivalTime:    f.ArrivalTime,
+		DeploymentTime: f.DeploymentTime,
+		ReturnTime:     f.ReturnTime,
+		IsReturning:    f.returning,
 	}
 }
 
@@ -890,6 +907,15 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 		}
 
 		if err == ErrElementNotFound {
+			return ErrInvalidTargetForObjective
+		}
+	}
+
+	// In the case of a colonization operation,
+	// prevent the colonization of the exact
+	// location of the source planet.
+	if purpose(obj.Name) == colonization {
+		if f.TargetCoords == source.Coordinates {
 			return ErrInvalidTargetForObjective
 		}
 	}
@@ -1071,8 +1097,9 @@ func (f *Fleet) ConsolidateArrivalTime(data Instance, p *Planet) error {
 	f.ArrivalTime = f.CreatedAt.Add(f.flightTime)
 
 	// The return time is separated from the arrival time
-	// by an additional full flight time.
-	f.ReturnTime = f.ArrivalTime.Add(f.flightTime)
+	// by an additional full flight time and the duration
+	// of the deployment.
+	f.ReturnTime = f.ArrivalTime.Add(f.flightTime).Add(time.Duration(f.DeploymentTime) * time.Second)
 
 	// The fleet is not yet retruning from its mission.
 	f.returning = false
@@ -1329,7 +1356,6 @@ func (f *Fleet) harvest(data Instance) (string, error) {
 					f.ID,
 					df.ID,
 					resources,
-					fmt.Sprintf("%s", df.Coordinates),
 					dispersed,
 					gathered,
 				},
@@ -1368,6 +1394,7 @@ func (f *Fleet) colonize(data Instance) (string, error) {
 	// the planet before this fleet or if the level
 	// of astrophysics of the player is not suited to
 	// a new colony.
+	script := "fleet_return_to_base"
 
 	// If the fleet is not returning yet, process the
 	// colonization operation.
@@ -1404,7 +1431,6 @@ func (f *Fleet) colonize(data Instance) (string, error) {
 				Script: "fleet_colonization_failed",
 				Args: []interface{}{
 					f.ID,
-					fmt.Sprintf("[%d:%d:%d]", f.TargetCoords.Galaxy, f.TargetCoords.System, f.TargetCoords.Position),
 				},
 			}
 
@@ -1426,7 +1452,6 @@ func (f *Fleet) colonize(data Instance) (string, error) {
 				Script: "fleet_colonization_success",
 				Args: []interface{}{
 					f.ID,
-					fmt.Sprintf("[%d:%d:%d]", f.TargetCoords.Galaxy, f.TargetCoords.System, f.TargetCoords.Position),
 					p,
 					p.Resources,
 				},
@@ -1436,14 +1461,32 @@ func (f *Fleet) colonize(data Instance) (string, error) {
 			if err != nil {
 				return "", err
 			}
+
+			// We now need to determine whether the fleet
+			// still exists after the colonization process
+			// or not. Indeed if the fleet was composed of
+			// a single colony ship the colonization has
+			// destroyed the fleet so we shouldn't bother
+			// with updating the return time.
+			onlyAColonyShip := true
+			for id := 0; id < len(f.Ships) && onlyAColonyShip; id++ {
+				sd, err := data.Ships.GetShipFromID(f.Ships[id].ID)
+				if err != nil {
+					return "", err
+				}
+
+				if sd.Name != "colony ship" || f.Ships[id].Count > 1 {
+					onlyAColonyShip = false
+				}
+			}
+
+			if onlyAColonyShip {
+				script = ""
+			}
 		}
 	}
 
-	// The `fleet_return_to_base` script is actually
-	// safe to call even in the case of a fleet that
-	// should not yet return to its base. So we will
-	// abuse this fact.
-	return "fleet_return_to_base", nil
+	return script, nil
 }
 
 // attack :

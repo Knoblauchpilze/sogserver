@@ -429,7 +429,7 @@ func (p *Player) CanColonize(data Instance) (bool, error) {
 	astro, ok := p.Technologies[astroID]
 
 	if !ok {
-		// The astrophysics technology is not researhced,
+		// The astrophysics technology is not researched,
 		// the player cannot colonize beyond the homeworld.
 		return false, nil
 	}
@@ -460,6 +460,15 @@ func (p *Player) CanColonize(data Instance) (bool, error) {
 	// So the general formula seems to be the following:
 	//
 	// planets = 2 + (level - 1) / 2
+	//
+	// It works everywhere except when the level of the
+	// astrophysics research is `0`. In which case we
+	// forcibly return `false` as there's no colonization
+	// possible.
+	if astro.Level == 0 {
+		return false, nil
+	}
+
 	maxPlanetsCount := 2 + (astro.Level-1)/2
 
 	return p.planetsCount < maxPlanetsCount, nil

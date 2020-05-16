@@ -66,5 +66,5 @@ INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'harvesting_report',
-    'the fleet has arrived at coordinates %1: %2 are dispersed in this debris field. %3 were collected'
+    'your recycler(s) (%1) have a total cargo capacity of %2. At the target %3, %4 are floating in space. You have harvested %5.'
   );

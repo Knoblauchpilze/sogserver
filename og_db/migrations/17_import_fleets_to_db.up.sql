@@ -348,22 +348,40 @@ $$ LANGUAGE plpgsql;
 -- in the actions queue to be equal to the return time
 -- of the fleet.
 CREATE OR REPLACE FUNCTION fleet_update_to_return_time(fleet_id uuid) RETURNS VOID AS $$
+DECLARE
+  wait_time integer;
 BEGIN
-  -- Update the corresponding entry in the actions queue.
-  UPDATE actions_queue
-    SET completion_time = return_time
-  FROM
-    fleets AS f
-  WHERE
-    f.id = fleet_id
-    AND action = fleet_id;
+  -- Select the wait time for this fleet at its target
+  -- destination. This will indicate whether we should
+  -- make the fleet return immediately or wait at its
+  -- destination.
+  SELECT deployment_time INTO wait_time FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid deployment time for fleet % in update return time operation', fleet_id;
+  END IF;
 
-  -- Indicate that this fleet is now returning to its
-  -- source.
-  UPDATE fleets
-    SET is_returning = 'true'
-  WHERE
-    id = fleet_id;
+  IF wait_time > 0 THEN
+    UPDATE actions_queue
+      SET completion_time = arrival_time + make_interval(secs := CAST(wait_time AS DOUBLE PRECISION))
+    FROM
+      fleets AS f
+    WHERE
+      f.id = fleet_id
+      AND action = fleet_id;
+  ELSE
+    -- Update the corresponding entry in the actions queue.
+    UPDATE actions_queue
+      SET completion_time = return_time
+    FROM
+      fleets AS f
+    WHERE
+      f.id = fleet_id
+      AND action = fleet_id;
+
+    -- Indicate that this fleet is now returning to its
+    -- source.
+    UPDATE fleets SET is_returning = 'true' WHERE id = fleet_id;
+  END IF;
 END
 $$ LANGUAGE plpgsql;
 
@@ -376,6 +394,8 @@ DECLARE
   target_kind text;
   arrival_date timestamp with time zone;
   return_date timestamp with time zone;
+  deployment_date timestamp with time zone;
+  deployment_duration integer;
 BEGIN
   SELECT arrival_time INTO arrival_date FROM fleets WHERE id = fleet_id;
   IF NOT FOUND THEN
@@ -386,9 +406,29 @@ BEGIN
     RAISE EXCEPTION 'Invalid return time for fleet % in return to base operation', fleet_id;
   END IF;
 
+  SELECT
+    arrival_time + make_interval(secs := CAST(deployment_time AS DOUBLE PRECISION)),
+    deployment_time
+  INTO
+    deployment_date,
+    deployment_duration
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid deployment time for fleet % in return to base operation', fleet_id;
+  END IF;
+
   -- Update the next activation time for this fleet if it
   -- is consistent with the current time.
   IF arrival_date < processing_time THEN
+    PERFORM fleet_update_to_return_time(fleet_id);
+  END IF;
+
+  -- Update the next activation time in case the deployment
+  -- is not set to `0` and we reached the end of it.
+  IF deployment_duration > 0 AND deployment_date < processing_time THEN
     PERFORM fleet_update_to_return_time(fleet_id);
   END IF;
 
@@ -523,9 +563,10 @@ $$ LANGUAGE plpgsql;
 -- In case a colonization succeeeded, we need to register
 -- the new planet along with providing a message to the
 -- player explaining the success of the operation.
-CREATE OR REPLACE FUNCTION fleet_colonization_success(fleet_id uuid, coordinates text, planet json, resources json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fleet_colonization_success(fleet_id uuid, planet json, resources json) RETURNS VOID AS $$
 DECLARE
   player_id uuid;
+  coordinates text;
 BEGIN
   -- Create the planet as provided in input.
   PERFORM create_planet(planet, resources);
@@ -536,6 +577,17 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invalid player for fleet % in colonization operation', fleet_id;
   END IF;
+
+  -- Create the string representing the coordinates which
+  -- are used in the colonization message.
+  SELECT
+    concat_ws(':', target_galaxy, target_solar_system, target_position)
+  INTO
+    coordinates
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
 
   PERFORM create_message_for(player_id, 'colonization_suceeded', coordinates);
 
@@ -560,15 +612,54 @@ BEGIN
   WHERE
     fleet = fleet_id
     AND count = 0;
+
+  -- Delete the fleet in case it does not contain any
+  -- ship anymore. Note that we will use the fact that
+  -- no ACS operation can be used to colonize a planet
+  -- so we assume that the fleet will not be existing
+  -- in the ACS tables.
+  -- We will also handle first the deletion from the
+  -- actions queue before deleting the fleet as it is
+  -- the only way have to determine whether the fleet
+  -- should be removed.
+  DELETE FROM
+    actions_queue
+  WHERE
+    action NOT IN (
+      SELECT
+        fleet
+      FROM
+        fleets_ships
+      GROUP BY
+        fleet
+      HAVING
+        count(*) > 0
+    )
+    AND type = 'fleet';
+
+  DELETE FROM
+    fleets
+  WHERE
+    id NOT IN (
+      SELECT
+        fleet
+      FROM
+        fleets_ships
+      GROUP BY
+        fleet
+      HAVING
+        count(*) > 0
+    );
 END
 $$ LANGUAGE plpgsql;
 
 -- In case a colonization fails, we need to register
 -- a new message to the player and make the fleet
 -- return to its source.
-CREATE OR REPLACE FUNCTION fleet_colonization_failed(fleet_id uuid, coordinates text) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fleet_colonization_failed(fleet_id uuid) RETURNS VOID AS $$
 DECLARE
   player_id uuid;
+  coordinates text;
 BEGIN
   -- We need to register a new message indicating the
   -- coordinate that was not colonizable.
@@ -577,6 +668,17 @@ BEGIN
     RAISE EXCEPTION 'Invalid player for fleet % in colonization operation', fleet_id;
   END IF;
 
+  -- Create the string representing the coordinates which
+  -- are used in the colonization message.
+  SELECT
+    concat_ws(':', target_galaxy, target_solar_system, target_position)
+  INTO
+    coordinates
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
+
   PERFORM create_message_for(player_id, 'colonization_failed', coordinates);
 END
 $$ LANGUAGE plpgsql;
@@ -584,9 +686,10 @@ $$ LANGUAGE plpgsql;
 -- In case a harvesting mission manages to collect at
 -- least a single resource we need to update the data
 -- of the field and the cargo carried by the fleet.
-CREATE OR REPLACE FUNCTION fleet_harvesting_success(fleet_id uuid, debris_id uuid, resources json, coordinates text, dispersed text, gathered text) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fleet_harvesting_success(fleet_id uuid, debris_id uuid, resources json, dispersed text, gathered text) RETURNS VOID AS $$
 DECLARE
   player_id uuid;
+  coordinates text;
 BEGIN
   -- Attempt to retrieve the player as it will be
   -- needed afterwards anyways.
@@ -653,6 +756,17 @@ BEGIN
   WHERE
     field = debris_id
     AND amount <= 0.0;
+
+  -- Create the string representing the coordinates which
+  -- are used in the harvesting message.
+  SELECT
+    concat_ws(':', target_galaxy, target_solar_system, target_position)
+  INTO
+    coordinates
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
 
   -- We need to register a new message indicating the
   -- resources that were harvested.

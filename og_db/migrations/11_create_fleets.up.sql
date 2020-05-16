@@ -25,6 +25,7 @@ CREATE TABLE fleets (
   speed numeric(3, 2) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   arrival_time TIMESTAMP WITH TIME ZONE NOT NULL,
+  deployment_time integer NOT NULL,
   return_time TIMESTAMP WITH TIME ZONE NOT NULL,
   is_returning boolean NOT NULL DEFAULT false,
   PRIMARY KEY (id),

@@ -1,11 +1,11 @@
 -- Drop the function performing the update of debris fields after harvesting.
-DROP FUNCTION fleet_harvesting_success(fleet_id uuid, debris_id uuid, resources json, coordinates text, dispersed text, gathered text);
+DROP FUNCTION fleet_harvesting_success(fleet_id uuid, debris_id uuid, resources json, dispersed text, gathered text);
 
 -- Drop the function allowing to notify a colonization failure.
-DROP FUNCTION fleet_colonization_failed(fleet_id uuid, coordinates text);
+DROP FUNCTION fleet_colonization_failed(fleet_id uuid);
 
 -- Drop the function allowing to notify a colonization success.
-DROP FUNCTION fleet_colonization_success(fleet_id uuid, coordinates text, planet json, resources json);
+DROP FUNCTION fleet_colonization_success(fleet_id uuid, planet json, resources json);
 
 -- Drop the function allowing to handle deployment of a fleet.
 DROP FUNCTION fleet_deployment(fleet_id uuid);

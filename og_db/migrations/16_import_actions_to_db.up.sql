@@ -322,8 +322,11 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
--- Update resources for a planet.
-CREATE OR REPLACE FUNCTION update_resources_for_planet(planet_id uuid, moment TIMESTAMP WITH TIME ZONE) RETURNS VOID AS $$
+-- Update the resources available on a planet until the
+-- provided `moment` in time. Note that if the `moment`
+-- is not consistent with the last time this planet has
+-- been updated we might run into trouble.
+CREATE OR REPLACE FUNCTION update_resources_for_planet_to_time(planet_id uuid, moment TIMESTAMP WITH TIME ZONE) RETURNS VOID AS $$
 BEGIN
   -- Update the amount of resource to be at most the storage
   -- capacity, and otherwise to increase by the duration that
@@ -339,6 +342,17 @@ BEGIN
     planet = planet_id
     AND res = r.id
     AND r.storable='true';
+END
+$$ LANGUAGE plpgsql;
+
+-- Update resources for a planet. This method will pick
+-- the current time as the base to update the resources.
+CREATE OR REPLACE FUNCTION update_resources_for_planet(planet_id uuid) RETURNS VOID AS $$
+DECLARE
+  processing_time TIMESTAMP WITH TIME ZONE := NOW();
+BEGIN
+  -- Just use the base script.
+  PERFORM update_resources_for_planet_to_time(planet_id, processing_time);
 END
 $$ LANGUAGE plpgsql;
 

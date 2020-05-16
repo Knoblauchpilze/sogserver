@@ -1110,6 +1110,20 @@ func (p *Planet) fetchSourceFleets(data Instance) error {
 func (p *Planet) fetchResources(data Instance) error {
 	p.Resources = make(map[string]ResourceInfo, 0)
 
+	// The server guarantees that any action that takes
+	// or bring resources to the planet will perform an
+	// update of the resources for this planet. But in
+	// case nothing happens on the planet, we have to
+	// make sure that the resources are still updated.
+	// This is done here. Note that it might not be
+	// super useful as we don't really know if this
+	// planet has just been updated due to an action
+	// or fleet.
+	err := data.updateResourcesForPlanet(p.ID)
+	if err != nil {
+		return err
+	}
+
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{

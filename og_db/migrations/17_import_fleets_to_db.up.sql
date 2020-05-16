@@ -206,7 +206,7 @@ BEGIN
       RAISE EXCEPTION 'Unable to fetch arrival time for fleet %', fleet_id;
     END IF;
 
-    PERFORM update_resources_for_planet(target_id, arrival);
+    PERFORM update_resources_for_planet_to_time(target_id, arrival);
   END IF;
 
   -- Add the resources carried by the fleet to the

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"oglike_server/pkg/db"
 
 	"github.com/google/uuid"
@@ -97,7 +98,7 @@ func NewACSFleetFromDB(ID string, data Instance) (ACSFleet, error) {
 		return f, err
 	}
 
-	err = f.fetchShips(data)
+	err = f.fetchFleets(data)
 	if err != nil {
 		return f, err
 	}
@@ -116,12 +117,18 @@ func NewACSFleetFromDB(ID string, data Instance) (ACSFleet, error) {
 //
 // Return the created ACS operation.
 func NewACSFleet(fleet *Fleet) ACSFleet {
-	return ACSFleet{
+	acs := ACSFleet{
 		ID:         uuid.New().String(),
 		Universe:   fleet.Universe,
 		Target:     fleet.Target,
 		TargetType: fleet.TargetCoords.Type,
 	}
+
+	// Register the input fleet as a component for the
+	// ACS: this will be the first one.
+	acs.Fleets = append(acs.Fleets, fleet.ID)
+
+	return acs
 }
 
 // fetchGeneralInfo :
@@ -182,7 +189,7 @@ func (f *ACSFleet) fetchGeneralInfo(data Instance) error {
 	return err
 }
 
-// fetchShips :
+// fetchFleets :
 // Similar to `fetchGeneralInfo` but allows to
 // fetch the individual fleet components that
 // have joined the ACS.
@@ -190,7 +197,7 @@ func (f *ACSFleet) fetchGeneralInfo(data Instance) error {
 // The `data` allows to access to the DB.
 //
 // Returns any error.
-func (f *ACSFleet) fetchShips(data Instance) error {
+func (f *ACSFleet) fetchFleets(data Instance) error {
 	f.Fleets = make([]string, 0)
 
 	// Create the query and execute it.
@@ -234,4 +241,32 @@ func (f *ACSFleet) fetchShips(data Instance) error {
 	}
 
 	return nil
+}
+
+// Validate :
+// Used to perform the validation of the ACS fleet
+// and verify that it is valid. This method is used
+// to make sure that the arrival time of a new comp
+// is valid compared to the existing data.
+// No information is persisted to the DB yet, only
+// verified against existing elements.
+//
+// The `data` allows to access to the DB.
+//
+// Returns any error.
+func (f *ACSFleet) Validate(data Instance) error {
+	// TODO: Implement validation of ACS fleet.
+	return fmt.Errorf("Not implemented")
+}
+
+// simulate :
+// Used to perform the execution of this ACS
+// fleet on its target.
+//
+// The `data` allows to access to the DB.
+//
+// Returns any error.
+func (f *ACSFleet) simulate(data Instance) error {
+	// TODO: Implement the simulation of the ACS fleet.
+	return fmt.Errorf("Not implemented")
 }

@@ -66,6 +66,7 @@ const (
 	planetDefense  actionKind = "defense_upgrade"
 	moonDefense    actionKind = "defense_upgrade_moon"
 	fleet          actionKind = "fleet"
+	acsFleet       actionKind = "acs_fleet"
 )
 
 // locker :
@@ -240,6 +241,8 @@ func (i Instance) scheduleActions() error {
 			err = i.performDefenseAction(action, "moon")
 		case fleet:
 			err = i.performFleetAction(action)
+		case acsFleet:
+			err = i.performACSFleetAction(action)
 		default:
 			i.trace(logger.Error, fmt.Sprintf("Unknown action \"%s\" with kind \"%s\" not processed", action, kind))
 		}
@@ -422,4 +425,27 @@ func (i Instance) performFleetAction(ID string) error {
 	err = f.simulate(p, i)
 
 	return err
+}
+
+// performACSFleetAction :
+// Used to perform the simulation of the ACS
+// fleet described by the input action. It is
+// similar to the process performed in the
+// `performFleetAction` but for the ACS case.
+//
+// The `ID` defines the identifier of the fleet
+// to simulate.
+//
+// Returns any error.
+func (i Instance) performACSFleetAction(ID string) error {
+	i.trace(logger.Verbose, fmt.Sprintf("Executing ACS fleet %s", ID))
+
+	// Retrieve the ACS fleet corresponding to
+	// the ID in argument.
+	acs, err := NewACSFleetFromDB(ID, i)
+	if err != nil {
+		return err
+	}
+
+	return acs.simulate(i)
 }

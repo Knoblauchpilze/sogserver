@@ -344,7 +344,15 @@ func (p *FleetProxy) CreateACSFleet(fleet game.Fleet) (string, error) {
 		return acs.ID, err
 	}
 
-	// TODO: Implement this.
+	// Validate the arrival time expected by the
+	// new component of the fleet (if any).
+	err = acs.Validate(p.data)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Failed to validate ACS fleet's data (err: %v)", err))
+		return acs.ID, err
+	}
+
+	// TODO: Implement saving of the ACS to the DB.
 	return acs.ID, fmt.Errorf("Not implemented")
 }
 

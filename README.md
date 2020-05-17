@@ -258,7 +258,50 @@ Regular fleets can be fetched from the `/fleets` route and can be filtered using
 
 The information returned by the fleet contains the general information such as the universe to which it belongs, the source and destination elements, the arrival and return time, etc. It also contains a list of the ships defined for this fleet and the cargo that is carried by the fleet.
 
-A new fleet can be created through the `/fleets` endpoint. A fleet should define at least the following elements to be successfully created:
+A new fleet can be created through the `/fleets` endpoint. A fleet should define at least the following elements to be successfully created under the `fleet-data` key:
+
+```json:
+{
+  "id": "fleet_id",
+	"universe": "universe_id",
+	"objective": "objective_id",
+	"player": "player_id",
+	"source": "id_of_source_celestial_body",
+	"source_type": "planet|moon"
+	"target_coordinates": {
+    "galaxy": 1,
+    "system": 260,
+    "position": 10,
+    "location": "planet|moon|debris"
+  },
+	"target": "id_of_target_celestial_body_if_any",
+	"acs": "id_of_parent_acs_attack_if_any",
+	"speed": 0.2,
+	"deployment_time": 3600, /* 1 hour */
+	"ships": [
+    {
+      "ship": "ship_id_1",
+      "count": 1
+    },
+    {
+      "ship": "ship_id_2",
+      "count": 2
+    }
+  ]
+	"cargo": [
+    {
+      "resource": "res_id_1",
+      "amount": 26.2
+    },
+    {
+      "resource": "res_id_2",
+      "amount": 14
+    }
+  ]
+}
+```
+
+The properties are listed below:
 * `id`: the identifier of the fleet (will be automatically generated if empty).
 * `universe`: the universe to which this fleet belongs.
 * `objective`: the identifier of the objective for this fleet.
@@ -270,8 +313,8 @@ A new fleet can be created through the `/fleets` endpoint. A fleet should define
 * `acs`: the identifier of the `ACS` operation to which this fleet belongs. When using the `/fleets` endpoint the `ACS` operation **must** exist already.
 * `speed`: a floating point value in the range `]0; 1]` indicating the percentage of the maximal speed this fleet will be travelling at. The maximum speed is computed in the server from the speed of the ships belonging to the fleet.
 * `DeploymentTime`: specifies the amount of time a fleet should be deployed at its destination before returning to its source location. This value is expressed in seconds and will be forcibly set to `0` in case the fleet objective does not allow any sort of deployment.
-* `Ships`: defines an array for the ships belonging to the fleet. Each ship is referenced by its identifier (see the [Ships](https://github.com/Knoblauchpilze/sogserver#ships) section) and a count. The ships provided should be consistent with what's deployed on the source location.
-* `Cargo`: defines an array for the resources carried by the fleet. This amount should be consistent with both the amount stored on the planet and by the cargo capacity of the ships.
+* `Ships`: defines an array for the ships belonging to the fleet. Each ship is referenced by its identifier (see the [Ships](https://github.com/Knoblauchpilze/sogserver#ships) section) and a count. The ships provided should be consistent with what's deployed on the source location. Each ship count should be stricly positive.
+* `Cargo`: defines an array for the resources carried by the fleet. This amount should be consistent with both the amount stored on the planet and by the cargo capacity of the ships. Each amount should be stricly positive to be valid.
 
 ### ACS fleets
 

@@ -318,7 +318,7 @@ The properties are listed below:
 
 ### ACS fleets
 
-Creating an ACS fleet or fetching the related data is very similar to creating a regular fleet. In order to fetch a particular ACS operation's data one should use the `/fleets/acs` endpoint. The filtering properties are defined below:
+Creating an ACS fleet (for Alliance Combat System) or fetching the related data is very similar to creating a regular fleet. In order to fetch a particular ACS operation's data one should use the `/fleets/acs` endpoint. The filtering properties are defined below:
 * `id`: defines a filter on the identifier of the ACS operation.
 * `universe`: defines a filter on the identifier into whith the ACS takes place.
 * `objective`: defines a filter on the objective of the ACS operation.

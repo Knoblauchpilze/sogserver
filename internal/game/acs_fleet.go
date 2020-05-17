@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 
 	"github.com/google/uuid"
@@ -117,18 +118,12 @@ func NewACSFleetFromDB(ID string, data Instance) (ACSFleet, error) {
 //
 // Return the created ACS operation.
 func NewACSFleet(fleet *Fleet) ACSFleet {
-	acs := ACSFleet{
+	return ACSFleet{
 		ID:         uuid.New().String(),
 		Universe:   fleet.Universe,
 		Target:     fleet.Target,
 		TargetType: fleet.TargetCoords.Type,
 	}
-
-	// Register the input fleet as a component for the
-	// ACS: this will be the first one.
-	acs.Fleets = append(acs.Fleets, fleet.ID)
-
-	return acs
 }
 
 // fetchGeneralInfo :
@@ -243,7 +238,72 @@ func (f *ACSFleet) fetchFleets(data Instance) error {
 	return nil
 }
 
-// Validate :
+// SaveToDB :
+// Used to save the content of the fleet provided
+// in argument as a component of this ACS fleet.
+// It is very similar to saving a fleet with some
+// different script that handled the additional
+// operations to perform.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns any error.
+func (f *ACSFleet) SaveToDB(fleet *Fleet, proxy db.Proxy) error {
+	// Convert the cargo to a marshallable slice.
+	resources := make([]model.ResourceAmount, 0)
+	for _, res := range fleet.Cargo {
+		resources = append(resources, res)
+	}
+
+	// Create the query and execute it.
+	query := db.InsertReq{
+		Script: "create_acs_fleet",
+		Args: []interface{}{
+			fleet,
+			fleet.Ships,
+			resources,
+			fleet.Consumption,
+		},
+	}
+
+	err := proxy.InsertToDB(query)
+
+	// Analyze the error in order to provide some
+	// comprehensive message.
+	// TODO: Probably refine even more the errors ?
+	dbe, ok := err.(db.Error)
+	if !ok {
+		return err
+	}
+
+	dee, ok := dbe.Err.(db.DuplicatedElementError)
+	if ok {
+		switch dee.Constraint {
+		case "fleets_pkey":
+			return ErrDuplicatedElement
+		}
+
+		return dee
+	}
+
+	fkve, ok := dbe.Err.(db.ForeignKeyViolationError)
+	if ok {
+		switch fkve.ForeignKey {
+		case "uni":
+			return ErrNonExistingUniverse
+		case "objective":
+			return ErrNonExistingObjective
+		case "player":
+			return ErrNonExistingPlayer
+		}
+
+		return fkve
+	}
+
+	return dbe
+}
+
+// ValidateFleet :
 // Used to perform the validation of the ACS fleet
 // and verify that it is valid. This method is used
 // to make sure that the arrival time of a new comp
@@ -251,10 +311,13 @@ func (f *ACSFleet) fetchFleets(data Instance) error {
 // No information is persisted to the DB yet, only
 // verified against existing elements.
 //
+// The `fleet` represents the component to add to
+// the ACS fleet.
+//
 // The `data` allows to access to the DB.
 //
 // Returns any error.
-func (f *ACSFleet) Validate(data Instance) error {
+func (f *ACSFleet) ValidateFleet(fleet *Fleet, data Instance) error {
 	// TODO: Implement validation of ACS fleet.
 	return fmt.Errorf("Not implemented")
 }

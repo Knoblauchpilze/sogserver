@@ -1166,7 +1166,19 @@ func (f *Fleet) ConsolidateArrivalTime(data Instance, p *Planet) error {
 
 	// The return time is separated from the arrival time
 	// by an additional full flight time and the duration
-	// of the deployment.
+	// of the deployment. Note that we will consolidate the
+	// deployment time at his step: indeed only some fleet
+	// objectives allow for a deployment.
+	obj, err := data.Objectives.GetObjectiveFromID(f.Objective)
+	if err != nil {
+		return ErrNonExistingObjective
+	}
+
+	purp := purpose(obj.Name)
+	if purp != expedition && purp != acsDefend {
+		f.DeploymentTime = 0
+	}
+
 	f.ReturnTime = f.ArrivalTime.Add(f.flightTime).Add(time.Duration(f.DeploymentTime) * time.Second)
 
 	// The fleet is not yet retruning from its mission.

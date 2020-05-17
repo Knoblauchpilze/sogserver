@@ -318,4 +318,11 @@ The properties are listed below:
 
 ### ACS fleets
 
-TODO: Should implement this.
+Creating an ACS fleet or fetching the related data is very similar to creating a regular fleet. In order to fetch a particular ACS operation's data one should use the `/fleets/acs` endpoint. The filtering properties are defined below:
+* `id`: defines a filter on the identifier of the ACS operation.
+* `universe`: defines a filter on the identifier into whith the ACS takes place.
+* `objective`: defines a filter on the objective of the ACS operation.
+* `target`: defines a filter on the destination of the ACS. This value is guaranteed to be not null as we don't allow ACS operation on debris fiedls or anything similar.
+* `target_type`: defines a filter to further refine the destination of the ACS fleet so either `"planet"` or `"moon"`.
+
+The ACS fleet is composed several individual fleets all having the same objective, destination and arrival time. In order to create an ACS operation one must create a regular fleet and mark it for ACS operation. The server will valdiate the data as a regular fleet and perform the necessary adjustment so that the fleet is included in a ACS. An ID will be assigned to the ACS operation automatically and returned as an indication that the process was successful. The route to do so is `/fleets/acs` and the fleet's component (the first and only member at the time of creation) should be provided under the `fleet-data` key. The properties to do so are exactly the same as described in the [regular fleets](https://github.com/Knoblauchpilze/sogserver#regular_fleets) section as we want to create a valid component for this ACS.

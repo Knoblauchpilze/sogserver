@@ -68,7 +68,6 @@ func (s *Server) listACSFleets() http.HandlerFunc {
 	allowed := map[string]string{
 		"id":          "id",
 		"universe":    "universe",
-		"name":        "name",
 		"objective":   "objective",
 		"target":      "target",
 		"target_type": "target_type",

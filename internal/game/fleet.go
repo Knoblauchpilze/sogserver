@@ -248,6 +248,9 @@ var ErrInvalidCargoForFleet = fmt.Errorf("Invalid cargo value for fleet")
 // ErrFleetDirectedTowardsSource : Indicates that the source is identical to the target of a fleet.
 var ErrFleetDirectedTowardsSource = fmt.Errorf("Target is identical to source for fleet")
 
+// ErrFleetInMultipleACS : Indicates that the fleet is linked to multiple ACS.
+var ErrFleetInMultipleACS = fmt.Errorf("Fleet is linked to multiple ACS")
+
 // ErrNonExistingObjective : Indicates that the objective does not exist for this fleet.
 var ErrNonExistingObjective = fmt.Errorf("Inexisting fleet objective")
 
@@ -355,6 +358,11 @@ func NewFleetFromDB(ID string, data Instance) (Fleet, error) {
 
 	// Fetch the fleet's content.
 	err := f.fetchGeneralInfo(data)
+	if err != nil {
+		return f, err
+	}
+
+	err = f.fetchACSInfo(data)
 	if err != nil {
 		return f, err
 	}
@@ -469,6 +477,60 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 	// Make sure that it's the only fleet.
 	if dbRes.Next() {
 		return ErrDuplicatedElement
+	}
+
+	return err
+}
+
+// fetchACSInfo :
+// Similar to `fetchGeneralInfo` but allows to
+// fetch the ACS component for this fleet.
+//
+// The `data` defines the object to access the
+// DB.
+//
+// Returns any error.
+func (f *Fleet) fetchACSInfo(data Instance) error {
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"fac.acs",
+		},
+		Table: "fleets f left join fleets_acs_components fac on f.id = fac.fleet",
+		Filters: []db.Filter{
+			{
+				Key:    "id",
+				Values: []interface{}{f.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Scan the fleet's data.
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return ErrElementNotFound
+	}
+
+	// The element might be empty in case the fleet is
+	// not part of any ACS.
+	err = dbRes.Scan(
+		&f.ACS,
+	)
+
+	// Make sure that it's the only ACS for this fleet.
+	if dbRes.Next() {
+		return ErrFleetInMultipleACS
 	}
 
 	return err

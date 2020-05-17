@@ -324,6 +324,54 @@ func (p *FleetProxy) CreateFleet(fleet game.Fleet) (string, error) {
 // be created. Returns the identifier of the ACS
 // fleet that was created.
 func (p *FleetProxy) CreateACSFleet(fleet game.Fleet) (string, error) {
+	// Using this endpoint can be done with two main
+	// intents:
+	//  - either create an ACS fleet from scratch.
+	//  - or register a new component for an existing
+	//    ACS fleet.
+	// We will make the distinction between both by
+	// analyzing the `ACS` field of the input `fleet`.
+
+	// Assign a valid ID for the fleet if needed.
+	if fleet.ID == "" {
+		fleet.ID = uuid.New().String()
+	}
+
+	// Fetch or create the ACS operation for this fleet.
+	acs, err := p.fetchOrCreateACS(&fleet)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not fetch ACS operation for fleet (err: %v)", err))
+		return acs.ID, err
+	}
+
 	// TODO: Implement this.
 	return "", fmt.Errorf("Not implemented")
+}
+
+// fetchOrCreateACS :
+// Used to perform the creation of the ACS fleet
+// associated to the input fleet if needed or to
+// retrieve it if it already exists.
+//
+// The `fleet` defines the fleet for which the
+// ACS should be fetched.
+//
+// Returns the ACS fleet along with any error.
+func (p *FleetProxy) fetchOrCreateACS(fleet *game.Fleet) (*game.ACSFleet, error) {
+	// In case the fleet does not have any info
+	// of an existing ACS we will create one from
+	// scratch.
+	if fleet.ACS == "" {
+		acs := game.NewACSFleet(fleet)
+
+		if err := acs.Valid(); err != nil {
+			return &acs, err
+		}
+
+		return &acs, nil
+	}
+
+	// Fetch the ACS from the DB.
+	acs, err := game.NewACSFleetFromDB(fleet.ACS, p.data)
+	return &acs, err
 }

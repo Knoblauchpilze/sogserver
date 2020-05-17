@@ -2,6 +2,8 @@ package game
 
 import (
 	"oglike_server/pkg/db"
+
+	"github.com/google/uuid"
 )
 
 // ACSFleet :
@@ -42,6 +44,31 @@ type ACSFleet struct {
 	Fleets     []string `json:"components"`
 }
 
+// Valid :
+// Determines whether the fleet is valid. By valid we
+// only mean obvious syntax errors.
+//
+// Returns any error or `nil` if the fleet seems valid.
+func (f *ACSFleet) Valid() error {
+	if !validUUID(f.ID) {
+		return ErrInvalidElementID
+	}
+	if !validUUID(f.Universe) {
+		return ErrInvalidUniverseForFleet
+	}
+	if !validUUID(f.Objective) {
+		return ErrInvalidObjectiveForFleet
+	}
+	if !validUUID(f.Target) {
+		return ErrInvalidTargetForFleet
+	}
+	if !existsLocation(f.TargetType) {
+		return ErrInvalidTargetTypeForFleet
+	}
+
+	return nil
+}
+
 // NewACSFleetFromDB :
 // Used to retrieve the information related to the
 // ACS fleet described by the input `ID`. In case
@@ -76,6 +103,25 @@ func NewACSFleetFromDB(ID string, data Instance) (ACSFleet, error) {
 	}
 
 	return f, nil
+}
+
+// NewACSFleet :
+// Perform the creation of a new ACS fleet from the
+// input fleet. We assume that the input fleet will
+// be the first component for the ACS so most of the
+// fields will be equalized from the input data.
+//
+// The `fleet` defines the first (and for now unique)
+// component of the ACS operation.
+//
+// Return the created ACS operation.
+func NewACSFleet(fleet *Fleet) ACSFleet {
+	return ACSFleet{
+		ID:         uuid.New().String(),
+		Universe:   fleet.Universe,
+		Target:     fleet.Target,
+		TargetType: fleet.TargetCoords.Type,
+	}
 }
 
 // fetchGeneralInfo :

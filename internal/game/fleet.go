@@ -524,9 +524,15 @@ func (f *Fleet) fetchACSInfo(data Instance) error {
 
 	// The element might be empty in case the fleet is
 	// not part of any ACS.
+	var acs sql.NullString
+
 	err = dbRes.Scan(
-		&f.ACS,
+		&acs,
 	)
+
+	if acs.Valid {
+		f.ACS = acs.String
+	}
 
 	// Make sure that it's the only ACS for this fleet.
 	if dbRes.Next() {

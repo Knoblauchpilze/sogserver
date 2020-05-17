@@ -34,15 +34,15 @@ func (s *Server) listFleets() http.HandlerFunc {
 	ed := NewGetResourceEndpoint("fleets")
 
 	allowed := map[string]string{
-		"id":           "id",
-		"universe":     "uni",
-		"objective":    "objective",
-		"source":       "source",
-		"target":       "target",
-		"galaxy":       "target_galaxy",
-		"solar_system": "target_solar_system",
-		"position":     "target_position",
-		"acs":          "acs",
+		"id":           "f.id",
+		"universe":     "f.uni",
+		"objective":    "f.objective",
+		"source":       "f.source",
+		"target":       "f.target",
+		"galaxy":       "f.target_galaxy",
+		"solar_system": "f.target_solar_system",
+		"position":     "f.target_position",
+		"acs":          "fac.acs",
 	}
 
 	// Configure the endpoint.

@@ -72,9 +72,9 @@ func (p *FleetProxy) Fleets(filters []db.Filter) ([]game.Fleet, error) {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"id",
+			"f.id",
 		},
-		Table:   "fleets",
+		Table:   "fleets f left join fleets_acs_components fac on f.id = fac.fleet",
 		Filters: filters,
 	}
 
@@ -345,7 +345,7 @@ func (p *FleetProxy) CreateACSFleet(fleet game.Fleet) (string, error) {
 	}
 
 	// TODO: Implement this.
-	return "", fmt.Errorf("Not implemented")
+	return acs.ID, fmt.Errorf("Not implemented")
 }
 
 // fetchOrCreateACS :

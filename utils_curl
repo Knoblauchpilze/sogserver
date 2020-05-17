@@ -6,9 +6,13 @@ Create account:
 
 curl http://localhost:3000/accounts -d 'account-data={"id":"05c76bcf-3ba2-479d-beb2-446db5bcb946","name":"tttttttttttttttttttt","mail":"maxime.rigaud@tutanota.com","password":"thisisnotsosecure"}' | jq
 
+curl http://localhost:3000/accounts -d 'account-data={"id":"05c76bcf-3ba2-479d-beb2-446db5bcb947","name":"notttt","mail":"maxime.rigaud@yandex.com","password":"thisisnotreallysecureneither"}' | jq
+
 Create player:
 
 curl http://localhost:3000/players -d 'player-data={"id":"1593543f-fbb5-49d8-8e2c-ce9255e8f979","account":"05c76bcf-3ba2-479d-beb2-446db5bcb946","universe":"1c44a525-126d-4a5f-9bd5-973011ef15dc","name":"cavapeter"}' | jq
+
+curl http://localhost:3000/players -d 'player-data={"id":"1593543f-fbb5-49d8-8e2c-ce9255e8f970","account":"05c76bcf-3ba2-479d-beb2-446db5bcb947","universe":"1c44a525-126d-4a5f-9bd5-973011ef15dc","name":"unverre"}' | jq
 
 Create debris field:
 insert into debris_fields ("id", "universe", "galaxy", "solar_system", "position") values(uuid_generate_v4(), '1c44a525-126d-4a5f-9bd5-973011ef15dc', 0, 260, 6);
@@ -19,5 +23,11 @@ curl http://localhost:3000/fleets -d 'fleet-data={"universe":"1c44a525-126d-4a5f
 
 For harvesting:
 curl http://localhost:3000/fleets -d 'fleet-data={"universe":"1c44a525-126d-4a5f-9bd5-973011ef15dc","player":"1593543f-fbb5-49d8-8e2c-ce9255e8f979","source_type":"planet","target_coordinates":{"galaxy":0,"system":260,"position":7,"location":"debris"},"source":"","objective":"","ships":[{"ship":"","count":2},{"ship":"","count":1}],"speed":1.0,"cargo":[{"resource":"","amount":320},{"resource":"","amount":119}]}' | jq
+
+For ACS:
+curl http://localhost:3000/fleets/acs -d 'fleet-data={"universe":"1c44a525-126d-4a5f-9bd5-973011ef15dc","player":"1593543f-fbb5-49d8-8e2c-ce9255e8f979","source_type":"planet","target_coordinates":{"galaxy":0,"system":259,"position":5,"location":"planet"},"source":"","target":"","objective":"","ships":[{"ship":"","count":1}],"speed":1.0}' | jq
+
+Second component:
+curl http://localhost:3000/fleets/acs -d 'fleet-data={"universe":"1c44a525-126d-4a5f-9bd5-973011ef15dc","player":"1593543f-fbb5-49d8-8e2c-ce9255e8f979","source_type":"planet","target_coordinates":{"galaxy":0,"system":259,"position":5,"location":"planet"},"source":"f15ef001-620e-490c-95e0-0c6d7cbc478d","target":"eb76bc4e-6cf5-40d1-a5a7-8a24d00472e8","objective":"cc33df46-8af0-4692-88c4-6dff598c5b2e","acs":"f4cb7784-f1c7-42ec-9798-2ffd6576c8e7","ships":[{"ship":"c1b82dc5-da2b-4bbd-8439-42c62d535803","count":2}],"speed":0.8}' | jq
 
 

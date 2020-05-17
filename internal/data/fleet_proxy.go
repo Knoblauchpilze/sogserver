@@ -203,7 +203,7 @@ func (p *FleetProxy) ACSFleets(filters []db.Filter) ([]game.ACSFleet, error) {
 // of the fleet that was created.
 func (p *FleetProxy) CreateFleet(fleet game.Fleet) (string, error) {
 	// Validate the fleet's data.
-	err := p.validateFleet(&fleet)
+	_, err := p.validateFleet(&fleet)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Validation for fleet failed (err: %v)", err))
 		return fleet.ID, err
@@ -249,7 +249,7 @@ func (p *FleetProxy) CreateACSFleet(fleet game.Fleet) (string, error) {
 		return acs.ID, err
 	}
 
-	err = p.validateFleet(&fleet)
+	source, err := p.validateFleet(&fleet)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Validation for ACS fleet failed (err: %v)", err))
 		return acs.ID, err
@@ -257,7 +257,7 @@ func (p *FleetProxy) CreateACSFleet(fleet game.Fleet) (string, error) {
 
 	// Validate the arrival time expected by the
 	// new component of the fleet (if any).
-	err = acs.ValidateFleet(&fleet, p.data)
+	err = acs.ValidateFleet(&fleet, source, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Failed to validate ACS fleet's data (err: %v)", err))
 		return acs.ID, err
@@ -284,8 +284,9 @@ func (p *FleetProxy) CreateACSFleet(fleet game.Fleet) (string, error) {
 //
 // The `fleet` represents the element to validate.
 //
-// Returns any error.
-func (p *FleetProxy) validateFleet(fleet *game.Fleet) error {
+// Returns any error along with th esource planet of
+// the fleet.
+func (p *FleetProxy) validateFleet(fleet *game.Fleet) (*game.Planet, error) {
 	// Assign a valid identifier if this is not already the case.
 	if fleet.ID == "" {
 		fleet.ID = uuid.New().String()
@@ -300,13 +301,13 @@ func (p *FleetProxy) validateFleet(fleet *game.Fleet) error {
 	// error of the fleet in this case.
 	uni, err := game.NewUniverseFromDB(fleet.Universe, p.data)
 	if err == game.ErrInvalidElementID {
-		return game.ErrInvalidUniverseForFleet
+		return nil, game.ErrInvalidUniverseForFleet
 	}
 
 	// Check validity of the input fleet.
 	if err := fleet.Valid(uni); err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Failed to validate fleet's data (err: %v)", err))
-		return err
+		return nil, err
 	}
 
 	// In order to validate and import the fleet's data
@@ -315,7 +316,7 @@ func (p *FleetProxy) validateFleet(fleet *game.Fleet) error {
 	source, err := game.NewPlanetFromDB(fleet.Source, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Unable to fetch source for fleet (err: %v)", err))
-		return game.ErrInvalidSourceForFleet
+		return &source, game.ErrInvalidSourceForFleet
 	}
 
 	var target *game.Planet
@@ -323,7 +324,7 @@ func (p *FleetProxy) validateFleet(fleet *game.Fleet) error {
 		vTarget, err := game.NewPlanetFromDB(fleet.Target, p.data)
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Unable to fetch target for fleet (err: %v)", err))
-			return game.ErrInvalidTargetForFleet
+			return &source, game.ErrInvalidTargetForFleet
 		}
 
 		target = &vTarget
@@ -333,10 +334,10 @@ func (p *FleetProxy) validateFleet(fleet *game.Fleet) error {
 	// that the target's coordinates are consistent with the
 	// actual values defined in the input data.
 	if target != nil && fleet.TargetCoords != target.Coordinates {
-		return ErrMismatchBetweenTargetCoordsAndID
+		return &source, ErrMismatchBetweenTargetCoordsAndID
 	}
 	if source.Player != fleet.Player {
-		return ErrPlayerDoesNotOwnSource
+		return &source, ErrPlayerDoesNotOwnSource
 	}
 
 	// Consolidate the universe's identifier from the fleet's
@@ -346,11 +347,11 @@ func (p *FleetProxy) validateFleet(fleet *game.Fleet) error {
 	player, err := game.NewPlayerFromDB(fleet.Player, p.data)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Unable to fetch player for fleet (err: %v)", err))
-		return game.ErrInvalidPlayerForFleet
+		return &source, game.ErrInvalidPlayerForFleet
 	}
 
 	if player.Universe != fleet.Universe {
-		return ErrUniverseMismatchForFleet
+		return &source, ErrUniverseMismatchForFleet
 	}
 
 	if target != nil {
@@ -358,12 +359,12 @@ func (p *FleetProxy) validateFleet(fleet *game.Fleet) error {
 
 		if err != nil {
 			p.trace(logger.Error, fmt.Sprintf("Unable to fetch target player for fleet (err: %v)", err))
-			return game.ErrInvalidTargetForFleet
+			return &source, game.ErrInvalidTargetForFleet
 		}
 
 		if tPlayer.Universe != fleet.Universe {
 			p.trace(logger.Error, fmt.Sprintf("Target player of fleet belongs to universe \"%s\" not consistent with fleet's \"%s\"", tPlayer.Universe, fleet.Universe))
-			return game.ErrInvalidTargetForFleet
+			return &source, game.ErrInvalidTargetForFleet
 		}
 	}
 
@@ -371,17 +372,17 @@ func (p *FleetProxy) validateFleet(fleet *game.Fleet) error {
 	err = fleet.ConsolidateArrivalTime(p.data, &source)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not consolidate arrival time for fleet (err: %v)", err))
-		return err
+		return &source, err
 	}
 
 	// Validate the fleet against planet's data.
 	err = fleet.Validate(p.data, &source, target)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Unable to validate fleet's data for \"%s\" (err: %v)", fleet.Player, err))
-		return err
+		return &source, err
 	}
 
-	return nil
+	return &source, nil
 }
 
 // fetchOrCreateACS :

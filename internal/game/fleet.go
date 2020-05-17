@@ -392,7 +392,7 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"uni",
+			"universe",
 			"objective",
 			"player",
 			"source",
@@ -499,7 +499,7 @@ func (f *Fleet) fetchACSInfo(data Instance) error {
 		Table: "fleets f left join fleets_acs_components fac on f.id = fac.fleet",
 		Filters: []db.Filter{
 			{
-				Key:    "id",
+				Key:    "f.id",
 				Values: []interface{}{f.ID},
 			},
 		},
@@ -711,7 +711,7 @@ func (f *Fleet) SaveToDB(proxy db.Proxy) error {
 	fkve, ok := dbe.Err.(db.ForeignKeyViolationError)
 	if ok {
 		switch fkve.ForeignKey {
-		case "uni":
+		case "universe":
 			return ErrNonExistingUniverse
 		case "objective":
 			return ErrNonExistingObjective
@@ -749,7 +749,7 @@ func (f *Fleet) MarshalJSON() ([]byte, error) {
 		DeploymentTime int                    `json:"deployment_time"`
 		ReturnTime     time.Time              `json:"return_time"`
 		Ships          ShipsInFleet           `json:"ships"`
-		Cargo          []model.ResourceAmount `json:"cargo"`
+		Cargo          []model.ResourceAmount `json:"cargo,omitempty"`
 	}
 
 	// Copy the fleet's data.
@@ -860,7 +860,7 @@ func (f *Fleet) UnmarshalJSON(raw []byte) error {
 func (f *Fleet) Convert() interface{} {
 	return struct {
 		ID             string    `json:"id"`
-		Universe       string    `json:"uni"`
+		Universe       string    `json:"universe"`
 		Objective      string    `json:"objective"`
 		Player         string    `json:"player"`
 		Source         string    `json:"source"`
@@ -1153,7 +1153,7 @@ func (f *Fleet) ConsolidateArrivalTime(data Instance, p *Planet) error {
 	flightTimeSec := 35000.0/float64(speedRatio)*math.Sqrt(float64(d)*10.0/float64(maxSpeed)) + 10.0
 
 	// TODO: Hack to speed up fleets by a lot.
-	flightTimeSec /= 600.0
+	// flightTimeSec /= 600.0
 
 	// Compute the flight time by converting this duration in
 	// milliseconds: this will allow to keep more precision.

@@ -178,15 +178,17 @@ BEGIN
       f.arrival_time AS completion_time,
       'fleet' AS type
     FROM
-      fleets f;
+      fleets AS f
+    WHERE
+      f.id = (fleet->>'id')::uuid;
 END
 $$ LANGUAGE plpgsql;
 
 -- Import ACS operation and perform the needed operations
 -- to create the associated component.
-CREATE OR REPLACE FUNCTION create_acs_fleet(fleet json, ships json, resources json, consumption json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_acs_fleet(acs_id uuid, fleet json, ships json, resources json, consumption json) RETURNS VOID AS $$
 DECLARE
-  acs_id uuid;
+  acs uuid;
 BEGIN
   -- Make sure that the target and source type for this fleet are valid.
   IF fleet->>'target_type' != 'planet' AND fleet->>'target_type' != 'moon' THEN
@@ -201,23 +203,23 @@ BEGIN
   PERFORM create_fleet(fleet, ships, resources, consumption);
 
   -- Register the ACS action if needed.
-  SELECT id INTO acs_id FROM fleets_acs WHERE id = fleet->>'acs'::uuid;
+  SELECT id INTO acs FROM fleets_acs WHERE id = acs_id;
   IF NOT FOUND THEN
     -- The ACS operation does not exist yet, create it from the
     -- fleet's data.
     INSERT INTO fleets_acs("id", "universe", "objective", "target", "target_type")
       VALUES(
-        fleet->>'acs'::uuid,
-        fleet->>'universe'::uuid,
-        fleet->>'objective'::uuid,
-        fleet->>'target'::uuid,
-        fleet->>'target_type'::text
+        acs_id,
+        (fleet->>'universe')::uuid,
+        (fleet->>'objective')::uuid,
+        (fleet->>'target')::uuid,
+        (fleet->>'target_type')::text
       );
 
     -- Insert the acs as a new action to process in the queue.
     INSERT INTO actions_queue("action", "completion_time", "type")
       SELECT
-        f.acs,
+        acs_id,
         f.arrival_time,
         'acs_fleet'
       FROM
@@ -227,24 +229,40 @@ BEGIN
     -- in the actions queue with the arrival time of this
     -- new fleet.
     UPDATE actions_queue
-      SET completion_time = fleet->>'arrival_time'
+      SET completion_time = (fleet->>'arrival_time')::timestamp with time zone
     WHERE
       action = acs_id;
   END IF;
 
   -- Register this fleet as one of the component for the ACS.
-  INSERT INTO fleets_acs_components("acs", "fleet")
-    VALUES(
-      fleet->>'acs'::uuid,
-      fleet->>'id'::uuid
-    );
+  INSERT INTO fleets_acs_components("acs", "fleet") VALUES(acs_id, (fleet->>'id')::uuid);
 
   -- Delete this fleet from the actions queue. Indeed we
   -- handled both the case where the ACS did not exist
   -- yet by creating the action and when the ACS fleet
   -- already existed by updating the arrival time to the
   -- arrival time of the fleet.
-  DELETE FROM actions_queue WHERE action = fleet->>'id'::uuid;
+  DELETE FROM actions_queue WHERE action = (fleet->>'id')::uuid;
+
+  -- Update the arrival time and return time of existing
+  -- fleets of the ACS so that it is consistent with the
+  -- new component. The only case where this action has
+  -- an effect is when the new fleet is slower than the
+  -- ACS: otherwise the `arrival_time` set for the fleet
+  -- is the one of the existing ACS components.
+  UPDATE fleets AS f
+    SET
+      return_time = f.return_time + ((fleet->>'arrival_time')::timestamp with time zone - f.arrival_time),
+      arrival_time = (fleet->>'arrival_time')::timestamp with time zone
+    WHERE
+      f.id IN (
+        SELECT
+          fac.fleet
+        FROM
+          fleets_acs_components AS fac
+        WHERE
+          fac.acs = acs_id
+      );
 END
 $$ LANGUAGE plpgsql;
 

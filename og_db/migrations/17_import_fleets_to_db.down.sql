@@ -29,7 +29,7 @@ DROP FUNCTION fleet_ships_deployment(fleet_id uuid, target_id uuid, target_kind 
 DROP FUNCTION fleet_deposit_resources(fleet_id uuid, target_id uuid, target_kind text);
 
 -- Drop the ACS fleet import function.
-DROP FUNCTION create_acs_fleet(fleet json, ships json, resources json, consumption json);
+DROP FUNCTION create_acs_fleet(acs_id uuid, fleet json, ships json, resources json, consumption json);
 
 -- Drop the fleet import function.
 DROP FUNCTION create_fleet(fleet json, ships json, resources json, consumption json);

@@ -12,7 +12,7 @@ CREATE TABLE fleets_objectives (
 -- Create the table defining fleets.
 CREATE TABLE fleets (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  uni uuid NOT NULL,
+  universe uuid NOT NULL,
   objective uuid NOT NULL,
   player uuid NOT NULL,
   source uuid NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE fleets (
   return_time TIMESTAMP WITH TIME ZONE NOT NULL,
   is_returning boolean NOT NULL DEFAULT false,
   PRIMARY KEY (id),
-  FOREIGN KEY (uni) REFERENCES universes(id),
+  FOREIGN KEY (universe) REFERENCES universes(id),
   FOREIGN KEY (objective) REFERENCES fleets_objectives(id),
   FOREIGN KEY (player) REFERENCES players(id)
 );

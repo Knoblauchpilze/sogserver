@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -37,14 +38,38 @@ import (
 //
 // The `Fleets` define the identifiers of the
 // individual fleets that joined this ACS.
+//
+// The `arrivalTime` is computed from all the
+// fleets already assigned to the ACS and is
+// the estimated arrival time of all of them
+// at the destination.
 type ACSFleet struct {
-	ID         string   `json:"id"`
-	Universe   string   `json:"universe"`
-	Objective  string   `json:"objective"`
-	Target     string   `json:"target"`
-	TargetType Location `json:"source_type"`
-	Fleets     []string `json:"components"`
+	ID          string   `json:"id"`
+	Universe    string   `json:"universe"`
+	Objective   string   `json:"objective"`
+	Target      string   `json:"target"`
+	TargetType  Location `json:"source_type"`
+	Fleets      []string `json:"components"`
+	arrivalTime time.Time
 }
+
+// ErrACSOperationMismatch : Indicates that the fleet is not added to the correct ACS operation.
+var ErrACSOperationMismatch = fmt.Errorf("Mismatch in fleet's ACS compared to actual ACS operation")
+
+// ErrACSUniverseMismacth : Indicates that the universe of the ACS and the fleet mismatch.
+var ErrACSUniverseMismacth = fmt.Errorf("Mismatch in fleet universe compared to ACS operation")
+
+// ErrACSObjectiveMismacth : Indicates that the objective of the ACS and the fleet mismatch.
+var ErrACSObjectiveMismacth = fmt.Errorf("Mismatch in fleet objective compared to ACS operation")
+
+// ErrACSTargetMismacth : Indicates that the target of the ACS and the fleet mismatch.
+var ErrACSTargetMismacth = fmt.Errorf("Mismatch in fleet target compared to ACS operation")
+
+// ErrACSTargetTypeMismacth : Indicates that the target type of the ACS and the fleet mismatch.
+var ErrACSTargetTypeMismacth = fmt.Errorf("Mismatch in fleet target type compared to ACS operation")
+
+// ErrACSFleetDelayedTooMuch : Indicates that the fleet would delay the ACS by too much time.
+var ErrACSFleetDelayedTooMuch = fmt.Errorf("Fleet would delay ACS operation too much")
 
 // Valid :
 // Determines whether the fleet is valid. By valid we
@@ -104,6 +129,11 @@ func NewACSFleetFromDB(ID string, data Instance) (ACSFleet, error) {
 		return f, err
 	}
 
+	err = f.fetchArrivalTime(data)
+	if err != nil {
+		return f, err
+	}
+
 	return f, nil
 }
 
@@ -118,12 +148,20 @@ func NewACSFleetFromDB(ID string, data Instance) (ACSFleet, error) {
 //
 // Return the created ACS operation.
 func NewACSFleet(fleet *Fleet) ACSFleet {
-	return ACSFleet{
+	acs := ACSFleet{
 		ID:         uuid.New().String(),
 		Universe:   fleet.Universe,
+		Objective:  fleet.Objective,
 		Target:     fleet.Target,
 		TargetType: fleet.TargetCoords.Type,
+		Fleets:     make([]string, 0),
 	}
+
+	// Make sure that the input fleet is linked to this
+	// ACS now.
+	fleet.ACS = acs.ID
+
+	return acs
 }
 
 // fetchGeneralInfo :
@@ -238,6 +276,58 @@ func (f *ACSFleet) fetchFleets(data Instance) error {
 	return nil
 }
 
+// fetchArrivalTime :
+// Similar to `fetchGeneralInfo` but allows to
+// fetch the information relative to the arrival
+// time of the ACS.
+//
+// The `data` allows to access to the DB.
+//
+// Return any errors.
+func (f *ACSFleet) fetchArrivalTime(data Instance) error {
+	// In order to consolidate the arrival time from
+	// the registered components. We assume that the
+	// info in the DB is consistent and we can just
+	// fetch it from the first fleet (as all the other
+	// should be the same).
+	query := db.QueryDesc{
+		Props: []string{
+			"f.arrival_time",
+		},
+		Table: "fleets f inner join fleets_acs_components fac on f.id = fac.fleet",
+		Filters: []db.Filter{
+			{
+				Key:    "fac.acs",
+				Values: []interface{}{f.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Fetch the arrival time: we should have at
+	// least a component registered in the ACS.
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return ErrElementNotFound
+	}
+
+	err = dbRes.Scan(
+		&f.arrivalTime,
+	)
+
+	return err
+}
+
 // SaveToDB :
 // Used to save the content of the fleet provided
 // in argument as a component of this ACS fleet.
@@ -259,6 +349,7 @@ func (f *ACSFleet) SaveToDB(fleet *Fleet, proxy db.Proxy) error {
 	query := db.InsertReq{
 		Script: "create_acs_fleet",
 		Args: []interface{}{
+			f.ID,
 			fleet,
 			fleet.Ships,
 			resources,
@@ -267,6 +358,7 @@ func (f *ACSFleet) SaveToDB(fleet *Fleet, proxy db.Proxy) error {
 	}
 
 	err := proxy.InsertToDB(query)
+	// err := fmt.Errorf("Deactivated query using %s", query.Script)
 
 	// Analyze the error in order to provide some
 	// comprehensive message.
@@ -289,7 +381,7 @@ func (f *ACSFleet) SaveToDB(fleet *Fleet, proxy db.Proxy) error {
 	fkve, ok := dbe.Err.(db.ForeignKeyViolationError)
 	if ok {
 		switch fkve.ForeignKey {
-		case "uni":
+		case "universe":
 			return ErrNonExistingUniverse
 		case "objective":
 			return ErrNonExistingObjective
@@ -314,12 +406,98 @@ func (f *ACSFleet) SaveToDB(fleet *Fleet, proxy db.Proxy) error {
 // The `fleet` represents the component to add to
 // the ACS fleet.
 //
+// The `source` defines the source planet for the
+// fleet: it is used in case the flight time for
+// the new fleet should be updated.
+//
 // The `data` allows to access to the DB.
 //
 // Returns any error.
-func (f *ACSFleet) ValidateFleet(fleet *Fleet, data Instance) error {
-	// TODO: Implement validation of ACS fleet.
-	return fmt.Errorf("Not implemented")
+func (f *ACSFleet) ValidateFleet(fleet *Fleet, source *Planet, data Instance) error {
+	// Make sure that the common properties for the
+	// fleet are consistent.
+	if fleet.ACS != f.ID {
+		return ErrACSOperationMismatch
+	}
+	if fleet.Universe != f.Universe {
+		return ErrACSUniverseMismacth
+	}
+	if fleet.Objective != f.Objective {
+		return ErrACSObjectiveMismacth
+	}
+	if fleet.Target != f.Target {
+		return ErrACSTargetMismacth
+	}
+	if fleet.TargetCoords.Type != f.TargetType {
+		return ErrACSTargetTypeMismacth
+	}
+
+	// In case there's no elements yet in the ACS
+	// the component is now declared valid.
+	if len(f.Fleets) == 0 {
+		return nil
+	}
+
+	// Compare the arrival time of the fleet with
+	// the currently estimated arrival time: when
+	// we add this component the time difference
+	// should not delay the arrival time by more
+	// than 30%.
+	now := time.Now()
+
+	timeToArrival := f.arrivalTime.Sub(now)
+	newTimeToArrival := fleet.ArrivalTime.Sub(now)
+
+	deltaT := float32(newTimeToArrival) / float32(timeToArrival)
+
+	if deltaT > 1.3 {
+		return ErrACSFleetDelayedTooMuch
+	}
+
+	// The fleet does not delay the fleet too much.
+	// We still have too cases to handle: either
+	// the new fleet *does* delay the fleet: in this
+	// case nothing is left to do, the script used
+	// to perform the insertion of the fleet will
+	// handle the modification of the arrival time
+	// of the other fleets adequately.
+	if deltaT >= 1.0 {
+		return nil
+	}
+
+	// On the other hand if the fleet is actually
+	// faster than the actual arrival time we need
+	// to update the consumption and flight time
+	// to match the current arrival time as closely
+	// as possible.
+	fleet.Speed *= deltaT
+
+	err := fleet.ConsolidateArrivalTime(data, source)
+	if err != nil {
+		return err
+	}
+
+	// We shouldn't need to revalidate the data as
+	// we will reduce the speed of the fleet and
+	// thus burn less fuel in all likelihood.
+	err = fleet.consolidateConsumption(data, source)
+	if err != nil {
+		return err
+	}
+
+	// Due to some numerical inaccuracies (maybe in
+	// the way we handle the flight time) we can be
+	// modifying slightly the actual arrival time.
+	// To prevent that we will force afterwards the
+	// arrival time to be precisely what it was. It
+	// is not a big issue as the error we noted was
+	// quite small (but possibly in the second-ish
+	// region).
+	d := -fleet.ArrivalTime.Sub(f.arrivalTime)
+	fleet.ArrivalTime = f.arrivalTime
+	fleet.CreatedAt = fleet.CreatedAt.Add(d)
+
+	return nil
 }
 
 // simulate :

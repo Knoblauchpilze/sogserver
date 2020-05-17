@@ -35,7 +35,7 @@ func (s *Server) listFleets() http.HandlerFunc {
 
 	allowed := map[string]string{
 		"id":           "f.id",
-		"universe":     "f.uni",
+		"universe":     "f.universe",
 		"objective":    "f.objective",
 		"source":       "f.source",
 		"target":       "f.target",

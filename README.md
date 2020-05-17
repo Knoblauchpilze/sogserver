@@ -106,6 +106,17 @@ The main purpose of an account is to actually represent the instance of a user i
  * `mail`: the e-mail address associated to the account. Should be unique among all accounts.
  * `password`: the password to use to log-in on this account.
 
+## Resources
+
+Allows to fetch information about resources on the game through the `/resources` endpoint. Filtering can be done through the `id` and `name` query parameter to retrieve information on a particular resource. Each entry returns the information for a resource as follow:
+ * `id`: the identifier of the resource.
+ * `name`: the in game display name of the resource.
+ * `base_production`: the base production for this resource on a planet without any infrastructure.
+ * `base_storage`: the base storage for this resource on a planet with no infrastructure.
+ * `base_amount`: the starting amount of this resource on a newly created planet.
+ * `movable`: whether or not this resource can be moved (i.e. carried to another location by a fleet).
+ * `storable`: whether or not this resource can be stored. This indicates whether the production of a resource will accumulate on the planet over time.
+
 ## Buildings
 
 Allows to fetch information about buildings that can be built on planets through the `/buildings` endpoint. Just like the other endpoints one can query a specific building through the query parameters `id` and `name`. Each entry in the return value contains the cost of the building, its effects in terms of storage and production, the potential consumption of resources and the tech tree. The tech tree represents the set of technologies that the player should have researched to gain access to this building and the set of buildings that should already exist on a planet before being allowed to build it.
@@ -217,5 +228,51 @@ The defenses upgrade action is very similar to the `ships` case but it concerns 
 The `"element"` defines the identifier of the defense system to build while the `"amount"` defines the number of defense systems to build.
 
 ## Fleets
+
+Fleets are a backbone of the game as they allow interactions between worlds and players. A fleet can be hostile or friendly and is composed of several ships carrying some resources. Each fleet can have a variety of objectives which define the purpose of the fleet.
+
+### Objectives
+
+A comprehensive description of the fleets objectives can be accessed through the `/fleets/objectives` route. It contains a description of the objective with the authrozied ships for this objective and whether or not this objective is hostile to the target destination.
+Filters can be applied as defined below:
+ * `id`: defines a filter on a specific fleet objective.
+ * `name` : defines a filter on the name of the player.
+
+### Fleet types
+
+We distinguish two main fleet types: regular fleet and ACS fleets. Regular fleet are composed of a single batch of ships sent by a unique player from a unique location. An ACS operation on the other hand joins several fleets that can be sent by several players from distinct location. A mechanism ensures that the fleet is still considered as a single element and will be processed as so when it reaches its destination.
+Both types of fleet have a similar set of operation and are accessible through `/fleets` or `/fleets/acs`.
+
+### Regular fleets
+
+Regular fleets can be fetched from the `/fleets` route and can be filtered using the following properties:
+ * `id`: defines a filter on the identifier of a fleet.
+ * `universe`: defines a filter on the universe to which the fleet belongs.
+ * `objective`: defines a filter on the objective of the fleet.
+ * `source`: defines a filter on the source element of the fleet: can refer to either a planet or a moon.
+ * `target`: defines a filter on the target element of the fleet: can refer to either a planet or a moon. Note that in case the fleet is not directed (in case of a harvesting or colonization operation for example) filtering on this field will yield no results.
+ * `galaxy`: defines a filter on the galaxy of the target of the fleet.
+ * `solar_system`: defines a filter on the solar system of the target of the fleet.
+ * `position`: defines a filter on the position of the target of the fleet.
+ * `acs`: defines a filter on the ACS to which this fleet should belong.
+
+The information returned by the fleet contains the general information such as the universe to which it belongs, the source and destination elements, the arrival and return time, etc. It also contains a list of the ships defined for this fleet and the cargo that is carried by the fleet.
+
+A new fleet can be created through the `/fleets` endpoint. A fleet should define at least the following elements to be successfully created:
+* `id`: the identifier of the fleet (will be automatically generated if empty).
+* `universe`: the universe to which this fleet belongs.
+* `objective`: the identifier of the objective for this fleet.
+* `player`: the identifier of the player owning this fleet. The player should be registered in the `universe` specified.
+* `source`: the identifier of the source location of the fleet (either a planet or a moon). The source should belong to the `player` and **must** be valid as a fleet alwyas starts from an existing location.
+* `source_type`: defines the type of the `source` element: can be either `"planet"` or `"moon"`. Any other value will be interpreted as an error.
+* `target_coordinates`: the location of the destination of the fleet. These coordinates should be consistent with the provided `universe` and with the actual objective of the fleet. The location of the target withtin the specified coordinate should be specified here (so either `planet` or `moon` or `debris`).
+* `target`: the identifier of the existing celestial body to which this fleet is directed. Might be empty in case the `target_coordinates` indicate a `debris` location.
+* `acs`: the identifier of the `ACS` operation to which this fleet belongs. When using the `/fleets` endpoint the `ACS` operation **must** exist already.
+* `speed`: a floating point value in the range `]0; 1]` indicating the percentage of the maximal speed this fleet will be travelling at. The maximum speed is computed in the server from the speed of the ships belonging to the fleet.
+* `DeploymentTime`: specifies the amount of time a fleet should be deployed at its destination before returning to its source location. This value is expressed in seconds and will be forcibly set to `0` in case the fleet objective does not allow any sort of deployment.
+* `Ships`: defines an array for the ships belonging to the fleet. Each ship is referenced by its identifier (see the [Ships](https://github.com/Knoblauchpilze/sogserver#ships) section) and a count. The ships provided should be consistent with what's deployed on the source location.
+* `Cargo`: defines an array for the resources carried by the fleet. This amount should be consistent with both the amount stored on the planet and by the cargo capacity of the ships.
+
+### ACS fleets
 
 TODO: Should implement this.

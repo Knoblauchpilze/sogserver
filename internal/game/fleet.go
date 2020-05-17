@@ -1153,7 +1153,7 @@ func (f *Fleet) ConsolidateArrivalTime(data Instance, p *Planet) error {
 	flightTimeSec := 35000.0/float64(speedRatio)*math.Sqrt(float64(d)*10.0/float64(maxSpeed)) + 10.0
 
 	// TODO: Hack to speed up fleets by a lot.
-	// flightTimeSec /= 600.0
+	flightTimeSec /= 600.0
 
 	// Compute the flight time by converting this duration in
 	// milliseconds: this will allow to keep more precision.

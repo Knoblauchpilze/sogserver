@@ -3,6 +3,7 @@ package db
 import (
 	"encoding/json"
 	"fmt"
+	"oglike_server/pkg/logger"
 	"strings"
 
 	"github.com/jackc/pgx"
@@ -36,11 +37,16 @@ import (
 // The `Ordering` defines additional properties that
 // will be appended after the filters and which can
 // refer to sort order, count limit, etc.
+//
+// The `Verbose` parameter allows to make the query
+// display itself before being run. Especially used
+// while debugging.
 type QueryDesc struct {
 	Props    []string
 	Table    string
 	Filters  []Filter
 	Ordering string
+	Verbose  bool
 }
 
 // valid :
@@ -154,10 +160,15 @@ func (q QueryResult) Close() {
 // insertion request expects a return a value or not.
 // This allows to precise the syntax to use to perform
 // the query.
+//
+// The `Verbose` parameter allows to make the query
+// display itself before being run. Especially used
+// while debugging.
 type InsertReq struct {
 	Script     string
 	Args       []interface{}
 	SkipReturn bool
+	Verbose    bool
 }
 
 // Convertible :
@@ -239,6 +250,10 @@ func (p Proxy) FetchFromDB(query QueryDesc) (QueryResult, error) {
 	// Generate the string from the input query properties.
 	queryStr := query.generate()
 
+	if query.Verbose {
+		p.dbase.logger.Trace(logger.Verbose, "db", fmt.Sprintf("Executing query \"%s\"", queryStr))
+	}
+
 	// Execute it and return the produced data.
 	var res QueryResult
 	res.rows, res.Err = p.dbase.DBQuery(queryStr)
@@ -311,6 +326,10 @@ func (p Proxy) InsertToDB(req InsertReq) error {
 		query = fmt.Sprintf("SELECT * from %s(%s)", req.Script, strings.Join(argsAsStr, ", "))
 	default: // true
 		query = fmt.Sprintf("SELECT %s(%s)", req.Script, strings.Join(argsAsStr, ", "))
+	}
+
+	if req.Verbose {
+		p.dbase.logger.Trace(logger.Verbose, "db", fmt.Sprintf("Executing query \"%s\"", query))
 	}
 
 	_, err := p.dbase.DBExecute(query)

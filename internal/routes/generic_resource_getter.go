@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// DataFunc :
+// dataFunc :
 // Convenience define which allows to refer to the process
 // to fetch data from the DB given a set of filters. It is
 // used as a generic handler which will be provided to the
@@ -24,7 +24,7 @@ import (
 // This wrapper is used in an `EndpointDesc` to mutualize
 // even more the basic functionalities to fetch data of
 // different kind from the main DB.
-type DataFunc func(filters []db.Filter) (interface{}, error)
+type dataFunc func(filters []db.Filter) (interface{}, error)
 
 // GetResourceEndpoint :
 // Defines the information to describe a endpoint. This allows to
@@ -84,7 +84,7 @@ type DataFunc func(filters []db.Filter) (interface{}, error)
 // is set to `nil` (default behavior) no lock is acquired.
 type GetResourceEndpoint struct {
 	route     string
-	fetcher   DataFunc
+	fetcher   dataFunc
 	filters   map[string]string
 	idFilter  string
 	resFilter string
@@ -178,7 +178,7 @@ func (gre *GetResourceEndpoint) WithResourceFilter(id string) *GetResourceEndpoi
 // by this endpoint to fetch data.
 //
 // Returns this endpoint to allow chain calling.
-func (gre *GetResourceEndpoint) WithDataFunc(f DataFunc) *GetResourceEndpoint {
+func (gre *GetResourceEndpoint) WithDataFunc(f dataFunc) *GetResourceEndpoint {
 	gre.fetcher = f
 	return gre
 }

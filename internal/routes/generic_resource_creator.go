@@ -8,7 +8,7 @@ import (
 	"oglike_server/pkg/logger"
 )
 
-// CreationFunc :
+// creationFunc :
 // Convenience define which allows to refer to the process
 // to create data into the DB given some resources fetched
 // from the request.a set of filters. It is used as a way
@@ -27,7 +27,7 @@ import (
 // of resources that could be created from the input data
 // so that it can be returned to the client as requested
 // by the REST architecture.
-type CreationFunc func(data RouteData) ([]string, error)
+type creationFunc func(data RouteData) ([]string, error)
 
 // CreateResourceEndpoint :
 // Defines the information to describe a endpoint which can be
@@ -69,7 +69,7 @@ type CreationFunc func(data RouteData) ([]string, error)
 type CreateResourceEndpoint struct {
 	route     string
 	key       string
-	creator   CreationFunc
+	creator   creationFunc
 	module    string
 	prefixRes bool
 	lock      *game.Instance
@@ -122,7 +122,7 @@ func (cre *CreateResourceEndpoint) WithDataKey(key string) *CreateResourceEndpoi
 // used by this endpoint to insert data in the DB.
 //
 // Returns this endpoint to allow chain calling.
-func (cre *CreateResourceEndpoint) WithCreationFunc(f CreationFunc) *CreateResourceEndpoint {
+func (cre *CreateResourceEndpoint) WithCreationFunc(f creationFunc) *CreateResourceEndpoint {
 	cre.creator = f
 	return cre
 }

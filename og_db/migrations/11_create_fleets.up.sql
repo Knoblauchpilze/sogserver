@@ -62,14 +62,12 @@ CREATE TABLE fleets_resources (
 CREATE TABLE fleets_acs (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   universe uuid NOT NULL,
-  name text NOT NULL,
   objective uuid NOT NULL,
   target uuid NOT NULL,
   target_type text NOT NULL,
   PRIMARY KEY (id),
   FOREIGN KEY (universe) REFERENCES universes(id),
-  FOREIGN KEY (objective) REFERENCES fleets_objectives(id),
-  UNIQUE (universe, name)
+  FOREIGN KEY (objective) REFERENCES fleets_objectives(id)
 );
 
 -- Create the table registering the participants to an ACS operation.

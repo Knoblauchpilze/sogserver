@@ -124,6 +124,70 @@ func (p *FleetProxy) Fleets(filters []db.Filter) ([]game.Fleet, error) {
 	return fleets, nil
 }
 
+// ACSFleets :
+// Return a list of ACS fleets registered so far in
+// the DB. The input filters allow to only retrieve
+// parts of the total fleets.
+//
+// The `filters` define some filtering properties to
+// apply when querying the fleets.
+//
+// Returns the list of ACS fleets registered in the
+// DB and matching the filters along with any error.
+func (p *FleetProxy) ACSFleets(filters []db.Filter) ([]game.ACSFleet, error) {
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+		},
+		Table:   "fleets_acs",
+		Filters: filters,
+	}
+
+	dbRes, err := p.data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch ACS fleets (err: %v)", err))
+		return []game.ACSFleet{}, err
+	}
+	if dbRes.Err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch ACS fleets (err: %v)", dbRes.Err))
+		return []game.ACSFleet{}, dbRes.Err
+	}
+
+	// Build objects from their ID.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Error while fetching ACS fleet ID (err: %v)", err))
+			continue
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	fleets := make([]game.ACSFleet, 0)
+
+	for _, ID = range IDs {
+		acs, err := game.NewACSFleetFromDB(ID, p.data)
+
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Unable to fetch ACS fleet \"%s\" data from DB (err: %v)", ID, err))
+			continue
+		}
+
+		fleets = append(fleets, acs)
+	}
+
+	return fleets, nil
+}
+
 // CreateFleet :
 // Used to perform the creation of a new fleet for a
 // player. The input data should describe the player
@@ -243,4 +307,23 @@ func (p *FleetProxy) CreateFleet(fleet game.Fleet) (string, error) {
 	p.trace(logger.Notice, fmt.Sprintf("Created new fleet \"%s\" for \"%s\"", fleet.ID, fleet.Player))
 
 	return fleet.ID, nil
+}
+
+// CreateACSFleet :
+// Used to perform the creation of the input fleet
+// along with its associated ACS. The only diff with
+// the previous method is that we expect the fleet
+// to be part of an ACS fleet.
+// The objective and target will be derived from the
+// information described by the fleet.
+//
+// The `fleet` defines the first component of the
+// ACS fleet to create.
+//
+// Returns any error in case the ACS fleet cannot
+// be created. Returns the identifier of the ACS
+// fleet that was created.
+func (p *FleetProxy) CreateACSFleet(fleet game.Fleet) (string, error) {
+	// TODO: Implement this.
+	return "", fmt.Errorf("Not implemented")
 }

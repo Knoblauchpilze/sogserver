@@ -84,27 +84,35 @@ func (a *BuildingAction) valid() error {
 	return nil
 }
 
-// NewBuildingActionFromDB :
-// Used to query the building action referred by the
-// input identifier from the DB. It assumes that the
-// action already exists under the specified ID.
+// newBuildingActionFromDB :
+// Used internally to perform the creation of an
+// action provided its linkage to either a moon
+// or a planet.
 //
-// The `ID` defines the identifier of the action to
-// fetch from the DB.
+// The `ID` defines the identifier of the action
+// to fetch from the DB.
 //
-// The `data` allows to actually access to the data
-// in the DB.
+// The `data` allows to actually access to the
+// data in the DB.
 //
-// Returns the corresponding building action along
-// with any error.
-func NewBuildingActionFromDB(ID string, data Instance) (BuildingAction, error) {
+// The `moon` defines whether the action should
+// be linked to a moon or a planet.
+//
+// Returns the corresponding building action and
+// any error.
+func newBuildingActionFromDB(ID string, data Instance, moon bool) (BuildingAction, error) {
 	// Create the return value and fetch the base
 	// data for this action.
 	a := BuildingAction{}
 
+	table := "construction_actions_buildings"
+	if moon {
+		table = "construction_actions_buildings_moon"
+	}
+
 	// Create the action using the base handler.
 	var err error
-	a.ProgressAction, err = newProgressActionFromDB(ID, data, "construction_actions_buildings", false)
+	a.ProgressAction, err = newProgressActionFromDB(ID, data, table, moon)
 
 	// Consistency.
 	if err != nil {
@@ -142,6 +150,38 @@ func NewBuildingActionFromDB(ID string, data Instance) (BuildingAction, error) {
 	}
 
 	return a, nil
+}
+
+// NewBuildingActionFromDB :
+// Wrapper around the `newBuildingActionFromDB`
+// method to fetch a building action linked to
+// a planet.
+//
+// The `ID` defines the ID of the action to get
+// from the DB.
+//
+// The `data` allows to access the data.
+//
+// Returns the corresponding building action
+// along with any error.
+func NewBuildingActionFromDB(ID string, data Instance) (BuildingAction, error) {
+	return newBuildingActionFromDB(ID, data, false)
+}
+
+// NewMoonBuildingActionFromDB :
+// Wrapper around the `newBuildingActionFromDB`
+// method to fetch a building action linked to
+// a moon.
+//
+// The `ID` defines the ID of the action to get
+// from the DB.
+//
+// The `data` allows to access the data.
+//
+// Returns the corresponding building action
+// along with any error.
+func NewMoonBuildingActionFromDB(ID string, data Instance) (BuildingAction, error) {
+	return newBuildingActionFromDB(ID, data, true)
 }
 
 // fetchProductionEffects :

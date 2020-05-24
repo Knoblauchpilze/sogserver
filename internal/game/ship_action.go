@@ -14,26 +14,34 @@ type ShipAction struct {
 	FixedAction
 }
 
-// NewShipActionFromDB :
-// Used similarly to the `NewBuildingActionFromDB`
-// element but to fetch the actions related to the
-// construction of new defense systems on a planet.
+// newShipActionFromDB :
+// Used internally to perform the creation of an
+// action provided its linkage to either a moon
+// or a planet.
 //
-// The `ID` defines the identifier of the action to
-// fetch from the DB.
+// The `ID` defines the identifier of the action
+// to fetch from the DB.
 //
-// The `data` allows to actually access to the data
-// in the DB.
+// The `data` allows to actually access to the
+// data in the DB.
 //
-// Returns the corresponding ship action along with
-// any error.
-func NewShipActionFromDB(ID string, data Instance) (ShipAction, error) {
+// The `moon` defines whether the action should
+// be linked to a moon or a planet.
+//
+// Returns the corresponding ship action along
+// with any error.
+func newShipActionFromDB(ID string, data Instance, moon bool) (ShipAction, error) {
 	// Create the action.
 	a := ShipAction{}
 
+	table := "construction_actions_ships"
+	if moon {
+		table = "construction_actions_ships_moon"
+	}
+
 	// Create the action using the base handler.
 	var err error
-	a.FixedAction, err = newFixedActionFromDB(ID, data, "construction_actions_ships", false)
+	a.FixedAction, err = newFixedActionFromDB(ID, data, table, moon)
 
 	// Consistency.
 	if err != nil {
@@ -62,6 +70,38 @@ func NewShipActionFromDB(ID string, data Instance) (ShipAction, error) {
 	}
 
 	return a, nil
+}
+
+// NewShipActionFromDB :
+// Wrapper around the `newShipActionFromDB`
+// method to fetch a ship action linked to
+// a planet.
+//
+// The `ID` defines the ID of the action to
+// get from the DB.
+//
+// The `data` allows to access the data.
+//
+// Returns the corresponding ship action
+// along with any error.
+func NewShipActionFromDB(ID string, data Instance) (ShipAction, error) {
+	return newShipActionFromDB(ID, data, false)
+}
+
+// NewMoonShipActionFromDB :
+// Wrapper around the `newShipActionFromDB`
+// method to fetch a ship action linked
+// to a moon.
+//
+// The `ID` defines the ID of the action to
+// get from the DB.
+//
+// The `data` allows to access the data.
+//
+// Returns the corresponding ship action
+// along with any error.
+func NewMoonShipActionFromDB(ID string, data Instance) (ShipAction, error) {
+	return newShipActionFromDB(ID, data, true)
 }
 
 // SaveToDB :

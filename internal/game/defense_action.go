@@ -13,26 +13,34 @@ type DefenseAction struct {
 	FixedAction
 }
 
-// NewDefenseActionFromDB :
-// Used similarly to the `NewBuildingActionFromDB`
-// element but to fetch the actions related to the
-// construction of new defense systems on a planet.
+// newDefenseActionFromDB :
+// Used internally to perform the creation of an
+// action provided its linkage to either a moon
+// or a planet.
 //
-// The `ID` defines the identifier of the action to
-// fetch from the DB.
+// The `ID` defines the identifier of the action
+// to fetch from the DB.
 //
-// The `data` allows to actually access to the data
-// in the DB.
+// The `data` allows to actually access to the
+// data in the DB.
 //
-// Returns the corresponding defense action along
-// with any error.
-func NewDefenseActionFromDB(ID string, data Instance) (DefenseAction, error) {
+// The `moon` defines whether the action should
+// be linked to a moon or a planet.
+//
+// Returns the corresponding defense action and
+// any error.
+func newDefenseActionFromDB(ID string, data Instance, moon bool) (DefenseAction, error) {
 	// Create the action.
 	a := DefenseAction{}
 
+	table := "construction_actions_defenses"
+	if moon {
+		table = "construction_actions_defenses_moon"
+	}
+
 	// Create the action using the base handler.
 	var err error
-	a.FixedAction, err = newFixedActionFromDB(ID, data, "construction_actions_defenses", false)
+	a.FixedAction, err = newFixedActionFromDB(ID, data, table, moon)
 
 	// Consistency.
 	if err != nil {
@@ -61,6 +69,38 @@ func NewDefenseActionFromDB(ID string, data Instance) (DefenseAction, error) {
 	}
 
 	return a, nil
+}
+
+// NewDefenseActionFromDB :
+// Wrapper around the `newDefenseActionFromDB`
+// method to fetch a defense action linked to
+// a planet.
+//
+// The `ID` defines the ID of the action to
+// get from the DB.
+//
+// The `data` allows to access the data.
+//
+// Returns the corresponding defense action
+// along with any error.
+func NewDefenseActionFromDB(ID string, data Instance) (DefenseAction, error) {
+	return newDefenseActionFromDB(ID, data, false)
+}
+
+// NewMoonDefenseActionFromDB :
+// Wrapper around the `newDefenseActionFromDB`
+// method to fetch a defense action linked to
+// a moon.
+//
+// The `ID` defines the ID of the action to get
+// from the DB.
+//
+// The `data` allows to access the data.
+//
+// Returns the corresponding defense action
+// along with any error.
+func NewMoonDefenseActionFromDB(ID string, data Instance) (DefenseAction, error) {
+	return newDefenseActionFromDB(ID, data, true)
 }
 
 // SaveToDB :

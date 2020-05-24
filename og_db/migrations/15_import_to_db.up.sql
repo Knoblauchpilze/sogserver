@@ -121,8 +121,17 @@ BEGIN
 
   DELETE FROM construction_actions_buildings_moon WHERE moon = moon_id;
   
-  -- Reroute fleets to the parent planet.
-  -- TODO: Handle this.
+  -- Reroute fleets to the parent planet when
+  -- possible.
+  UPDATE fleets
+    SET target_type = 'planet'
+  FROM
+    moons AS m
+    INNER JOIN planets AS p ON m.planet = p.id
+  WHERE
+    f.target_galaxy = p.galaxy
+    AND f.target_solar_system = p.solar_system
+    AND f.target_position = p.position;
 
   -- Delete the moon itself.
   DELETE FROM moons WHERE moon = moon_id;

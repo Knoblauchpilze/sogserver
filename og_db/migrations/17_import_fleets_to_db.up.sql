@@ -899,6 +899,30 @@ BEGIN
     RAISE EXCEPTION 'Invalid moon for fleet % in destruction operation', fleet_id;
   END IF;
 
+  -- Retrieve the information needed for the
+  -- destruction report.
+  SELECT
+    fs.count INTO deathstars_count
+  FROM
+    fleets_ships AS fs
+    INNER JOIN ships AS s ON fs.ship = s.id
+  WHERE
+    fs.fleet = fleet_id
+    AND s.name = 'deathstar';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid deathstars count for fleet % in destruction operation', fleet_id;
+  END IF;
+
+  SELECT
+    concat_ws(':', target_galaxy, target_solar_system, target_position)
+  INTO
+    coordinates
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
+
   -- In case the fleet is destroyed, we need to remove
   -- any deathstar from the attacking fleet.
   IF fleet_destroyed THEN
@@ -950,33 +974,8 @@ BEGIN
   -- In case the moon is destroyed we need to remove the
   -- moon and reroute any fleet to the parent planet.
   IF moon_destroyed THEN
-    -- TODO: Handle this.
+    PERFORM delete_moon(moon_id);
   END IF;
-
-
-  SELECT
-    fs.count INTO deathstars_count
-  FROM
-    fleets_ships AS fs
-    INNER JOIN ships AS s ON fs.ship = s.id
-  WHERE
-    fs.fleet = fleet_id
-    AND s.name = 'deathstar';
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid deathstars count for fleet % in destruction operation', fleet_id;
-  END IF;
-
-  -- Create the string representing the coordinates which
-  -- are used in the destruction report.
-  SELECT
-    concat_ws(':', target_galaxy, target_solar_system, target_position)
-  INTO
-    coordinates
-  FROM
-    fleets
-  WHERE
-    id = fleet_id;
 
   -- We need to register a new message indicating whether
   -- the fleet/moon were destroyed.

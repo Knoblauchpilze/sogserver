@@ -86,3 +86,45 @@ BEGIN
       defenses AS d;
 END
 $$ LANGUAGE plpgsql;
+
+-- Delete a moon from the corresponding table.
+CREATE OR REPLACE FUNCTION delete_moon(moon_id uuid) RETURNS VOID AS $$
+BEGIN
+  -- Delete moon's resources.
+  DELETE FROM moons_defenses WHERE moon = moon_id;
+  DELETE FROM moons_ships WHERE moon = moon_id;
+  DELETE FROM moons_buildings WHERE moon = moon_id;
+  DELETE FROM moons_resources WHERE moon = moon_id;
+
+  -- Delete actions queue for this moon.
+  DELETE FROM actions_queue AS aq
+    USING construction_actions_defenses_moon AS cadm
+  WHERE
+    aq.action = cadm.id
+    AND cadm.moon = moon_id;
+
+  DELETE FROM construction_actions_defenses_moon WHERE moon = moon_id;
+
+  DELETE FROM actions_queue AS aq
+    USING construction_actions_ships_moon AS casm
+  WHERE
+    aq.action = casm.id
+    AND casm.moon = moon_id;
+
+  DELETE FROM construction_actions_ships_moon WHERE moon = moon_id;
+
+  DELETE FROM actions_queue AS aq
+    USING construction_actions_buildings_moon AS cabm
+  WHERE
+    aq.action = cabm.id
+    AND cabm.moon = moon_id;
+
+  DELETE FROM construction_actions_buildings_moon WHERE moon = moon_id;
+  
+  -- Reroute fleets to the parent planet.
+  -- TODO: Handle this.
+
+  -- Delete the moon itself.
+  DELETE FROM moons WHERE moon = moon_id;
+END
+$$ LANGUAGE plpgsql;

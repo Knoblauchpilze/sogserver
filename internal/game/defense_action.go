@@ -32,7 +32,7 @@ func NewDefenseActionFromDB(ID string, data Instance) (DefenseAction, error) {
 
 	// Create the action using the base handler.
 	var err error
-	a.FixedAction, err = newFixedActionFromDB(ID, data, "construction_actions_defenses")
+	a.FixedAction, err = newFixedActionFromDB(ID, data, "construction_actions_defenses", false)
 
 	// Consistency.
 	if err != nil {
@@ -78,13 +78,18 @@ func (a *DefenseAction) SaveToDB(proxy db.Proxy) error {
 		return err
 	}
 
+	kind := "planet"
+	if a.moon {
+		kind = "moon"
+	}
+
 	// Create the query and execute it.
 	query := db.InsertReq{
 		Script: "create_defense_upgrade_action",
 		Args: []interface{}{
 			a,
 			a.Costs,
-			"planet",
+			kind,
 		},
 	}
 
@@ -102,6 +107,8 @@ func (a *DefenseAction) SaveToDB(proxy db.Proxy) error {
 		switch fkve.ForeignKey {
 		case "planet":
 			return ErrNonExistingPlanet
+		case "moon":
+			return ErrNonExistingMoon
 		case "element":
 			return ErrNonExistingElement
 		}
@@ -120,6 +127,8 @@ func (a *DefenseAction) SaveToDB(proxy db.Proxy) error {
 // Returns the converted version of this action which
 // only includes relevant fields.
 func (a *DefenseAction) Convert() interface{} {
+	// Note that the conversion of the `moon`'s ID is
+	// registered under the `planet` field.
 	return struct {
 		ID             string            `json:"id"`
 		Planet         string            `json:"planet"`

@@ -104,7 +104,7 @@ func NewBuildingActionFromDB(ID string, data Instance) (BuildingAction, error) {
 
 	// Create the action using the base handler.
 	var err error
-	a.ProgressAction, err = newProgressActionFromDB(ID, data, "construction_actions_buildings")
+	a.ProgressAction, err = newProgressActionFromDB(ID, data, "construction_actions_buildings", false)
 
 	// Consistency.
 	if err != nil {
@@ -267,6 +267,11 @@ func (a *BuildingAction) SaveToDB(proxy db.Proxy) error {
 		return err
 	}
 
+	kind := "planet"
+	if a.moon {
+		kind = "moon"
+	}
+
 	// Create the query and execute it.
 	query := db.InsertReq{
 		Script: "create_building_upgrade_action",
@@ -275,7 +280,7 @@ func (a *BuildingAction) SaveToDB(proxy db.Proxy) error {
 			a.Costs,
 			a.Production,
 			a.Storage,
-			"planet",
+			kind,
 		},
 	}
 
@@ -293,6 +298,8 @@ func (a *BuildingAction) SaveToDB(proxy db.Proxy) error {
 		switch dee.Constraint {
 		case "construction_actions_buildings_planet_key":
 			return ErrOnlyOneActionAuthorized
+		case "construction_actions_buildings_moon_key":
+			return ErrOnlyOneActionAuthorized
 		}
 
 		return dee
@@ -303,6 +310,8 @@ func (a *BuildingAction) SaveToDB(proxy db.Proxy) error {
 		switch fkve.ForeignKey {
 		case "planet":
 			return ErrNonExistingPlanet
+		case "moon":
+			return ErrNonExistingMoon
 		case "element":
 			return ErrNonExistingElement
 		}
@@ -321,6 +330,8 @@ func (a *BuildingAction) SaveToDB(proxy db.Proxy) error {
 // Returns the converted version of this action which
 // only includes relevant fields.
 func (a *BuildingAction) Convert() interface{} {
+	// Note that the conversion of the `moon`'s ID is
+	// registered under the `planet` field.
 	return struct {
 		ID             string    `json:"id"`
 		Planet         string    `json:"planet"`

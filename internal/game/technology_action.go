@@ -63,7 +63,7 @@ func NewTechnologyActionFromDB(ID string, data Instance) (TechnologyAction, erro
 
 	// Create the action using the base handler.
 	var err error
-	a.ProgressAction, err = newProgressActionFromDB(ID, data, "construction_actions_technologies")
+	a.ProgressAction, err = newProgressActionFromDB(ID, data, "construction_actions_technologies", false)
 
 	// Consistency.
 	if err != nil {

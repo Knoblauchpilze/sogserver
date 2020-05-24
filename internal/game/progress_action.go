@@ -77,24 +77,32 @@ func (a *ProgressAction) valid() error {
 // The `table` defines the name of the table to
 // be queried for this action.
 //
+// The `moon` argument defines whether this action
+// links to a moon or a planet.
+//
 // Returns the progress action along with any
 // error.
-func newProgressActionFromDB(ID string, data Instance, table string) (ProgressAction, error) {
+func newProgressActionFromDB(ID string, data Instance, table string, moon bool) (ProgressAction, error) {
 	// Create the action.
 	a := ProgressAction{}
 
 	var err error
-	a.action, err = newAction(ID)
+	a.action, err = newAction(ID, moon)
 
 	// Consistency.
 	if err != nil {
 		return a, err
 	}
 
+	body := "planet"
+	if moon {
+		body = "moon"
+	}
+
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"planet",
+			body,
 			"element",
 			"current_level",
 			"desired_level",

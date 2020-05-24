@@ -38,12 +38,17 @@ import (
 //
 // The `creationTime` defines the date at which the action
 // is set to start.
+//
+// Used to define whether this action is related to a
+// planet or a moon. This will condition the tables to
+// use to fetch or save information.
 type action struct {
 	ID           string `json:"id"`
-	Planet       string `json:"planet"`
+	Planet       string `json:"planet,omitempty"`
 	Element      string `json:"element"`
 	Costs        []Cost `json:"-"`
 	creationTime time.Time
+	moon         bool
 }
 
 // Cost :
@@ -77,8 +82,11 @@ var ErrMismatchInVerification = fmt.Errorf("Mismatch in verification data for ac
 // ErrInvalidDuration : Indicates that the duration of an action could not be validated.
 var ErrInvalidDuration = fmt.Errorf("Cannot convert completion time to duration for action")
 
-// ErrNonExistingPlanet : Indicates the the planet for the action does not exist.
+// ErrNonExistingPlanet : Indicates that the planet for the action does not exist.
 var ErrNonExistingPlanet = fmt.Errorf("Parent planet does not exist")
+
+// ErrNonExistingMoon : Indicates that the moon for the action does not exist.
+var ErrNonExistingMoon = fmt.Errorf("Parent moon does not exist")
 
 // ErrNonExistingElement : Indicates that the element for the action does not exist.
 var ErrNonExistingElement = fmt.Errorf("Invalid upgraded element for action")
@@ -108,11 +116,15 @@ func (a *action) valid() error {
 //
 // The `ID` defines the identifier for this action.
 //
+// The `moon` defines whether this action is linked
+// to a moon (or a planet).
+//
 // Returns the created action along with any error.
-func newAction(ID string) (action, error) {
+func newAction(ID string, moon bool) (action, error) {
 	// Create the action.
 	a := action{
-		ID: ID,
+		ID:   ID,
+		moon: moon,
 	}
 
 	// Consistency.

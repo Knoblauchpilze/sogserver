@@ -76,23 +76,31 @@ func (a *FixedAction) valid() error {
 // The `table` defines the name of the table to be
 // queried for this action.
 //
+// The `moon` defines whether this action is linked
+// to a moon or a planet.
+//
 // Returns the progress action along with any error.
-func newFixedActionFromDB(ID string, data Instance, table string) (FixedAction, error) {
+func newFixedActionFromDB(ID string, data Instance, table string, moon bool) (FixedAction, error) {
 	// Create the action.
 	a := FixedAction{}
 
 	var err error
-	a.action, err = newAction(ID)
+	a.action, err = newAction(ID, moon)
 
 	// Consistency.
 	if err != nil {
 		return a, err
 	}
 
+	body := "planet"
+	if moon {
+		body = "moon"
+	}
+
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"planet",
+			body,
 			"element",
 			"amount",
 			"remaining",

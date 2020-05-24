@@ -351,7 +351,7 @@ func (f *ACSFleet) SaveToDB(fleet *Fleet, proxy db.Proxy) error {
 		Args: []interface{}{
 			f.ID,
 			fleet,
-			fleet.Ships,
+			fleet.Ships.convert(),
 			resources,
 			fleet.Consumption,
 		},

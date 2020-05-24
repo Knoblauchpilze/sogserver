@@ -155,7 +155,7 @@ type ShipInFleet struct {
 // belonging to a fleet component. Allows to define
 // some methods on this type to ease the consistency
 // checks.
-type ShipsInFleet []ShipInFleet
+type ShipsInFleet map[string]ShipInFleet
 
 // valid :
 // Determines whether the ship is valid. By valid we
@@ -191,6 +191,22 @@ func (sifs ShipsInFleet) valid() error {
 	}
 
 	return nil
+}
+
+// convert :
+// Used to convert the map to a simple slice
+// of ships in order to use in the DB scripts
+// for example.
+//
+// Returns the equivalent slice of ships.
+func (sifs ShipsInFleet) convert() []ShipInFleet {
+	ships := make([]ShipInFleet, 0)
+
+	for _, s := range sifs {
+		ships = append(ships, s)
+	}
+
+	return ships
 }
 
 // purpose :
@@ -550,7 +566,7 @@ func (f *Fleet) fetchACSInfo(data Instance) error {
 //
 // Returns any error.
 func (f *Fleet) fetchShips(data Instance) error {
-	f.Ships = make([]ShipInFleet, 0)
+	f.Ships = make(map[string]ShipInFleet, 0)
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
@@ -591,7 +607,14 @@ func (f *Fleet) fetchShips(data Instance) error {
 			return err
 		}
 
-		f.Ships = append(f.Ships, sif)
+		s, ok := f.Ships[sif.ID]
+		if ok {
+			s.Count += sif.Count
+		} else {
+			s = sif
+		}
+
+		f.Ships[sif.ID] = s
 	}
 
 	return nil
@@ -683,7 +706,7 @@ func (f *Fleet) SaveToDB(proxy db.Proxy) error {
 		Script: "create_fleet",
 		Args: []interface{}{
 			f,
-			f.Ships,
+			f.Ships.convert(),
 			resources,
 			f.Consumption,
 		},
@@ -748,7 +771,7 @@ func (f *Fleet) MarshalJSON() ([]byte, error) {
 		ArrivalTime    time.Time              `json:"arrival_time"`
 		DeploymentTime int                    `json:"deployment_time"`
 		ReturnTime     time.Time              `json:"return_time"`
-		Ships          ShipsInFleet           `json:"ships"`
+		Ships          []ShipInFleet          `json:"ships"`
 		Cargo          []model.ResourceAmount `json:"cargo,omitempty"`
 	}
 
@@ -768,7 +791,7 @@ func (f *Fleet) MarshalJSON() ([]byte, error) {
 		ArrivalTime:    f.ArrivalTime,
 		DeploymentTime: f.DeploymentTime,
 		ReturnTime:     f.ReturnTime,
-		Ships:          f.Ships,
+		Ships:          f.Ships.convert(),
 	}
 
 	for _, r := range f.Cargo {
@@ -806,7 +829,7 @@ func (f *Fleet) UnmarshalJSON(raw []byte) error {
 		ArrivalTime    time.Time              `json:"arrival_time"`
 		DeploymentTime int                    `json:"deployment_time"`
 		ReturnTime     time.Time              `json:"return_time"`
-		Ships          ShipsInFleet           `json:"ships"`
+		Ships          []ShipInFleet          `json:"ships"`
 		Cargo          []model.ResourceAmount `json:"cargo"`
 	}
 
@@ -832,7 +855,19 @@ func (f *Fleet) UnmarshalJSON(raw []byte) error {
 	f.ArrivalTime = in.ArrivalTime
 	f.DeploymentTime = in.DeploymentTime
 	f.ReturnTime = in.ReturnTime
-	f.Ships = in.Ships
+
+	f.Ships = make(map[string]ShipInFleet)
+	for _, s := range in.Ships {
+		ship, ok := f.Ships[s.ID]
+
+		if !ok {
+			ship = s
+		} else {
+			ship.Count += s.Count
+		}
+
+		f.Ships[s.ID] = ship
+	}
 
 	f.Cargo = make(map[string]model.ResourceAmount)
 	for _, c := range in.Cargo {
@@ -932,8 +967,12 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 	}
 
 	objDoable := false
-	for id := 0; id < len(f.Ships) && !objDoable; id++ {
-		objDoable = obj.CanBePerformedBy(f.Ships[id].ID)
+	for id := range f.Ships {
+		objDoable = obj.CanBePerformedBy(id)
+
+		if objDoable {
+			break
+		}
 	}
 
 	if !objDoable {
@@ -1028,8 +1067,8 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 	// that there are enough resources to be taken
 	// from the planet.
 	// TODO: Hack to allow creation of fleets without checks.
-	// return source.validateFleet(f.Consumption, f.Cargo, f.Ships, data)
-	return nil
+	return source.validateFleet(f.Consumption, f.Cargo, f.Ships, data)
+	// return nil
 }
 
 // consolidateConsumption :
@@ -1234,7 +1273,7 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 	case "espionage":
 		script, err = f.spy(p)
 	case "destroy":
-		script, err = f.destroy(p)
+		script, err = f.destroy(p, data)
 	case "expedition":
 		return fmt.Errorf("Not implemented")
 	case "ACSdefend'":

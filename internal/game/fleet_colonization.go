@@ -90,14 +90,15 @@ func (f *Fleet) canReturnFromColonization(ships *model.ShipsModule) (bool, error
 	// Assume the fleet can return.
 	onlyAColonyShip := true
 
-	for id := 0; id < len(f.Ships) && onlyAColonyShip; id++ {
-		sd, err := ships.GetShipFromID(f.Ships[id].ID)
+	for id, s := range f.Ships {
+		sd, err := ships.GetShipFromID(id)
 		if err != nil {
 			return false, err
 		}
 
-		if sd.Name != "colony ship" || f.Ships[id].Count > 1 {
+		if sd.Name != "colony ship" || s.Count > 1 {
 			onlyAColonyShip = false
+			break
 		}
 	}
 

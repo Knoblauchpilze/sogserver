@@ -866,3 +866,128 @@ BEGIN
   PERFORM create_message_for(player_id, 'harvesting_report', coordinates, dispersed, gathered);
 END
 $$ LANGUAGE plpgsql;
+
+-- Handle the destruction operation of a moon by a fleet
+-- of deathstars. We will both perform the deletion of a
+-- moon (which includes removing the moon from the list
+-- of bodies registered but also rerouting the fleets to
+-- the parent planet for example).
+CREATE OR REPLACE FUNCTION fleet_destroy(fleet_id uuid, moon_destroyed boolean, fleet_destroyed boolean) RETURNS VOID AS $$
+DECLARE
+  player_id uuid;
+  moon_id uuid;
+  deathstars_count integer;
+  coordinates text;
+BEGIN
+  -- Attempt to retrieve the player as it will be needed
+  -- afterwards anyways. We will also retrieve the target
+  -- of the fleet.
+  SELECT player INTO player_id FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid player for fleet % in destruction operation', fleet_id;
+  END IF;
+
+  SELECT
+    m.id INTO moon_id
+  FROM
+    fleets AS f
+    INNER JOIN moons AS m ON m.id = f.target
+  WHERE
+    id = fleet_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid moon for fleet % in destruction operation', fleet_id;
+  END IF;
+
+  -- In case the fleet is destroyed, we need to remove
+  -- any deathstar from the attacking fleet.
+  IF fleet_destroyed THEN
+    DELETE FROM fleets_ships AS fs
+      USING ships AS s 
+    WHERE
+      fs.ships = s.id
+      AND s.name = 'deathstar';
+
+    -- Delete the fleet in case it does not contain any
+    -- ship anymore. Note that we will use the fact that
+    -- no ACS operation can be used to destroy a moon so
+    -- we assume that the fleet will not be existing in
+    -- the ACS tables.
+    -- We will also handle first the deletion from the
+    -- actions queue before deleting the fleet as it is
+    -- the only way have to determine whether the fleet
+    -- should be removed.
+    DELETE FROM
+      actions_queue
+    WHERE
+      action NOT IN (
+        SELECT
+          fleet
+        FROM
+          fleets_ships
+        GROUP BY
+          fleet
+        HAVING
+          count(*) > 0
+      )
+      AND type = 'fleet';
+
+    DELETE FROM
+      fleets
+    WHERE
+      id NOT IN (
+        SELECT
+          fleet
+        FROM
+          fleets_ships
+        GROUP BY
+          fleet
+        HAVING
+          count(*) > 0
+      );
+  END IF;
+
+  -- In case the moon is destroyed we need to remove the
+  -- moon and reroute any fleet to the parent planet.
+  IF moon_destroyed THEN
+    -- TODO: Handle this.
+  END IF;
+
+
+  SELECT
+    fs.count INTO deathstars_count
+  FROM
+    fleets_ships AS fs
+    INNER JOIN ships AS s ON fs.ship = s.id
+  WHERE
+    fs.fleet = fleet_id
+    AND s.name = 'deathstar';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid deathstars count for fleet % in destruction operation', fleet_id;
+  END IF;
+
+  -- Create the string representing the coordinates which
+  -- are used in the destruction report.
+  SELECT
+    concat_ws(':', target_galaxy, target_solar_system, target_position)
+  INTO
+    coordinates
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
+
+  -- We need to register a new message indicating whether
+  -- the fleet/moon were destroyed.
+  IF moon_destroyed AND fleet_destroyed THEN
+    PERFORM create_message_for(player_id, 'destruction_report_all_destroyed', deathstars_count, coordinates);
+  ELSEIF moon_destroyed THEN
+    PERFORM create_message_for(player_id, 'destruction_report_moon_destroyed', deathstars_count, coordinates);
+  ELSEIF fleet_destroyed THEN
+    PERFORM create_message_for(player_id, 'destruction_report_fleet_destroyed', deathstars_count, coordinates);
+  ELSE
+    PERFORM create_message_for(player_id, 'destruction_report_failed', deathstars_count, coordinates);
+  END IF;
+END
+$$ LANGUAGE plpgsql;

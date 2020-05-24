@@ -109,6 +109,13 @@ import (
 // already been researched by the player owning this tech.
 // It helps in various cases to be able to fetch player's
 // info about technology.
+//
+// The `moon` defines whether this data is related to
+// a planet or a moon. Indeed most of the information
+// defining a planet is common to the moon case. This
+// field will be used when interpreting data from the
+// DB or when saving data to the DB in order to target
+// the right scripts.
 type Planet struct {
 	ID                   string                  `json:"id"`
 	Player               string                  `json:"player"`
@@ -129,6 +136,7 @@ type Planet struct {
 	SourceFleets         []string                `json:"-"`
 	IncomingFleets       []string                `json:"-"`
 	technologies         map[string]int
+	moon                 bool
 }
 
 // ResourceInfo :
@@ -297,7 +305,8 @@ func (r Resources) Convert() interface{} {
 func NewPlanetFromDB(ID string, data Instance) (Planet, error) {
 	// Create the planet.
 	p := Planet{
-		ID: ID,
+		ID:   ID,
+		moon: false,
 	}
 
 	// Consistency.
@@ -411,6 +420,7 @@ func NewPlanet(player string, coords Coordinate, homeworld bool, data Instance) 
 		Buildings:   make(map[string]BuildingInfo, 0),
 		Ships:       make(map[string]ShipInfo, 0),
 		Defenses:    make(map[string]DefenseInfo, 0),
+		moon:        false,
 	}
 
 	// Generate diameter and fields count.
@@ -741,14 +751,24 @@ func (p *Planet) fetchBuildingsUpgrades(data Instance) error {
 	p.BuildingsUpgrade = make([]BuildingAction, 0)
 
 	// Create the query and execute it.
+	table := "construction_actions_buildings"
+	if p.moon {
+		table = "construction_actions_buildings_moon"
+	}
+
+	key := "planet"
+	if p.moon {
+		key = "moon"
+	}
+
 	query := db.QueryDesc{
 		Props: []string{
 			"id",
 		},
-		Table: "construction_actions_buildings",
+		Table: table,
 		Filters: []db.Filter{
 			{
-				Key:    "planet",
+				Key:    key,
 				Values: []interface{}{p.ID},
 			},
 		},
@@ -781,8 +801,14 @@ func (p *Planet) fetchBuildingsUpgrades(data Instance) error {
 		IDs = append(IDs, ID)
 	}
 
+	var bu BuildingAction
+
 	for _, ID = range IDs {
-		bu, err := NewBuildingActionFromDB(ID, data)
+		if p.moon {
+			bu, err = NewMoonBuildingActionFromDB(ID, data)
+		} else {
+			bu, err = NewBuildingActionFromDB(ID, data)
+		}
 
 		if err != nil {
 			return err
@@ -869,18 +895,27 @@ func (p *Planet) fetchShipsUpgrades(data Instance) error {
 	p.ShipsConstruction = make([]ShipAction, 0)
 
 	// Create the query and execute it.
+	table := "construction_actions_ships"
+	if p.moon {
+		table = "construction_actions_ships_moon"
+	}
+
+	key := "planet"
+	if p.moon {
+		key = "moon"
+	}
+
 	query := db.QueryDesc{
 		Props: []string{
 			"id",
 		},
-		Table: "construction_actions_ships",
+		Table: table,
 		Filters: []db.Filter{
 			{
-				Key:    "planet",
+				Key:    key,
 				Values: []interface{}{p.ID},
 			},
 		},
-		Ordering: "order by created_at",
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
@@ -910,8 +945,14 @@ func (p *Planet) fetchShipsUpgrades(data Instance) error {
 		IDs = append(IDs, ID)
 	}
 
+	var su ShipAction
+
 	for _, ID = range IDs {
-		su, err := NewShipActionFromDB(ID, data)
+		if p.moon {
+			su, err = NewMoonShipActionFromDB(ID, data)
+		} else {
+			su, err = NewShipActionFromDB(ID, data)
+		}
 
 		if err != nil {
 			return err
@@ -934,14 +975,24 @@ func (p *Planet) fetchDefensesUpgrades(data Instance) error {
 	p.DefensesConstruction = make([]DefenseAction, 0)
 
 	// Create the query and execute it.
+	table := "construction_actions_defenses"
+	if p.moon {
+		table = "construction_actions_defenses_moon"
+	}
+
+	key := "planet"
+	if p.moon {
+		key = "moon"
+	}
+
 	query := db.QueryDesc{
 		Props: []string{
 			"id",
 		},
-		Table: "construction_actions_defenses",
+		Table: table,
 		Filters: []db.Filter{
 			{
-				Key:    "planet",
+				Key:    key,
 				Values: []interface{}{p.ID},
 			},
 		},
@@ -975,8 +1026,14 @@ func (p *Planet) fetchDefensesUpgrades(data Instance) error {
 		IDs = append(IDs, ID)
 	}
 
+	var du DefenseAction
+
 	for _, ID = range IDs {
-		du, err := NewDefenseActionFromDB(ID, data)
+		if p.moon {
+			du, err = NewMoonDefenseActionFromDB(ID, data)
+		} else {
+			du, err = NewDefenseActionFromDB(ID, data)
+		}
 
 		if err != nil {
 			return err
@@ -1002,6 +1059,11 @@ func (p *Planet) fetchIncomingFleets(data Instance) error {
 	p.IncomingFleets = make([]string, 0)
 
 	// Create the query and execute it.
+	kind := "planet"
+	if p.moon {
+		kind = "moon"
+	}
+
 	query := db.QueryDesc{
 		Props: []string{
 			"id",
@@ -1014,7 +1076,7 @@ func (p *Planet) fetchIncomingFleets(data Instance) error {
 			},
 			{
 				Key:    "target_type",
-				Values: []interface{}{"planet"},
+				Values: []interface{}{kind},
 			},
 		},
 		Ordering: "order by arrival_time desc",
@@ -1058,6 +1120,11 @@ func (p *Planet) fetchSourceFleets(data Instance) error {
 	p.SourceFleets = make([]string, 0)
 
 	// Create the query and execute it.
+	kind := "planet"
+	if p.moon {
+		kind = "moon"
+	}
+
 	query := db.QueryDesc{
 		Props: []string{
 			"id",
@@ -1070,7 +1137,7 @@ func (p *Planet) fetchSourceFleets(data Instance) error {
 			},
 			{
 				Key:    "source_type",
-				Values: []interface{}{"planet"},
+				Values: []interface{}{kind},
 			},
 		},
 	}
@@ -1193,15 +1260,25 @@ func (p *Planet) fetchBuildings(data Instance) error {
 	p.Buildings = make(map[string]BuildingInfo, 0)
 
 	// Create the query and execute it.
+	table := "planets_buildings"
+	if p.moon {
+		table = "moons_buildings"
+	}
+
+	key := "planet"
+	if p.moon {
+		key = "moon"
+	}
+
 	query := db.QueryDesc{
 		Props: []string{
 			"building",
 			"level",
 		},
-		Table: "planets_buildings",
+		Table: table,
 		Filters: []db.Filter{
 			{
-				Key:    "planet",
+				Key:    key,
 				Values: []interface{}{p.ID},
 			},
 		},
@@ -1329,15 +1406,25 @@ func (p *Planet) fetchShips(data Instance) error {
 	p.Ships = make(map[string]ShipInfo, 0)
 
 	// Create the query and execute it.
+	table := "planets_ships"
+	if p.moon {
+		table = "moons_ships"
+	}
+
+	key := "planet"
+	if p.moon {
+		key = "moon"
+	}
+
 	query := db.QueryDesc{
 		Props: []string{
 			"ship",
 			"count",
 		},
-		Table: "planets_ships",
+		Table: table,
 		Filters: []db.Filter{
 			{
-				Key:    "planet",
+				Key:    key,
 				Values: []interface{}{p.ID},
 			},
 		},
@@ -1389,7 +1476,7 @@ func (p *Planet) fetchShips(data Instance) error {
 	return nil
 }
 
-// fetchShips :
+// fetchDefenses :
 // Similar to the `fetchGeneralInfo` but handles the
 // retrieval of the planet's defenses data.
 //
@@ -1400,15 +1487,25 @@ func (p *Planet) fetchDefenses(data Instance) error {
 	p.Defenses = make(map[string]DefenseInfo, 0)
 
 	// Create the query and execute it.
+	table := "planets_defenses"
+	if p.moon {
+		table = "moons_defenses"
+	}
+
+	key := "planet"
+	if p.moon {
+		key = "moon"
+	}
+
 	query := db.QueryDesc{
 		Props: []string{
 			"defense",
 			"count",
 		},
-		Table: "planets_defenses",
+		Table: table,
 		Filters: []db.Filter{
 			{
-				Key:    "planet",
+				Key:    key,
 				Values: []interface{}{p.ID},
 			},
 		},
@@ -1586,12 +1683,12 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 		Buildings            []lightInfo        `json:"buildings,omitempty"`
 		Ships                []lightCount       `json:"ships,omitempty"`
 		Defenses             []lightCount       `json:"defenses,omitempty"`
-		BuildingsUpgrade     []BuildingAction   `json:"buildings_upgrade"`
-		TechnologiesUpgrade  []TechnologyAction `json:"technologies_upgrade"`
-		ShipsConstruction    []ShipAction       `json:"ships_construction"`
-		DefensesConstruction []DefenseAction    `json:"defenses_construction"`
-		SourceFleets         []string           `json:"source_fleets"`
-		IncomingFleets       []string           `json:"incoming_fleets"`
+		BuildingsUpgrade     []BuildingAction   `json:"buildings_upgrade,omitempty"`
+		TechnologiesUpgrade  []TechnologyAction `json:"technologies_upgrade,omitempty"`
+		ShipsConstruction    []ShipAction       `json:"ships_construction,omitempty"`
+		DefensesConstruction []DefenseAction    `json:"defenses_construction,omitempty"`
+		SourceFleets         []string           `json:"source_fleets,omitempty"`
+		IncomingFleets       []string           `json:"incoming_fleets,omitempty"`
 	}
 
 	// Copy the planet's data.

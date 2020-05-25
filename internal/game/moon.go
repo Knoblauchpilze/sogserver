@@ -1,5 +1,12 @@
 package game
 
+import (
+	"oglike_server/internal/model"
+	"oglike_server/pkg/db"
+
+	"github.com/google/uuid"
+)
+
 // NewMoonFromDB :
 // Used in a similar way to `NewPlanetFromDB` but to
 // fetch the content of a moon. A moon is almost like
@@ -28,7 +35,7 @@ func NewMoonFromDB(ID string, data Instance) (Planet, error) {
 	}
 
 	// Fetch general info for this moon.
-	err := m.fetchGeneralInfo(data)
+	err := m.fetchMoonInfo(data)
 	if err != nil {
 		return m, err
 	}
@@ -64,7 +71,7 @@ func NewMoonFromDB(ID string, data Instance) (Planet, error) {
 	}
 
 	// Fetch the moon's content.
-	err = m.fetchResources(data)
+	err = m.fetchMoonResources(data)
 	if err != nil {
 		return m, err
 	}
@@ -92,10 +99,208 @@ func NewMoonFromDB(ID string, data Instance) (Planet, error) {
 	return m, err
 }
 
+// NewMoon :
+// Used to perform the creation of the moon at
+// the specified coordinates. As a moon always
+// has to be associated to a planet we figure
+// it made sense to build the moon from its
+// parent planet.
+//
+// The `p` defines the parent planet of this
+// moon.
+//
+// The `diameter` defines the size of the moon
+// to create.
+//
+// Returns the generated moon.
+func NewMoon(p *Planet, diameter int) *Planet {
+	// Create default properties.
+	m := &Planet{
+		ID:          uuid.New().String(),
+		Player:      p.Player,
+		Coordinates: p.Coordinates,
+		Name:        "moon",
+		// Only a single field is generated at the
+		// creation of the moon. The rest of the
+		// fields will be added whenever a lunar
+		// base is built.
+		Fields:    1,
+		MinTemp:   p.MinTemp,
+		MaxTemp:   p.MaxTemp,
+		Diameter:  diameter,
+		Resources: make(map[string]ResourceInfo, 0),
+		Buildings: make(map[string]BuildingInfo, 0),
+		Ships:     make(map[string]ShipInfo, 0),
+		Defenses:  make(map[string]DefenseInfo, 0),
+
+		BuildingsUpgrade:     make([]BuildingAction, 0),
+		TechnologiesUpgrade:  make([]TechnologyAction, 0),
+		ShipsConstruction:    make([]ShipAction, 0),
+		DefensesConstruction: make([]DefenseAction, 0),
+
+		SourceFleets:   make([]string, 0),
+		IncomingFleets: make([]string, 0),
+
+		technologies: p.technologies,
+
+		moon: true,
+	}
+
+	m.Coordinates.Type = Moon
+
+	return m
+}
+
+// fetchMoonInfo :
+// Allows to fetch the general information of a moon
+// from the DB such as its diameter, name, coordinates
+// etc.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Planet) fetchMoonInfo(data Instance) error {
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"m.player",
+			"m.name",
+			"p.min_temperature",
+			"p.max_temperature",
+			"m.fields",
+			"p.galaxy",
+			"p.solar_system",
+			"p.position",
+			"m.diameter",
+		},
+		Table: "moons m inner join planets p on m.planet=p.id",
+		Filters: []db.Filter{
+			{
+				Key:    "m.id",
+				Values: []interface{}{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Populate the return value.
+	var galaxy, system, position int
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&p.Player,
+			&p.Name,
+			&p.MinTemp,
+			&p.MaxTemp,
+			&p.Fields,
+			&galaxy,
+			&system,
+			&position,
+			&p.Diameter,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		p.Coordinates = NewMoonCoordinate(galaxy, system, position)
+	}
+
+	return nil
+}
+
+// fetchMoonResources :
+// Similar to the `fetchGeneralInfo` but handles the
+// retrieval of the moon's resources data.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (p *Planet) fetchMoonResources(data Instance) error {
+	p.Resources = make(map[string]ResourceInfo, 0)
+
+	// Do not update the resources of the moon: as
+	// there is no production of resources on a moon
+	// we know that any update is brought by a fleet.
+	// And thus as all fleets actions have already
+	// been processed we know that the resources are
+	// up-to-date.
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"res",
+			"amount",
+		},
+		Table: "moons_resources",
+		Filters: []db.Filter{
+			{
+				Key:    "moon",
+				Values: []interface{}{p.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Populate the return value.
+	var res ResourceInfo
+
+	sanity := make(map[string]bool)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&res.Resource,
+			&res.Amount,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		// Update the storage from the
+		// base values and the prod as
+		// we know that nothing ever
+		// happens on the moon.
+		info, err := data.Resources.GetResourceFromID(res.Resource)
+		if err != nil {
+			return err
+		}
+
+		res.Storage = float32(info.BaseStorage)
+		res.Production = 0
+
+		_, ok := sanity[res.Resource]
+		if ok {
+			return model.ErrInconsistentDB
+		}
+		sanity[res.Resource] = true
+
+		p.Resources[res.Resource] = res
+	}
+
+	return nil
+}
+
 // The following methods should be specialized:
-// NewPlanet
-// generateData
-// fetchGeneralInfo
-// fetchResources
 // SaveToDB
 // Convert

@@ -23,6 +23,7 @@ CREATE TRIGGER update_planets_creation BEFORE INSERT ON planets FOR EACH ROW EXE
 CREATE TABLE moons (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   planet uuid NOT NULL,
+  name text NOT NULL,
   fields integer NOT NULL,
   diameter integer NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

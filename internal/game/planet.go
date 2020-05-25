@@ -420,7 +420,20 @@ func NewPlanet(player string, coords Coordinate, homeworld bool, data Instance) 
 		Buildings:   make(map[string]BuildingInfo, 0),
 		Ships:       make(map[string]ShipInfo, 0),
 		Defenses:    make(map[string]DefenseInfo, 0),
-		moon:        false,
+
+		BuildingsUpgrade:     make([]BuildingAction, 0),
+		TechnologiesUpgrade:  make([]TechnologyAction, 0),
+		ShipsConstruction:    make([]ShipAction, 0),
+		DefensesConstruction: make([]DefenseAction, 0),
+
+		SourceFleets:   make([]string, 0),
+		IncomingFleets: make([]string, 0),
+
+		// Note that we don't fetch the technologies
+		// for the player associated to this planet.
+		technologies: make(map[string]int),
+
+		moon: false,
 	}
 
 	// Generate diameter and fields count.

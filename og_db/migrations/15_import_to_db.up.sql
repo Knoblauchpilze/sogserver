@@ -87,6 +87,50 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
+-- Import moon into the corresponding table.
+CREATE OR REPLACE FUNCTION create_moon(moon_data json, resources json) RETURNS VOID AS $$
+BEGIN
+  -- Insert the moon in the moons table.
+  INSERT INTO moons
+    SELECT *
+    FROM json_populate_record(null::moons, moon_data);
+
+  -- Insert the base resources of the moon.
+  INSERT INTO moons_resources(moon, res, amount)
+    SELECT
+      (moon_data->>'id')::uuid,
+      res,
+      amount
+    FROM
+      json_populate_recordset(null::moons_resources, resources);
+
+  -- Insert base buildings, ships, defenses on the moon.
+  INSERT INTO moons_buildings(moon, building, level)
+    SELECT
+      (moon_data->>'id')::uuid,
+      b.id,
+      0
+    FROM
+      buildings AS b;
+
+  INSERT INTO moons_ships(moon, ship, count)
+    SELECT
+      (moon_data->>'id')::uuid,
+      s.id,
+      0
+    FROM
+      ships AS s;
+
+  INSERT INTO moons_defenses(moon, defense, count)
+    SELECT
+      (moon_data->>'id')::uuid,
+      d.id,
+      0
+    FROM
+      defenses AS d;
+END
+$$ LANGUAGE plpgsql;
+
 -- Delete a moon from the corresponding table.
 CREATE OR REPLACE FUNCTION delete_moon(moon_id uuid) RETURNS VOID AS $$
 BEGIN

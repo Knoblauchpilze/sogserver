@@ -26,7 +26,6 @@ import (
 // night (or another duration which would be consistent with the maximum
 // interval with no issues) to perform update for players that didn't
 // connect for a long time.
-// TODO: Handle moons.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

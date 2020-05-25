@@ -1,11 +1,17 @@
 package game
 
 import (
+	"fmt"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
+	"time"
 
 	"github.com/google/uuid"
 )
+
+// ErrPlanetIsNotAMoon : Indicates that an attempt to save a planet
+// as a moon was detected.
+var ErrPlanetIsNotAMoon = fmt.Errorf("Cannot save planet as moon")
 
 // NewMoonFromDB :
 // Used in a similar way to `NewPlanetFromDB` but to
@@ -143,7 +149,8 @@ func NewMoon(p *Planet, diameter int) *Planet {
 
 		technologies: p.technologies,
 
-		moon: true,
+		moon:   true,
+		planet: p.ID,
 	}
 
 	m.Coordinates.Type = Moon
@@ -163,7 +170,8 @@ func (p *Planet) fetchMoonInfo(data Instance) error {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"m.player",
+			"m.planet",
+			"p.player",
 			"m.name",
 			"p.min_temperature",
 			"p.max_temperature",
@@ -198,6 +206,7 @@ func (p *Planet) fetchMoonInfo(data Instance) error {
 
 	for dbRes.Next() {
 		err = dbRes.Scan(
+			&p.planet,
 			&p.Player,
 			&p.Name,
 			&p.MinTemp,
@@ -301,6 +310,54 @@ func (p *Planet) fetchMoonResources(data Instance) error {
 	return nil
 }
 
-// The following methods should be specialized:
-// SaveToDB
-// Convert
+// SaveMoonToDB :
+// Used to save the content of this moon to
+// the DB. In case an error is raised during
+// the operation a comprehensive error is
+// returned.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns any error.
+func (p *Planet) SaveMoonToDB(proxy db.Proxy) error {
+	// Create the query and execute it.
+	query := db.InsertReq{
+		Script: "create_moon",
+		Args: []interface{}{
+			p,
+			p.Resources,
+			time.Now(),
+		},
+	}
+
+	err := proxy.InsertToDB(query)
+
+	// Analyze the error in order to provide some
+	// comprehensive message.
+	dbe, ok := err.(db.Error)
+	if !ok {
+		return err
+	}
+
+	dee, ok := dbe.Err.(db.DuplicatedElementError)
+	if ok {
+		switch dee.Constraint {
+		case "moons_planet_key":
+			return ErrDuplicatedElement
+		}
+
+		return dee
+	}
+
+	fkve, ok := dbe.Err.(db.ForeignKeyViolationError)
+	if ok {
+		switch fkve.ForeignKey {
+		case "planet":
+			return ErrNonExistingPlanet
+		}
+
+		return fkve
+	}
+
+	return dbe
+}

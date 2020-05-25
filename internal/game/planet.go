@@ -116,6 +116,10 @@ import (
 // field will be used when interpreting data from the
 // DB or when saving data to the DB in order to target
 // the right scripts.
+//
+// The `planet` defines the identifier of the planet
+// associated to the moon. In the case of a planet
+// we also populate it with the `ID` of the planet.
 type Planet struct {
 	ID                   string                  `json:"id"`
 	Player               string                  `json:"player"`
@@ -137,6 +141,7 @@ type Planet struct {
 	IncomingFleets       []string                `json:"-"`
 	technologies         map[string]int
 	moon                 bool
+	planet               string
 }
 
 // ResourceInfo :
@@ -305,8 +310,9 @@ func (r Resources) Convert() interface{} {
 func NewPlanetFromDB(ID string, data Instance) (Planet, error) {
 	// Create the planet.
 	p := Planet{
-		ID:   ID,
-		moon: false,
+		ID:     ID,
+		moon:   false,
+		planet: ID,
 	}
 
 	// Consistency.
@@ -406,9 +412,11 @@ func NewPlanetFromDB(ID string, data Instance) (Planet, error) {
 //
 // Returns the generated planet along with any error.
 func NewPlanet(player string, coords Coordinate, homeworld bool, data Instance) (*Planet, error) {
+	ID := uuid.New().String()
+
 	// Create default properties.
 	p := &Planet{
-		ID:          uuid.New().String(),
+		ID:          ID,
 		Player:      player,
 		Coordinates: coords,
 		Name:        getDefaultPlanetName(homeworld),
@@ -433,7 +441,8 @@ func NewPlanet(player string, coords Coordinate, homeworld bool, data Instance) 
 		// for the player associated to this planet.
 		technologies: make(map[string]int),
 
-		moon: false,
+		moon:   false,
+		planet: ID,
 	}
 
 	// Generate diameter and fields count.
@@ -1630,6 +1639,24 @@ func (p *Planet) SaveToDB(proxy db.Proxy) error {
 // Returns the converted version of the planet which
 // only includes relevant fields.
 func (p *Planet) Convert() interface{} {
+	// We convert the this object differently based on
+	// whether it is a planet or a moon.
+	if p.moon {
+		return struct {
+			ID       string `json:"id"`
+			Planet   string `json:"planet"`
+			Name     string `json:"name"`
+			Fields   int    `json:"fields"`
+			Diameter int    `json:"diameter"`
+		}{
+			ID:       p.ID,
+			Planet:   p.planet,
+			Name:     p.Name,
+			Fields:   p.Fields,
+			Diameter: p.Diameter,
+		}
+	}
+
 	return struct {
 		ID       string `json:"id"`
 		Player   string `json:"player"`

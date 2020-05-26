@@ -11,6 +11,9 @@ DROP TABLE ships_propulsion_cost;
 -- Drop the propulsion increase table.
 DROP TABLE ships_propulsion_increase;
 
+-- Drop the ships' propulsion table.
+DROP TABLE ships_propulsion;
+
 -- Drop the ships' costs table.
 DROP TABLE ships_costs;
 

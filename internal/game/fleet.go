@@ -1098,10 +1098,13 @@ func (f *Fleet) consolidateConsumption(data Instance, p *Planet) error {
 
 	for _, ship := range f.Ships {
 		sd, err := data.Ships.GetShipFromID(ship.ID)
-
 		if err != nil {
 			return err
 		}
+
+		// Retrieve the best suited engine for the ship.
+		engine := sd.SelectEngine(p.technologies)
+		speed := engine.ComputeSpeed(p.technologies)
 
 		for _, fuel := range sd.Consumption {
 			// The values and formulas are extracted from here:
@@ -1109,7 +1112,7 @@ func (f *Fleet) consolidateConsumption(data Instance, p *Planet) error {
 			// The flight time is expressed internally in millisecs.
 			ftSec := float64(f.flightTime) / float64(time.Second)
 
-			sk := 35000.0 * math.Sqrt(d*10.0/float64(sd.Speed)) / (ftSec - 10.0)
+			sk := 35000.0 * math.Sqrt(d*10.0/float64(speed)) / (ftSec - 10.0)
 			cons := float64(fuel.Amount*float32(ship.Count)) * d * math.Pow(1.0+sk/10.0, 2.0) / 35000.0
 
 			ex := consumption[fuel.Resource]
@@ -1172,12 +1175,8 @@ func (f *Fleet) ConsolidateArrivalTime(data Instance, p *Planet) error {
 			return err
 		}
 
-		level, ok := p.technologies[sd.Propulsion.Propulsion]
-		if !ok {
-			return ErrInvalidPropulsionSystem
-		}
-
-		speed := sd.Propulsion.ComputeSpeed(sd.Speed, level)
+		engine := sd.SelectEngine(p.technologies)
+		speed := engine.ComputeSpeed(p.technologies)
 
 		if speed < maxSpeed {
 			maxSpeed = speed

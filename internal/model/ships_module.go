@@ -65,14 +65,9 @@ type ShipsModule struct {
 // The `weapon` is analogous to the `shield` to set
 // the base attack value of the ship.
 //
-// The `speed` defines the base speed for this ship.
-// The actual speed of the ship is then computed by
-// adding the boost provided by the level of research
-// for the propulsion technology used by the ship.
-//
-// The `propulsion` defines the identifier of the
-// technology used as propulsion system for the ship.
-// It should reference a valid technology.
+// The `engines` defines the possible engines that
+// are associated to this ship depending on the
+// research level of the player.
 //
 // The `consumption` is an association table that
 // defines for each resource the consumption of the
@@ -85,9 +80,31 @@ type shipProps struct {
 	cargo       int
 	shield      int
 	weapon      int
-	speed       int
-	propulsion  string
+	engines     []Engine
 	consumption []Consumption
+}
+
+// Engine :
+// Describes the propulsion system used by a ship.
+// The engine is composed of a propulsion system
+// (which corresponds to a technology identifier)
+// and a minimum level which indicates the research
+// level that should be reached for this engine to
+// be unlocked.
+//
+// The `Propulsion` defines an identifier for the
+// technology used to build the engine.
+//
+// The `MinLevel` defines the minimum level of the
+// propulsion technology in order for this engine
+// to be used.
+//
+// The `Speed` defines the base speed provided by
+// the engine.
+type Engine struct {
+	Propulsion PropulsionDesc
+	MinLevel   int
+	Speed      int
 }
 
 // PropulsionDesc :
@@ -143,15 +160,14 @@ type Consumption struct {
 type ShipDesc struct {
 	UpgradableDesc
 
-	Cargo        int            `json:"cargo,omitempty"`
-	Shield       int            `json:"shield,omitempty"`
-	Weapon       int            `json:"weapon,omitempty"`
-	Speed        int            `json:"speed,omitempty"`
-	Propulsion   PropulsionDesc `json:"propulsion"`
-	Consumption  []Consumption  `json:"consumption,omitempty"`
-	RFVSShips    []RapidFire    `json:"rf_against_ships,omitempty"`
-	RFVSDefenses []RapidFire    `json:"rf_against_defenses,omitempty"`
-	Cost         FixedCost      `json:"cost"`
+	Cargo        int           `json:"cargo,omitempty"`
+	Shield       int           `json:"shield,omitempty"`
+	Weapon       int           `json:"weapon,omitempty"`
+	Engines      []Engine      `json:"engines"`
+	Consumption  []Consumption `json:"consumption,omitempty"`
+	RFVSShips    []RapidFire   `json:"rf_against_ships,omitempty"`
+	RFVSDefenses []RapidFire   `json:"rf_against_defenses,omitempty"`
+	Cost         FixedCost     `json:"cost"`
 }
 
 // RapidFire :
@@ -167,6 +183,39 @@ type ShipDesc struct {
 type RapidFire struct {
 	Receiver string `json:"receiver"`
 	RF       int    `json:"rf"`
+}
+
+// SelectEngine :
+// Used to allow the selection of the best propulsion
+// system based on the input technologies (supposedly
+// linked to a player).
+//
+// The `techs` define the technologies that have been
+// researched by a player.
+//
+// Returns the best suited engine for this ship based
+// on the input technologies.
+func (s ShipDesc) SelectEngine(techs map[string]int) Engine {
+	// TODO: Implement this.
+	return Engine{}
+}
+
+// ComputeSpeed :
+// Used to compute the speed of the engine based on
+// the input technologies.
+//
+// The `techs` define the technologies that have
+// been researched by a player.
+//
+// Returns the speed of this engine.
+func (e Engine) ComputeSpeed(techs map[string]int) int {
+	// Return the level of the technology used by
+	// the engine. In case the technology is not
+	// researched a `0` value will provided which
+	// is fine.
+	level := techs[e.Propulsion.Propulsion]
+
+	return e.Propulsion.ComputeSpeed(e.Speed, level)
 }
 
 // ComputeSpeed :
@@ -246,11 +295,18 @@ func (sm *ShipsModule) Init(proxy db.Proxy, force bool) error {
 	sm.rfVSDefenses = make(map[string][]RapidFire)
 	sm.propulsion = make(map[string]int)
 
+	// And finally the propulsion upgrade systems.
+	err := sm.initPropulsions(proxy)
+	if err != nil {
+		sm.trace(logger.Error, fmt.Sprintf("Unable to initialize propulsion systems (err: %v)", err))
+		return err
+	}
+
 	// Load the names and base information for each ship.
 	// This operation is performed first so that the rest
 	// of the data can be checked against the actual list
 	// of ships that are defined in the game.
-	err := sm.initCharacteristics(proxy)
+	err = sm.initCharacteristics(proxy)
 	if err != nil {
 		sm.trace(logger.Error, fmt.Sprintf("Could not initialize module (err: %v)", err))
 		return err
@@ -278,13 +334,6 @@ func (sm *ShipsModule) Init(proxy db.Proxy, force bool) error {
 		return err
 	}
 
-	// And finally the propulsion upgrade systems.
-	err = sm.initPropulsions(proxy)
-	if err != nil {
-		sm.trace(logger.Error, fmt.Sprintf("Unable to initialize propulsion systems (err: %v)", err))
-		return err
-	}
-
 	return nil
 }
 
@@ -305,8 +354,6 @@ func (sm *ShipsModule) initCharacteristics(proxy db.Proxy) error {
 		Props: []string{
 			"id",
 			"name",
-			"propulsion",
-			"speed",
 			"cargo",
 			"shield",
 			"weapon",
@@ -338,8 +385,6 @@ func (sm *ShipsModule) initCharacteristics(proxy db.Proxy) error {
 		err := rows.Scan(
 			&ID,
 			&name,
-			&props.propulsion,
-			&props.speed,
 			&props.cargo,
 			&props.shield,
 			&props.weapon,
@@ -358,6 +403,24 @@ func (sm *ShipsModule) initCharacteristics(proxy db.Proxy) error {
 			continue
 		}
 
+		// Retrieve consumption for this ship.
+		props.consumption, err = sm.fetchConsumptionForShip(ID, proxy)
+		if err != nil {
+			sm.trace(logger.Error, fmt.Sprintf("Failure to fetch consumption for ship \"%s\" (err: %v)", ID, err))
+			inconsistent = true
+
+			continue
+		}
+
+		// Retrieve the list of engines used by this ship.
+		props.engines, err = sm.fetchEnginesForShip(ID, proxy)
+		if err != nil {
+			sm.trace(logger.Error, fmt.Sprintf("Failure to fetch engines for ship \"%s\" (err: %v)", ID, err))
+			inconsistent = true
+
+			continue
+		}
+
 		// Register this ship in the association table.
 		err = sm.registerAssociation(ID, name)
 		if err != nil {
@@ -367,95 +430,6 @@ func (sm *ShipsModule) initCharacteristics(proxy db.Proxy) error {
 			continue
 		}
 
-		sm.characteristics[ID] = props
-	}
-
-	if override || inconsistent {
-		return ErrInconsistentDB
-	}
-
-	rows.Close()
-
-	// Now update the consumption of the ships through a query
-	// on the dedicated table.
-	query.Props = []string{
-		"ship",
-		"res",
-		"amount",
-	}
-	query.Table = "ships_propulsion_cost"
-
-	rows, err = proxy.FetchFromDB(query)
-	defer rows.Close()
-
-	if err != nil {
-		sm.trace(logger.Error, fmt.Sprintf("Unable to initialize ships (err: %v)", err))
-		return ErrNotInitialized
-	}
-	if rows.Err != nil {
-		sm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize ships (err: %v)", rows.Err))
-		return ErrNotInitialized
-	}
-
-	// Analyze the query and populate internal values.
-	var res string
-	var consumption int
-
-	sanity := make(map[string]map[string]int)
-
-	for rows.Next() {
-		err := rows.Scan(
-			&ID,
-			&res,
-			&consumption,
-		)
-
-		if err != nil {
-			sm.trace(logger.Error, fmt.Sprintf("Failed to initialize ship consumption from row (err: %v)", err))
-			continue
-		}
-
-		// Check whether a ship with this identifier exists.
-		if !sm.existsID(ID) {
-			sm.trace(logger.Error, fmt.Sprintf("Cannot register propulsion consumption for \"%s\" not defined in DB", ID))
-			inconsistent = true
-
-			continue
-		}
-
-		// Check for overrides.
-		eCons, ok := sanity[ID]
-		if !ok {
-			eCons = make(map[string]int)
-		} else {
-			c, ok := eCons[res]
-
-			if ok {
-				sm.trace(logger.Error, fmt.Sprintf("Prevented override of propulsion consumption for resource \"%s\" of \"%s\" from %d to %d", res, ID, c, consumption))
-				override = true
-
-				continue
-			}
-		}
-
-		eCons[res] = consumption
-		sanity[ID] = eCons
-
-		// Register this value: note that we know that the props
-		// exist because we checked that `sm.existsID` before.
-		props := sm.characteristics[ID]
-
-		if props.consumption == nil {
-			props.consumption = make([]Consumption, 0)
-		}
-
-		c := Consumption{
-			ResourceAmount: ResourceAmount{
-				Resource: res,
-				Amount:   float32(consumption),
-			},
-		}
-		props.consumption = append(props.consumption, c)
 		sm.characteristics[ID] = props
 	}
 
@@ -612,6 +586,7 @@ func (sm *ShipsModule) initPropulsions(proxy db.Proxy) error {
 	var increase int
 
 	override := false
+	inconsistent := false
 
 	for rows.Next() {
 		err := rows.Scan(
@@ -621,6 +596,8 @@ func (sm *ShipsModule) initPropulsions(proxy db.Proxy) error {
 
 		if err != nil {
 			sm.trace(logger.Error, fmt.Sprintf("Failed to initialize propulsion system from row (err: %v)", err))
+			inconsistent = true
+
 			continue
 		}
 
@@ -628,16 +605,210 @@ func (sm *ShipsModule) initPropulsions(proxy db.Proxy) error {
 		i, ok := sm.propulsion[ID]
 		if ok {
 			sm.trace(logger.Error, fmt.Sprintf("Overriding propulsion increase for \"%s\" from %d to %d", ID, i, increase))
+			override = true
 		}
 
 		sm.propulsion[ID] = increase
 	}
 
-	if override {
+	if override || inconsistent {
 		return ErrInconsistentDB
 	}
 
 	return nil
+}
+
+// fetchConsumptionForShip :
+// Used to initialize the consumption for a ship provided
+// as an identifier. The list of resources used by this
+// ship when it flies is fetched and returned.
+//
+// The `ID` defines the identifier of the ship for which
+// the consumption should be retrieved.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns the consumption for this ship along with any
+// error.
+func (sm *ShipsModule) fetchConsumptionForShip(ID string, proxy db.Proxy) ([]Consumption, error) {
+	consumption := make([]Consumption, 0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"res",
+			"amount",
+		},
+		Table: "ships_propulsion_cost",
+		Filters: []db.Filter{
+			{
+				Key:    "ship",
+				Values: []interface{}{ID},
+			},
+		},
+	}
+
+	rows, err := proxy.FetchFromDB(query)
+	defer rows.Close()
+
+	if err != nil {
+		sm.trace(logger.Error, fmt.Sprintf("Unable to initialize ships (err: %v)", err))
+		return consumption, ErrNotInitialized
+	}
+	if rows.Err != nil {
+		sm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize ships (err: %v)", rows.Err))
+		return consumption, ErrNotInitialized
+	}
+
+	// Analyze the query and populate internal values.
+	var res string
+	var fuel int
+
+	override := false
+	inconsistent := false
+
+	sanity := make(map[string]int)
+
+	for rows.Next() {
+		err := rows.Scan(
+			&res,
+			&fuel,
+		)
+
+		if err != nil {
+			sm.trace(logger.Error, fmt.Sprintf("Failed to initialize ship consumption from row (err: %v)", err))
+			inconsistent = true
+
+			continue
+		}
+
+		// Check for overrides.
+		eConsForRes, ok := sanity[res]
+		if ok {
+			sm.trace(logger.Error, fmt.Sprintf("Prevented override of propulsion consumption for resource \"%s\" of \"%s\" from %d to %d", res, ID, fuel, eConsForRes))
+			override = true
+
+			continue
+		}
+
+		sanity[res] = fuel
+
+		c := Consumption{
+			ResourceAmount: ResourceAmount{
+				Resource: res,
+				Amount:   float32(fuel),
+			},
+		}
+		consumption = append(consumption, c)
+	}
+
+	if override || inconsistent {
+		return consumption, ErrInconsistentDB
+	}
+
+	return consumption, nil
+}
+
+// fetchEnginesForShip :
+// Used in a similar way to `fetchConsumptionForShip` to
+// fetch the engines associated to a ship.
+//
+// The `ID` defines the identifier of the ship for which
+// the engines should be retrieved.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns the engines for this ship along with any error.
+func (sm *ShipsModule) fetchEnginesForShip(ID string, proxy db.Proxy) ([]Engine, error) {
+	engines := make([]Engine, 0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"propulsion",
+			"speed",
+			"min_level",
+		},
+		Table: "ships_propulsion",
+		Filters: []db.Filter{
+			{
+				Key:    "ship",
+				Values: []interface{}{ID},
+			},
+		},
+	}
+
+	rows, err := proxy.FetchFromDB(query)
+	defer rows.Close()
+
+	if err != nil {
+		sm.trace(logger.Error, fmt.Sprintf("Unable to initialize ships (err: %v)", err))
+		return engines, ErrNotInitialized
+	}
+	if rows.Err != nil {
+		sm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize ships (err: %v)", rows.Err))
+		return engines, ErrNotInitialized
+	}
+
+	// Analyze the query and populate internal values.
+	var propulsion string
+	var speed, minLevel int
+
+	override := false
+	inconsistent := false
+
+	sanity := make(map[string]bool)
+
+	for rows.Next() {
+		err := rows.Scan(
+			&propulsion,
+			&speed,
+			&minLevel,
+		)
+
+		if err != nil {
+			sm.trace(logger.Error, fmt.Sprintf("Failed to initialize ship engine from row (err: %v)", err))
+			inconsistent = true
+
+			continue
+		}
+
+		// Check for overrides.
+		_, ok := sanity[propulsion]
+		if ok {
+			sm.trace(logger.Error, fmt.Sprintf("Prevented override of ship \"%s\" engine for propulsion \"%s\"", ID, propulsion))
+			override = true
+
+			continue
+		}
+
+		sanity[propulsion] = true
+
+		// Attempt to fetch the propulsion for this engine.
+		prop, ok := sm.propulsion[propulsion]
+		if !ok {
+			sm.trace(logger.Error, fmt.Sprintf("Invalid propulsion technology \"%s\" for \"%s\"", propulsion, ID))
+			inconsistent = true
+
+			continue
+		}
+
+		e := Engine{
+			Propulsion: PropulsionDesc{
+				Propulsion: propulsion,
+				Increase:   prop,
+			},
+			MinLevel: minLevel,
+			Speed:    speed,
+		}
+		engines = append(engines, e)
+	}
+
+	if override || inconsistent {
+		return engines, ErrInconsistentDB
+	}
+
+	return engines, nil
 }
 
 // Ships :
@@ -746,17 +917,7 @@ func (sm *ShipsModule) GetShipFromID(ID string) (ShipDesc, error) {
 	desc.Cargo = props.cargo
 	desc.Shield = props.shield
 	desc.Weapon = props.weapon
-	desc.Speed = props.speed
-
-	speedIncrease, ok := sm.propulsion[props.propulsion]
-	if !ok {
-		return desc, ErrInvalidID
-	}
-	desc.Propulsion = PropulsionDesc{
-		Propulsion: props.propulsion,
-		Increase:   speedIncrease,
-	}
-
+	desc.Engines = props.engines
 	desc.Consumption = props.consumption
 
 	return desc, nil

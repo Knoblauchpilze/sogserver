@@ -549,19 +549,19 @@ INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
 INSERT INTO public.ships_propulsion_increase ("propulsion", "increase")
   VALUES(
     (SELECT id FROM technologies WHERE name='combustion drive'),
-    1.1
+    10
   );
 
 INSERT INTO public.ships_propulsion_increase ("propulsion", "increase")
   VALUES(
     (SELECT id FROM technologies WHERE name='impulse drive'),
-    1.2
+    20
   );
 
 INSERT INTO public.ships_propulsion_increase ("propulsion", "increase")
   VALUES(
     (SELECT id FROM technologies WHERE name='hyperspace drive'),
-    1.3
+    30
   );
 
 -- Seed the ships propulsion cost.

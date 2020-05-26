@@ -26,9 +26,11 @@ CREATE TABLE ships_propulsion (
   propulsion uuid NOT NULL,
   speed integer NOT NULL,
   min_level integer NOT NULL,
+  rank integer NOT NULL,
   FOREIGN KEY (ship) REFERENCES ships(id),
   FOREIGN KEY (propulsion) REFERENCES technologies(id),
-  UNIQUE (ship, propulsion)
+  UNIQUE (ship, propulsion),
+  UNIQUE (ship, rank)
 );
 
 -- Create the table representing the increase in propulsion speed for
@@ -405,143 +407,161 @@ INSERT INTO public.ships_costs ("element", "res", "cost")
   );
 
 -- Seed the ships propulsion.
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
   VALUES(
     (SELECT id FROM ships WHERE name='small cargo ship'),
     (SELECT id FROM technologies WHERE name='combustion drive'),
     5000,
+    0,
     0
   );
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
   VALUES(
     (SELECT id FROM ships WHERE name='small cargo ship'),
     (SELECT id FROM technologies WHERE name='impulse drive'),
     10000,
-    4
+    4,
+    1
   );
 
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
   VALUES(
     (SELECT id FROM ships WHERE name='large cargo ship'),
     (SELECT id FROM technologies WHERE name='combustion drive'),
     7500,
-    0
-  );
-
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
-  VALUES(
-    (SELECT id FROM ships WHERE name='light fighter'),
-    (SELECT id FROM technologies WHERE name='combustion drive'),
-    12500,
-    0
-  );
-
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
-  VALUES(
-    (SELECT id FROM ships WHERE name='heavy fighter'),
-    (SELECT id FROM technologies WHERE name='impulse drive'),
-    10000,
-    0
-  );
-
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
-  VALUES(
-    (SELECT id FROM ships WHERE name='cruiser'),
-    (SELECT id FROM technologies WHERE name='impulse drive'),
-    15000,
-    0
-  );
-
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
-  VALUES(
-    (SELECT id FROM ships WHERE name='battleship'),
-    (SELECT id FROM technologies WHERE name='hyperspace drive'),
-    10000,
-    0
-  );
-
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
-  VALUES(
-    (SELECT id FROM ships WHERE name='battlecruiser'),
-    (SELECT id FROM technologies WHERE name='hyperspace drive'),
-    10000,
-    0
-  );
-
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
-  VALUES(
-    (SELECT id FROM ships WHERE name='bomber'),
-    (SELECT id FROM technologies WHERE name='impulse drive'),
-    4000,
-    0
-  );
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
-  VALUES(
-    (SELECT id FROM ships WHERE name='bomber'),
-    (SELECT id FROM technologies WHERE name='hyperspace drive'),
-    5000,
-    7
-  );
-
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
-  VALUES(
-    (SELECT id FROM ships WHERE name='destroyer'),
-    (SELECT id FROM technologies WHERE name='hyperspace drive'),
-    5000,
-    0
-  );
-
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
-  VALUES(
-    (SELECT id FROM ships WHERE name='deathstar'),
-    (SELECT id FROM technologies WHERE name='hyperspace drive'),
-    100,
-    0
-  );
-
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
-  VALUES(
-    (SELECT id FROM ships WHERE name='recycler'),
-    (SELECT id FROM technologies WHERE name='combustion drive'),
-    2000,
-    0
-  );
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
-  VALUES(
-    (SELECT id FROM ships WHERE name='recycler'),
-    (SELECT id FROM technologies WHERE name='impulse drive'),
-    4000,
-    16
-  );
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
-  VALUES(
-    (SELECT id FROM ships WHERE name='recycler'),
-    (SELECT id FROM technologies WHERE name='hyperspace drive'),
-    6000,
-    14
-  );
-
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
-  VALUES(
-    (SELECT id FROM ships WHERE name='espionage probe'),
-    (SELECT id FROM technologies WHERE name='combustion drive'),
-    100000000,
-    0
-  );
-
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
-  VALUES(
-    (SELECT id FROM ships WHERE name='solar satellite'),
-    (SELECT id FROM technologies WHERE name='combustion drive'),
     0,
     0
   );
 
-INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level")
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
+  VALUES(
+    (SELECT id FROM ships WHERE name='light fighter'),
+    (SELECT id FROM technologies WHERE name='combustion drive'),
+    12500,
+    0,
+    0
+  );
+
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
+  VALUES(
+    (SELECT id FROM ships WHERE name='heavy fighter'),
+    (SELECT id FROM technologies WHERE name='impulse drive'),
+    10000,
+    0,
+    0
+  );
+
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
+  VALUES(
+    (SELECT id FROM ships WHERE name='cruiser'),
+    (SELECT id FROM technologies WHERE name='impulse drive'),
+    15000,
+    0,
+    0
+  );
+
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battleship'),
+    (SELECT id FROM technologies WHERE name='hyperspace drive'),
+    10000,
+    0,
+    0
+  );
+
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battlecruiser'),
+    (SELECT id FROM technologies WHERE name='hyperspace drive'),
+    10000,
+    0,
+    0
+  );
+
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
+  VALUES(
+    (SELECT id FROM ships WHERE name='bomber'),
+    (SELECT id FROM technologies WHERE name='impulse drive'),
+    4000,
+    0,
+    0
+  );
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
+  VALUES(
+    (SELECT id FROM ships WHERE name='bomber'),
+    (SELECT id FROM technologies WHERE name='hyperspace drive'),
+    5000,
+    7,
+    1
+  );
+
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
+  VALUES(
+    (SELECT id FROM ships WHERE name='destroyer'),
+    (SELECT id FROM technologies WHERE name='hyperspace drive'),
+    5000,
+    0,
+    0
+  );
+
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
+  VALUES(
+    (SELECT id FROM ships WHERE name='deathstar'),
+    (SELECT id FROM technologies WHERE name='hyperspace drive'),
+    100,
+    0,
+    0
+  );
+
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
+  VALUES(
+    (SELECT id FROM ships WHERE name='recycler'),
+    (SELECT id FROM technologies WHERE name='combustion drive'),
+    2000,
+    0,
+    0
+  );
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
+  VALUES(
+    (SELECT id FROM ships WHERE name='recycler'),
+    (SELECT id FROM technologies WHERE name='impulse drive'),
+    4000,
+    16,
+    1
+  );
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
+  VALUES(
+    (SELECT id FROM ships WHERE name='recycler'),
+    (SELECT id FROM technologies WHERE name='hyperspace drive'),
+    6000,
+    14,
+    2
+  );
+
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
+  VALUES(
+    (SELECT id FROM ships WHERE name='espionage probe'),
+    (SELECT id FROM technologies WHERE name='combustion drive'),
+    100000000,
+    0,
+    0
+  );
+
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
+  VALUES(
+    (SELECT id FROM ships WHERE name='solar satellite'),
+    (SELECT id FROM technologies WHERE name='combustion drive'),
+    0,
+    0,
+    0
+  );
+
+INSERT INTO public.ships_propulsion ("ship", "propulsion", "speed", "min_level", "rank")
   VALUES(
     (SELECT id FROM ships WHERE name='colony ship'),
     (SELECT id FROM technologies WHERE name='impulse drive'),
     2500,
+    0,
     0
   );
 

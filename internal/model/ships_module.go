@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"math"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 )
@@ -196,8 +197,31 @@ type RapidFire struct {
 // Returns the best suited engine for this ship based
 // on the input technologies.
 func (s ShipDesc) SelectEngine(techs map[string]int) Engine {
-	// TODO: Implement this.
-	return Engine{}
+	// The list of `engines` for this ship is ordered
+	// by complexity. We will check which engine has
+	// been unlocked and select the most complex one.
+	locked := true
+	id := 0
+
+	for id = 0; id < len(s.Engines) && locked; id++ {
+		eng := s.Engines[len(s.Engines)-1-id]
+
+		// This engine is locked if the minimum level of
+		// the technology required is not met.
+		level := techs[eng.Propulsion.Propulsion]
+		locked = (level < eng.MinLevel)
+	}
+
+	// Note: by default, we consider that the first
+	// engine is always available. There are other
+	// means that will guarantee that we prevent the
+	// actual creation of ships in the first place
+	// if the technology for the engine is not met.
+	if locked {
+		return s.Engines[0]
+	}
+
+	return s.Engines[len(s.Engines)-id]
 }
 
 // ComputeSpeed :
@@ -230,7 +254,10 @@ func (e Engine) ComputeSpeed(techs map[string]int) int {
 //
 // Returns the speed reached by the element.
 func (p PropulsionDesc) ComputeSpeed(base int, level int) int {
-	return int(float32(base) * (1.0 + float32(level*p.Increase)/100.0))
+	ratio := 1.0 + float64(level*p.Increase)/100
+	fSpeed := float64(base) * ratio
+
+	return int(math.Round(fSpeed))
 }
 
 // NewShipsModule :
@@ -411,11 +438,23 @@ func (sm *ShipsModule) initCharacteristics(proxy db.Proxy) error {
 
 			continue
 		}
+		if len(props.consumption) == 0 {
+			sm.trace(logger.Error, fmt.Sprintf("Didn't fetch any consumption for \"%s\"", ID))
+			inconsistent = true
+
+			continue
+		}
 
 		// Retrieve the list of engines used by this ship.
 		props.engines, err = sm.fetchEnginesForShip(ID, proxy)
 		if err != nil {
 			sm.trace(logger.Error, fmt.Sprintf("Failure to fetch engines for ship \"%s\" (err: %v)", ID, err))
+			inconsistent = true
+
+			continue
+		}
+		if len(props.engines) == 0 {
+			sm.trace(logger.Error, fmt.Sprintf("Didn't fetch any engine for \"%s\"", ID))
 			inconsistent = true
 
 			continue
@@ -736,6 +775,7 @@ func (sm *ShipsModule) fetchEnginesForShip(ID string, proxy db.Proxy) ([]Engine,
 				Values: []interface{}{ID},
 			},
 		},
+		Ordering: "order by rank",
 	}
 
 	rows, err := proxy.FetchFromDB(query)

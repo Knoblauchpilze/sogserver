@@ -988,7 +988,6 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 		return ErrInvalidTargetForObjective
 	}
 	if purpose(obj.Name) == destroy && f.TargetCoords.Type != Moon {
-		fmt.Println(fmt.Sprintf("haha"))
 		return ErrInvalidTargetForObjective
 	}
 	if obj.Directed && target == nil {

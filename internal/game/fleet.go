@@ -1067,8 +1067,8 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 	// that there are enough resources to be taken
 	// from the planet.
 	// TODO: Hack to allow creation of fleets without checks.
-	return source.validateFleet(f.Consumption, f.Cargo, f.Ships, data)
-	// return nil
+	// return source.validateFleet(f.Consumption, f.Cargo, f.Ships, data)
+	return nil
 }
 
 // consolidateConsumption :

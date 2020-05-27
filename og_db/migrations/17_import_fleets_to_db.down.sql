@@ -1,3 +1,7 @@
+
+-- Drop the script performing a destruction of a moon.
+DROP FUNCTION fleet_destroy(fleet_id uuid, moon_destroyed boolean, fleet_destroyed boolean);
+
 -- Drop the function performing the update of debris fields after harvesting.
 DROP FUNCTION fleet_harvesting_success(fleet_id uuid, debris_id uuid, resources json, dispersed text, gathered text);
 

@@ -245,6 +245,7 @@ func (f *ACSFleet) fetchFleets(data Instance) error {
 				Values: []interface{}{f.ID},
 			},
 		},
+		Ordering: "order by joined_at",
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
@@ -288,7 +289,7 @@ func (f *ACSFleet) fetchArrivalTime(data Instance) error {
 	// In order to consolidate the arrival time from
 	// the registered components. We assume that the
 	// info in the DB is consistent and we can just
-	// fetch it from the first fleet (as all the other
+	// fetch it from the first fleet (as all others
 	// should be the same).
 	query := db.QueryDesc{
 		Props: []string{
@@ -358,7 +359,6 @@ func (f *ACSFleet) SaveToDB(fleet *Fleet, proxy db.Proxy) error {
 	}
 
 	err := proxy.InsertToDB(query)
-	// err := fmt.Errorf("Deactivated query using %s", query.Script)
 
 	// Analyze the error in order to provide some
 	// comprehensive message.

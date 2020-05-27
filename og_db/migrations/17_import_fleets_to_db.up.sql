@@ -223,7 +223,9 @@ BEGIN
         f.arrival_time,
         'acs_fleet'
       FROM
-        fleets f;
+        fleets f
+      WHERE
+        f.id = (fleet->>'id')::uuid;
   ELSE
     -- We need to update the completion time for the ACS
     -- in the actions queue with the arrival time of this
@@ -235,7 +237,15 @@ BEGIN
   END IF;
 
   -- Register this fleet as one of the component for the ACS.
-  INSERT INTO fleets_acs_components("acs", "fleet") VALUES(acs_id, (fleet->>'id')::uuid);
+  INSERT INTO fleets_acs_components("acs", "fleet", "joined_at")
+    SELECT
+      acs_id,
+      f.id,
+      f.created_at
+    FROM
+      fleets AS f
+    WHERE
+      f.id = (fleet->>'id')::uuid;
 
   -- Delete this fleet from the actions queue. Indeed we
   -- handled both the case where the ACS did not exist

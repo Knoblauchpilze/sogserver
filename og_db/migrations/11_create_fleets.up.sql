@@ -74,6 +74,7 @@ CREATE TABLE fleets_acs (
 CREATE TABLE fleets_acs_components (
   acs uuid NOT NULL,
   fleet uuid NOT NULL,
+  joined_at TIMESTAMP WITH TIME ZONE NOT NULL,
   FOREIGN KEY (acs) REFERENCES fleets_acs(id),
   FOREIGN KEY (fleet) REFERENCES fleets(id)
 );

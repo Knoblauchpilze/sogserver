@@ -1268,7 +1268,7 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 	case "colonization":
 		script, err = f.colonize(data)
 	case "attacking":
-		script, err = f.attack(p)
+		script, err = f.attack(p, data)
 	case "espionage":
 		script, err = f.spy(p)
 	case "destroy":

@@ -32,6 +32,10 @@ import (
 // The `Weapon` fills a similar purpose to the
 // `Shield` but for the armament value.
 //
+// The `Hull` defines the hit points for this
+// ship given the technologies researched by
+// the player owning this ship.
+//
 // The `RFVSShips` defines the list of rapid
 // fires this ship has against other ships.
 //
@@ -44,6 +48,7 @@ type shipInFight struct {
 	Cargo        int
 	Shield       int
 	Weapon       int
+	Hull         int
 	RFVSShips    []model.RapidFire
 	RFVSDefenses []model.RapidFire
 }
@@ -67,11 +72,16 @@ type shipInFight struct {
 //
 // The `Weapon` defines the weapon value of
 // the defense system.
+//
+// The `Hull` defines the hit points for this
+// defense system given the techs researched
+// by the player owning this ship.
 type defenseInFight struct {
 	Planet string
 	Count  int
 	Shield int
 	Weapon int
+	Hull   int
 }
 
 // shipsUnit :

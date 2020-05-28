@@ -33,7 +33,7 @@ func (f *Fleet) destroy(m *Planet, data Instance) (string, error) {
 	}
 
 	// First attack the moon.
-	script, err := f.attack(m)
+	script, err := f.attack(m, data)
 	if err != nil {
 		return script, err
 	}

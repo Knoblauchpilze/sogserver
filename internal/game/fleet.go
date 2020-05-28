@@ -396,6 +396,51 @@ func NewFleetFromDB(ID string, data Instance) (Fleet, error) {
 	return f, nil
 }
 
+// cargoSpace :
+// Returns the available cargo space for this
+// fleet.
+//
+// The `data` allows to access to the DB data.
+//
+// Returns the amount of cargo for this fleet
+// along with any error.
+func (f *Fleet) cargoSpace(data Instance) (int, error) {
+	cargo := 0
+
+	for _, ship := range f.Ships {
+		sd, err := data.Ships.GetShipFromID(ship.ID)
+
+		if err != nil {
+			return cargo, err
+		}
+
+		cargo += (ship.Count * sd.Cargo)
+	}
+
+	return cargo, nil
+}
+
+// usedCargoSpace :
+// Returns the used cargo space by the resources
+// carried by the fleet. Note that this is the
+// raw value of the cargo without any control to
+// determine whether the resources can actually
+// be moved or carried by the fleet.
+//
+// The `data` allows to access to the DB data.
+//
+// Returns the amount of used  cargo for this fleet
+// along with any error.
+func (f *Fleet) usedCargoSpace() float32 {
+	cargo := float32(0.0)
+
+	for _, c := range f.Cargo {
+		cargo += c.Amount
+	}
+
+	return cargo
+}
+
 // fetchGeneralInfo :
 // Used internally when building a fleet from the
 // DB to retrieve general information such as the
@@ -1029,16 +1074,9 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 
 	// Make sure that the cargo defined for this fleet
 	// component can be stored in the ships.
-	totCargo := 0
-
-	for _, ship := range f.Ships {
-		sd, err := data.Ships.GetShipFromID(ship.ID)
-
-		if err != nil {
-			return err
-		}
-
-		totCargo += (ship.Count * sd.Cargo)
+	totCargo, err := f.cargoSpace(data)
+	if err != nil {
+		return err
 	}
 
 	if f.Cargo == nil {

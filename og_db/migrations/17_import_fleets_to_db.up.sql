@@ -792,6 +792,8 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION fleet_harvesting_success(fleet_id uuid, debris_id uuid, resources json, dispersed text, gathered text) RETURNS VOID AS $$
 DECLARE
   player_id uuid;
+  recyclers_count integer;
+  recyclers_capacity integer;
   coordinates text;
 BEGIN
   -- Attempt to retrieve the player as it will be
@@ -799,6 +801,34 @@ BEGIN
   SELECT player INTO player_id FROM fleets WHERE id = fleet_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invalid player for fleet % in harvesting operation', fleet_id;
+  END IF;
+
+  -- Retrieve the information needed for the
+  -- harvesting report.
+  SELECT
+    fs.count INTO recyclers_count
+  FROM
+    fleets_ships AS fs
+    INNER JOIN ships AS s ON fs.ship = s.id
+  WHERE
+    fs.fleet = fleet_id
+    AND s.name = 'recycler';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid recyclers count for fleet % in harvesting operation', fleet_id;
+  END IF;
+
+  SELECT
+    s.cargo * fs.count INTO recyclers_capacity
+  FROM
+    fleets_ships AS fs
+    INNER JOIN ships AS s ON fs.ship = s.id
+  WHERE
+    fs.fleet = fleet_id
+    AND s.name = 'recycler';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid recyclers capacity for fleet % in harvesting operation', fleet_id;
   END IF;
 
   -- Add the resources to the fleet's data. We need
@@ -873,7 +903,7 @@ BEGIN
 
   -- We need to register a new message indicating the
   -- resources that were harvested.
-  PERFORM create_message_for(player_id, 'harvesting_report', coordinates, dispersed, gathered);
+  PERFORM create_message_for(player_id, 'harvesting_report', recyclers_count, recyclers_capacity, coordinates, dispersed, gathered);
 END
 $$ LANGUAGE plpgsql;
 

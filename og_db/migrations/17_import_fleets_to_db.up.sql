@@ -1000,3 +1000,14 @@ BEGIN
   END IF;
 END
 $$ LANGUAGE plpgsql;
+
+-- Handle the aftermath of a fleet fight on a planet. We
+-- have to update the resources pillaged by the fleet,
+-- create the debris field if needed (even if it does not
+-- contain any resources) and remove any destroyed ships
+-- and defenses from the fleet and the planet.
+CREATE OR REPLACE FUNCTION fleet_fight_aftermath(fleet_id uuid, fleet json, kind text, planet_ships json, planet_defenses json, debris json, pillage resources, outcome text) RETURNS VOID AS $$
+DECLARE
+BEGIN
+END
+$$ LANGUAGE plpgsql;

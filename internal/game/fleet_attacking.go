@@ -3,6 +3,8 @@ package game
 import (
 	"fmt"
 	"math"
+	"oglike_server/internal/model"
+	"oglike_server/pkg/db"
 )
 
 // ErrFleetFightSimulationFailure : Indicates that an error has occurred
@@ -42,10 +44,28 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 		return "", ErrFleetFightSimulationFailure
 	}
 
-	// TODO: Handle result.
-	fmt.Println(fmt.Sprintf("Result: %v", result))
+	// Handle the pillage of resources if the outcome
+	// says so. Note that the outcome is expressed in
+	// the defender's point of view
+	pillage := f.pillage(p, data, result.outcome)
 
-	return "fleet_return_to_base", fmt.Errorf("Not implemented")
+	// Create the query and execute it.
+	query := db.InsertReq{
+		Script: "fleet_fight_aftermath",
+		Args: []interface{}{
+			a.convertShips(f.ID),
+			f.TargetCoords.Type,
+			d.convertShips(),
+			d.convertDefenses(),
+			result.debris,
+			pillage,
+			result.outcome,
+		},
+	}
+
+	err = data.Proxy.InsertToDB(query)
+
+	return "fleet_return_to_base", err
 }
 
 // toDefender :
@@ -59,8 +79,9 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 // planet along with any error.
 func (p *Planet) toDefender(data Instance) (defender, error) {
 	d := defender{
-		units:    make([]shipInFight, 0),
-		defenses: make([]defenseInFight, 0),
+		indigenous:     make(shipsUnit, 0),
+		reinforcements: make(shipsUnit, 0),
+		defenses:       make([]defenseInFight, 0),
 	}
 
 	// Fetch the fighting technologies for the player
@@ -131,7 +152,7 @@ func (p *Planet) toDefender(data Instance) (defender, error) {
 			RFVSDefenses: s.RFVSDefenses,
 		}
 
-		d.units = append(d.units, sif)
+		d.indigenous = append(d.indigenous, sif)
 	}
 
 	// Convert defenses.
@@ -156,11 +177,12 @@ func (p *Planet) toDefender(data Instance) (defender, error) {
 		armour := int(math.Round(float64(hp) * armourIncrease))
 
 		dif := defenseInFight{
-			Planet: p.ID,
-			Count:  def.Amount,
-			Shield: shield,
-			Weapon: weapon,
-			Hull:   armour,
+			Planet:  p.ID,
+			Defense: def.ID,
+			Count:   def.Amount,
+			Shield:  shield,
+			Weapon:  weapon,
+			Hull:    armour,
 		}
 
 		d.defenses = append(d.defenses, dif)
@@ -271,4 +293,36 @@ func (f *Fleet) toAttacker(data Instance) (attacker, error) {
 	}
 
 	return a, nil
+}
+
+// pillage :
+// Used to handle the pillage of the input
+// planet by this fleet. We assume that the
+// ships available to perform the pillage
+// are up-to-date in this fleet and that the
+// resources on the planet are up-to-date as
+// well.
+//
+// The `p` defines the planet to pillage.
+//
+// The `data` defines a way to access the DB.
+//
+// The `result` defines the result of the
+// fight of the fleet on the input planet.
+// Note that this is expressed from the
+// defender's point of view.
+//
+// Returns the resources pillaged.
+func (f *Fleet) pillage(p *Planet, data Instance, result FightOutcome) []model.ResourceAmount {
+	pillage := make([]model.ResourceAmount, 0)
+
+	// If the outcome indicates that the fleet
+	// could not pass the planet's defenses we
+	// can't pillage anything.
+	if result != Loss {
+		return pillage
+	}
+
+	// TODO: Implement this.
+	return pillage
 }

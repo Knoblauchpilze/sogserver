@@ -63,6 +63,11 @@ type shipInFight struct {
 // The `Planet` defines the parent planet
 // where the defense is built.
 //
+// The `Defense` defines the identifier of
+// the defense system so that we can know
+// which lines to update in the DB at the
+// end of the fight.
+//
 // The `Count` defines the number of defenses
 // system engaged in the fight.
 //
@@ -77,11 +82,12 @@ type shipInFight struct {
 // defense system given the techs researched
 // by the player owning this ship.
 type defenseInFight struct {
-	Planet string
-	Count  int
-	Shield int
-	Weapon int
-	Hull   int
+	Planet  string
+	Defense string
+	Count   int
+	Shield  int
+	Weapon  int
+	Hull    int
 }
 
 // shipsUnit :
@@ -113,8 +119,9 @@ type attacker struct {
 // Just like for the `attacker` case the
 // order of ships in the `fleet`
 type defender struct {
-	units    shipsUnit
-	defenses []defenseInFight
+	indigenous     shipsUnit
+	reinforcements shipsUnit
+	defenses       []defenseInFight
 }
 
 // FightOutcome :
@@ -135,6 +142,125 @@ const (
 	Loss
 )
 
+// aftermathShip :
+// Used as a convenience structure to be able
+// to update the ship of a planet or a fleet
+// in the aftermath of a fleet fight. It only
+// defines the identifier of the ship and its
+// final count so that we can update the info
+// in the DB.
+//
+// The `ID` defines the identifier of the ship.
+//
+// The `Count` defines the number of ships
+// that remain after the fight (should be at
+// least `0`).
+type aftermathShip struct {
+	ID    string `json:"ship"`
+	Count int    `json:"count"`
+}
+
+// aftermathDefense :
+// Fills a similar purpose to `aftermathShip`
+// but for the defense systems of a planet.
+//
+// The `ID` defines the identifier of the
+// defense system.
+//
+// The `Coun/t` defines how many defenses of
+// this type remains after the fight.
+type aftermathDefense struct {
+	ID    string `json:"defense"`
+	Count int    `json:"count"`
+}
+
+// convertShips :
+// Used to convert the ships registered for
+// this attacker into a marshallable struct
+// that can be used to modify the content of
+// the DB.
+//
+// The `fleet` defines the identifier of the
+// fleet to which the ships should belong in
+// order to be considered for the marshalling.
+//
+// Returns the converted interface for ships.
+func (a attacker) convertShips(fleet string) interface{} {
+	ships := make([]aftermathShip, 0)
+
+	// Note that we will traverse only the units
+	// that are owned by the planet itself: the
+	// fleets that might have come to defend will
+	// be marshalled in a different step.
+	for _, unit := range a.units {
+		for _, s := range unit {
+			// Only consider ships belonging to the
+			// input fleet.
+			if s.Fleet != fleet {
+				continue
+			}
+
+			d := aftermathShip{
+				ID:    s.Ship,
+				Count: s.Count,
+			}
+
+			ships = append(ships, d)
+		}
+	}
+
+	return ships
+}
+
+// convertShips :
+// Used to convert the ships registered for
+// this defender into a marshallable struct
+// that can be used to modify the content of
+// the DB.
+//
+// Returns the converted interface for ships.
+func (d defender) convertShips() interface{} {
+	ships := make([]aftermathShip, 0)
+
+	// Note that we will traverse only the units
+	// that are owned by the planet itself: the
+	// fleets that might have come to defend will
+	// be marshalled in a different step.
+	for _, unit := range d.indigenous {
+		d := aftermathShip{
+			ID:    unit.Ship,
+			Count: unit.Count,
+		}
+
+		ships = append(ships, d)
+	}
+
+	return ships
+}
+
+// convertDefenses :
+// Used to convert the defenses registered for
+// this defender into a marshallable structure
+// that can be used to modify the content of
+// the DB.
+//
+// Returns the converted interface for defenses.
+func (d defender) convertDefenses() interface{} {
+
+	defs := make([]aftermathDefense, 0)
+
+	for _, def := range d.defenses {
+		d := aftermathDefense{
+			ID:    def.Defense,
+			Count: def.Count,
+		}
+
+		defs = append(defs, d)
+	}
+
+	return defs
+}
+
 // fightResult :
 // Describes the outcome of a fight between an
 // attacking fleet and a defender. The outcome
@@ -149,16 +275,10 @@ const (
 // the fight. Might be empty in case no ships
 // have been destroyed.
 //
-// The `pillage` defines the list of resources
-// that have been pillaged by the attacking
-// fleet. Might be empty in case of a draw or
-// a defeat of the attacking fleet.
-//
 // The `outcome` defines a summary of the
 // fight.
 type fightResult struct {
 	debris  []model.ResourceAmount
-	pillage []model.ResourceAmount
 	outcome FightOutcome
 }
 

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"math"
 	"oglike_server/internal/model"
 )
@@ -152,6 +153,28 @@ func newPillagingProps(f *Fleet, ships *model.ShipsModule) (collectingProps, err
 	}
 
 	return cp, nil
+}
+
+// newACSPillagingProps :
+// Used in a similar way to `newPillagingProps`
+// but to build the collecting properties for
+// an ACS fleet. It does not differ that much
+// during the collecting phase as the fleet is
+// still treated as a single entity. The actual
+// split of the pillaged resources for each
+// individual fleet is done afterwards.
+//
+// The `acs` defines the input ACS operation
+// which should pillage something.
+//
+// The `ships` helps gathering information on
+// ships composing the fleet.
+//
+// Returns the output collecting props along
+// with any error.
+func newACSPillagingProps(acs *ACSFleet, ships *model.ShipsModule) (collectingProps, error) {
+	// TODO: Implement this.
+	return collectingProps{}, fmt.Errorf("Not implemented")
 }
 
 // collect :

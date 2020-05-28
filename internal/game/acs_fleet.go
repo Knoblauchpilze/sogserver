@@ -555,7 +555,10 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 	// Handle the pillage of resources if the outcome
 	// says so. Note that the outcome is expressed in
 	// the defender's point of view.
-	_ = acs.pillage(p, data, result.outcome)
+	_, err = acs.pillage(p, data, result.outcome)
+	if err != nil {
+		return ErrFleetFightSimulationFailure
+	}
 
 	// TODO: Split pillage equally and handle the save
 	// script (maybe use the `fleet_fight_aftermath` to
@@ -569,9 +572,12 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 // Used to handle the pillage of the input
 // planet by this fleet. We assume that the
 // ships available to perform the pillage
-// are up-to-date in this fleet and that the
+// are up-to-date in the fleet and that the
 // resources on the planet are up-to-date as
 // well.
+// The return value indicates for each fleet
+// the resources pillaged so that it's easy
+// to save the changes in the DB.
 //
 // The `p` defines the planet to pillage.
 //
@@ -583,16 +589,29 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 // defender's point of view.
 //
 // Returns the resources pillaged.
-func (acs *ACSFleet) pillage(p *Planet, data Instance, result FightOutcome) []model.ResourceAmount {
-	pillage := make([]model.ResourceAmount, 0)
+func (acs *ACSFleet) pillage(p *Planet, data Instance, result FightOutcome) (map[string][]model.ResourceAmount, error) {
+	pillage := make(map[string][]model.ResourceAmount, 0)
 
-	// If the outcome indicates that the fleet
-	// could not pass the planet's defenses we
-	// can't pillage anything.
+	// No pillage if the ACS fleet did not
+	// defeat the fleet on the planet.
 	if result != Loss {
-		return pillage
+		return pillage, nil
+	}
+
+	// Use a dedicated handler to compute the
+	// result of the pillage of the target of
+	// the fleet.
+	pp, err := newPillagingProps(acs, data.Ships)
+	if err != nil {
+		return pillage, err
+	}
+
+	// Assume a default pillage ratio of `0.5`.
+	err = pp.pillage(p, 0.5, data)
+	if err != nil {
+		return pillage, err
 	}
 
 	// TODO: Implement this.
-	return pillage
+	return pillage, nil
 }

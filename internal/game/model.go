@@ -413,18 +413,30 @@ func (i Instance) performFleetAction(ID string) error {
 	// does not have a target, use a `nil` value.
 	var p *Planet
 
-	if f.Target != "" && f.TargetCoords.Type == World {
-		rp, err := NewPlanetFromDB(f.Target, i)
+	if f.TargetCoords.Type == World || f.TargetCoords.Type == Moon {
+		valid := true
+		var rp Planet
+
+		switch f.TargetCoords.Type {
+		case World:
+			rp, err = NewPlanetFromDB(f.Target, i)
+		case Moon:
+			rp, err = NewMoonFromDB(f.Target, i)
+		default:
+			// Probably debris, do nothing.
+			valid = false
+		}
+
 		if err != nil {
 			return err
 		}
 
-		p = &rp
+		if valid {
+			p = &rp
+		}
 	}
 
-	err = f.simulate(p, i)
-
-	return err
+	return f.simulate(p, i)
 }
 
 // performACSFleetAction :
@@ -447,5 +459,33 @@ func (i Instance) performACSFleetAction(ID string) error {
 		return err
 	}
 
-	return acs.simulate(i)
+	// Retrieve the target planet of the fleet to
+	// be able to simulate it. In case of a `ACS`
+	// fleet we *know* it will exist.
+	var p *Planet
+
+	if acs.TargetType == World || acs.TargetType == Moon {
+		valid := true
+		var rp Planet
+
+		switch acs.TargetType {
+		case World:
+			rp, err = NewPlanetFromDB(acs.Target, i)
+		case Moon:
+			rp, err = NewMoonFromDB(acs.Target, i)
+		default:
+			// Probably debris, do nothing.
+			valid = false
+		}
+
+		if err != nil {
+			return err
+		}
+
+		if valid {
+			p = &rp
+		}
+	}
+
+	return acs.simulate(p, i)
 }

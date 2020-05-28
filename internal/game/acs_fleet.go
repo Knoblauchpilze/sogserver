@@ -76,20 +76,20 @@ var ErrACSFleetDelayedTooMuch = fmt.Errorf("Fleet would delay ACS operation too 
 // only mean obvious syntax errors.
 //
 // Returns any error or `nil` if the fleet seems valid.
-func (f *ACSFleet) Valid() error {
-	if !validUUID(f.ID) {
+func (acs *ACSFleet) Valid() error {
+	if !validUUID(acs.ID) {
 		return ErrInvalidElementID
 	}
-	if !validUUID(f.Universe) {
+	if !validUUID(acs.Universe) {
 		return ErrInvalidUniverseForFleet
 	}
-	if !validUUID(f.Objective) {
+	if !validUUID(acs.Objective) {
 		return ErrInvalidObjectiveForFleet
 	}
-	if !validUUID(f.Target) {
+	if !validUUID(acs.Target) {
 		return ErrInvalidTargetForFleet
 	}
-	if !existsLocation(f.TargetType) {
+	if !existsLocation(acs.TargetType) {
 		return ErrInvalidTargetTypeForFleet
 	}
 
@@ -109,32 +109,32 @@ func (f *ACSFleet) Valid() error {
 // Returns the built ACS fleet and any error.
 func NewACSFleetFromDB(ID string, data Instance) (ACSFleet, error) {
 	// Create the fleet.
-	f := ACSFleet{
+	acs := ACSFleet{
 		ID: ID,
 	}
 
 	// Consistency.
-	if !validUUID(f.ID) {
-		return f, ErrInvalidElementID
+	if !validUUID(acs.ID) {
+		return acs, ErrInvalidElementID
 	}
 
 	// Fetch the ACS fleet's content.
-	err := f.fetchGeneralInfo(data)
+	err := acs.fetchGeneralInfo(data)
 	if err != nil {
-		return f, err
+		return acs, err
 	}
 
-	err = f.fetchFleets(data)
+	err = acs.fetchFleets(data)
 	if err != nil {
-		return f, err
+		return acs, err
 	}
 
-	err = f.fetchArrivalTime(data)
+	err = acs.fetchArrivalTime(data)
 	if err != nil {
-		return f, err
+		return acs, err
 	}
 
-	return f, nil
+	return acs, nil
 }
 
 // NewACSFleet :
@@ -172,7 +172,7 @@ func NewACSFleet(fleet *Fleet) ACSFleet {
 // The `data` defines the object to access the DB.
 //
 // Returns any error.
-func (f *ACSFleet) fetchGeneralInfo(data Instance) error {
+func (acs *ACSFleet) fetchGeneralInfo(data Instance) error {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
@@ -185,7 +185,7 @@ func (f *ACSFleet) fetchGeneralInfo(data Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "id",
-				Values: []interface{}{f.ID},
+				Values: []interface{}{acs.ID},
 			},
 		},
 	}
@@ -208,10 +208,10 @@ func (f *ACSFleet) fetchGeneralInfo(data Instance) error {
 	}
 
 	err = dbRes.Scan(
-		&f.Universe,
-		&f.Objective,
-		&f.Target,
-		&f.TargetType,
+		&acs.Universe,
+		&acs.Objective,
+		&acs.Target,
+		&acs.TargetType,
 	)
 
 	// Make sure that it's the only ACS fleet.
@@ -230,8 +230,8 @@ func (f *ACSFleet) fetchGeneralInfo(data Instance) error {
 // The `data` allows to access to the DB.
 //
 // Returns any error.
-func (f *ACSFleet) fetchFleets(data Instance) error {
-	f.Fleets = make([]string, 0)
+func (acs *ACSFleet) fetchFleets(data Instance) error {
+	acs.Fleets = make([]string, 0)
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
@@ -242,7 +242,7 @@ func (f *ACSFleet) fetchFleets(data Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "acs",
-				Values: []interface{}{f.ID},
+				Values: []interface{}{acs.ID},
 			},
 		},
 		Ordering: "order by joined_at",
@@ -271,7 +271,7 @@ func (f *ACSFleet) fetchFleets(data Instance) error {
 			return err
 		}
 
-		f.Fleets = append(f.Fleets, fleet)
+		acs.Fleets = append(acs.Fleets, fleet)
 	}
 
 	return nil
@@ -285,7 +285,7 @@ func (f *ACSFleet) fetchFleets(data Instance) error {
 // The `data` allows to access to the DB.
 //
 // Return any errors.
-func (f *ACSFleet) fetchArrivalTime(data Instance) error {
+func (acs *ACSFleet) fetchArrivalTime(data Instance) error {
 	// In order to consolidate the arrival time from
 	// the registered components. We assume that the
 	// info in the DB is consistent and we can just
@@ -299,7 +299,7 @@ func (f *ACSFleet) fetchArrivalTime(data Instance) error {
 		Filters: []db.Filter{
 			{
 				Key:    "fac.acs",
-				Values: []interface{}{f.ID},
+				Values: []interface{}{acs.ID},
 			},
 		},
 	}
@@ -323,7 +323,7 @@ func (f *ACSFleet) fetchArrivalTime(data Instance) error {
 	}
 
 	err = dbRes.Scan(
-		&f.arrivalTime,
+		&acs.arrivalTime,
 	)
 
 	return err
@@ -339,7 +339,7 @@ func (f *ACSFleet) fetchArrivalTime(data Instance) error {
 // The `proxy` allows to access to the DB.
 //
 // Returns any error.
-func (f *ACSFleet) SaveToDB(fleet *Fleet, proxy db.Proxy) error {
+func (acs *ACSFleet) SaveToDB(fleet *Fleet, proxy db.Proxy) error {
 	// Convert the cargo to a marshallable slice.
 	resources := make([]model.ResourceAmount, 0)
 	for _, res := range fleet.Cargo {
@@ -350,7 +350,7 @@ func (f *ACSFleet) SaveToDB(fleet *Fleet, proxy db.Proxy) error {
 	query := db.InsertReq{
 		Script: "create_acs_fleet",
 		Args: []interface{}{
-			f.ID,
+			acs.ID,
 			fleet,
 			fleet.Ships.convert(),
 			resources,
@@ -362,7 +362,6 @@ func (f *ACSFleet) SaveToDB(fleet *Fleet, proxy db.Proxy) error {
 
 	// Analyze the error in order to provide some
 	// comprehensive message.
-	// TODO: Probably refine even more the errors ?
 	dbe, ok := err.(db.Error)
 	if !ok {
 		return err
@@ -413,28 +412,28 @@ func (f *ACSFleet) SaveToDB(fleet *Fleet, proxy db.Proxy) error {
 // The `data` allows to access to the DB.
 //
 // Returns any error.
-func (f *ACSFleet) ValidateFleet(fleet *Fleet, source *Planet, data Instance) error {
+func (acs *ACSFleet) ValidateFleet(fleet *Fleet, source *Planet, data Instance) error {
 	// Make sure that the common properties for the
 	// fleet are consistent.
-	if fleet.ACS != f.ID {
+	if fleet.ACS != acs.ID {
 		return ErrACSOperationMismatch
 	}
-	if fleet.Universe != f.Universe {
+	if fleet.Universe != acs.Universe {
 		return ErrACSUniverseMismacth
 	}
-	if fleet.Objective != f.Objective {
+	if fleet.Objective != acs.Objective {
 		return ErrACSObjectiveMismacth
 	}
-	if fleet.Target != f.Target {
+	if fleet.Target != acs.Target {
 		return ErrACSTargetMismacth
 	}
-	if fleet.TargetCoords.Type != f.TargetType {
+	if fleet.TargetCoords.Type != acs.TargetType {
 		return ErrACSTargetTypeMismacth
 	}
 
 	// In case there's no elements yet in the ACS
 	// the component is now declared valid.
-	if len(f.Fleets) == 0 {
+	if len(acs.Fleets) == 0 {
 		return nil
 	}
 
@@ -445,7 +444,7 @@ func (f *ACSFleet) ValidateFleet(fleet *Fleet, source *Planet, data Instance) er
 	// than 30%.
 	now := time.Now()
 
-	timeToArrival := f.arrivalTime.Sub(now)
+	timeToArrival := acs.arrivalTime.Sub(now)
 	newTimeToArrival := fleet.ArrivalTime.Sub(now)
 
 	deltaT := float32(newTimeToArrival) / float32(timeToArrival)
@@ -493,8 +492,8 @@ func (f *ACSFleet) ValidateFleet(fleet *Fleet, source *Planet, data Instance) er
 	// is not a big issue as the error we noted was
 	// quite small (but possibly in the second-ish
 	// region).
-	d := -fleet.ArrivalTime.Sub(f.arrivalTime)
-	fleet.ArrivalTime = f.arrivalTime
+	d := -fleet.ArrivalTime.Sub(acs.arrivalTime)
+	fleet.ArrivalTime = acs.arrivalTime
 	fleet.CreatedAt = fleet.CreatedAt.Add(d)
 
 	return nil
@@ -504,10 +503,96 @@ func (f *ACSFleet) ValidateFleet(fleet *Fleet, source *Planet, data Instance) er
 // Used to perform the execution of this ACS
 // fleet on its target.
 //
+// The `p` describes the element that will be
+// attacked. It can either be a planet or a
+// moon.
+//
 // The `data` allows to access to the DB.
 //
 // Returns any error.
-func (f *ACSFleet) simulate(data Instance) error {
-	// TODO: Implement the simulation of the ACS fleet.
+func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
+	// We first need to fetch all the fleets that
+	// belong to this ACS.
+	fleets := make([]Fleet, 0)
+
+	for _, f := range acs.Fleets {
+		fleet, err := NewFleetFromDB(f, data)
+		if err != nil {
+			return ErrFleetFightSimulationFailure
+		}
+
+		fleets = append(fleets, fleet)
+	}
+
+	// Create the attacker structure from the fleets.
+	// We know that the fleets are ordered by their
+	// desired joining time so we can just traverse
+	// the slice from the beginning to the end.
+	a := attacker{
+		units: make([]shipsUnit, 0),
+	}
+
+	for _, f := range fleets {
+		att, err := f.toAttacker(data)
+		if err != nil {
+			return ErrFleetFightSimulationFailure
+		}
+
+		a.units = append(a.units, att.units...)
+	}
+
+	// Create the defender from the planet.
+	d, err := p.toDefender(data)
+	if err != nil {
+		return ErrFleetFightSimulationFailure
+	}
+
+	result, err := d.defend(&a)
+	if err != nil {
+		return ErrFleetFightSimulationFailure
+	}
+
+	// Handle the pillage of resources if the outcome
+	// says so. Note that the outcome is expressed in
+	// the defender's point of view.
+	_ = acs.pillage(p, data, result.outcome)
+
+	// TODO: Split pillage equally and handle the save
+	// script (maybe use the `fleet_fight_aftermath` to
+	// save each fleet).
+
+	// Create the query and execute it.
 	return fmt.Errorf("Not implemented")
+}
+
+// pillage :
+// Used to handle the pillage of the input
+// planet by this fleet. We assume that the
+// ships available to perform the pillage
+// are up-to-date in this fleet and that the
+// resources on the planet are up-to-date as
+// well.
+//
+// The `p` defines the planet to pillage.
+//
+// The `data` defines a way to access the DB.
+//
+// The `result` defines the result of the
+// fight of the fleet on the input planet.
+// Note that this is expressed from the
+// defender's point of view.
+//
+// Returns the resources pillaged.
+func (acs *ACSFleet) pillage(p *Planet, data Instance, result FightOutcome) []model.ResourceAmount {
+	pillage := make([]model.ResourceAmount, 0)
+
+	// If the outcome indicates that the fleet
+	// could not pass the planet's defenses we
+	// can't pillage anything.
+	if result != Loss {
+		return pillage
+	}
+
+	// TODO: Implement this.
+	return pillage
 }

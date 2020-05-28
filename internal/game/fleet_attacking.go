@@ -46,7 +46,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 
 	// Handle the pillage of resources if the outcome
 	// says so. Note that the outcome is expressed in
-	// the defender's point of view
+	// the defender's point of view.
 	pillage := f.pillage(p, data, result.outcome)
 
 	// Create the query and execute it.

@@ -1009,5 +1009,6 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION fleet_fight_aftermath(fleet_id uuid, fleet json, kind text, planet_ships json, planet_defenses json, debris json, pillage resources, outcome text) RETURNS VOID AS $$
 DECLARE
 BEGIN
+  -- TODO: Implement this script.
 END
 $$ LANGUAGE plpgsql;

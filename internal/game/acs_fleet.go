@@ -513,7 +513,7 @@ func (acs *ACSFleet) ValidateFleet(fleet *Fleet, source *Planet, data Instance) 
 func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 	// We first need to fetch all the fleets that
 	// belong to this ACS.
-	fleets := make([]Fleet, 0)
+	fleets := make([]*Fleet, 0)
 	cargo := float32(0.0)
 
 	for _, f := range acs.Fleets {
@@ -524,7 +524,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 
 		cargo += fleet.usedCargoSpace()
 
-		fleets = append(fleets, fleet)
+		fleets = append(fleets, &fleet)
 	}
 
 	// Create the attacker structure from the fleets.
@@ -568,11 +568,109 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 		}
 	}
 
-	// TODO: Split pillage equally and handle the save
-	// script (maybe use the `fleet_fight_aftermath` to
-	// save each fleet).
-	fmt.Println(fmt.Sprintf("Pillage is %v", pillage))
+	// The pillage will be split equally between the
+	// fleets based on their available cargo space.
+	repartition := make(map[string][]model.ResourceAmount)
 
-	// Create the query and execute it.
+	if len(pillage) > 0 {
+		repartition, err = acs.allocatePillage(pillage, fleets)
+		if err != nil {
+			return ErrFleetFightSimulationFailure
+		}
+	}
+
+	// Update the fleets so that we can batch save
+	// them back to the DB.
+	err = acs.updateFleetsAfterFight(a, fleets)
+	if err != nil {
+		return ErrFleetFightSimulationFailure
+	}
+
+	// Update the planet's data in the DB.
+	query := db.InsertReq{
+		Script: "planet_fight_aftermath",
+		Args: []interface{}{
+			p.ID,
+			p.Coordinates.Type,
+			d.convertShips(),
+			d.convertDefenses(),
+			result.debris,
+		},
+	}
+
+	err = data.Proxy.InsertToDB(query)
+	if err != nil {
+		return ErrFleetFightSimulationFailure
+	}
+
+	// Update each fleet's data in the DB.
+	for _, f := range fleets {
+		// Execute the query to update the fleet with
+		// its associated data.
+		pillageForFleet := repartition[f.ID]
+		if pillageForFleet == nil {
+			pillageForFleet = make([]model.ResourceAmount, 0)
+		}
+
+		query = db.InsertReq{
+			Script: "fleet_fight_aftermath",
+			Args: []interface{}{
+				f.ID,
+				a.convertShips(f.ID),
+				pillageForFleet,
+				result.outcome,
+			},
+		}
+
+		err = data.Proxy.InsertToDB(query)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// allocatePillage :
+// Used to perform the allocation of the resources
+// plundered by an ACS operation between all the
+// fleets that participated to it. The goal is to
+// split it equally based on the cargo available
+// for each fleet.
+//
+// The `pillage` represents the amount of resources
+// plundered from the planet.
+//
+// The `fleets` represents the fleets objects to
+// associate to each element of the ACS attack.
+//
+// Returns a map where each key corresponds to a
+// key of a fleet participating in this ACS op and
+// the value corresponds to the pillaged resources
+// carried by the fleet. Also any error is returned.
+func (acs *ACSFleet) allocatePillage(pillage []model.ResourceAmount, fleets []*Fleet) (map[string][]model.ResourceAmount, error) {
+	// TODO: Implement this.
+	return nil, fmt.Errorf("Not implemented")
+}
+
+// updateFleetsAfterFight :
+// Used to perform the update of the fleets as
+// a result of the fight process. The attacker
+// provided as input corresponds to the state
+// of the fleet after the fight and the `fleets`
+// represent the initial list of ships and state
+// of the fleets in this ACS component. We will
+// basically override the ships information as
+// it is described in the `a` object.
+//
+// The `a` object represents the state of the
+// ACS operation after the fight.
+//
+// The `fleets` define the initial state of the
+// fleets as they were before the fight.
+//
+// Returns any error.
+func (acs *ACSFleet) updateFleetsAfterFight(a attacker, fleets []*Fleet) error {
+	// TODO: Implement this.
 	return fmt.Errorf("Not implemented")
 }

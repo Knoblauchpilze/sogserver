@@ -72,6 +72,9 @@ type ResourcesModule struct {
 //
 // The `Storable` defines whether the resources can be
 // stored on a planet or not.
+//
+// The `Dispersable` defines whether this resource can
+// be scattered in a debris field after a fight.
 type ResourceDesc struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -80,6 +83,7 @@ type ResourceDesc struct {
 	BaseAmount  int    `json:"base_amount"`
 	Movable     bool   `json:"movable"`
 	Storable    bool   `json:"storable"`
+	Dispersable bool   `json:"dispersable"`
 }
 
 // resProps :
@@ -105,12 +109,17 @@ type ResourceDesc struct {
 // on a planet. This can represent resources where
 // the production is actually used at each time step
 // like energy for example.
+//
+// The `dispersable` prop defines whether this res
+// can be dispersed in a debris field after a fight
+// for example.
 type resProps struct {
-	prod     int
-	storage  int
-	amount   int
-	movable  bool
-	storable bool
+	prod        int
+	storage     int
+	amount      int
+	movable     bool
+	storable    bool
+	dispersable bool
 }
 
 // ResourceAmount :
@@ -185,6 +194,7 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 			"base_amount",
 			"movable",
 			"storable",
+			"dispersable",
 		},
 		Table:   "resources",
 		Filters: []db.Filter{},
@@ -219,6 +229,7 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 			&props.amount,
 			&props.movable,
 			&props.storable,
+			&props.dispersable,
 		)
 
 		if err != nil {
@@ -288,6 +299,7 @@ func (rm *ResourcesModule) GetResourceFromID(id string) (ResourceDesc, error) {
 	res.BaseAmount = props.amount
 	res.Movable = props.movable
 	res.Storable = props.storable
+	res.Dispersable = props.dispersable
 
 	return res, nil
 }
@@ -381,6 +393,7 @@ func (rm *ResourcesModule) Resources(proxy db.Proxy, filters []db.Filter) ([]Res
 			desc.BaseAmount = props.amount
 			desc.Movable = props.movable
 			desc.Storable = props.storable
+			desc.Dispersable = props.dispersable
 		}
 
 		descs = append(descs, desc)

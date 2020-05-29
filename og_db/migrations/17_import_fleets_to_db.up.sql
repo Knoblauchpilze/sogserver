@@ -1031,27 +1031,14 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
--- Handle the aftermath of a fleet fight on a planet. We
--- have to update the resources pillaged by the fleet,
--- create the debris field if needed (even if it does not
--- contain any resources) and remove any destroyed ships
--- and defenses from the fleet and the planet.
-CREATE OR REPLACE FUNCTION fleet_fight_aftermath(fleet_id uuid, fleet json, kind text, planet_ships json, planet_defenses json, debris json, pillage resources, outcome text) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION planet_fight_aftermath(target_id uuid, kind text, planet_ships json, planet_defenses json, debris json) RETURNS VOID AS $$
 DECLARE
-  target_id uuid;
   field_id uuid := uuid_generate_v4();
   target_galaxy integer;
   target_system integer;
   target_position integer;
   universe_id uuid;
-  field uuid;
 BEGIN
-  -- Fetch the target of the fleet along with its kind.
-  SELECT target INTO target_id FROM fleets WHERE id = fleet_id AND target IS NOT NULL;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid target destination for fleet % in fleet fight aftermath', fleet_id;
-  END IF;
-
   -- Update the ships and defenses for the target planet
   -- or moon: we assume that the input arguments are the
   -- total final count of each system/ship.
@@ -1143,7 +1130,7 @@ BEGIN
     INSERT INTO debris_fields("id", "universe", "galaxy", "solar_system", "position")
       VALUES(field_id, universe, target_galaxy, target_system, target_position);
 
-    INSERT INTO debris_fields_resources(field, res, amount)
+    INSERT INTO debris_fields_resources("field", "res", "amount")
       SELECT
         field_id,
         r.id,
@@ -1151,7 +1138,7 @@ BEGIN
       FROM
         resources AS r
       WHERE
-        r.is_dispersable = 'true';
+        r.dispersable = 'true';
   ELSE
     SELECT
       id
@@ -1180,7 +1167,16 @@ BEGIN
   WHERE
     dfr.id = field_id
     AND dfr.res = dr.resource;
+END
+$$ LANGUAGE plpgsql;
 
+-- Handle the aftermath of a fleet fight on a planet. We
+-- have to update the resources pillaged by the fleet,
+-- create the debris field if needed (even if it does not
+-- contain any resources) and remove any destroyed ships
+-- and defenses from the fleet and the planet.
+CREATE OR REPLACE FUNCTION fleet_fight_aftermath(fleet_id uuid, fleet json, pillage json, outcome text) RETURNS VOID AS $$
+BEGIN
   -- Update the resources carried by the fleet with the
   -- input values. The `pillage` actually describes all
   -- the resources carried by the fleet.
@@ -1273,6 +1269,10 @@ BEGIN
         count(*) > 0
     );
 
-  -- TODO: Implement message for the player after the fight.
+  -- After a fight has been processed we can trigger
+  -- the update of the return process. This will also
+  -- play nicely in case the fleet is deployed to an
+  -- allied planet.
+  PERFORM fleet_return_to_base(fleet_id);
 END
 $$ LANGUAGE plpgsql;

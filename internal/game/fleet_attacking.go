@@ -56,15 +56,29 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 		}
 	}
 
-	// Create the query and execute it.
+	// Update the planet's data in the DB.
 	query := db.InsertReq{
-		Script: "fleet_fight_aftermath",
+		Script: "planet_fight_aftermath",
 		Args: []interface{}{
-			a.convertShips(f.ID),
-			f.TargetCoords.Type,
+			p.ID,
+			p.Coordinates.Type,
 			d.convertShips(),
 			d.convertDefenses(),
 			result.debris,
+		},
+	}
+
+	err = data.Proxy.InsertToDB(query)
+	if err != nil {
+		return "", ErrFleetFightSimulationFailure
+	}
+
+	// Update the fleet's data in the DB.
+	query = db.InsertReq{
+		Script: "fleet_fight_aftermath",
+		Args: []interface{}{
+			f.ID,
+			a.convertShips(f.ID),
 			pillage,
 			result.outcome,
 		},

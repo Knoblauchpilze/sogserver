@@ -1,6 +1,9 @@
 
--- Drop the function handling the aftermath of a fight.
-DROP FUNCTION fleet_fight_aftermath(fleet_id uuid, fleet json, kind text, planet_ships json, planet_defenses json, debris json, pillage resources, outcome text);
+-- Drop the function handling the aftermath of a fight for a fleet.
+DROP FUNCTION fleet_fight_aftermath(fleet_id uuid, fleet json, pillage json, outcome text);
+
+-- Drop the function handling the aftermath of a fight on a planet or moon.
+DROP FUNCTION planet_fight_aftermath(target_id uuid, kind text, planet_ships json, planet_defenses json, debris json);
 
 -- Drop the script performing a destruction of a moon.
 DROP FUNCTION fleet_destroy(fleet_id uuid, moon_destroyed boolean, fleet_destroyed boolean);

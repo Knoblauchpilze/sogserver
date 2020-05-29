@@ -47,9 +47,13 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 	// Handle the pillage of resources if the outcome
 	// says so. Note that the outcome is expressed in
 	// the defender's point of view.
-	pillage, err := f.pillage(p, data, result.outcome)
-	if err != nil {
-		return "", ErrFleetFightSimulationFailure
+	pillage := make([]model.ResourceAmount, 0)
+
+	if result.outcome == Loss {
+		pillage, err = a.pillage(p, data)
+		if err != nil {
+			return "", ErrFleetFightSimulationFailure
+		}
 	}
 
 	// Create the query and execute it.
@@ -204,7 +208,9 @@ func (p *Planet) toDefender(data Instance) (defender, error) {
 // Returns the attacker object built from the
 // planet along with any error.
 func (f *Fleet) toAttacker(data Instance) (attacker, error) {
-	a := attacker{}
+	a := attacker{
+		usedCargo: f.usedCargoSpace(),
+	}
 
 	// A fleet only has a single batch of ships.
 	// In order to have several attacking units
@@ -296,49 +302,4 @@ func (f *Fleet) toAttacker(data Instance) (attacker, error) {
 	}
 
 	return a, nil
-}
-
-// pillage :
-// Used to handle the pillage of the input
-// planet by this fleet. We assume that the
-// ships available to perform the pillage
-// are up-to-date in this fleet and that the
-// resources on the planet are up-to-date as
-// well.
-//
-// The `p` defines the planet to pillage.
-//
-// The `data` defines a way to access the DB.
-//
-// The `result` defines the result of the
-// fight of the fleet on the input planet.
-// Note that this is expressed from the
-// defender's point of view.
-//
-// Returns the resources pillaged.
-func (f *Fleet) pillage(p *Planet, data Instance, result FightOutcome) ([]model.ResourceAmount, error) {
-	pillage := make([]model.ResourceAmount, 0)
-
-	// If the outcome indicates that the fleet
-	// could not pass the planet's defenses we
-	// can't pillage anything.
-	if result != Loss {
-		return pillage, nil
-	}
-
-	// Use a dedicated handler to compute the
-	// result of the pillage of the target of
-	// the fleet.
-	pp, err := newPillagingProps(f, data.Ships)
-	if err != nil {
-		return pillage, err
-	}
-
-	// Assume a default pillage ratio of `0.5`.
-	err = pp.pillage(p, 0.5, data)
-	if err != nil {
-		return pillage, err
-	}
-
-	return pp.collected, nil
 }

@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"math"
 	"oglike_server/internal/model"
 )
@@ -113,15 +112,16 @@ func newHarvestingProps(f *Fleet, ships *model.ShipsModule) (collectingProps, er
 // Unlike the harvesting case, all ships can be
 // used to pillage resources.
 //
-// The `f` defines the input fleet from which
-// the collecting props should be built.
+// The `a` defines the attacker from which the
+// collecting props should be built. It defines
+// the ships available to perform the pillage.
 //
-// The `ships` helps gatjering information on
+// The `ships` helps gathering information on
 // the ships composing the fleet.
 //
 // Returns the output collecting props along
 // with any error.
-func newPillagingProps(f *Fleet, ships *model.ShipsModule) (collectingProps, error) {
+func newPillagingProps(a attacker, ships *model.ShipsModule) (collectingProps, error) {
 	cp := collectingProps{}
 
 	// The total cargo space is the sum of all
@@ -129,52 +129,30 @@ func newPillagingProps(f *Fleet, ships *model.ShipsModule) (collectingProps, err
 	// the fleet.
 	totalCargoSpace := float32(0.0)
 
-	for _, s := range f.Ships {
-		sd, err := ships.GetShipFromID(s.ID)
-		if err != nil {
-			return cp, ErrUnableToSimulateFleet
+	for _, unit := range a.units {
+		for _, s := range unit {
+			sd, err := ships.GetShipFromID(s.Ship)
+			if err != nil {
+				return cp, ErrUnableToSimulateFleet
+			}
+
+			totalCargoSpace += float32(s.Count * sd.Cargo)
+
+			cp.capacity += s.Count * sd.Cargo
 		}
-
-		totalCargoSpace += float32(s.Count * sd.Cargo)
-
-		cp.capacity += s.Count * sd.Cargo
 	}
-
-	usedCargoSpace := f.usedCargoSpace()
 
 	// We have to subtract the resources already
 	// carried by the fleet from the total. This
 	// will leave only the available space to be
 	// filled with plundered resources.
-	cp.available = float32(cp.capacity) - usedCargoSpace
+	cp.available = float32(cp.capacity) - a.usedCargo
 
 	if cp.available < 0 {
 		cp.available = 0
 	}
 
 	return cp, nil
-}
-
-// newACSPillagingProps :
-// Used in a similar way to `newPillagingProps`
-// but to build the collecting properties for
-// an ACS fleet. It does not differ that much
-// during the collecting phase as the fleet is
-// still treated as a single entity. The actual
-// split of the pillaged resources for each
-// individual fleet is done afterwards.
-//
-// The `acs` defines the input ACS operation
-// which should pillage something.
-//
-// The `ships` helps gathering information on
-// ships composing the fleet.
-//
-// Returns the output collecting props along
-// with any error.
-func newACSPillagingProps(acs *ACSFleet, ships *model.ShipsModule) (collectingProps, error) {
-	// TODO: Implement this.
-	return collectingProps{}, fmt.Errorf("Not implemented")
 }
 
 // collect :

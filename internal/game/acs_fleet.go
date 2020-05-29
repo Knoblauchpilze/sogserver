@@ -514,12 +514,15 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 	// We first need to fetch all the fleets that
 	// belong to this ACS.
 	fleets := make([]Fleet, 0)
+	cargo := float32(0.0)
 
 	for _, f := range acs.Fleets {
 		fleet, err := NewFleetFromDB(f, data)
 		if err != nil {
 			return ErrFleetFightSimulationFailure
 		}
+
+		cargo += fleet.usedCargoSpace()
 
 		fleets = append(fleets, fleet)
 	}
@@ -529,7 +532,8 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 	// desired joining time so we can just traverse
 	// the slice from the beginning to the end.
 	a := attacker{
-		units: make([]shipsUnit, 0),
+		units:     make([]shipsUnit, 0),
+		usedCargo: cargo,
 	}
 
 	for _, f := range fleets {
@@ -555,9 +559,13 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 	// Handle the pillage of resources if the outcome
 	// says so. Note that the outcome is expressed in
 	// the defender's point of view.
-	_, err = acs.pillage(p, data, result.outcome)
-	if err != nil {
-		return ErrFleetFightSimulationFailure
+	pillage := make([]model.ResourceAmount, 0)
+
+	if result.outcome == Loss {
+		pillage, err = a.pillage(p, data)
+		if err != nil {
+			return ErrFleetFightSimulationFailure
+		}
 	}
 
 	// TODO: Split pillage equally and handle the save
@@ -566,52 +574,4 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 
 	// Create the query and execute it.
 	return fmt.Errorf("Not implemented")
-}
-
-// pillage :
-// Used to handle the pillage of the input
-// planet by this fleet. We assume that the
-// ships available to perform the pillage
-// are up-to-date in the fleet and that the
-// resources on the planet are up-to-date as
-// well.
-// The return value indicates for each fleet
-// the resources pillaged so that it's easy
-// to save the changes in the DB.
-//
-// The `p` defines the planet to pillage.
-//
-// The `data` defines a way to access the DB.
-//
-// The `result` defines the result of the
-// fight of the fleet on the input planet.
-// Note that this is expressed from the
-// defender's point of view.
-//
-// Returns the resources pillaged.
-func (acs *ACSFleet) pillage(p *Planet, data Instance, result FightOutcome) (map[string][]model.ResourceAmount, error) {
-	pillage := make(map[string][]model.ResourceAmount, 0)
-
-	// No pillage if the ACS fleet did not
-	// defeat the fleet on the planet.
-	if result != Loss {
-		return pillage, nil
-	}
-
-	// Use a dedicated handler to compute the
-	// result of the pillage of the target of
-	// the fleet.
-	pp, err := newPillagingProps(acs, data.Ships)
-	if err != nil {
-		return pillage, err
-	}
-
-	// Assume a default pillage ratio of `0.5`.
-	err = pp.pillage(p, 0.5, data)
-	if err != nil {
-		return pillage, err
-	}
-
-	// TODO: Implement this.
-	return pillage, nil
 }

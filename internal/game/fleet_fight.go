@@ -109,8 +109,16 @@ type shipsUnit []shipInFight
 // put them first in the fight (so that they
 // can reduce drastically the amount of some
 // specific units).
+//
+// The `units` define the list of individual
+// group of ships composing this attacker.
+//
+// The `usedCargo` represents the amount of
+// cargo used so far in the ships composing
+// the attacker.
 type attacker struct {
-	units []shipsUnit
+	units     []shipsUnit
+	usedCargo float32
 }
 
 // defender :
@@ -296,4 +304,36 @@ type fightResult struct {
 func (d *defender) defend(a *attacker) (fightResult, error) {
 	// TODO: Implement this.
 	return fightResult{}, fmt.Errorf("Not implemented")
+}
+
+// pillage :
+// Used to handle the pillage of the input
+// planet by the attacker. We will use the
+// remaining ships to compute the available
+// cargo space and pillage as many resources
+// as possible.
+//
+// The `p` defines the planet to pillage.
+//
+// The `data` defines a way to access the DB.
+//
+// Returns the resources pillaged.
+func (a attacker) pillage(p *Planet, data Instance) ([]model.ResourceAmount, error) {
+	pillage := make([]model.ResourceAmount, 0)
+
+	// Use a dedicated handler to compute the
+	// result of the pillage of the target of
+	// the fleet.
+	pp, err := newPillagingProps(a, data.Ships)
+	if err != nil {
+		return pillage, err
+	}
+
+	// Assume a default pillage ratio of `0.5`.
+	err = pp.pillage(p, 0.5, data)
+	if err != nil {
+		return pillage, err
+	}
+
+	return pp.collected, nil
 }

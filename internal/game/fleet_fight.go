@@ -302,7 +302,7 @@ type fightResult struct {
 // fight went well and contain the summary
 // of the fight.
 func (d *defender) defend(a *attacker) (fightResult, error) {
-	// TODO: Implement this.
+	// TODO: Implement this (this include reconstruction).
 	return fightResult{}, fmt.Errorf("Not implemented")
 }
 

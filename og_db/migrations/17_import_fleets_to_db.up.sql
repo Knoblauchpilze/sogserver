@@ -1038,7 +1038,241 @@ $$ LANGUAGE plpgsql;
 -- and defenses from the fleet and the planet.
 CREATE OR REPLACE FUNCTION fleet_fight_aftermath(fleet_id uuid, fleet json, kind text, planet_ships json, planet_defenses json, debris json, pillage resources, outcome text) RETURNS VOID AS $$
 DECLARE
+  target_id uuid;
+  field_id uuid := uuid_generate_v4();
+  target_galaxy integer;
+  target_system integer;
+  target_position integer;
+  universe_id uuid;
+  field uuid;
 BEGIN
-  -- TODO: Implement this script.
+  -- Fetch the target of the fleet along with its kind.
+  SELECT target INTO target_id FROM fleets WHERE id = fleet_id AND target IS NOT NULL;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid target destination for fleet % in fleet fight aftermath', fleet_id;
+  END IF;
+
+  -- Update the ships and defenses for the target planet
+  -- or moon: we assume that the input arguments are the
+  -- total final count of each system/ship.
+  IF kind = 'planet' THEN
+    WITH rs AS (
+      SELECT
+        t.ship,
+        t.count
+      FROM
+        json_to_recordset(planet_ships) AS t(ship uuid, count integer)
+      )
+    UPDATE planets_ships AS ps
+      SET count = rs.count
+    FROM
+      rs
+    WHERE
+      ps.planet = target_id
+      AND ps.ship = rs.ship;
+
+    WITH rs AS (
+      SELECT
+        t.defense,
+        t.count
+      FROM
+        json_to_recordset(planet_defenses) AS t(defense uuid, count integer)
+      )
+    UPDATE planets_defenses AS pd
+      SET count = rs.count
+    FROM
+      rs
+    WHERE
+      pd.planet = target_id
+      AND pd.defense = rs.defense;
+  END IF;
+
+  IF kind = 'moon' THEN
+    WITH rs AS (
+      SELECT
+        t.ship,
+        t.count
+      FROM
+        json_to_recordset(planet_ships) AS t(ship uuid, count integer)
+      )
+    UPDATE moons_ships AS ms
+      SET count = rs.count
+    FROM
+      rs
+    WHERE
+      ms.moon = target_id
+      AND ms.ship = rs.ship;
+
+    WITH rs AS (
+      SELECT
+        t.defense,
+        t.count
+      FROM
+        json_to_recordset(planet_defenses) AS t(defense uuid, count integer)
+      )
+    UPDATE moons_defenses AS md
+      SET count = rs.count
+    FROM
+      rs
+    WHERE
+      md.planet = target_id
+      AND md.defense = rs.defense;
+  END IF;
+
+  -- Create the debris field and insert the resources in
+  -- it: we will perform an addition of the resources if
+  -- the field already exists.
+  SELECT
+    p.galaxy,
+    p.solar_system,
+    p.position,
+    pl.universe
+  INTO
+    target_galaxy,
+    target_system,
+    target_position,
+    universe_id
+  FROM
+    planets AS p
+    INNER JOIN players AS pl ON p.player = pl.id
+  WHERE
+    id = target_id;
+
+  IF NOT FOUND THEN
+    -- The debris field does not exist yet, create it.
+    INSERT INTO debris_fields("id", "universe", "galaxy", "solar_system", "position")
+      VALUES(field_id, universe, target_galaxy, target_system, target_position);
+
+    INSERT INTO debris_fields_resources(field, res, amount)
+      SELECT
+        field_id,
+        r.id,
+        0.0
+      FROM
+        resources AS r
+      WHERE
+        r.is_dispersable = 'true';
+  ELSE
+    SELECT
+      id
+    INTO
+      field_id
+    FROM
+      debris_fields
+    WHERE
+      universe = universe_id
+      AND galaxy = target_galaxy
+      AND solar_system = target_system
+      AND position = target_position;
+  END IF;
+
+  WITH dr AS (
+    SELECT
+      t.resource,
+      t.amount
+    FROM
+      json_to_recordset(debris) AS t(resource uuid, amount numeric(15, 5))
+    )
+  UPDATE debris_fields_resources AS dfr
+    SET amount = dr.amount + dfr.amount
+  FROM
+    dr
+  WHERE
+    dfr.id = field_id
+    AND dfr.res = dr.resource;
+
+  -- Update the resources carried by the fleet with the
+  -- input values. The `pillage` actually describes all
+  -- the resources carried by the fleet.
+  DELETE FROM fleets_resources WHERE fleet = fleet_id;
+
+  INSERT INTO fleets_resources("fleet", "resource", "amount")
+    SELECT
+      fleet_id,
+      t.resource,
+      t.amount
+    FROM
+      json_to_recordset(pillage) AS t(resource uuid, amount numeric(15, 5));
+
+  WITH rs AS (
+    SELECT
+      t.ship,
+      t.count
+    FROM
+      json_to_recordset(debris) AS t(ship uuid, count integer)
+    )
+  UPDATE fleets_ships AS fs
+    SET count = rs.count
+  FROM
+    rs
+  WHERE
+    fs.fleet = fleet_id
+    AND fs.ship = rs.ship;
+
+  -- Update the fleet's data: the input `fleet` should
+  -- contain the description of remaining ships.
+  WITH rs AS (
+    SELECT
+      t.ship,
+      t.count
+    FROM
+      json_to_recordset(debris) AS t(ship uuid, count integer)
+    )
+  UPDATE fleets_ships AS fs
+    SET count = rs.count
+  FROM
+    rs
+  WHERE
+    fs.fleet = fleet_id
+    AND fs.ship = rs.ship;
+
+  -- Delete empty entries in the `fleets_ships` table.
+  DELETE FROM
+    fleets_ships
+  WHERE
+    fleet = fleet_id
+    AND count = 0;
+
+  -- Delete the fleet in case it does not contain any
+  -- ship anymore. We won't consider the ACS case in
+  -- here because the process is to first update the
+  -- individual fleets of an ACS after a fight and to
+  -- then update the ACS where it is easy to determine
+  -- whether there are still some components to the
+  -- ACS.
+  -- So the removal from the `actions_queue` table is
+  -- only working when the fleet is not an ACS comp
+  -- but it does not hurt (except performance a bit)
+  -- to perform the removal.
+  DELETE FROM
+    actions_queue
+  WHERE
+    action NOT IN (
+      SELECT
+        fleet
+      FROM
+        fleets_ships
+      GROUP BY
+        fleet
+      HAVING
+        count(*) > 0
+    )
+    AND type = 'fleet';
+
+  DELETE FROM
+    fleets
+  WHERE
+    id NOT IN (
+      SELECT
+        fleet
+      FROM
+        fleets_ships
+      GROUP BY
+        fleet
+      HAVING
+        count(*) > 0
+    );
+
+  -- TODO: Implement message for the player after the fight.
 END
 $$ LANGUAGE plpgsql;

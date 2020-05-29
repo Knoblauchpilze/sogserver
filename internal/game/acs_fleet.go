@@ -571,6 +571,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 	// TODO: Split pillage equally and handle the save
 	// script (maybe use the `fleet_fight_aftermath` to
 	// save each fleet).
+	fmt.Println(fmt.Sprintf("Pillage is %v", pillage))
 
 	// Create the query and execute it.
 	return fmt.Errorf("Not implemented")

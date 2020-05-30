@@ -411,24 +411,6 @@ BEGIN
     fs.fleet = f.id
     AND f.id = fleet_id;
 
-  -- Remove this fleet from any ACS operation.
-  DELETE FROM fleets_acs_components WHERE fleet = fleet_id;
-
-  -- Remove empty ACS operation.
-  DELETE FROM
-    fleets_acs
-  WHERE
-    id NOT IN (
-      SELECT
-        acs
-      FROM
-        fleets_acs_components
-      GROUP BY
-        acs
-      HAVING
-        count(*) > 0
-    );
-
   -- Remove from the actions' queue.
   DELETE FROM actions_queue WHERE action = fleet_id;
 
@@ -1274,5 +1256,20 @@ BEGIN
   -- play nicely in case the fleet is deployed to an
   -- allied planet.
   PERFORM fleet_return_to_base(fleet_id);
+END
+$$ LANGUAGE plpgsql;
+
+-- In case an ACS operation has just been performed we
+-- need to perform its removal: this will then break
+-- the individual fleets as regular elements going back
+-- to their home planets.
+CREATE OR REPLACE FUNCTION acs_fleet_fight_aftermath(acs_id uuid) RETURNS VOID AS $$
+BEGIN
+  -- We need to remove all the components of the ACS
+  -- fleet and update the corresponding fleets so as
+  -- to remove references to the ACS.
+  DELETE FROM fleets_acs_components WHERE acs = acs_id;
+
+  DELETE FROM fleets_acs WHERE id = acs_id;
 END
 $$ LANGUAGE plpgsql;

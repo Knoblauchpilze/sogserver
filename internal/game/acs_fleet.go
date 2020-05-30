@@ -629,7 +629,17 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 		}
 	}
 
-	return nil
+	// Update the ACS operation in the DB.
+	query = db.InsertReq{
+		Script: "acs_fleet_fight_aftermath",
+		Args: []interface{}{
+			acs.ID,
+		},
+	}
+
+	err = data.Proxy.InsertToDB(query)
+
+	return err
 }
 
 // allocatePillage :

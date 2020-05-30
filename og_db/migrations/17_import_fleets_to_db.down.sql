@@ -1,4 +1,7 @@
 
+-- Drop the function handling an ACS fleet fight aftermath.
+DROP FUNCTION acs_fleet_fight_aftermath(acs_id uuid);
+
 -- Drop the function handling the aftermath of a fight for a fleet.
 DROP FUNCTION fleet_fight_aftermath(fleet_id uuid, fleet json, pillage json, outcome text);
 

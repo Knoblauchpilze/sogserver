@@ -99,11 +99,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 // Returns the defender object built from the
 // planet along with any error.
 func (p *Planet) toDefender(data Instance) (defender, error) {
-	d := defender{
-		indigenous:     make(shipsUnit, 0),
-		reinforcements: make(shipsUnit, 0),
-		defenses:       make([]defenseInFight, 0),
-	}
+	d := newDefender()
 
 	// Fetch the fighting technologies for the player
 	// owning the planet so that we can update the

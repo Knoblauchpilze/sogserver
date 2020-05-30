@@ -2,7 +2,9 @@ package game
 
 import (
 	"fmt"
+	"math/rand"
 	"oglike_server/internal/model"
+	"time"
 )
 
 // shipInFight :
@@ -124,9 +126,38 @@ type attacker struct {
 // defender :
 // A defender is an aggregate composed of a
 // set of defense systems and some ships.
-// Just like for the `attacker` case the
-// order of ships in the `fleet`
+// Unlike in the case of an attacker ships
+// are not sorted in any particular order.
+//
+// The `seed` defines the seed to use for
+// the RNG used by this defender. It will
+// be used in any case a RN is needed so
+// that we can replay the fight afterwards
+// if needed.
+//
+// The `rng` defines a way to access to RN
+// while simulating the fight. It can be
+// used throughout the fight and is never
+// reset in order to make sure that the
+// fight is repeatable if needed.
+//
+// The `indigenous` defines the ships that
+// are deployed on the moon/planet where
+// the fight is taking plance and belong
+// to the owner of the celestial body.
+//
+// The `reinforcements` define all ships
+// that have been sent to defend the moon
+// or planet where the fight is taking
+// place but are not owned by the player
+// of the planet/moon.
+//
+// The `defenses` define the list of the
+// defense systems built on the planet or
+// moon.
 type defender struct {
+	seed           int64
+	rng            *rand.Rand
 	indigenous     shipsUnit
 	reinforcements shipsUnit
 	defenses       []defenseInFight
@@ -182,6 +213,39 @@ type aftermathDefense struct {
 	Count int    `json:"count"`
 }
 
+// fightResult :
+// Describes the outcome of a fight between an
+// attacking fleet and a defender. The outcome
+// regroups both the debris field that might
+// have been created along with the pillaged
+// resources from the planet. The repartition
+// between the incoming fleets is not processed
+// at this step.
+//
+// The `debris` defines the resources that are
+// dispersed in the debris field created by
+// the fight. Might be empty in case no ships
+// have been destroyed.
+//
+// The `outcome` defines a summary of the
+// fight.
+type fightResult struct {
+	debris  []model.ResourceAmount
+	outcome FightOutcome
+}
+
+// maxCombatRounds : Indicates the maximum combat rounds
+// that can occur.
+var maxCombatRounds int = 6
+
+// pillageRatio : Indicates the percentage of the resources
+// of a planet that can be pillaged by an attacking fleet.
+var pillageRatio float32 = 0.5
+
+// defenseRebuilRatio : Indicates the chances for a damaged
+// defense system to be rebuilt at the end of a fight.
+var defenseRebuildRatio float32 = 0.7
+
 // convertShips :
 // Used to convert the ships registered for
 // this attacker into a marshallable struct
@@ -220,6 +284,59 @@ func (a attacker) convertShips(fleet string) interface{} {
 	return ships
 }
 
+// pillage :
+// Used to handle the pillage of the input
+// planet by the attacker. We will use the
+// remaining ships to compute the available
+// cargo space and pillage as many resources
+// as possible.
+//
+// The `p` defines the planet to pillage.
+//
+// The `data` defines a way to access the DB.
+//
+// Returns the resources pillaged.
+func (a attacker) pillage(p *Planet, data Instance) ([]model.ResourceAmount, error) {
+	pillage := make([]model.ResourceAmount, 0)
+
+	// Use a dedicated handler to compute the
+	// result of the pillage of the target of
+	// the fleet.
+	pp, err := newPillagingProps(a, data.Ships)
+	if err != nil {
+		return pillage, err
+	}
+
+	err = pp.pillage(p, pillageRatio, data)
+	if err != nil {
+		return pillage, err
+	}
+
+	return pp.collected, nil
+}
+
+// newDefender :
+// Used to perform the creation of a new
+// defender object that can be used in a
+// fleet fight.
+//
+// Returns the created defender object.
+func newDefender() defender {
+	seed := time.Now().UTC().UnixNano()
+
+	rngSource := rand.NewSource(seed)
+
+	return defender{
+		// Use the current time to seed the RNG used
+		// for the fight.
+		seed:           seed,
+		rng:            rand.New(rngSource),
+		indigenous:     make(shipsUnit, 0),
+		reinforcements: make(shipsUnit, 0),
+		defenses:       make([]defenseInFight, 0),
+	}
+}
+
 // convertShips :
 // Used to convert the ships registered for
 // this defender into a marshallable struct
@@ -227,7 +344,7 @@ func (a attacker) convertShips(fleet string) interface{} {
 // the DB.
 //
 // Returns the converted interface for ships.
-func (d defender) convertShips() interface{} {
+func (d *defender) convertShips() interface{} {
 	ships := make([]aftermathShip, 0)
 
 	// Note that we will traverse only the units
@@ -253,7 +370,7 @@ func (d defender) convertShips() interface{} {
 // the DB.
 //
 // Returns the converted interface for defenses.
-func (d defender) convertDefenses() interface{} {
+func (d *defender) convertDefenses() interface{} {
 
 	defs := make([]aftermathDefense, 0)
 
@@ -269,27 +386,6 @@ func (d defender) convertDefenses() interface{} {
 	return defs
 }
 
-// fightResult :
-// Describes the outcome of a fight between an
-// attacking fleet and a defender. The outcome
-// regroups both the debris field that might
-// have been created along with the pillaged
-// resources from the planet. The repartition
-// between the incoming fleets is not processed
-// at this step.
-//
-// The `debris` defines the resources that are
-// dispersed in the debris field created by
-// the fight. Might be empty in case no ships
-// have been destroyed.
-//
-// The `outcome` defines a summary of the
-// fight.
-type fightResult struct {
-	debris  []model.ResourceAmount
-	outcome FightOutcome
-}
-
 // defend :
 // Used to perform the fight between the
 // defender against an attack from the `a`
@@ -302,38 +398,92 @@ type fightResult struct {
 // fight went well and contain the summary
 // of the fight.
 func (d *defender) defend(a *attacker) (fightResult, error) {
-	// TODO: Implement this (this include reconstruction).
-	return fightResult{}, fmt.Errorf("Not implemented")
+	// The process of the combat is explained
+	// quite thoroughly in the following link:
+	// https://ogame.fandom.com/wiki/Combat
+	//
+	// Basically at each round all the units
+	// will randomly choose a target and fire
+	// a shot, lessening the shield value and
+	// the hull plating if needed.
+	// Destroyed units are removed at the end
+	// of the round.
+	fr := fightResult{
+		debris:  make([]model.ResourceAmount, 0),
+		outcome: Victory,
+	}
+
+	// Save the defenses so that we can try
+	// to rebuild them at the end of the
+	// fight.
+	initDefs := make([]defenseInFight, len(d.defenses))
+	copy(initDefs, d.defenses)
+
+	for round := 0; round < maxCombatRounds; round++ {
+		err := d.round(a)
+		if err != nil {
+			return fr, err
+		}
+	}
+
+	// Rebuilt destroyed defense systems.
+	d.reconstruct(initDefs, defenseRebuildRatio)
+
+	return fr, nil
 }
 
-// pillage :
-// Used to handle the pillage of the input
-// planet by the attacker. We will use the
-// remaining ships to compute the available
-// cargo space and pillage as many resources
-// as possible.
+// round :
+// Performs the simulation of a combat round
+// between the input attacker and the base
+// defender.
 //
-// The `p` defines the planet to pillage.
+// The `a` is the attacker attacking us.
 //
-// The `data` defines a way to access the DB.
-//
-// Returns the resources pillaged.
-func (a attacker) pillage(p *Planet, data Instance) ([]model.ResourceAmount, error) {
-	pillage := make([]model.ResourceAmount, 0)
+// Returns any error.
+func (d *defender) round(a *attacker) error {
+	// TODO: Implement this.
+	return fmt.Errorf("Not implemented")
+}
 
-	// Use a dedicated handler to compute the
-	// result of the pillage of the target of
-	// the fleet.
-	pp, err := newPillagingProps(a, data.Ships)
-	if err != nil {
-		return pillage, err
+// reconstruct :
+// Used to perform the reconstruction of the
+// damaged defense systems on a planet after
+// a fight. The input slice describes initial
+// state of the systems before the fight.
+//
+// The `init` defines the initial state of
+// the defense systems before the fight.
+//
+// The `rebuildRatio` defines the chances for
+// a destroyed defense system to be rebuilt.
+func (d *defender) reconstruct(init []defenseInFight, rebuildRatio float32) {
+	// We first have to determine how many of each
+	// defense system has been destroyed. This will
+	// condition the number of trials that we have
+	// to perform to handle the reconstruction of
+	// the defense systems.
+	destroyed := make([]int, len(init))
+
+	// Note that we assume that the current state of
+	// the `defender` still includes all the systems
+	// just with a count of `0` if everything has
+	// been destroyed.
+	for id, def := range d.defenses {
+		des := (init[id].Count - def.Count)
+		destroyed[id] = des
 	}
 
-	// Assume a default pillage ratio of `0.5`.
-	err = pp.pillage(p, 0.5, data)
-	if err != nil {
-		return pillage, err
-	}
+	// Reconstruct the defense systems based on the
+	// amount that was destroyed.
+	for id, gone := range destroyed {
+		rebuilt := 0
 
-	return pp.collected, nil
+		for i := 0; i < gone; i++ {
+			if d.rng.Float32() < rebuildRatio {
+				rebuilt++
+			}
+		}
+
+		d.defenses[id].Count += rebuilt
+	}
 }

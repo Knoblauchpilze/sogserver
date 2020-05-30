@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
+	"oglike_server/pkg/logger"
 	"time"
 
 	"github.com/google/uuid"
@@ -581,7 +582,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 
 	// Update the fleets so that we can batch save
 	// them back to the DB.
-	err = acs.updateFleetsAfterFight(a, fleets)
+	err = acs.updateFleetsAfterFight(a, fleets, data)
 	if err != nil {
 		return ErrFleetFightSimulationFailure
 	}
@@ -669,8 +670,45 @@ func (acs *ACSFleet) allocatePillage(pillage []model.ResourceAmount, fleets []*F
 // The `fleets` define the initial state of the
 // fleets as they were before the fight.
 //
+// Allows to access the logger.
+//
 // Returns any error.
-func (acs *ACSFleet) updateFleetsAfterFight(a attacker, fleets []*Fleet) error {
-	// TODO: Implement this.
-	return fmt.Errorf("Not implemented")
+func (acs *ACSFleet) updateFleetsAfterFight(a attacker, fleets []*Fleet, data Instance) error {
+	// For each fleet we will fetch the remaining
+	// ships from the attacker.
+	for _, f := range fleets {
+		// Log previous state of fleet.
+		for _, s := range f.Ships {
+			data.log.Trace(logger.Verbose, "acs", fmt.Sprintf("Fleet \"%s\" contained %d \"%s\"", f.ID, s.Count, s.ID))
+		}
+
+		f.Ships = make(map[string]ShipInFleet)
+
+		for _, units := range a.units {
+			for _, unit := range units {
+				if unit.Fleet != f.ID {
+					continue
+				}
+
+				ships, ok := f.Ships[unit.Ship]
+				if !ok {
+					ships = ShipInFleet{
+						ID:    unit.Ship,
+						Count: unit.Count,
+					}
+				} else {
+					ships.Count += unit.Count
+				}
+
+				f.Ships[unit.Ship] = ships
+			}
+		}
+
+		// Log current state of fleet.
+		for _, s := range f.Ships {
+			data.log.Trace(logger.Verbose, "acs", fmt.Sprintf("Fleet \"%s\" now contains %d \"%s\"", f.ID, s.Count, s.ID))
+		}
+	}
+
+	return nil
 }

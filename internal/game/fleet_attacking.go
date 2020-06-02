@@ -44,15 +44,33 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 		return "", ErrFleetFightSimulationFailure
 	}
 
-	// Handle the pillage of resources if the outcome
-	// says so. Note that the outcome is expressed in
-	// the defender's point of view.
-	pillage := make([]model.ResourceAmount, 0)
+	// Before handling the pillage we need to make
+	// sure that any resources transported by the
+	// fleet can still be transported. Indeed in
+	// case a player choose to send resources when
+	// attacking someone, there's a risk that the
+	// destruction of some ships decrease the cargo
+	// space available making it impossible to be
+	// carrying the initial resources.
+	enough := f.handleDumbMove(a)
 
-	if result.outcome == Loss {
-		pillage, err = a.pillage(p, data)
-		if err != nil {
-			return "", ErrFleetFightSimulationFailure
+	carried := make([]model.ResourceAmount, 0)
+	for _, res := range f.Cargo {
+		carried = append(carried, res)
+	}
+
+	// We only need to handle pillaging in case the
+	// dumb move handling function did not report
+	// that the cargo capacity was not sufficient.
+	if !enough {
+		// Handle the pillage of resources if the outcome
+		// says so. Note that the outcome is expressed in
+		// the defender's point of view.
+		if result.outcome == Loss {
+			carried, err = a.pillage(p, data)
+			if err != nil {
+				return "", ErrFleetFightSimulationFailure
+			}
 		}
 	}
 
@@ -79,7 +97,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 		Args: []interface{}{
 			f.ID,
 			a.convertShips(f.ID),
-			pillage,
+			carried,
 			result.outcome,
 		},
 	}
@@ -312,4 +330,48 @@ func (f *Fleet) toAttacker(data Instance) (attacker, error) {
 	}
 
 	return a, nil
+}
+
+// handleDumbMove :
+// Unsed this quite provocative name this method
+// is used to perform the verification that the
+// ships remaining in the attacker fleet after
+// the fight is still enough to actually carry
+// the resources initially carried by the fleet.
+// This should usually not happen as it's quite
+// unwise to send loaded ships to combat.
+//
+// The `a` attacker is what remains of the fleet.
+//
+// Returns a boolean indicating whether the fleet
+// has enough cargo space for the inital res.
+func (f *Fleet) handleDumbMove(a attacker) bool {
+	// Compute the remaining cargo space for this
+	// fleet.
+	remainingCargo := 0
+
+	for _, units := range a.units {
+		for _, unit := range units {
+			remainingCargo += unit.Count * unit.Cargo
+		}
+	}
+
+	// In case the cargo space is still sufficient
+	// it's okay.
+	if float32(remainingCargo) >= a.usedCargo || len(f.Cargo) == 0 {
+		return true
+	}
+
+	// There is not enough space left: we will try
+	// to reduce in the same proportion the amount
+	// of each resource carried to solve this.
+	toShave := a.usedCargo - float32(remainingCargo)
+	toShavePerRes := toShave / float32(len(f.Cargo))
+
+	for rID, res := range f.Cargo {
+		res.Amount -= toShavePerRes
+		f.Cargo[rID] = res
+	}
+
+	return false
 }

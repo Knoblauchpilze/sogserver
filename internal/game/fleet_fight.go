@@ -441,6 +441,28 @@ func (d *defender) defend(a *attacker) (fightResult, error) {
 //
 // Returns any error.
 func (d *defender) round(a *attacker) error {
+
+	type shipInFight struct {
+		Fleet        string
+		Ship         string
+		Count        int
+		Cargo        int
+		Shield       int
+		Weapon       int
+		Hull         int
+		RFVSShips    []model.RapidFire
+		RFVSDefenses []model.RapidFire
+	}
+
+	type defenseInFight struct {
+		Planet  string
+		Defense string
+		Count   int
+		Shield  int
+		Weapon  int
+		Hull    int
+	}
+
 	// TODO: Implement this.
 	return fmt.Errorf("Not implemented")
 }

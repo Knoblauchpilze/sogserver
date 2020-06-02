@@ -557,6 +557,13 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 		return ErrFleetFightSimulationFailure
 	}
 
+	// Just like regular fleets we need to
+	// handle the resources already carried
+	// by the fleets composing the ACS.
+	for _, f := range fleets {
+		f.handleDumbMove(a)
+	}
+
 	// Handle the pillage of resources if the outcome
 	// says so. Note that the outcome is expressed in
 	// the defender's point of view.

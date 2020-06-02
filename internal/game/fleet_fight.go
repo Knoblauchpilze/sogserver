@@ -254,6 +254,15 @@ type unit struct {
 	hull   int
 }
 
+// attackerUnits :
+// Convenience structure to handle the attacker
+// units. Each attribute is a reflection of the
+// attacker's base attributes.
+type attackerUnits struct {
+	ships    []unit
+	unitsIDs [][]int
+}
+
 // defenderUnits :
 // Convenience structure to handle the defender
 // units. Each attribute is a reflection of the
@@ -354,6 +363,95 @@ func (a attacker) pillage(p *Planet, data Instance) ([]model.ResourceAmount, err
 	}
 
 	return pp.collected, nil
+}
+
+// convertToUnits :
+// Used to perform the conversion of the data
+// of this attacker into a `attackerUnits` to
+// be used in a fight.
+//
+// Returns the created structure.
+func (a *attacker) convertToUnits() attackerUnits {
+	au := attackerUnits{
+		ships:    make([]unit, 0),
+		unitsIDs: make([][]int, len(a.units)),
+	}
+
+	count := 0
+
+	for id, un := range a.units {
+		au.unitsIDs[id] = make([]int, len(un))
+
+		for _, u := range un {
+			count += u.Count
+		}
+	}
+
+	au.ships = make([]unit, count)
+	processed := 0
+
+	for id, un := range a.units {
+		for shpID, u := range un {
+			au.unitsIDs[id][shpID] = processed
+
+			for id := 0; id < u.Count; id++ {
+				au.ships[processed+id] = unit{
+					shield: u.Shield,
+					weapon: u.Weapon,
+					hull:   u.Hull,
+				}
+			}
+
+			processed += u.Count
+		}
+	}
+
+	return au
+}
+
+// update :
+// Used to perform the update of the attacker
+// struct from the attacker unit block. Note
+// that we assume that the attacker units obj
+// is actually related to the input attacker.
+//
+// The `a` defines the attacker unit to update.
+//
+// Returns any error.
+func (au attackerUnits) update(a *attacker) error {
+	// Consistency.
+	if len(a.units) != len(au.unitsIDs) {
+		return ErrInvalidAttackerStruct
+	}
+
+	for id, u := range a.units {
+		if len(u) != len(au.unitsIDs[id]) {
+			return ErrInvalidAttackerStruct
+		}
+	}
+
+	for id, un := range a.units {
+		for shpID, u := range un {
+			start := au.unitsIDs[id][shpID]
+			end := au.unitsIDs[id][shpID] + u.Count
+
+			remaining := 0
+
+			for i := start; i < end; i++ {
+				if true {
+					remaining++
+				}
+			}
+
+			u.Count = remaining
+
+			un[shpID] = u
+		}
+
+		a.units[id] = un
+	}
+
+	return nil
 }
 
 // newDefender :
@@ -549,8 +647,7 @@ func (d *defender) round(a *attacker) error {
 	// Create the equivalent structures for the
 	// attacker and the defender.
 	du := d.convertToUnits()
-
-	// TODO: Convert the attacker.
+	au := a.convertToUnits()
 
 	// Perform the simulation of the round.
 	// TODO: Handle this.
@@ -562,9 +659,7 @@ func (d *defender) round(a *attacker) error {
 		return err
 	}
 
-	// TODO: Convert back attacker.
-
-	return nil
+	return au.update(a)
 }
 
 // reconstruct :

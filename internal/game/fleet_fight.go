@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"math/rand"
 	"oglike_server/internal/model"
 	"time"
@@ -234,6 +233,26 @@ type fightResult struct {
 	outcome FightOutcome
 }
 
+// unit :
+// Describes a fighting unit in a fight. It is
+// used to describe either a ship or a defense
+// in a simple way so that we can use it during
+// a fight round.
+//
+// The `shield` defines the shield value that
+// is remaining for the unit.
+//
+// The `weapon` value defines the weapon value
+// for the unit.
+//
+// The `hull` defines the remaining hull point
+// of this unit.
+type unit struct {
+	shield int
+	weapon int
+	hull   int
+}
+
 // maxCombatRounds : Indicates the maximum combat rounds
 // that can occur.
 var maxCombatRounds int = 6
@@ -441,30 +460,115 @@ func (d *defender) defend(a *attacker) (fightResult, error) {
 //
 // Returns any error.
 func (d *defender) round(a *attacker) error {
+	// Create the equivalent structures for the
+	// attacker and the defender.
+	defs := make([]unit, len(d.defenses))
+	defsIDs := make([]int, len(d.defenses))
 
-	type shipInFight struct {
-		Fleet        string
-		Ship         string
-		Count        int
-		Cargo        int
-		Shield       int
-		Weapon       int
-		Hull         int
-		RFVSShips    []model.RapidFire
-		RFVSDefenses []model.RapidFire
+	for id, d := range d.defenses {
+		defsIDs[id] = len(defs)
+
+		for i := 0; i < d.Count; i++ {
+			u := unit{
+				shield: d.Shield,
+				weapon: d.Weapon,
+				hull:   d.Hull,
+			}
+
+			defs[id] = u
+		}
 	}
 
-	type defenseInFight struct {
-		Planet  string
-		Defense string
-		Count   int
-		Shield  int
-		Weapon  int
-		Hull    int
+	indigenous := make([]unit, len(d.indigenous))
+	indigenousIDs := make([]int, len(d.indigenous))
+
+	for id, shp := range d.indigenous {
+		indigenousIDs[id] = len(indigenous)
+
+		for i := 0; i < shp.Count; i++ {
+			u := unit{
+				shield: shp.Shield,
+				weapon: shp.Weapon,
+				hull:   shp.Hull,
+			}
+
+			indigenous[id] = u
+		}
 	}
 
-	// TODO: Implement this.
-	return fmt.Errorf("Not implemented")
+	reinforcements := make([]unit, len(d.reinforcements))
+	reinforcementsIDs := make([]int, len(d.reinforcements))
+
+	for id, shp := range d.reinforcements {
+		reinforcementsIDs[id] = len(reinforcements)
+
+		for i := 0; i < shp.Count; i++ {
+			u := unit{
+				shield: shp.Shield,
+				weapon: shp.Weapon,
+				hull:   shp.Hull,
+			}
+
+			reinforcements[id] = u
+		}
+	}
+
+	// TODO: Convert the attacker.
+
+	// Perform the simulation of the round.
+	// TODO: Handle this.
+
+	// Convert back the units and save back
+	// to the defender and attacker. We know
+	// that
+	for id, def := range d.defenses {
+		start := defsIDs[id]
+		end := defsIDs[id] + def.Count
+
+		remaining := 0
+
+		for i := start; i < end; i++ {
+			if defs[i].hull > 0 {
+				remaining++
+			}
+		}
+
+		d.defenses[id].Count = remaining
+	}
+
+	for id, shp := range d.indigenous {
+		start := indigenousIDs[id]
+		end := indigenousIDs[id] + shp.Count
+
+		remaining := 0
+
+		for i := start; i < end; i++ {
+			if indigenous[i].hull > 0 {
+				remaining++
+			}
+		}
+
+		d.indigenous[id].Count = remaining
+	}
+
+	for id, shp := range d.reinforcements {
+		start := indigenousIDs[id]
+		end := indigenousIDs[id] + shp.Count
+
+		remaining := 0
+
+		for i := start; i < end; i++ {
+			if reinforcements[i].hull > 0 {
+				remaining++
+			}
+		}
+
+		d.reinforcements[id].Count = remaining
+	}
+
+	// TODO: Convert back attacker.
+
+	return nil
 }
 
 // reconstruct :

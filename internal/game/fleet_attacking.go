@@ -86,6 +86,8 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 		},
 	}
 
+	// TODO: Handle reinforcements for planet.
+
 	err = data.Proxy.InsertToDB(query)
 	if err != nil {
 		return "", ErrFleetFightSimulationFailure

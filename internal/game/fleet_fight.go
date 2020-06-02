@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"math/rand"
 	"oglike_server/internal/model"
 	"time"
@@ -253,6 +254,27 @@ type unit struct {
 	hull   int
 }
 
+// defenderUnits :
+// Convenience structure to handle the defender
+// units. Each attribute is a reflection of the
+// defender's base attributes.
+type defenderUnits struct {
+	defenses          []unit
+	defensesIDs       []int
+	indigenous        []unit
+	indigenousIDs     []int
+	reinforcements    []unit
+	reinforcementsIDs []int
+}
+
+// ErrInvalidDefenderStruct : Indicates that the structure provided
+// to update from defender units is not correct.
+var ErrInvalidDefenderStruct = fmt.Errorf("Invalid defender structure to update from units")
+
+// ErrInvalidAttackerStruct : Indicates that the structure provided
+// to update from attacker units is not correct.
+var ErrInvalidAttackerStruct = fmt.Errorf("Invalid attacker structure to update from units")
+
 // maxCombatRounds : Indicates the maximum combat rounds
 // that can occur.
 var maxCombatRounds int = 6
@@ -405,6 +427,70 @@ func (d *defender) convertDefenses() interface{} {
 	return defs
 }
 
+// convertToUnits :
+// Used to perform the conversion of the data
+// of this defender into a `defenderUnits` to
+// be used in a fight.
+//
+// Returns the created structure.
+func (d *defender) convertToUnits() defenderUnits {
+	du := defenderUnits{
+		defenses:          make([]unit, len(d.defenses)),
+		defensesIDs:       make([]int, len(d.defenses)),
+		indigenous:        make([]unit, len(d.indigenous)),
+		indigenousIDs:     make([]int, len(d.indigenous)),
+		reinforcements:    make([]unit, len(d.reinforcements)),
+		reinforcementsIDs: make([]int, len(d.reinforcements)),
+	}
+
+	// Convert defenses.
+	for id, d := range d.defenses {
+		du.defensesIDs[id] = len(du.defenses)
+
+		for i := 0; i < d.Count; i++ {
+			u := unit{
+				shield: d.Shield,
+				weapon: d.Weapon,
+				hull:   d.Hull,
+			}
+
+			du.defenses[id] = u
+		}
+	}
+
+	// Convert indigenous ships.
+	for id, shp := range d.indigenous {
+		du.indigenousIDs[id] = len(du.indigenous)
+
+		for i := 0; i < shp.Count; i++ {
+			u := unit{
+				shield: shp.Shield,
+				weapon: shp.Weapon,
+				hull:   shp.Hull,
+			}
+
+			du.indigenous[id] = u
+		}
+	}
+
+	// Convert reinforcement ships.
+	for id, shp := range d.reinforcements {
+		du.reinforcementsIDs[id] = len(du.reinforcements)
+
+		for i := 0; i < shp.Count; i++ {
+			u := unit{
+				shield: shp.Shield,
+				weapon: shp.Weapon,
+				hull:   shp.Hull,
+			}
+
+			du.reinforcements[id] = u
+		}
+	}
+
+	return du
+}
+
 // defend :
 // Used to perform the fight between the
 // defender against an attack from the `a`
@@ -462,56 +548,7 @@ func (d *defender) defend(a *attacker) (fightResult, error) {
 func (d *defender) round(a *attacker) error {
 	// Create the equivalent structures for the
 	// attacker and the defender.
-	defs := make([]unit, len(d.defenses))
-	defsIDs := make([]int, len(d.defenses))
-
-	for id, d := range d.defenses {
-		defsIDs[id] = len(defs)
-
-		for i := 0; i < d.Count; i++ {
-			u := unit{
-				shield: d.Shield,
-				weapon: d.Weapon,
-				hull:   d.Hull,
-			}
-
-			defs[id] = u
-		}
-	}
-
-	indigenous := make([]unit, len(d.indigenous))
-	indigenousIDs := make([]int, len(d.indigenous))
-
-	for id, shp := range d.indigenous {
-		indigenousIDs[id] = len(indigenous)
-
-		for i := 0; i < shp.Count; i++ {
-			u := unit{
-				shield: shp.Shield,
-				weapon: shp.Weapon,
-				hull:   shp.Hull,
-			}
-
-			indigenous[id] = u
-		}
-	}
-
-	reinforcements := make([]unit, len(d.reinforcements))
-	reinforcementsIDs := make([]int, len(d.reinforcements))
-
-	for id, shp := range d.reinforcements {
-		reinforcementsIDs[id] = len(reinforcements)
-
-		for i := 0; i < shp.Count; i++ {
-			u := unit{
-				shield: shp.Shield,
-				weapon: shp.Weapon,
-				hull:   shp.Hull,
-			}
-
-			reinforcements[id] = u
-		}
-	}
+	du := d.convertToUnits()
 
 	// TODO: Convert the attacker.
 
@@ -519,51 +556,10 @@ func (d *defender) round(a *attacker) error {
 	// TODO: Handle this.
 
 	// Convert back the units and save back
-	// to the defender and attacker. We know
-	// that
-	for id, def := range d.defenses {
-		start := defsIDs[id]
-		end := defsIDs[id] + def.Count
-
-		remaining := 0
-
-		for i := start; i < end; i++ {
-			if defs[i].hull > 0 {
-				remaining++
-			}
-		}
-
-		d.defenses[id].Count = remaining
-	}
-
-	for id, shp := range d.indigenous {
-		start := indigenousIDs[id]
-		end := indigenousIDs[id] + shp.Count
-
-		remaining := 0
-
-		for i := start; i < end; i++ {
-			if indigenous[i].hull > 0 {
-				remaining++
-			}
-		}
-
-		d.indigenous[id].Count = remaining
-	}
-
-	for id, shp := range d.reinforcements {
-		start := indigenousIDs[id]
-		end := indigenousIDs[id] + shp.Count
-
-		remaining := 0
-
-		for i := start; i < end; i++ {
-			if reinforcements[i].hull > 0 {
-				remaining++
-			}
-		}
-
-		d.reinforcements[id].Count = remaining
+	// to the defender and attacker.
+	err := du.update(d)
+	if err != nil {
+		return err
 	}
 
 	// TODO: Convert back attacker.
@@ -612,4 +608,76 @@ func (d *defender) reconstruct(init []defenseInFight, rebuildRatio float32) {
 
 		d.defenses[id].Count += rebuilt
 	}
+}
+
+// update :
+// Used to perform the update of the defender
+// struct from the defender unit block. Note
+// that we assume that the defender units obj
+// is actually related to the input defender.
+//
+// The `d` defines the defender unit to update.
+//
+// Returns any error.
+func (du defenderUnits) update(d *defender) error {
+	// Consistency.
+	if len(d.defenses) != len(du.defensesIDs) {
+		return ErrInvalidDefenderStruct
+	}
+	if len(d.indigenous) != len(du.indigenousIDs) {
+		return ErrInvalidDefenderStruct
+	}
+	if len(d.reinforcements) != len(du.reinforcementsIDs) {
+		return ErrInvalidDefenderStruct
+	}
+
+	// Update defenses.
+	for id, def := range d.defenses {
+		start := du.defensesIDs[id]
+		end := du.defensesIDs[id] + def.Count
+
+		remaining := 0
+
+		for i := start; i < end; i++ {
+			if du.defenses[i].hull > 0 {
+				remaining++
+			}
+		}
+
+		d.defenses[id].Count = remaining
+	}
+
+	// Update indigenous ships.
+	for id, shp := range d.indigenous {
+		start := du.indigenousIDs[id]
+		end := du.indigenousIDs[id] + shp.Count
+
+		remaining := 0
+
+		for i := start; i < end; i++ {
+			if du.indigenous[i].hull > 0 {
+				remaining++
+			}
+		}
+
+		d.indigenous[id].Count = remaining
+	}
+
+	// Update reinforcements
+	for id, shp := range d.reinforcements {
+		start := du.reinforcementsIDs[id]
+		end := du.reinforcementsIDs[id] + shp.Count
+
+		remaining := 0
+
+		for i := start; i < end; i++ {
+			if du.reinforcements[i].hull > 0 {
+				remaining++
+			}
+		}
+
+		d.reinforcements[id].Count = remaining
+	}
+
+	return nil
 }

@@ -240,6 +240,11 @@ type fightResult struct {
 // in a simple way so that we can use it during
 // a fight round.
 //
+// The `id` defines the type of this unit as
+// defined by the data model. It can either
+// represent an ID for a defense or a ship
+// and it does not matter at the unit level.
+//
 // The `shield` defines the shield value that
 // is remaining for the unit.
 //
@@ -248,17 +253,31 @@ type fightResult struct {
 //
 // The `hull` defines the remaining hull point
 // of this unit.
+//
+// The `rf` defines the index of the RFs for
+// this unit in the array attached to the def
+// or attacker structure.
 type unit struct {
+	id     string
 	shield int
 	weapon int
 	hull   int
+	rf     int
 }
+
+// Describes the rapid fire that a unit can
+// have against ships and defenses.
+// This structure defines a single map which
+// define the RFs against ships and defenses
+// indifferently.
+type rf map[string]int
 
 // attackerUnits :
 // Convenience structure to handle the attacker
 // units. Each attribute is a reflection of the
 // attacker's base attributes.
 type attackerUnits struct {
+	rfs      []rf
 	ships    []unit
 	unitsIDs [][]int
 }
@@ -268,6 +287,7 @@ type attackerUnits struct {
 // units. Each attribute is a reflection of the
 // defender's base attributes.
 type defenderUnits struct {
+	rfs               []rf
 	defenses          []unit
 	defensesIDs       []int
 	indigenous        []unit
@@ -373,17 +393,38 @@ func (a attacker) pillage(p *Planet, data Instance) ([]model.ResourceAmount, err
 // Returns the created structure.
 func (a *attacker) convertToUnits() attackerUnits {
 	au := attackerUnits{
+		rfs:      make([]rf, 0),
 		ships:    make([]unit, 0),
 		unitsIDs: make([][]int, len(a.units)),
 	}
 
 	count := 0
+	rfs := make(map[string]int)
 
 	for id, un := range a.units {
 		au.unitsIDs[id] = make([]int, len(un))
 
 		for _, u := range un {
 			count += u.Count
+
+			// Register the rapid fire for this ship
+			// if it does not exist yet.
+			_, ok := rfs[u.Ship]
+			if !ok {
+				rfs[u.Ship] = len(au.rfs)
+
+				var rfObj rf
+				rfObj = make(map[string]int)
+
+				for _, r := range u.RFVSShips {
+					rfObj[r.Receiver] = r.RF
+				}
+				for _, r := range u.RFVSDefenses {
+					rfObj[r.Receiver] = r.RF
+				}
+
+				au.rfs = append(au.rfs, rfObj)
+			}
 		}
 	}
 
@@ -395,10 +436,17 @@ func (a *attacker) convertToUnits() attackerUnits {
 			au.unitsIDs[id][shpID] = processed
 
 			for id := 0; id < u.Count; id++ {
+				rfID, ok := rfs[u.Ship]
+				if !ok {
+					rfID = -1
+				}
+
 				au.ships[processed+id] = unit{
+					id:     u.Ship,
 					shield: u.Shield,
 					weapon: u.Weapon,
 					hull:   u.Hull,
+					rf:     rfID,
 				}
 			}
 
@@ -533,6 +581,7 @@ func (d *defender) convertDefenses() interface{} {
 // Returns the created structure.
 func (d *defender) convertToUnits() defenderUnits {
 	du := defenderUnits{
+		rfs:               make([]rf, 0),
 		defenses:          make([]unit, len(d.defenses)),
 		defensesIDs:       make([]int, len(d.defenses)),
 		indigenous:        make([]unit, len(d.indigenous)),
@@ -541,15 +590,57 @@ func (d *defender) convertToUnits() defenderUnits {
 		reinforcementsIDs: make([]int, len(d.reinforcements)),
 	}
 
+	// Build the RFs table.
+	rfs := make(map[string]int)
+	for _, shp := range d.indigenous {
+		_, ok := rfs[shp.Ship]
+		if !ok {
+			rfs[shp.Ship] = len(du.rfs)
+
+			var rfObj rf
+			rfObj = make(map[string]int)
+
+			for _, r := range shp.RFVSShips {
+				rfObj[r.Receiver] = r.RF
+			}
+			for _, r := range shp.RFVSDefenses {
+				rfObj[r.Receiver] = r.RF
+			}
+
+			du.rfs = append(du.rfs, rfObj)
+		}
+	}
+
+	for _, shp := range d.reinforcements {
+		_, ok := rfs[shp.Ship]
+		if !ok {
+			rfs[shp.Ship] = len(du.rfs)
+
+			var rfObj rf
+			rfObj = make(map[string]int)
+
+			for _, r := range shp.RFVSShips {
+				rfObj[r.Receiver] = r.RF
+			}
+			for _, r := range shp.RFVSDefenses {
+				rfObj[r.Receiver] = r.RF
+			}
+
+			du.rfs = append(du.rfs, rfObj)
+		}
+	}
+
 	// Convert defenses.
 	for id, d := range d.defenses {
 		du.defensesIDs[id] = len(du.defenses)
 
 		for i := 0; i < d.Count; i++ {
 			u := unit{
+				id:     d.Defense,
 				shield: d.Shield,
 				weapon: d.Weapon,
 				hull:   d.Hull,
+				rf:     -1, // No RFs for defenses.
 			}
 
 			du.defenses[id] = u
@@ -561,10 +652,17 @@ func (d *defender) convertToUnits() defenderUnits {
 		du.indigenousIDs[id] = len(du.indigenous)
 
 		for i := 0; i < shp.Count; i++ {
+			rfID, ok := rfs[shp.Ship]
+			if !ok {
+				rfID = -1
+			}
+
 			u := unit{
+				id:     shp.Ship,
 				shield: shp.Shield,
 				weapon: shp.Weapon,
 				hull:   shp.Hull,
+				rf:     rfID,
 			}
 
 			du.indigenous[id] = u
@@ -576,10 +674,17 @@ func (d *defender) convertToUnits() defenderUnits {
 		du.reinforcementsIDs[id] = len(du.reinforcements)
 
 		for i := 0; i < shp.Count; i++ {
+			rfID, ok := rfs[shp.Ship]
+			if !ok {
+				rfID = -1
+			}
+
 			u := unit{
+				id:     shp.Ship,
 				shield: shp.Shield,
 				weapon: shp.Weapon,
 				hull:   shp.Hull,
+				rf:     rfID,
 			}
 
 			du.reinforcements[id] = u

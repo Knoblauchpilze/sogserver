@@ -668,6 +668,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 // carried by the fleet. Also any error is returned.
 func (acs *ACSFleet) allocatePillage(pillage []model.ResourceAmount, fleets []*Fleet) (map[string][]model.ResourceAmount, error) {
 	// TODO: Implement this.
+	// https://board.origin.ogame.gameforge.com/index.php/Thread/790-Guide-10-ACS-guide/
 	return nil, fmt.Errorf("Not implemented")
 }
 

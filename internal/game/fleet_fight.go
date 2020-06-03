@@ -254,15 +254,20 @@ type fightResult struct {
 // The `hull` defines the remaining hull point
 // of this unit.
 //
+// The `explode` represents the value of the
+// hull points below which the unit becomes
+// unstable and has chances to explode.
+//
 // The `rf` defines the index of the RFs for
 // this unit in the array attached to the def
 // or attacker structure.
 type unit struct {
-	id     string
-	shield int
-	weapon int
-	hull   int
-	rf     int
+	id      string
+	shield  float32
+	weapon  float32
+	hull    float32
+	explode float32
+	rf      int
 }
 
 // Describes the rapid fire that a unit can
@@ -315,6 +320,11 @@ var pillageRatio float32 = 0.5
 // defenseRebuilRatio : Indicates the chances for a damaged
 // defense system to be rebuilt at the end of a fight.
 var defenseRebuildRatio float32 = 0.7
+
+// hullDamageToExplode : Indicates the maximum probability
+// at which a ship or a defense system starts to become
+// unstable and has a risk to explode.
+var hullDamageToExplode float32 = 0.7
 
 // convertShips :
 // Used to convert the ships registered for
@@ -442,11 +452,12 @@ func (a *attacker) convertToUnits() attackerUnits {
 				}
 
 				au.ships[processed+id] = unit{
-					id:     u.Ship,
-					shield: u.Shield,
-					weapon: u.Weapon,
-					hull:   u.Hull,
-					rf:     rfID,
+					id:      u.Ship,
+					shield:  float32(u.Shield),
+					weapon:  float32(u.Weapon),
+					hull:    float32(u.Hull),
+					explode: hullDamageToExplode * float32(u.Hull),
+					rf:      rfID,
 				}
 			}
 
@@ -455,51 +466,6 @@ func (a *attacker) convertToUnits() attackerUnits {
 	}
 
 	return au
-}
-
-// update :
-// Used to perform the update of the attacker
-// struct from the attacker unit block. Note
-// that we assume that the attacker units obj
-// is actually related to the input attacker.
-//
-// The `a` defines the attacker unit to update.
-//
-// Returns any error.
-func (au attackerUnits) update(a *attacker) error {
-	// Consistency.
-	if len(a.units) != len(au.unitsIDs) {
-		return ErrInvalidAttackerStruct
-	}
-
-	for id, u := range a.units {
-		if len(u) != len(au.unitsIDs[id]) {
-			return ErrInvalidAttackerStruct
-		}
-	}
-
-	for id, un := range a.units {
-		for shpID, u := range un {
-			start := au.unitsIDs[id][shpID]
-			end := au.unitsIDs[id][shpID] + u.Count
-
-			remaining := 0
-
-			for i := start; i < end; i++ {
-				if true {
-					remaining++
-				}
-			}
-
-			u.Count = remaining
-
-			un[shpID] = u
-		}
-
-		a.units[id] = un
-	}
-
-	return nil
 }
 
 // newDefender :
@@ -636,11 +602,12 @@ func (d *defender) convertToUnits() defenderUnits {
 
 		for i := 0; i < d.Count; i++ {
 			u := unit{
-				id:     d.Defense,
-				shield: d.Shield,
-				weapon: d.Weapon,
-				hull:   d.Hull,
-				rf:     -1, // No RFs for defenses.
+				id:      d.Defense,
+				shield:  float32(d.Shield),
+				weapon:  float32(d.Weapon),
+				hull:    float32(d.Hull),
+				explode: hullDamageToExplode * float32(d.Hull),
+				rf:      -1, // No RFs for defenses.
 			}
 
 			du.defenses[id] = u
@@ -658,11 +625,12 @@ func (d *defender) convertToUnits() defenderUnits {
 			}
 
 			u := unit{
-				id:     shp.Ship,
-				shield: shp.Shield,
-				weapon: shp.Weapon,
-				hull:   shp.Hull,
-				rf:     rfID,
+				id:      shp.Ship,
+				shield:  float32(shp.Shield),
+				weapon:  float32(shp.Weapon),
+				hull:    float32(shp.Hull),
+				explode: hullDamageToExplode * float32(shp.Hull),
+				rf:      rfID,
 			}
 
 			du.indigenous[id] = u
@@ -680,11 +648,12 @@ func (d *defender) convertToUnits() defenderUnits {
 			}
 
 			u := unit{
-				id:     shp.Ship,
-				shield: shp.Shield,
-				weapon: shp.Weapon,
-				hull:   shp.Hull,
-				rf:     rfID,
+				id:      shp.Ship,
+				shield:  float32(shp.Shield),
+				weapon:  float32(shp.Weapon),
+				hull:    float32(shp.Hull),
+				explode: hullDamageToExplode * float32(shp.Hull),
+				rf:      rfID,
 			}
 
 			du.reinforcements[id] = u
@@ -755,7 +724,73 @@ func (d *defender) round(a *attacker) error {
 	au := a.convertToUnits()
 
 	// Perform the simulation of the round.
-	// TODO: Handle this.
+	// We want all the units of the attacker
+	// to fire on the defender and then all
+	// the defender units to fire on the att.
+	// No units are removed until the end of
+	// the round we just update the chances
+	// of explosion of each unit.
+	defRange := int32(len(du.defenses))
+	indigenousRange := defRange + int32(len(du.indigenous))
+	reinforcementsRange := indigenousRange + int32(len(du.reinforcements))
+
+	defCount := reinforcementsRange
+	attCount := int32(len(au.ships))
+
+	reshoot := true
+
+	// First the attacker.
+	for _, u := range au.ships {
+		// While the unit can shoot we will
+		// continue shooting.
+		for reshoot {
+
+			id := d.rng.Int31n(defCount)
+
+			var target *unit
+			if id < defRange {
+				target = &du.defenses[id]
+			} else if id < indigenousRange {
+				target = &du.indigenous[id]
+			} else {
+				target = &du.reinforcements[id]
+			}
+
+			u.fire(target, d.rng.Float32())
+			reshoot = au.rf(u, target.id, d.rng.Float32())
+		}
+	}
+
+	// Then defender.
+	for _, def := range du.defenses {
+		for reshoot {
+			id := d.rng.Int31n(attCount)
+			target := &au.ships[id]
+
+			def.fire(target, d.rng.Float32())
+			reshoot = du.rf(def, target.id, d.rng.Float32())
+		}
+	}
+
+	for _, i := range du.indigenous {
+		for reshoot {
+			id := d.rng.Int31n(attCount)
+			target := &au.ships[id]
+
+			i.fire(target, d.rng.Float32())
+			reshoot = du.rf(i, target.id, d.rng.Float32())
+		}
+	}
+
+	for _, r := range du.reinforcements {
+		for reshoot {
+			id := d.rng.Int31n(attCount)
+			target := &au.ships[id]
+
+			r.fire(target, d.rng.Float32())
+			reshoot = du.rf(r, target.id, d.rng.Float32())
+		}
+	}
 
 	// Convert back the units and save back
 	// to the defender and attacker.
@@ -811,6 +846,86 @@ func (d *defender) reconstruct(init []defenseInFight, rebuildRatio float32) {
 }
 
 // update :
+// Used to perform the update of the attacker
+// struct from the attacker unit block. Note
+// that we assume that the attacker units obj
+// is actually related to the input attacker.
+//
+// The `a` defines the attacker unit to update.
+//
+// Returns any error.
+func (au attackerUnits) update(a *attacker) error {
+	// Consistency.
+	if len(a.units) != len(au.unitsIDs) {
+		return ErrInvalidAttackerStruct
+	}
+
+	for id, u := range a.units {
+		if len(u) != len(au.unitsIDs[id]) {
+			return ErrInvalidAttackerStruct
+		}
+	}
+
+	for id, un := range a.units {
+		for shpID, u := range un {
+			start := au.unitsIDs[id][shpID]
+			end := au.unitsIDs[id][shpID] + u.Count
+
+			remaining := 0
+
+			for i := start; i < end; i++ {
+				if au.ships[i].hull > 0.0 {
+					remaining++
+				}
+			}
+
+			u.Count = remaining
+
+			un[shpID] = u
+		}
+
+		a.units[id] = un
+	}
+
+	return nil
+}
+
+// rf :
+// Used to perform the rf simulation for the
+// input unit against the provided target.
+//
+// The `u` defines the unit for which the rf
+// simulation should be performed.
+//
+// The `target` defines the identifier of
+// the ship/defense system to target.
+//
+// The `rng` defines a random number that
+// can be used during the simulation.
+//
+// Returns `true` if the unit can reshoot.
+func (au attackerUnits) rf(u unit, target string, rng float32) bool {
+	// If the unit does not have a rf value
+	// it never reshoots.
+	if u.rf < 0 {
+		return false
+	}
+
+	rfData := au.rfs[u.rf]
+
+	prob, ok := rfData[target]
+	if !ok {
+		// No rapid fire against this target.
+		return false
+	}
+
+	trial := (float32(prob) - 1.0) / float32(prob)
+
+	// If the `trial` is passed the unit will reshoot.
+	return rng < trial
+}
+
+// update :
 // Used to perform the update of the defender
 // struct from the defender unit block. Note
 // that we assume that the defender units obj
@@ -839,7 +954,7 @@ func (du defenderUnits) update(d *defender) error {
 		remaining := 0
 
 		for i := start; i < end; i++ {
-			if du.defenses[i].hull > 0 {
+			if du.defenses[i].hull > 0.0 {
 				remaining++
 			}
 		}
@@ -855,7 +970,7 @@ func (du defenderUnits) update(d *defender) error {
 		remaining := 0
 
 		for i := start; i < end; i++ {
-			if du.indigenous[i].hull > 0 {
+			if du.indigenous[i].hull > 0.0 {
 				remaining++
 			}
 		}
@@ -871,7 +986,7 @@ func (du defenderUnits) update(d *defender) error {
 		remaining := 0
 
 		for i := start; i < end; i++ {
-			if du.reinforcements[i].hull > 0 {
+			if du.reinforcements[i].hull > 0.0 {
 				remaining++
 			}
 		}
@@ -880,4 +995,100 @@ func (du defenderUnits) update(d *defender) error {
 	}
 
 	return nil
+}
+
+// rf :
+// Used to perform the rf simulation for the
+// input unit against the provided target.
+//
+// The `u` defines the unit for which the rf
+// simulation should be performed.
+//
+// The `target` defines the identifier of
+// the ship/defense system to target.
+//
+// The `rng` defines a random number that
+// can be used during the simulation.
+//
+// Returns `true` if the unit can reshoot.
+func (du defenderUnits) rf(u unit, target string, rng float32) bool {
+	// If the unit does not have a rf value
+	// it never reshoots.
+	if u.rf < 0 {
+		return false
+	}
+
+	rfData := du.rfs[u.rf]
+
+	prob, ok := rfData[target]
+	if !ok {
+		// No rapid fire against this target.
+		return false
+	}
+
+	trial := (float32(prob) - 1.0) / float32(prob)
+
+	// If the `trial` is passed the unit will reshoot.
+	return rng < trial
+}
+
+// fire :
+// Used to perform the shooting of the input
+// unit by the receiver unit.
+//
+// The `target` defines the target to shoot
+// at..
+//
+// The `rnd` defines a random number that
+// can be used during the shooting process.
+func (u *unit) fire(target *unit, rnd float32) {
+	// Deflect the shot if the weaponry
+	// of the shooting unit is less than
+	// 1% of the shield of the defense.
+	if u.weapon < 0.01*target.shield {
+		return
+	}
+
+	// Make the shield absorbs the shot.
+	toAbsorb := target.shield - u.weapon
+	target.shield = toAbsorb
+
+	// In case the shot has been absorbed
+	// we can move on.
+	if target.shield >= 0.0 {
+		return
+	}
+
+	// The shot penetrates the hull. We
+	// need to reset the shield to `0`
+	// and decrease the hull points.
+	target.shield = 0.0
+	target.hull += toAbsorb
+
+	// In case the ship has now negative
+	// hull points, mark it as destroyed.
+	if target.hull < 0.0 {
+		target.hull = 0.0
+
+		return
+	}
+
+	// Otherwise, check whether the
+	// ship explodes if the hull is
+	// damaged enough.
+	if target.hull < target.explode {
+		// explode = iHull * hullDamageToExplode
+		// <=>
+		// iHull = explode / hullDamageToExplode
+		// <=>
+		// 1 - hull / iHull
+		// <=>
+		// 1 - hull / (explode / hullDamageToExplode)
+		prob := 1.0 - hullDamageToExplode*target.hull/target.explode
+
+		if rnd < prob {
+			// Boom.
+			target.hull = 0.0
+		}
+	}
 }

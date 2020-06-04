@@ -188,6 +188,10 @@ func (cp *collectingProps) collect(resources []model.ResourceAmount) {
 		for id := range resources {
 			res := &resources[id]
 
+			if res.Amount <= 0.0 {
+				continue
+			}
+
 			carried := collected[res.Resource]
 
 			// Cannot collect more that what's available.

@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"math"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
@@ -581,7 +582,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 	repartition := make(map[string][]model.ResourceAmount)
 
 	if len(pillage) > 0 {
-		repartition, err = acs.allocatePillage(pillage, fleets)
+		repartition, err = acs.allocatePillage(pillage, fleets, data)
 		if err != nil {
 			return ErrFleetFightSimulationFailure
 		}
@@ -632,7 +633,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 
 		err = data.Proxy.InsertToDB(query)
 		if err != nil {
-			return err
+			return ErrFleetFightSimulationFailure
 		}
 	}
 
@@ -645,8 +646,11 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 	}
 
 	err = data.Proxy.InsertToDB(query)
+	if err != nil {
+		return ErrFleetFightSimulationFailure
+	}
 
-	return err
+	return nil
 }
 
 // allocatePillage :
@@ -662,14 +666,127 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 // The `fleets` represents the fleets objects to
 // associate to each element of the ACS attack.
 //
+// The `data` allows to access to the DB if needed.
+//
 // Returns a map where each key corresponds to a
 // key of a fleet participating in this ACS op and
 // the value corresponds to the pillaged resources
 // carried by the fleet. Also any error is returned.
-func (acs *ACSFleet) allocatePillage(pillage []model.ResourceAmount, fleets []*Fleet) (map[string][]model.ResourceAmount, error) {
-	// TODO: Implement this.
-	// https://board.origin.ogame.gameforge.com/index.php/Thread/790-Guide-10-ACS-guide/
-	return nil, fmt.Errorf("Not implemented")
+func (acs *ACSFleet) allocatePillage(pillage []model.ResourceAmount, fleets []*Fleet, data Instance) (map[string][]model.ResourceAmount, error) {
+	// Each fleet will receive an amount of pillage
+	// based on the cargo capacity of each of them.
+	repartition := make(map[string][]model.ResourceAmount)
+	toAllocate := make(map[string]map[string]float32)
+
+	totalCargo := float32(0.0)
+	totalUsed := float32(0.0)
+	cargoForFleets := make(map[string]float32)
+
+	for _, f := range fleets {
+		cargo, err := f.cargoSpace(data)
+		if err != nil {
+			return repartition, err
+		}
+
+		used := f.usedCargoSpace()
+		available := float32(cargo) - used
+
+		cargoForFleets[f.ID] = available
+		totalUsed += available
+		totalCargo += float32(cargo)
+
+		// Build the resources carried by the fleet.
+		resForFleet := make(map[string]float32)
+		for _, res := range f.Cargo {
+			resForFleet[res.Resource] = res.Amount
+		}
+
+		toAllocate[f.ID] = resForFleet
+	}
+
+	// We need to dispatch the resources that were
+	// pillaged among the fleets. We will start by
+	// assigning a fair amount of resources to the
+	// fleet and then adjust to allocate the rest
+	// in case the capacity is filled.
+	leftToCollect := float32(0.0)
+	for _, res := range pillage {
+		leftToCollect += res.Amount
+	}
+
+	resourcesTypesToCarry := len(pillage)
+	fleetsToAllocate := len(fleets)
+	available := totalCargo - totalUsed
+
+	for available > 0.1 && leftToCollect > 0.1 {
+		// The amount of resources collected in this
+		// pass is a fair share of all the resources
+		// types available.
+		toCollect := available / float32(fleetsToAllocate*resourcesTypesToCarry)
+
+		// Collect each resource: the actual amount
+		// collected might be smaller in case there's
+		// not enough resources in the field.
+		for id := range pillage {
+			res := &pillage[id]
+
+			// Allocate the share to each fleet.
+			for _, f := range fleets {
+				resForFleet := toAllocate[f.ID]
+				carried := resForFleet[res.Resource]
+
+				// Cannot collect more that what's available.
+				amount := math.Min(float64(res.Amount), float64(toCollect))
+				space := cargoForFleets[f.ID]
+
+				if space <= 0.0 {
+					continue
+				}
+
+				collectedAmount := float32(math.Min(amount, float64(space)))
+
+				available -= collectedAmount
+				res.Amount -= collectedAmount
+				leftToCollect -= collectedAmount
+
+				// If one resource is depleted, decrease the
+				// available resource type: this will allow
+				// to speed up the repartition of the other
+				// resource types.
+				if res.Amount <= 0.0 {
+					resourcesTypesToCarry--
+				}
+				if space <= collectedAmount {
+					fleetsToAllocate--
+				}
+
+				// Collect the resources.
+				carried += collectedAmount
+				resForFleet[res.Resource] = carried
+				toAllocate[f.ID] = resForFleet
+				cargoForFleets[f.ID] -= space
+			}
+		}
+	}
+
+	// Convert the map of resources collected to a
+	// slice.
+	for fID, resources := range toAllocate {
+		share := make([]model.ResourceAmount, 0)
+
+		for res, amount := range resources {
+			r := model.ResourceAmount{
+				Resource: res,
+				Amount:   amount,
+			}
+
+			share = append(share, r)
+		}
+
+		repartition[fID] = share
+	}
+
+	return repartition, nil
 }
 
 // updateFleetsAfterFight :

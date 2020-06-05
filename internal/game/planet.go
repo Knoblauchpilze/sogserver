@@ -139,9 +139,10 @@ type Planet struct {
 	DefensesConstruction []DefenseAction         `json:"-"`
 	SourceFleets         []string                `json:"-"`
 	IncomingFleets       []string                `json:"-"`
-	technologies         map[string]int
-	moon                 bool
-	planet               string
+	// TODO: Should add the defending fleets.
+	technologies map[string]int
+	moon         bool
+	planet       string
 }
 
 // ResourceInfo :

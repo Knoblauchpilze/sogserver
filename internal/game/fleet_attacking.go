@@ -87,6 +87,9 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 	}
 
 	// TODO: Handle reinforcements for planet.
+	// TODO: We should handle a fight time for the fleet
+	// so that only a single timestamp is used across the
+	// operations of the fight.
 
 	err = data.Proxy.InsertToDB(query)
 	if err != nil {

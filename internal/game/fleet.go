@@ -293,6 +293,10 @@ var ErrFleetObjectiveNotCorrect = fmt.Errorf("Unknown fleet objective in simulat
 // ErrUnableToSimulateFleet : Indicates that an error occurred while simulating the fleet.
 var ErrUnableToSimulateFleet = fmt.Errorf("Error occurred while simulating fleet")
 
+// ErrFuelConsumptionError : Indicates that an error occurred while computing the fuel consumption
+// for the fleet.
+var ErrFuelConsumptionError = fmt.Errorf("Error occurred while computing fuel consumption")
+
 // Valid :
 // Determines whether the fleet is valid. By valid we only
 // mean obvious syntax errors.
@@ -1158,13 +1162,20 @@ func (f *Fleet) consolidateConsumption(data Instance, p *Planet) error {
 		}
 	}
 
-	// Save the data in the fleet itself.
+	// Save the data in the fleet itself. We will also
+	// use the consumption ratio to scale the amount of
+	// fuel needed.
 	f.Consumption = make([]model.ResourceAmount, 0)
+
+	ratio, err := f.fetchConsumptionRatio(data)
+	if err != nil {
+		return ErrFuelConsumptionError
+	}
 
 	for res, fuel := range consumption {
 		value := model.ResourceAmount{
 			Resource: res,
-			Amount:   float32(fuel),
+			Amount:   float32(fuel) * ratio,
 		}
 
 		f.Consumption = append(f.Consumption, value)
@@ -1348,4 +1359,60 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 	err = data.Proxy.InsertToDB(query)
 
 	return err
+}
+
+// fetchConsumptionRatio :
+// Used to fetch the consumption ratio of the uni
+// to which this fleet is related. This will help
+// when computing the amount of fuel required by
+// this fleet.
+//
+// The `data` allows to access to the DB values.
+//
+// Returns the consumption ratio along with any
+// error.
+func (f *Fleet) fetchConsumptionRatio(data Instance) (float32, error) {
+	ratio := float32(1.0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"fleets_consumption_ratio",
+		},
+		Table: "universes",
+		Filters: []db.Filter{
+			{
+				Key:    "id",
+				Values: []interface{}{f.Universe},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return ratio, err
+	}
+	if dbRes.Err != nil {
+		return ratio, dbRes.Err
+	}
+
+	// Scan the fleet's data.
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return ratio, ErrElementNotFound
+	}
+
+	err = dbRes.Scan(
+		&ratio,
+	)
+
+	// We should get a single universe matching.
+	if dbRes.Next() {
+		return ratio, ErrDuplicatedElement
+	}
+
+	return ratio, err
 }

@@ -73,6 +73,10 @@ var ErrACSTargetTypeMismacth = fmt.Errorf("Mismatch in fleet target type compare
 // ErrACSFleetDelayedTooMuch : Indicates that the fleet would delay the ACS by too much time.
 var ErrACSFleetDelayedTooMuch = fmt.Errorf("Fleet would delay ACS operation too much")
 
+// maxFleetDelay : Indicates the maximum delay in percentage of the remaining flight time that
+// a component of an ACS fleet is allowed to cause.
+var maxFleetDelay float32 = 1.3
+
 // Valid :
 // Determines whether the fleet is valid. By valid we
 // only mean obvious syntax errors.
@@ -451,7 +455,7 @@ func (acs *ACSFleet) ValidateFleet(fleet *Fleet, source *Planet, data Instance) 
 
 	deltaT := float32(newTimeToArrival) / float32(timeToArrival)
 
-	if deltaT > 1.3 {
+	if deltaT > maxFleetDelay {
 		return ErrACSFleetDelayedTooMuch
 	}
 

@@ -671,10 +671,14 @@ func (d *defender) convertToUnits() defenderUnits {
 // The `a` defines the attacker that tries
 // to eradicate the defender.
 //
+// The `data` defines a way to access to
+// the ships and defense systems information
+// from the DB.
+//
 // The return value is `nil` in case the
 // fight went well and contain the summary
 // of the fight.
-func (d *defender) defend(a *attacker) (fightResult, error) {
+func (d *defender) defend(a *attacker, data Instance) (fightResult, error) {
 	// The process of the combat is explained
 	// quite thoroughly in the following link:
 	// https://ogame.fandom.com/wiki/Combat
@@ -697,9 +701,25 @@ func (d *defender) defend(a *attacker) (fightResult, error) {
 	copy(initDefs, d.defenses)
 
 	for round := 0; round < maxCombatRounds; round++ {
-		err := d.round(a)
+		debris, err := d.round(a, data)
+
 		if err != nil {
 			return fr, err
+		}
+
+		// Add the debris to the existing field.
+		for id, res := range fr.debris {
+			r, ok := debris[res.Resource]
+
+			if ok {
+				fr.debris[id].Amount += r.Amount
+				delete(debris, res.Resource)
+			}
+		}
+
+		// Handle new resources.
+		for _, res := range debris {
+			fr.debris = append(fr.debris, res)
 		}
 	}
 
@@ -716,12 +736,19 @@ func (d *defender) defend(a *attacker) (fightResult, error) {
 //
 // The `a` is the attacker attacking us.
 //
-// Returns any error.
-func (d *defender) round(a *attacker) error {
+// The `data` defines a way to access to
+// the ships and defense systems information
+// from the DB.
+//
+// Returns any error along with the debris
+// generated during this round.
+func (d *defender) round(a *attacker, data Instance) (map[string]model.ResourceAmount, error) {
 	// Create the equivalent structures for the
 	// attacker and the defender.
 	du := d.convertToUnits()
 	au := a.convertToUnits()
+
+	debris := make(map[string]model.ResourceAmount)
 
 	// Perform the simulation of the round.
 	// We want all the units of the attacker
@@ -792,14 +819,82 @@ func (d *defender) round(a *attacker) error {
 		}
 	}
 
+	// TODO: Handle percentage of fleet into debris.
+
+	// For each unit that has been destroyed
+	// we need to increase the debris field.
+	for _, u := range au.ships {
+		if u.hull <= 0.0 {
+			s, err := data.Ships.GetShipFromID(u.id)
+
+			if err != nil {
+				return debris, err
+			}
+
+			for res, amount := range s.Cost.InitCosts {
+				ex := debris[res]
+				ex.Amount += float32(amount)
+				debris[res] = ex
+			}
+		}
+	}
+
+	for _, def := range du.defenses {
+		if def.hull <= 0.0 {
+			s, err := data.Defenses.GetDefenseFromID(def.id)
+
+			if err != nil {
+				return debris, err
+			}
+
+			for res, amount := range s.Cost.InitCosts {
+				ex := debris[res]
+				ex.Amount += float32(amount)
+				debris[res] = ex
+			}
+		}
+	}
+
+	for _, i := range du.indigenous {
+		if i.hull <= 0.0 {
+			s, err := data.Ships.GetShipFromID(i.id)
+
+			if err != nil {
+				return debris, err
+			}
+
+			for res, amount := range s.Cost.InitCosts {
+				ex := debris[res]
+				ex.Amount += float32(amount)
+				debris[res] = ex
+			}
+		}
+	}
+
+	for _, r := range du.reinforcements {
+		if r.hull <= 0.0 {
+			s, err := data.Ships.GetShipFromID(r.id)
+
+			if err != nil {
+				return debris, err
+			}
+
+			for res, amount := range s.Cost.InitCosts {
+				ex := debris[res]
+				ex.Amount += float32(amount)
+				debris[res] = ex
+			}
+		}
+	}
+
 	// Convert back the units and save back
 	// to the defender and attacker.
 	err := du.update(d)
 	if err != nil {
-		return err
+		return debris, err
 	}
 
-	return au.update(a)
+	return debris, au.update(a)
 }
 
 // reconstruct :

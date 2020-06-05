@@ -553,7 +553,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 		return ErrFleetFightSimulationFailure
 	}
 
-	result, err := d.defend(&a)
+	result, err := d.defend(&a, data)
 	if err != nil {
 		return ErrFleetFightSimulationFailure
 	}

@@ -39,7 +39,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 		return "", ErrFleetFightSimulationFailure
 	}
 
-	result, err := d.defend(&a)
+	result, err := d.defend(&a, data)
 	if err != nil {
 		return "", ErrFleetFightSimulationFailure
 	}

@@ -409,8 +409,12 @@ func (a *BuildingAction) Convert() interface{} {
 // this function in order to make locking the resource
 // more easily.
 //
+// The `ratio` defines a flat multiplier to apply to
+// the effects of this building. It mostly concerns
+// the production of resources.
+//
 // Returns any error.
-func (a *BuildingAction) ConsolidateEffects(data Instance, p *Planet) error {
+func (a *BuildingAction) ConsolidateEffects(data Instance, p *Planet, ratio float32) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrMismatchInVerification
@@ -427,8 +431,8 @@ func (a *BuildingAction) ConsolidateEffects(data Instance, p *Planet) error {
 	a.Production = make([]ProductionEffect, 0)
 
 	for _, rule := range bd.Production {
-		curProd := rule.ComputeProduction(a.CurrentLevel, p.AverageTemperature())
-		desiredProd := rule.ComputeProduction(a.DesiredLevel, p.AverageTemperature())
+		curProd := ratio * rule.ComputeProduction(a.CurrentLevel, p.AverageTemperature())
+		desiredProd := ratio * rule.ComputeProduction(a.DesiredLevel, p.AverageTemperature())
 
 		e := ProductionEffect{
 			Resource:   rule.Resource,
@@ -468,8 +472,12 @@ func (a *BuildingAction) ConsolidateEffects(data Instance, p *Planet) error {
 // action in order to prevent dead lock. We assume that
 // it should be fetched before validating the action.
 //
+// The `ratio` defines a flat multiplier to apply to
+// the completion time of the action to take the parent
+// universe properties into consideration.
+//
 // Returns any error.
-func (a *BuildingAction) consolidateCompletionTime(data Instance, p *Planet) error {
+func (a *BuildingAction) consolidateCompletionTime(data Instance, p *Planet, ratio float32) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrMismatchInVerification
@@ -526,6 +534,7 @@ func (a *BuildingAction) consolidateCompletionTime(data Instance, p *Planet) err
 	c := costs[crystalDesc.ID]
 
 	hours := float64(m+c) / (2500.0 * (1.0 + float64(robotics.Level)) * math.Pow(2.0, float64(nanite.Level)))
+	hours *= float64(ratio)
 
 	t, err := time.ParseDuration(fmt.Sprintf("%fh", hours))
 	if err != nil {
@@ -550,15 +559,21 @@ func (a *BuildingAction) consolidateCompletionTime(data Instance, p *Planet) err
 // it needs to be provided as input so that resource
 // locking is easier.
 //
+// The `ratio` defines a flat multiplier to apply to
+// the result of the validation and more specifically
+// to the computation of the completion time. It helps
+// taking into account the properties of the parent's
+// universe.
+//
 // Returns any error.
-func (a *BuildingAction) Validate(data Instance, p *Planet) error {
+func (a *BuildingAction) Validate(data Instance, p *Planet, ratio float32) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrMismatchInVerification
 	}
 
 	// Update completion time and costs.
-	err := a.consolidateCompletionTime(data, p)
+	err := a.consolidateCompletionTime(data, p, ratio)
 	if err != nil {
 		return err
 	}

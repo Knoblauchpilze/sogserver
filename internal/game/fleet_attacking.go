@@ -119,7 +119,24 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 // Returns the defender object built from the
 // planet along with any error.
 func (p *Planet) toDefender(data Instance) (defender, error) {
-	d := newDefender()
+	// Fetch the universe of this planet.
+	var uni string
+	var err error
+
+	if p.moon {
+		uni, err = UniverseOfMoon(p.ID, data)
+	} else {
+		uni, err = UniverseOfPlanet(p.ID, data)
+	}
+
+	if err != nil {
+		return defender{}, err
+	}
+
+	d, err := newDefender(uni, data)
+	if err != nil {
+		return d, err
+	}
 
 	// Fetch the fighting technologies for the player
 	// owning the planet so that we can update the

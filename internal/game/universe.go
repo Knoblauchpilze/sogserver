@@ -59,6 +59,40 @@ type Universe struct {
 	SolarSystemSize  int     `json:"solar_system_size"`
 }
 
+// Multipliers :
+// Used as a convenience structure to keep
+// track of the multipliers to apply to the
+// variables used for actions in a universe.
+//
+// The `Economy` defines a multiplier that
+// is applied for economic actions such as
+// building a building and the production.
+//
+// The `Fleet` is used to reduce the flight
+// time of fleets.
+//
+// The `Research` defines the multiplier
+// to use for researches.
+//
+// The `ShipsToRuins` defines how much of
+// the construction cost of a ship goes to
+// the debris field.
+//
+// The `DefensesToRuins` plays a similar
+// role for defenses.
+//
+// The `Consumption` defines the ratio of
+// the fuel that is actually needed by the
+// fleets.
+type Multipliers struct {
+	Economy         float32
+	Fleet           float32
+	Research        float32
+	ShipsToRuins    float32
+	DefensesToRuins float32
+	Consumption     float32
+}
+
 // ErrDuplicatedCoordinates : Indicates that some coordites appeared twice.
 var ErrDuplicatedCoordinates = fmt.Errorf("Invalid duplicated coordinates")
 
@@ -227,6 +261,87 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 	}
 
 	return u, err
+}
+
+// NewMultipliersFromDB :
+// Used to fetch the multipliers related to a
+// universe from the DB.
+//
+// The `uni` defines the identifier of the
+// universe for which multipliers should be
+// fetched.
+//
+// The `data` allows to perform DB requests.
+//
+// Returns the multipliers along with any
+// errors.
+func NewMultipliersFromDB(uni string, data Instance) (Multipliers, error) {
+	mul := Multipliers{
+		Economy:         1.0,
+		Fleet:           1.0,
+		Research:        1.0,
+		ShipsToRuins:    0.3,
+		DefensesToRuins: 0.0,
+		Consumption:     1.0,
+	}
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"economic_speed",
+			"fleet_speed",
+			"research_speed",
+			"fleets_to_ruins_ratio",
+			"defenses_to_ruins_ratio",
+			"fleets_consumption_ratio",
+		},
+		Table: "universes",
+		Filters: []db.Filter{
+			{
+				Key:    "id",
+				Values: []interface{}{uni},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return mul, err
+	}
+	if dbRes.Err != nil {
+		return mul, dbRes.Err
+	}
+
+	// Scan the multipliers' data.
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return mul, ErrElementNotFound
+	}
+
+	var fleet, economy, research int
+
+	err = dbRes.Scan(
+		&economy,
+		&fleet,
+		&research,
+		&mul.ShipsToRuins,
+		&mul.DefensesToRuins,
+		&mul.Consumption,
+	)
+
+	mul.Economy = 1.0 / float32(economy)
+	mul.Fleet = 1.0 / float32(fleet)
+	mul.Research = 1.0 / float32(research)
+
+	// Make sure that it's the only universe.
+	if dbRes.Next() {
+		return mul, ErrDuplicatedElement
+	}
+
+	return mul, err
 }
 
 // SaveToDB :

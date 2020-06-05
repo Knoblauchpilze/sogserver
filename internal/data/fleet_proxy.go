@@ -368,8 +368,13 @@ func (p *FleetProxy) validateFleet(fleet *game.Fleet) (*game.Planet, error) {
 		}
 	}
 
+	mul, err := game.NewMultipliersFromDB(fleet.ID, p.data)
+	if err != nil {
+		return &source, err
+	}
+
 	// Consolidate the arrival time for this fleet.
-	err = fleet.ConsolidateArrivalTime(p.data, &source)
+	err = fleet.ConsolidateArrivalTime(p.data, &source, mul.Fleet)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not consolidate arrival time for fleet (err: %v)", err))
 		return &source, err

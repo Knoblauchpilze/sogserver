@@ -201,8 +201,12 @@ func (a *ShipAction) Convert() interface{} {
 // should be provided as argument to make handling of the
 // concurrency easier.
 //
+// The `ratio` defines a flat multiplier to apply to
+// the completion time of the action to take the parent
+// universe properties into consideration.
+//
 // Returns any error.
-func (a *ShipAction) consolidateCompletionTime(data Instance, p *Planet) error {
+func (a *ShipAction) consolidateCompletionTime(data Instance, p *Planet, ratio float32) error {
 	// First, we need to determine the cost for each of
 	// the individual unit to produce.
 	sd, err := data.Ships.GetShipFromID(a.Element)
@@ -211,7 +215,7 @@ func (a *ShipAction) consolidateCompletionTime(data Instance, p *Planet) error {
 	}
 
 	// Use the base handler.
-	return a.computeCompletionTime(data, sd.Cost, p)
+	return a.computeCompletionTime(data, sd.Cost, p, ratio)
 }
 
 // Validate :
@@ -226,15 +230,21 @@ func (a *ShipAction) consolidateCompletionTime(data Instance, p *Planet) error {
 // it needs to be provided as input so that resource
 // locking is easier.
 //
+// The `ratio` defines a flat multiplier to apply to
+// the result of the validation and more specifically
+// to the computation of the completion time. It helps
+// taking into account the properties of the parent's
+// universe.
+//
 // Returns any error.
-func (a *ShipAction) Validate(data Instance, p *Planet) error {
+func (a *ShipAction) Validate(data Instance, p *Planet, ratio float32) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrMismatchInVerification
 	}
 
 	// Update completion time and costs.
-	err := a.consolidateCompletionTime(data, p)
+	err := a.consolidateCompletionTime(data, p, ratio)
 	if err != nil {
 		return err
 	}
@@ -246,6 +256,7 @@ func (a *ShipAction) Validate(data Instance, p *Planet) error {
 		return err
 	}
 
+	// TODO: Hack to allow creation of ships without checks.
 	// costs := sd.Cost.ComputeCost(a.Remaining)
 
 	// return p.validateAction(costs, sd.UpgradableDesc, data)

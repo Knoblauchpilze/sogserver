@@ -65,16 +65,30 @@ func (p *ActionProxy) CreateBuildingAction(a game.BuildingAction) (string, error
 		return a.ID, game.ErrInvalidPlanetForAction
 	}
 
+	// Fetch multipliers to use when computing effects of
+	// actions.
+	uni, err := game.UniverseOfPlanet(planet.ID, p.data)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not fetch universe of planet \"%s\" for building action (err: %v)", planet.ID, err))
+		return a.ID, game.ErrInvalidPlanetForAction
+	}
+
+	mul, err := game.NewMultipliersFromDB(uni, p.data)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not fetch multipliers related to building action (err: %v)", err))
+		return a.ID, err
+	}
+
 	// Consolidate the action (typically completion time
 	// and effects).
-	err = a.ConsolidateEffects(p.data, &planet)
+	err = a.ConsolidateEffects(p.data, &planet, mul.Economy)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not consolidate building action effects (err: %v)", err))
 		return a.ID, err
 	}
 
 	// Validate the action's data against its parent planet
-	err = a.Validate(p.data, &planet)
+	err = a.Validate(p.data, &planet, mul.Economy)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Cannot perform building action for \"%s\" on \"%s\" (err: %v)", a.Element, planet.ID, err))
 		return a.ID, err
@@ -123,8 +137,22 @@ func (p *ActionProxy) CreateTechnologyAction(a game.TechnologyAction) (string, e
 	// Force the action to be associated to this player.
 	a.Player = planet.Player
 
+	// Fetch multipliers to use when computing effects of
+	// actions.
+	uni, err := game.UniverseOfPlanet(planet.ID, p.data)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not fetch universe of planet \"%s\" for technology action (err: %v)", planet.ID, err))
+		return a.ID, game.ErrInvalidPlanetForAction
+	}
+
+	mul, err := game.NewMultipliersFromDB(uni, p.data)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not fetch multipliers related to technology action (err: %v)", err))
+		return a.ID, err
+	}
+
 	// Validate the action's data against its parent planet
-	err = a.Validate(p.data, &planet)
+	err = a.Validate(p.data, &planet, mul.Research)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Cannot perform technology action for \"%s\" on \"%s\" (err: %v)", a.Element, planet.ID, err))
 		return a.ID, err
@@ -173,8 +201,22 @@ func (p *ActionProxy) CreateShipAction(a game.ShipAction) (string, error) {
 	// the amount of units to produce.
 	a.Remaining = a.Amount
 
+	// Fetch multipliers to use when computing effects of
+	// actions.
+	uni, err := game.UniverseOfPlanet(planet.ID, p.data)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not fetch universe of planet \"%s\" for ship action (err: %v)", planet.ID, err))
+		return a.ID, game.ErrInvalidPlanetForAction
+	}
+
+	mul, err := game.NewMultipliersFromDB(uni, p.data)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not fetch multipliers related to ship action (err: %v)", err))
+		return a.ID, err
+	}
+
 	// Validate the action's data against its parent planet
-	err = a.Validate(p.data, &planet)
+	err = a.Validate(p.data, &planet, mul.Economy)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Cannot perform ship action for \"%s\" on \"%s\" (err: %v)", a.Element, planet.ID, err))
 		return a.ID, err
@@ -223,8 +265,22 @@ func (p *ActionProxy) CreateDefenseAction(a game.DefenseAction) (string, error) 
 	// the amount of units to produce.
 	a.Remaining = a.Amount
 
+	// Fetch multipliers to use when computing effects of
+	// actions.
+	uni, err := game.UniverseOfPlanet(planet.ID, p.data)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not fetch universe of planet \"%s\" for defense action (err: %v)", planet.ID, err))
+		return a.ID, game.ErrInvalidPlanetForAction
+	}
+
+	mul, err := game.NewMultipliersFromDB(uni, p.data)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not fetch multipliers related to defense action (err: %v)", err))
+		return a.ID, err
+	}
+
 	// Validate the action's data against its parent planet
-	err = a.Validate(p.data, &planet)
+	err = a.Validate(p.data, &planet, mul.Economy)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Cannot perform defense action for \"%s\" on \"%s\" (err: %v)", a.Element, planet.ID, err))
 		return a.ID, err

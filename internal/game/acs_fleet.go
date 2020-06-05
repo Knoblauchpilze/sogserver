@@ -470,6 +470,11 @@ func (acs *ACSFleet) ValidateFleet(fleet *Fleet, source *Planet, data Instance) 
 		return nil
 	}
 
+	mul, err := NewMultipliersFromDB(fleet.Universe, data)
+	if err != nil {
+		return ErrMultipliersError
+	}
+
 	// On the other hand if the fleet is actually
 	// faster than the actual arrival time we need
 	// to update the consumption and flight time
@@ -477,7 +482,7 @@ func (acs *ACSFleet) ValidateFleet(fleet *Fleet, source *Planet, data Instance) 
 	// as possible.
 	fleet.Speed *= deltaT
 
-	err := fleet.ConsolidateArrivalTime(data, source)
+	err = fleet.ConsolidateArrivalTime(data, source, mul.Fleet)
 	if err != nil {
 		return err
 	}
@@ -485,7 +490,7 @@ func (acs *ACSFleet) ValidateFleet(fleet *Fleet, source *Planet, data Instance) 
 	// We shouldn't need to revalidate the data as
 	// we will reduce the speed of the fleet and
 	// thus burn less fuel in all likelihood.
-	err = fleet.consolidateConsumption(data, source)
+	err = fleet.consolidateConsumption(data, source, mul.Consumption)
 	if err != nil {
 		return err
 	}
@@ -498,9 +503,13 @@ func (acs *ACSFleet) ValidateFleet(fleet *Fleet, source *Planet, data Instance) 
 	// is not a big issue as the error we noted was
 	// quite small (but possibly in the second-ish
 	// region).
+	save := fleet.ArrivalTime
+
 	d := -fleet.ArrivalTime.Sub(acs.arrivalTime)
 	fleet.ArrivalTime = acs.arrivalTime
 	fleet.CreatedAt = fleet.CreatedAt.Add(d)
+
+	data.log.Trace(logger.Verbose, "fleet", fmt.Sprintf("Changed arrival time for \"%s\" from %v to %v", fleet.ID, save, fleet.ArrivalTime))
 
 	return nil
 }

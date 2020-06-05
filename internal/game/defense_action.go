@@ -201,8 +201,12 @@ func (a *DefenseAction) Convert() interface{} {
 // should be provided as argument to make handling of the
 // concurrency easier.
 //
+// The `ratio` defines a flat multiplier to apply to
+// the completion time of the action to take the parent
+// universe properties into consideration.
+//
 // Returns any error.
-func (a *DefenseAction) consolidateCompletionTime(data Instance, p *Planet) error {
+func (a *DefenseAction) consolidateCompletionTime(data Instance, p *Planet, ratio float32) error {
 	// First, we need to determine the cost for each of
 	// the individual unit to produce.
 	dd, err := data.Defenses.GetDefenseFromID(a.Element)
@@ -210,7 +214,7 @@ func (a *DefenseAction) consolidateCompletionTime(data Instance, p *Planet) erro
 		return err
 	}
 	// Use the base handler.
-	return a.computeCompletionTime(data, dd.Cost, p)
+	return a.computeCompletionTime(data, dd.Cost, p, ratio)
 }
 
 // Validate :
@@ -225,15 +229,21 @@ func (a *DefenseAction) consolidateCompletionTime(data Instance, p *Planet) erro
 // it needs to be provided as input so that resource
 // locking is easier.
 //
+// The `ratio` defines a flat multiplier to apply to
+// the result of the validation and more specifically
+// to the computation of the completion time. It helps
+// taking into account the properties of the parent's
+// universe.
+//
 // Returns any error.
-func (a *DefenseAction) Validate(data Instance, p *Planet) error {
+func (a *DefenseAction) Validate(data Instance, p *Planet, ratio float32) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrMismatchInVerification
 	}
 
 	// Update completion time and costs.
-	err := a.consolidateCompletionTime(data, p)
+	err := a.consolidateCompletionTime(data, p, ratio)
 	if err != nil {
 		return err
 	}

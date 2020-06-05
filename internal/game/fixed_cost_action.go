@@ -171,8 +171,14 @@ func newFixedActionFromDB(ID string, data Instance, table string, moon bool) (Fi
 // It should be fetched beforehand to make concurrency
 // handling easier.
 //
+// The `ratio` defines a flat multiplier to apply to
+// the result of the validation and more specifically
+// to the computation of the completion time. It helps
+// taking into account the properties of the parent's
+// universe.
+//
 // Returns any error.
-func (a *FixedAction) computeCompletionTime(data Instance, cost model.FixedCost, p *Planet) error {
+func (a *FixedAction) computeCompletionTime(data Instance, cost model.FixedCost, p *Planet, ratio float32) error {
 	// Consistency.
 	if a.Planet != p.ID {
 		return ErrMismatchInVerification
@@ -223,6 +229,7 @@ func (a *FixedAction) computeCompletionTime(data Instance, cost model.FixedCost,
 	c := costs[crystalDesc.ID]
 
 	hours := float64(m+c) / (2500.0 * (1.0 + float64(shipyard.Level)) * math.Pow(2.0, float64(nanite.Level)))
+	hours *= float64(ratio)
 
 	t, err := time.ParseDuration(fmt.Sprintf("%fh", hours))
 	if err != nil {

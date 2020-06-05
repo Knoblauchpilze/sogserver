@@ -451,6 +451,124 @@ func NewPlanet(player string, coords Coordinate, homeworld bool, data Instance) 
 	return p, err
 }
 
+// UniverseOfPlanet :
+// Used to fetch the universe of a planet. It is
+// useful as there's no such indication in the
+// planet itself.
+//
+// The `planet` defines the identifier of the
+// planet for which the parent universe should
+// be fetched.
+//
+// The `data` allows to access to the DB.
+//
+// Returns the identifier of the parent uni
+// of the planet along with any error.
+func UniverseOfPlanet(planet string, data Instance) (string, error) {
+	uni := ""
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"u.id",
+		},
+		Table: "planets p inner join players pl on p.player=p.id inner join universes u on pl.universe=u.id",
+		Filters: []db.Filter{
+			{
+				Key:    "p.id",
+				Values: []interface{}{planet},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return uni, err
+	}
+	if dbRes.Err != nil {
+		return uni, dbRes.Err
+	}
+
+	// Scan the universe's identifier.
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return uni, ErrElementNotFound
+	}
+
+	err = dbRes.Scan(
+		&uni,
+	)
+
+	// Make sure that it's the only universe.
+	if dbRes.Next() {
+		return uni, ErrDuplicatedElement
+	}
+
+	return uni, err
+}
+
+// UniverseOfMoon :
+// Very similar to the `universeOfPlanet` func
+// but used to fetch the parent universe of a
+// moon.
+//
+// The `moon` defines the identifier of the
+// moon for which the parent universe should
+// be fetched.
+//
+// The `data` allows to access to the DB.
+//
+// Returns the identifier of the parent uni
+// of the moon along with any error.
+func UniverseOfMoon(moon string, data Instance) (string, error) {
+	uni := ""
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"u.id",
+		},
+		Table: "moons m inner join planets p on m.planet=p.id inner join players pl on p.player=p.id inner join universes u on pl.universe=u.id",
+		Filters: []db.Filter{
+			{
+				Key:    "m.id",
+				Values: []interface{}{moon},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return uni, err
+	}
+	if dbRes.Err != nil {
+		return uni, dbRes.Err
+	}
+
+	// Scan the universe's identifier.
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return uni, ErrElementNotFound
+	}
+
+	err = dbRes.Scan(
+		&uni,
+	)
+
+	// Make sure that it's the only universe.
+	if dbRes.Next() {
+		return uni, ErrDuplicatedElement
+	}
+
+	return uni, err
+}
+
 // AverageTemperature :
 // Returns the average temperature for this planet.
 func (p *Planet) AverageTemperature() float32 {

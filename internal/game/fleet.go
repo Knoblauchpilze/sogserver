@@ -293,9 +293,9 @@ var ErrFleetObjectiveNotCorrect = fmt.Errorf("Unknown fleet objective in simulat
 // ErrUnableToSimulateFleet : Indicates that an error occurred while simulating the fleet.
 var ErrUnableToSimulateFleet = fmt.Errorf("Error occurred while simulating fleet")
 
-// ErrFuelConsumptionError : Indicates that an error occurred while computing the fuel consumption
-// for the fleet.
-var ErrFuelConsumptionError = fmt.Errorf("Error occurred while computing fuel consumption")
+// ErrMultipliersError : Indicates that an error occurred while fetching the multipliers for the
+// parent universe of the fleet.
+var ErrMultipliersError = fmt.Errorf("Error occurred while fetching universe's multipliers")
 
 // Valid :
 // Determines whether the fleet is valid. By valid we only
@@ -1001,8 +1001,14 @@ func (f *Fleet) Convert() interface{} {
 // and `nil` otherwise (indicating that no obvious
 // errors were detected).
 func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
+	// Fetch the multipliers to apply for this fleet.
+	mul, err := NewMultipliersFromDB(f.Universe, data)
+	if err != nil {
+		return ErrMultipliersError
+	}
+
 	// Update consumption.
-	err := f.consolidateConsumption(data, source)
+	err = f.consolidateConsumption(data, source, mul.Consumption)
 	if err != nil {
 		return err
 	}
@@ -1127,8 +1133,11 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 // The `p` defines the planet from where this fleet is
 // starting the flight.
 //
+// The `ratio` defines a multiplier for the consumption
+// of this fleet compared to the base amount.
+//
 // Returns any error.
-func (f *Fleet) consolidateConsumption(data Instance, p *Planet) error {
+func (f *Fleet) consolidateConsumption(data Instance, p *Planet, ratio float32) error {
 	// Compute the distance between the starting position
 	// and the destination of the flight.
 	d := float64(p.Coordinates.distanceTo(f.TargetCoords))
@@ -1167,11 +1176,6 @@ func (f *Fleet) consolidateConsumption(data Instance, p *Planet) error {
 	// fuel needed.
 	f.Consumption = make([]model.ResourceAmount, 0)
 
-	ratio, err := f.fetchConsumptionRatio(data)
-	if err != nil {
-		return ErrFuelConsumptionError
-	}
-
 	for res, fuel := range consumption {
 		value := model.ResourceAmount{
 			Resource: res,
@@ -1200,8 +1204,13 @@ func (f *Fleet) consolidateConsumption(data Instance, p *Planet) error {
 // of the techs that should be used for computing a
 // speed for each ship.
 //
+// The `ratio` defines a multiplier to apply to the
+// computed flight time to compensate for the fact
+// that some universes try to make things faster
+// through a raw multiplier.
+//
 // Returns any error.
-func (f *Fleet) ConsolidateArrivalTime(data Instance, p *Planet) error {
+func (f *Fleet) ConsolidateArrivalTime(data Instance, p *Planet, ratio float32) error {
 	// Update the time at which this component joined
 	// the fleet.
 	f.CreatedAt = time.Now()
@@ -1239,8 +1248,9 @@ func (f *Fleet) ConsolidateArrivalTime(data Instance, p *Planet) error {
 	speedRatio := f.Speed * 10.0
 	flightTimeSec := 35000.0/float64(speedRatio)*math.Sqrt(float64(d)*10.0/float64(maxSpeed)) + 10.0
 
-	// TODO: Hack to speed up fleets by a lot.
-	flightTimeSec /= 600.0
+	// Apply the multiplier for the speed of the fleet based
+	// on the parent universe's value.
+	flightTimeSec *= float64(ratio)
 
 	// Compute the flight time by converting this duration in
 	// milliseconds: this will allow to keep more precision.
@@ -1359,60 +1369,4 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 	err = data.Proxy.InsertToDB(query)
 
 	return err
-}
-
-// fetchConsumptionRatio :
-// Used to fetch the consumption ratio of the uni
-// to which this fleet is related. This will help
-// when computing the amount of fuel required by
-// this fleet.
-//
-// The `data` allows to access to the DB values.
-//
-// Returns the consumption ratio along with any
-// error.
-func (f *Fleet) fetchConsumptionRatio(data Instance) (float32, error) {
-	ratio := float32(1.0)
-
-	// Create the query and execute it.
-	query := db.QueryDesc{
-		Props: []string{
-			"fleets_consumption_ratio",
-		},
-		Table: "universes",
-		Filters: []db.Filter{
-			{
-				Key:    "id",
-				Values: []interface{}{f.Universe},
-			},
-		},
-	}
-
-	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
-
-	// Check for errors.
-	if err != nil {
-		return ratio, err
-	}
-	if dbRes.Err != nil {
-		return ratio, dbRes.Err
-	}
-
-	// Scan the fleet's data.
-	atLeastOne := dbRes.Next()
-	if !atLeastOne {
-		return ratio, ErrElementNotFound
-	}
-
-	err = dbRes.Scan(
-		&ratio,
-	)
-
-	// We should get a single universe matching.
-	if dbRes.Next() {
-		return ratio, ErrDuplicatedElement
-	}
-
-	return ratio, err
 }

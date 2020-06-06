@@ -251,14 +251,12 @@ func (a *ShipAction) Validate(data Instance, p *Planet, ratio float32) error {
 
 	// Compute the total cost of this action and validate
 	// against planet's data.
-	_, err = data.Ships.GetShipFromID(a.Element)
+	sd, err := data.Ships.GetShipFromID(a.Element)
 	if err != nil {
 		return err
 	}
 
-	// TODO: Hack to allow creation of ships without checks.
-	// costs := sd.Cost.ComputeCost(a.Remaining)
+	costs := sd.Cost.ComputeCost(a.Remaining)
 
-	// return p.validateAction(costs, sd.UpgradableDesc, data)
-	return nil
+	return p.validateAction(costs, sd.UpgradableDesc, data)
 }

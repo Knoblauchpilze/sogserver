@@ -1057,6 +1057,11 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 	if obj.Hostile && source.Player == target.Player {
 		return ErrInvalidTargetForObjective
 	}
+	// Prevent ACS defend operation where the fleet
+	// carries some resources.
+	if purpose(obj.Name) == acsDefend && f.usedCargoSpace() > 0.0 {
+		return ErrInvalidTargetForObjective
+	}
 
 	// In the case of a harvesting mission we need
 	// to make sure that the debris fields actually

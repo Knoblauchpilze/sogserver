@@ -561,7 +561,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 	}
 
 	// Create the defender from the planet.
-	d, err := p.toDefender(data)
+	d, err := p.toDefender(data, acs.arrivalTime)
 	if err != nil {
 		return ErrFleetFightSimulationFailure
 	}

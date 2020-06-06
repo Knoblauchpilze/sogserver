@@ -5,6 +5,7 @@ import (
 	"math"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
+	"time"
 )
 
 // ErrFleetFightSimulationFailure : Indicates that an error has occurred
@@ -34,7 +35,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 		return "", ErrFleetFightSimulationFailure
 	}
 
-	d, err := p.toDefender(data)
+	d, err := p.toDefender(data, f.ArrivalTime)
 	if err != nil {
 		return "", ErrFleetFightSimulationFailure
 	}
@@ -86,14 +87,33 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 		},
 	}
 
-	// TODO: Handle reinforcements for planet.
-	// TODO: We should handle a fight time for the fleet
-	// so that only a single timestamp is used across the
-	// operations of the fight.
-
 	err = data.Proxy.InsertToDB(query)
 	if err != nil {
 		return "", ErrFleetFightSimulationFailure
+	}
+
+	// Update the reinforcements' data in the DB.
+	// As we know that the reinforcements can't
+	// be carrying resources, we will provide an
+	// empty `pillage` slice.
+	emptyRes := make([]model.ResourceAmount, 0)
+
+	for _, fID := range d.fleets {
+		// Execute the query to update the fleet.
+		query = db.InsertReq{
+			Script: "fleet_fight_aftermath",
+			Args: []interface{}{
+				fID,
+				d.convertFleet(fID),
+				emptyRes,
+				result.outcome,
+			},
+		}
+
+		err = data.Proxy.InsertToDB(query)
+		if err != nil {
+			return "", ErrFleetFightSimulationFailure
+		}
 	}
 
 	// Update the fleet's data in the DB.
@@ -119,9 +139,14 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 //
 // The `data` allows to access to the DB data.
 //
+// The `moment` defines the time at which the
+// conversion should be performed. It helps to
+// determine which fleet can be included in the
+// reinforcements for the planet.
+//
 // Returns the defender object built from the
 // planet along with any error.
-func (p *Planet) toDefender(data Instance) (defender, error) {
+func (p *Planet) toDefender(data Instance, moment time.Time) (defender, error) {
 	// Fetch the universe of this planet.
 	var uni string
 	var err error
@@ -243,6 +268,96 @@ func (p *Planet) toDefender(data Instance) (defender, error) {
 		}
 
 		d.defenses = append(d.defenses, dif)
+	}
+
+	// Fetch reinforcements. We need to fetch each fleet
+	// incoming to the planet and see if any has already
+	// arrived with a ACS defend objective.
+	acsDefend, err := data.Objectives.GetIDFromName("ACS defend")
+	if err != nil {
+		return d, err
+	}
+
+	for _, fID := range p.IncomingFleets {
+		// Fetch the fleet.
+		f, err := NewFleetFromDB(fID, data)
+
+		if err != nil {
+			return d, err
+		}
+
+		// Check whether this fleet is coming for an ACS
+		// defend operation.
+		if f.Objective != acsDefend {
+			continue
+		}
+
+		// Check whether the fleet is already deployed
+		// near this planet at the time of the fight.
+		endOfDeployment := f.ArrivalTime.Add(time.Duration(f.DeploymentTime) * time.Second)
+
+		if f.ArrivalTime.After(moment) || endOfDeployment.Before(moment) {
+			continue
+		}
+
+		// This fleet is part of the reinforcement forces
+		// for this fight.
+		d.fleets = append(d.fleets, f.ID)
+
+		// We need to include the ships of this fleet
+		// into the defender state.
+		for _, s := range f.Ships {
+			sd, err := data.Ships.GetShipFromID(s.ID)
+			if err != nil {
+				return d, err
+			}
+
+			player, err := NewPlayerFromDB(f.Player, data)
+			if err != nil {
+				return d, err
+			}
+
+			shieldTech := player.Technologies[shieldID]
+			weaponTech := player.Technologies[weaponID]
+			armourTech := player.Technologies[armourID]
+
+			shieldIncrease := float64(1.0 + shieldTech.Level/100.0)
+			weaponIncrease := float64(1.0 + weaponTech.Level/100.0)
+			armourIncrease := float64(1.0 + armourTech.Level/100.0)
+
+			shield := int(math.Round(float64(sd.Shield) * shieldIncrease))
+			weapon := int(math.Round(float64(sd.Weapon) * weaponIncrease))
+
+			// Compute the base hull points for this ship: it is
+			// derived from the cost in metal and crystal (the
+			// cost in deuterium being accounted as `energy` to
+			// provide for the construction of the ship).
+			costs := sd.Cost.ComputeCost(1)
+			hp := 0
+
+			for res, amount := range costs {
+				if res == metal || res == crystal {
+					hp += amount
+				}
+			}
+
+			armour := int(math.Round(float64(hp) * armourIncrease))
+
+			sif := shipInFight{
+				// Empty fleet as this ship is not part of a fleet.
+				Fleet:        f.ID,
+				Ship:         s.ID,
+				Count:        s.Count,
+				Cargo:        sd.Cargo,
+				Shield:       shield,
+				Weapon:       weapon,
+				Hull:         armour,
+				RFVSShips:    sd.RFVSShips,
+				RFVSDefenses: sd.RFVSDefenses,
+			}
+
+			d.reinforcements = append(d.reinforcements, sif)
+		}
 	}
 
 	return d, nil

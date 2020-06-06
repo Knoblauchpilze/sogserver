@@ -146,6 +146,10 @@ type attacker struct {
 // the fight is taking plance and belong
 // to the owner of the celestial body.
 //
+// The `fleets` represents the list of IDs
+// of fleets that are part of the fight as
+// reinforcement on the defender.
+//
 // The `reinforcements` define all ships
 // that have been sent to defend the moon
 // or planet where the fight is taking
@@ -171,6 +175,7 @@ type defender struct {
 	seed            int64
 	rng             *rand.Rand
 	indigenous      shipsUnit
+	fleets          []string
 	reinforcements  shipsUnit
 	defenses        []defenseInFight
 	shipsToRuins    float32
@@ -196,26 +201,8 @@ const (
 	Loss
 )
 
-// aftermathShip :
-// Used as a convenience structure to be able
-// to update the ship of a planet or a fleet
-// in the aftermath of a fleet fight. It only
-// defines the identifier of the ship and its
-// final count so that we can update the info
-// in the DB.
-//
-// The `ID` defines the identifier of the ship.
-//
-// The `Count` defines the number of ships
-// that remain after the fight (should be at
-// least `0`).
-type aftermathShip struct {
-	ID    string `json:"ship"`
-	Count int    `json:"count"`
-}
-
 // aftermathDefense :
-// Fills a similar purpose to `aftermathShip`
+// Fills a similar purpose to `ShipInFleet`
 // but for the defense systems of a planet.
 //
 // The `ID` defines the identifier of the
@@ -353,7 +340,7 @@ var hullDamageToExplode float32 = 0.7
 //
 // Returns the converted interface for ships.
 func (a attacker) convertShips(fleet string) interface{} {
-	ships := make([]aftermathShip, 0)
+	ships := make([]ShipInFleet, 0)
 
 	// Note that we will traverse only the units
 	// that are owned by the planet itself: the
@@ -367,7 +354,13 @@ func (a attacker) convertShips(fleet string) interface{} {
 				continue
 			}
 
-			d := aftermathShip{
+			// Only consider elements where at least a
+			// ship is still remaining.
+			if s.Count <= 0 {
+				continue
+			}
+
+			d := ShipInFleet{
 				ID:    s.Ship,
 				Count: s.Count,
 			}
@@ -509,6 +502,7 @@ func newDefender(uni string, data Instance) (defender, error) {
 		seed:           seed,
 		rng:            rand.New(rngSource),
 		indigenous:     make(shipsUnit, 0),
+		fleets:         make([]string, 0),
 		reinforcements: make(shipsUnit, 0),
 		defenses:       make([]defenseInFight, 0),
 		debris:         make(map[string]model.ResourceAmount),
@@ -535,19 +529,67 @@ func newDefender(uni string, data Instance) (defender, error) {
 //
 // Returns the converted interface for ships.
 func (d *defender) convertShips() interface{} {
-	ships := make([]aftermathShip, 0)
+	ships := make([]ShipInFleet, 0)
 
 	// Note that we will traverse only the units
 	// that are owned by the planet itself: the
 	// fleets that might have come to defend will
 	// be marshalled in a different step.
 	for _, unit := range d.indigenous {
-		d := aftermathShip{
+		// Only consider elements where at least a
+		// ship is still remaining.
+		if unit.Count <= 0 {
+			continue
+		}
+
+		def := ShipInFleet{
 			ID:    unit.Ship,
 			Count: unit.Count,
 		}
 
-		ships = append(ships, d)
+		ships = append(ships, def)
+	}
+
+	return ships
+}
+
+// convertFleet :
+// Used to convert the ships registered for
+// the input fleet as reinforcements of the
+// defender. The content is returned into a
+// structure that can be easily marshalled.
+//
+// The `fleet` defines the identifier of the
+// fleet for which reinforcement ships sent
+// to defend the planet should be fetched.
+//
+// Returns the converted interface for ships.
+func (d *defender) convertFleet(fleet string) interface{} {
+	ships := make([]ShipInFleet, 0)
+
+	// Note that we will traverse only the units
+	// that are owned by the planet itself: the
+	// fleets that might have come to defend will
+	// be marshalled in a different step.
+	for _, s := range d.reinforcements {
+		// Only consider ships belonging to the
+		// input fleet.
+		if s.Fleet != fleet {
+			continue
+		}
+
+		// Only consider elements where at least a
+		// ship is still remaining.
+		if s.Count <= 0 {
+			continue
+		}
+
+		ship := ShipInFleet{
+			ID:    s.Ship,
+			Count: s.Count,
+		}
+
+		ships = append(ships, ship)
 	}
 
 	return ships
@@ -565,6 +607,12 @@ func (d *defender) convertDefenses() interface{} {
 	defs := make([]aftermathDefense, 0)
 
 	for _, def := range d.defenses {
+		// Only consider elements where at least a
+		// defense is still remaining.
+		if def.Count <= 0 {
+			continue
+		}
+
 		d := aftermathDefense{
 			ID:    def.Defense,
 			Count: def.Count,

@@ -194,7 +194,7 @@ type defender struct {
 // fleet has been eradicated..
 type FightOutcome int
 
-// Define the possible severity level for a log message.
+// Define the possible fight outcomes.
 const (
 	Victory FightOutcome = iota
 	Draw

@@ -63,14 +63,35 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 	// We only need to handle pillaging in case the
 	// dumb move handling function did not report
 	// that the cargo capacity was not sufficient.
-	if !enough {
+	if enough {
 		// Handle the pillage of resources if the outcome
 		// says so. Note that the outcome is expressed in
 		// the defender's point of view.
 		if result.outcome == Loss {
-			carried, err = a.pillage(p, data)
+			pillaged, err := a.pillage(p, data)
 			if err != nil {
 				return "", ErrFleetFightSimulationFailure
+			}
+
+			// Append the pillaged resources to the cargo
+			// carried by the fleet.
+			pm := make(map[string]model.ResourceAmount)
+
+			for _, r := range pillaged {
+				e := pm[r.Resource]
+				e.Amount += r.Amount
+				pm[r.Resource] = e
+			}
+
+			for _, r := range carried {
+				e := pm[r.Resource]
+				e.Amount += r.Amount
+				pm[r.Resource] = e
+			}
+
+			carried = make([]model.ResourceAmount, 0)
+			for _, r := range pm {
+				carried = append(carried, r)
 			}
 		}
 	}

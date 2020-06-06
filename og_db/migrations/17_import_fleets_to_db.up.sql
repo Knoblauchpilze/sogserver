@@ -1273,3 +1273,12 @@ BEGIN
   DELETE FROM fleets_acs WHERE id = acs_id;
 END
 $$ LANGUAGE plpgsql;
+
+-- Script allowing to perform the registration of an
+-- espionage report for the player owning the input
+-- fleet with the level of information.
+CREATE OR REPLACE FUNCTION espionage_report(fleet_id uuid, info_level integer) RETURNS VOID AS $$
+BEGIN
+  -- TODO: Implement the generation of the espionage report.
+END
+$$ LANGUAGE plpgsql;

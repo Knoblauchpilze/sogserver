@@ -26,6 +26,8 @@ import (
 // night (or another duration which would be consistent with the maximum
 // interval with no issues) to perform update for players that didn't
 // connect for a long time.
+// TODO: We don't really have a proper mechanism for messages in the case
+// of fleet fight report. How could we do that ?
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

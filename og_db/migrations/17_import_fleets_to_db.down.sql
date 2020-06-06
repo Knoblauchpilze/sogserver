@@ -1,4 +1,7 @@
 
+-- Drop the function handling the generation of the espionage report.
+DROP FUNCTION espionage_report(fleet_id uuid, info_level integer);
+
 -- Drop the function handling an ACS fleet fight aftermath.
 DROP FUNCTION acs_fleet_fight_aftermath(acs_id uuid);
 

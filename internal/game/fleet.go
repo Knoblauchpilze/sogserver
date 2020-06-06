@@ -276,6 +276,10 @@ var ErrNoShipToPerformObjective = fmt.Errorf("No ships can perform the fleet's o
 // ErrInvalidTargetForObjective : Indicates that the target is not consistent with the fleet's objective.
 var ErrInvalidTargetForObjective = fmt.Errorf("Target cannot be used for fleet's objective")
 
+// ErrInvalidCargoForObjective : Indicates that the cargo specified for the fleet is not
+// consistent with the fleet's objective.
+var ErrInvalidCargoForObjective = fmt.Errorf("Cargo is not consistent with fleet's objective")
+
 // ErrCargoNotMovable : Indicates that one of the resource defined in the cargo is not movable.
 var ErrCargoNotMovable = fmt.Errorf("Resource cannot be moved by a fleet")
 
@@ -1060,7 +1064,12 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 	// Prevent ACS defend operation where the fleet
 	// carries some resources.
 	if purpose(obj.Name) == acsDefend && f.usedCargoSpace() > 0.0 {
-		return ErrInvalidTargetForObjective
+		return ErrInvalidCargoForObjective
+	}
+	// We also prevent attacking fleet to be carrying
+	// resources in case they join an ACS operation.
+	if f.ACS != "" && f.usedCargoSpace() > 0.0 {
+		return ErrInvalidCargoForObjective
 	}
 
 	// In the case of a harvesting mission we need
@@ -1332,7 +1341,7 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 	case "attacking":
 		script, err = f.attack(p, data)
 	case "espionage":
-		script, err = f.spy(p)
+		script, err = f.spy(p, data)
 	case "destroy":
 		script, err = f.destroy(p, data)
 	case "expedition":

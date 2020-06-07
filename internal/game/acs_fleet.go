@@ -490,7 +490,7 @@ func (acs *ACSFleet) ValidateFleet(fleet *Fleet, source *Planet, data Instance) 
 	// We shouldn't need to revalidate the data as
 	// we will reduce the speed of the fleet and
 	// thus burn less fuel in all likelihood.
-	err = fleet.consolidateConsumption(data, source, mul.Consumption)
+	err = fleet.consolidateConsumption(data, source, mul)
 	if err != nil {
 		return err
 	}

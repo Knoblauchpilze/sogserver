@@ -368,7 +368,7 @@ func (p *FleetProxy) validateFleet(fleet *game.Fleet) (*game.Planet, error) {
 		}
 	}
 
-	mul, err := game.NewMultipliersFromDB(fleet.ID, p.data)
+	mul, err := game.NewMultipliersFromDB(fleet.Universe, p.data)
 	if err != nil {
 		return &source, err
 	}

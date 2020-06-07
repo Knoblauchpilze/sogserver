@@ -30,4 +30,6 @@ curl http://localhost:3000/fleets/acs -d 'fleet-data={"universe":"1c44a525-126d-
 Second component:
 curl http://localhost:3000/fleets/acs -d 'fleet-data={"universe":"1c44a525-126d-4a5f-9bd5-973011ef15dc","player":"1593543f-fbb5-49d8-8e2c-ce9255e8f979","source_type":"planet","target_coordinates":{"galaxy":0,"system":259,"position":5,"location":"planet"},"source":"f15ef001-620e-490c-95e0-0c6d7cbc478d","target":"eb76bc4e-6cf5-40d1-a5a7-8a24d00472e8","objective":"cc33df46-8af0-4692-88c4-6dff598c5b2e","acs":"f4cb7784-f1c7-42ec-9798-2ffd6576c8e7","ships":[{"ship":"c1b82dc5-da2b-4bbd-8439-42c62d535803","count":2}],"speed":0.8}' | jq
 
+For attack:
+curl http://localhost:3000/fleets -d 'fleet-data={"id":"2b34a525-126d-4a5f-9bd5-973011ef26ed","universe":"1c44a525-126d-4a5f-9bd5-973011ef15dc","player":"1593543f-fbb5-49d8-8e2c-ce9255e8f979","source_type":"planet","target_coordinates":{"galaxy":0,"system":463,"position":3,"location":"planet"},"speed":1,"source":"","objective":"","target":"","ships":[{"ship":"","count":1},{"ship":"","count":4}],"cargo":[{"resource":"","amount":1000}]}'
 

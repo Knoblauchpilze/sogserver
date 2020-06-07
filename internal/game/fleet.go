@@ -1012,7 +1012,7 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 	}
 
 	// Update consumption.
-	err = f.consolidateConsumption(data, source, mul.Consumption)
+	err = f.consolidateConsumption(data, source, mul)
 	if err != nil {
 		return err
 	}
@@ -1145,14 +1145,20 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 // The `p` defines the planet from where this fleet is
 // starting the flight.
 //
-// The `ratio` defines a multiplier for the consumption
-// of this fleet compared to the base amount.
+// The `mul` defines a multipliers to apply to various
+// quantities based on the parent universe (typically
+// in the case of the flight time or consumption ratio).
 //
 // Returns any error.
-func (f *Fleet) consolidateConsumption(data Instance, p *Planet, ratio float32) error {
+func (f *Fleet) consolidateConsumption(data Instance, p *Planet, mul Multipliers) error {
 	// Compute the distance between the starting position
 	// and the destination of the flight.
 	d := float64(p.Coordinates.distanceTo(f.TargetCoords))
+
+	// Compute the raw flight time in seconds. Internally
+	// it is expressed in milliseconds and also already
+	// updated with the parent universe's fleets speed.
+	rawFlightTimeSec := float64(f.flightTime) / (float64(time.Second) * float64(mul.Fleet))
 
 	// Now we can compute the total consumption by summing
 	// the individual consumptions of ships.
@@ -1171,10 +1177,7 @@ func (f *Fleet) consolidateConsumption(data Instance, p *Planet, ratio float32) 
 		for _, fuel := range sd.Consumption {
 			// The values and formulas are extracted from here:
 			// https://ogame.fandom.com/wiki/Talk:Fuel_Consumption
-			// The flight time is expressed internally in millisecs.
-			ftSec := float64(f.flightTime) / float64(time.Second)
-
-			sk := 35000.0 * math.Sqrt(d*10.0/float64(speed)) / (ftSec - 10.0)
+			sk := 35000.0 * math.Sqrt(d*10.0/float64(speed)) / (rawFlightTimeSec - 10.0)
 			cons := float64(fuel.Amount*float32(ship.Count)) * d * math.Pow(1.0+sk/10.0, 2.0) / 35000.0
 
 			ex := consumption[fuel.Resource]
@@ -1191,7 +1194,7 @@ func (f *Fleet) consolidateConsumption(data Instance, p *Planet, ratio float32) 
 	for res, fuel := range consumption {
 		value := model.ResourceAmount{
 			Resource: res,
-			Amount:   float32(fuel) * ratio,
+			Amount:   float32(fuel) * mul.Consumption,
 		}
 
 		f.Consumption = append(f.Consumption, value)

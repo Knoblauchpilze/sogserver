@@ -472,7 +472,7 @@ func UniverseOfPlanet(planet string, data Instance) (string, error) {
 		Props: []string{
 			"u.id",
 		},
-		Table: "planets p inner join players pl on p.player=p.id inner join universes u on pl.universe=u.id",
+		Table: "planets p inner join players pl on p.player=pl.id inner join universes u on pl.universe=u.id",
 		Filters: []db.Filter{
 			{
 				Key:    "p.id",
@@ -531,7 +531,7 @@ func UniverseOfMoon(moon string, data Instance) (string, error) {
 		Props: []string{
 			"u.id",
 		},
-		Table: "moons m inner join planets p on m.planet=p.id inner join players pl on p.player=p.id inner join universes u on pl.universe=u.id",
+		Table: "moons m inner join planets p on m.planet=p.id inner join players pl on p.player=pl.id inner join universes u on pl.universe=u.id",
 		Filters: []db.Filter{
 			{
 				Key:    "m.id",

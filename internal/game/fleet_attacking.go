@@ -78,14 +78,26 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 			pm := make(map[string]model.ResourceAmount)
 
 			for _, r := range pillaged {
-				e := pm[r.Resource]
-				e.Amount += r.Amount
+				e, ok := pm[r.Resource]
+
+				if ok {
+					e.Amount += r.Amount
+				} else {
+					e = r
+				}
+
 				pm[r.Resource] = e
 			}
 
 			for _, r := range carried {
-				e := pm[r.Resource]
-				e.Amount += r.Amount
+				e, ok := pm[r.Resource]
+
+				if ok {
+					e.Amount += r.Amount
+				} else {
+					e = r
+				}
+
 				pm[r.Resource] = e
 			}
 
@@ -107,6 +119,9 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 			result.debris,
 		},
 	}
+
+	// TODO: Deactivate to handle simulation several times.
+	return "", fmt.Errorf("Deactivated")
 
 	err = data.Proxy.InsertToDB(query)
 	if err != nil {
@@ -224,6 +239,12 @@ func (p *Planet) toDefender(data Instance, moment time.Time) (defender, error) {
 
 	// Convert ships.
 	for _, s := range p.Ships {
+		// Only account for ships where at least one item
+		// is present on the defender.
+		if s.Amount <= 0 {
+			continue
+		}
+
 		shield := int(math.Round(float64(s.Shield) * shieldIncrease))
 		weapon := int(math.Round(float64(s.Weapon) * weaponIncrease))
 
@@ -260,6 +281,12 @@ func (p *Planet) toDefender(data Instance, moment time.Time) (defender, error) {
 
 	// Convert defenses.
 	for _, def := range p.Defenses {
+		// Only account for ships where at least one item
+		// is present on the defender.
+		if def.Amount <= 0 {
+			continue
+		}
+
 		shield := int(math.Round(float64(def.Shield) * shieldIncrease))
 		weapon := int(math.Round(float64(def.Weapon) * weaponIncrease))
 
@@ -448,6 +475,13 @@ func (f *Fleet) toAttacker(data Instance) (attacker, error) {
 
 	// Convert ships.
 	for _, s := range f.Ships {
+		// Only account for ships where at least one item
+		// is present on the attacker: this should always
+		// be the case but just to be on the safe side.
+		if s.Count <= 0 {
+			continue
+		}
+
 		sd, err := data.Ships.GetShipFromID(s.ID)
 		if err != nil {
 			return a, err

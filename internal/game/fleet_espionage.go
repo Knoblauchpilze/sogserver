@@ -188,12 +188,18 @@ func (f *Fleet) spy(p *Planet, data Instance) (string, error) {
 	// spying operation.
 	il := sm.infoLevel()
 
+	// Compute the counter-espionage probability.
+	ce := sm.counterEspionageProbability()
+	source := rand.NewSource(f.ArrivalTime.UnixNano())
+	rng := rand.New(source)
+
 	// Notify an espionage report in the DB.
 	query := db.InsertReq{
 		Script: "espionage_report",
 		Args: []interface{}{
 			f.ID,
 			il,
+			int(math.Round(float64(ce) * 100.0)),
 		},
 	}
 
@@ -201,11 +207,6 @@ func (f *Fleet) spy(p *Planet, data Instance) (string, error) {
 	if err != nil {
 		return "", ErrFleetFightSimulationFailure
 	}
-
-	// Compute the counter-espionage probability.
-	ce := sm.counterEspionageProbability()
-	source := rand.NewSource(f.ArrivalTime.UnixNano())
-	rng := rand.New(source)
 
 	if rng.Float32() <= ce {
 		// The fleet is detected, proceed to a fight

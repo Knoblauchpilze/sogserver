@@ -93,3 +93,16 @@ INSERT INTO public.messages_ids ("type", "name", "content")
     'destruction_report_failed',
     'your deathstar(s) (%1) fire at the moon at %2. The moon seems to take the hit and not collapse. Your fleet returns home.'
   );
+
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'counter_espionage_report',
+    'a foreign fleet from planet %1 %2 (%3) has been spotted near your planet %4 %5. Probability of counter-espionage: %6%.'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'espionage_report',
+    '%1'
+  );

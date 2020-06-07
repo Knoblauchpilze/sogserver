@@ -119,9 +119,13 @@ type shipsUnit []shipInFight
 // The `usedCargo` represents the amount of
 // cargo used so far in the ships composing
 // the attacker.
+//
+// The `log` allows to notify information
+// during the simulation of the fight.
 type attacker struct {
 	units     []shipsUnit
 	usedCargo float32
+	log       logger.Logger
 }
 
 // defender :
@@ -703,7 +707,7 @@ func (d *defender) convertToUnits() defenderUnits {
 				rf:      -1, // No RFs for defenses.
 			}
 
-			curDef[id] = u
+			curDef[i] = u
 		}
 
 		du.defenses = append(du.defenses, curDef...)
@@ -730,7 +734,7 @@ func (d *defender) convertToUnits() defenderUnits {
 				rf:      rfID,
 			}
 
-			curShp[id] = u
+			curShp[i] = u
 		}
 
 		du.indigenous = append(du.indigenous, curShp...)
@@ -757,7 +761,7 @@ func (d *defender) convertToUnits() defenderUnits {
 				rf:      rfID,
 			}
 
-			curShp[id] = u
+			curShp[i] = u
 		}
 		du.reinforcements = append(du.reinforcements, curShp...)
 	}
@@ -881,10 +885,14 @@ func (d *defender) round(a *attacker, data Instance) (bool, error) {
 		return true, nil
 	}
 
-	reshoot := true
-
 	// First the attacker.
+	if len(au.ships) > 0 {
+		d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Simulating %d attacking ship(s)", len(au.ships)))
+	}
+
 	for _, u := range au.ships {
+		reshoot := true
+
 		// While the unit can shoot we will
 		// continue shooting.
 		for reshoot {
@@ -906,7 +914,12 @@ func (d *defender) round(a *attacker, data Instance) (bool, error) {
 	}
 
 	// Then defender.
+	if len(du.defenses) > 0 {
+		d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Simulating %d defense system(s)", len(du.defenses)))
+	}
 	for _, def := range du.defenses {
+		reshoot := true
+
 		for reshoot {
 			id := d.rng.Int31n(attCount)
 			target := &au.ships[id]
@@ -916,7 +929,12 @@ func (d *defender) round(a *attacker, data Instance) (bool, error) {
 		}
 	}
 
+	if len(du.indigenous) > 0 {
+		d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Simulating %d indigenous ship(s)", len(du.indigenous)))
+	}
 	for _, i := range du.indigenous {
+		reshoot := true
+
 		for reshoot {
 			id := d.rng.Int31n(attCount)
 			target := &au.ships[id]
@@ -926,7 +944,12 @@ func (d *defender) round(a *attacker, data Instance) (bool, error) {
 		}
 	}
 
+	if len(du.reinforcements) > 0 {
+		d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Simulating %d reinforcement ship(s)", len(du.reinforcements)))
+	}
 	for _, r := range du.reinforcements {
+		reshoot := true
+
 		for reshoot {
 			id := d.rng.Int31n(attCount)
 			target := &au.ships[id]
@@ -1184,6 +1207,11 @@ func (au attackerUnits) update(a *attacker) error {
 				}
 			}
 
+			des := u.Count - remaining
+			if des > 0 {
+				a.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Destroyed %d attacking ship(s) of type \"%s\"", des, u.Ship))
+			}
+
 			u.Count = remaining
 
 			un[shpID] = u
@@ -1272,6 +1300,11 @@ func (du defenderUnits) update(d *defender) (bool, error) {
 			destroyed = false
 		}
 
+		des := d.defenses[id].Count - remaining
+		if des > 0 {
+			d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Destroyed %d defense system(s) of type \"%s\"", des, def.Defense))
+		}
+
 		d.defenses[id].Count = remaining
 	}
 
@@ -1292,6 +1325,11 @@ func (du defenderUnits) update(d *defender) (bool, error) {
 			destroyed = false
 		}
 
+		des := d.indigenous[id].Count - remaining
+		if des > 0 {
+			d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Destroyed %d indigenous ship(s) of type \"%s\"", des, shp.Ship))
+		}
+
 		d.indigenous[id].Count = remaining
 	}
 
@@ -1310,6 +1348,11 @@ func (du defenderUnits) update(d *defender) (bool, error) {
 
 		if destroyed && remaining > 0 {
 			destroyed = false
+		}
+
+		des := d.reinforcements[id].Count - remaining
+		if des > 0 {
+			d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Destroyed %d reinforcement ship(s) of type \"%s\"", des, shp.Ship))
 		}
 
 		d.reinforcements[id].Count = remaining

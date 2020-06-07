@@ -423,6 +423,7 @@ func (p *Planet) toDefender(data Instance, moment time.Time) (defender, error) {
 func (f *Fleet) toAttacker(data Instance) (attacker, error) {
 	a := attacker{
 		usedCargo: f.usedCargoSpace(),
+		log:       data.log,
 	}
 
 	// A fleet only has a single batch of ships.

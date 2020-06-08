@@ -1015,7 +1015,7 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION planet_fight_aftermath(target_id uuid, kind text, planet_ships json, planet_defenses json, debris json) RETURNS VOID AS $$
 DECLARE
-  field_id uuid := uuid_generate_v4();
+  field_id uuid;
   target_galaxy integer;
   target_system integer;
   target_position integer;
@@ -1105,12 +1105,30 @@ BEGIN
     planets AS p
     INNER JOIN players AS pl ON p.player = pl.id
   WHERE
-    id = target_id;
+    p.id = target_id;
+
+  IF NOT FOUND THEN
+      RAISE EXCEPTION 'Invalid target coordinates for fleet % in fleet fight operation', fleet_id;
+  END IF;
+
+  SELECT
+    id
+  INTO
+    field_id
+  FROM
+    debris_fields
+  WHERE
+    universe = universe_id
+    AND galaxy = target_galaxy
+    AND solar_system = target_system
+    AND position = target_position;
 
   IF NOT FOUND THEN
     -- The debris field does not exist yet, create it.
+    field_id = uuid_generate_v4();
+
     INSERT INTO debris_fields("id", "universe", "galaxy", "solar_system", "position")
-      VALUES(field_id, universe, target_galaxy, target_system, target_position);
+      VALUES(field_id, universe_id, target_galaxy, target_system, target_position);
 
     INSERT INTO debris_fields_resources("field", "res", "amount")
       SELECT
@@ -1122,17 +1140,6 @@ BEGIN
       WHERE
         r.dispersable = 'true';
   ELSE
-    SELECT
-      id
-    INTO
-      field_id
-    FROM
-      debris_fields
-    WHERE
-      universe = universe_id
-      AND galaxy = target_galaxy
-      AND solar_system = target_system
-      AND position = target_position;
   END IF;
 
   WITH dr AS (
@@ -1147,7 +1154,7 @@ BEGIN
   FROM
     dr
   WHERE
-    dfr.id = field_id
+    dfr.field = field_id
     AND dfr.res = dr.resource;
 END
 $$ LANGUAGE plpgsql;
@@ -1157,7 +1164,9 @@ $$ LANGUAGE plpgsql;
 -- create the debris field if needed (even if it does not
 -- contain any resources) and remove any destroyed ships
 -- and defenses from the fleet and the planet.
-CREATE OR REPLACE FUNCTION fleet_fight_aftermath(fleet_id uuid, fleet json, pillage json, outcome text) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fleet_fight_aftermath(fleet_id uuid, ships json, pillage json, outcome text) RETURNS VOID AS $$
+DECLARE
+  check_fleet_id uuid;
 BEGIN
   -- Update the resources carried by the fleet with the
   -- input values. The `pillage` actually describes all
@@ -1170,14 +1179,16 @@ BEGIN
       t.resource,
       t.amount
     FROM
-      json_to_recordset(pillage) AS t(resource uuid, amount numeric(15, 5));
+      json_to_recordset(pillage) AS t(resource uuid, amount numeric(15, 5))
+    WHERE
+      t.amount > 0;
 
   WITH rs AS (
     SELECT
       t.ship,
       t.count
     FROM
-      json_to_recordset(debris) AS t(ship uuid, count integer)
+      json_to_recordset(ships) AS t(ship uuid, count integer)
     )
   UPDATE fleets_ships AS fs
     SET count = rs.count
@@ -1194,7 +1205,7 @@ BEGIN
       t.ship,
       t.count
     FROM
-      json_to_recordset(debris) AS t(ship uuid, count integer)
+      json_to_recordset(ships) AS t(ship uuid, count integer)
     )
   UPDATE fleets_ships AS fs
     SET count = rs.count
@@ -1254,8 +1265,16 @@ BEGIN
   -- After a fight has been processed we can trigger
   -- the update of the return process. This will also
   -- play nicely in case the fleet is deployed to an
-  -- allied planet.
-  PERFORM fleet_return_to_base(fleet_id);
+  -- allied planet. We need to handle this only if
+  -- the fleet has not been completely wiped out by
+  -- the fight.
+  -- To determine that we will attempt to select the
+  -- fleet's identifier into a local variable to be
+  -- certain that the fleet still exists.
+  SELECT id INTO check_fleet_id FROM fleets WHERE id = fleet_id;
+  IF FOUND THEN
+    PERFORM fleet_return_to_base(fleet_id);
+  END IF;
 END
 $$ LANGUAGE plpgsql;
 

@@ -33,3 +33,18 @@ curl http://localhost:3000/fleets/acs -d 'fleet-data={"universe":"1c44a525-126d-
 For attack:
 curl http://localhost:3000/fleets -d 'fleet-data={"id":"2b34a525-126d-4a5f-9bd5-973011ef26ed","universe":"1c44a525-126d-4a5f-9bd5-973011ef15dc","player":"1593543f-fbb5-49d8-8e2c-ce9255e8f979","source_type":"planet","target_coordinates":{"galaxy":0,"system":463,"position":3,"location":"planet"},"speed":1,"source":"","objective":"","target":"","ships":[{"ship":"","count":1},{"ship":"","count":4}],"cargo":[{"resource":"","amount":1000}]}'
 
+curl http://localhost:3000/fleets -d 'fleet-data={"id":"2b34a525-126d-4a5f-9bd5-973011ef26ed","universe":"1c44a525-126d-4a5f-9bd5-973011ef15dc","player":"1593543f-fbb5-49d8-8e2c-ce9255e8f979","source_type":"planet","target_coordinates":{"galaxy":0,"system":463,"position":3,"location":"planet"},"speed":1,"source":"b4072b04-051c-484d-b8ca-b2b2b7bd1388","objective":"a7f85822-fbfc-434e-af08-aae4c37f0a03","target":"eafcd8c6-2455-481e-a6a9-b4a5551db0cb","ships":[{"ship":"0e87da25-df97-4514-a5bb-12cfedb87cac","count":1},{"ship":"9f94d13c-7e3c-4f8f-85de-a1375478a05c","count":4}],"cargo":[{"resource":"7bf2688d-d7bf-4530-92c8-e298ce34d98b","amount":1000}]}' | jq
+
+Get ships on planets by player:
+select pl.name as player, s.name as ship, ps.count as count from planets_ships ps inner join ships s on ps.ship=s.id inner join planets p on ps.planet=p.id inner join players pl on p.player=pl.id order by pl.name, s.name;
+
+Get ships in fleet by name:
+select s.name, fs.count from fleets_ships fs inner join ships s on fs.ship=s.id;
+
+Get defenses on planets by player:
+select pl.name as player, d.name as defense, pd.count as count from planets_defenses pd inner join defenses d on pd.defense=d.id inner join planets p on pd.planet=p.id inner join players pl on p.player=pl.id order by pd.planet, pd.defense;
+
+Get resources on planets by player:
+select pl.name as player, r.name as resource, pr.amount as amount from planets_resources pr inner join planets p on pr.planet=p.id inner join resources r on pr.res=r.id inner join players pl on p.player=pl.id order by pl.name, r.name;
+
+

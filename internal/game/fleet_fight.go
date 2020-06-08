@@ -179,6 +179,9 @@ type attacker struct {
 //
 // The `log` allows to notify information
 // during the simulation of the fight.
+//
+// The `rountCound` defines the current
+// fight round for the defender.
 type defender struct {
 	seed            int64
 	rng             *rand.Rand
@@ -190,6 +193,7 @@ type defender struct {
 	defensesToRuins float32
 	debris          map[string]model.ResourceAmount
 	log             logger.Logger
+	roundCount      int
 }
 
 // FightOutcome :
@@ -209,6 +213,25 @@ const (
 	Draw
 	Loss
 )
+
+// String :
+// Implementation of the stringer interface in
+// order to provide human-readable messages.
+//
+// Returns the string corresponding to the `fo`
+// outcome.
+func (fo FightOutcome) String() string {
+	switch fo {
+	case Victory:
+		return "\"victory\""
+	case Draw:
+		return "\"draw\""
+	case Loss:
+		return "\"loss\""
+	}
+
+	return "\"unknown\""
+}
 
 // aftermathDefense :
 // Fills a similar purpose to `ShipInFleet`
@@ -363,18 +386,15 @@ func (a attacker) convertShips(fleet string) interface{} {
 				continue
 			}
 
-			// Only consider elements where at least a
-			// ship is still remaining.
-			if s.Count <= 0 {
-				continue
-			}
-
-			d := ShipInFleet{
+			// Use the case where all ships have been
+			// destroyed to update the corresponding
+			// entry in the DB for this fleet.
+			sif := ShipInFleet{
 				ID:    s.Ship,
 				Count: s.Count,
 			}
 
-			ships = append(ships, d)
+			ships = append(ships, sif)
 		}
 	}
 
@@ -516,6 +536,7 @@ func newDefender(uni string, data Instance) (defender, error) {
 		defenses:       make([]defenseInFight, 0),
 		debris:         make(map[string]model.ResourceAmount),
 		log:            data.log,
+		roundCount:     0,
 	}
 
 	// Fetch the multipliers of the parent
@@ -546,12 +567,11 @@ func (d *defender) convertShips() interface{} {
 	// fleets that might have come to defend will
 	// be marshalled in a different step.
 	for _, unit := range d.indigenous {
-		// Only consider elements where at least a
-		// ship is still remaining.
-		if unit.Count <= 0 {
-			continue
-		}
-
+		// We want to consider all the ships even the
+		// ones that don't have any remaining element
+		// because it will be stored in the DB and be
+		// used to reduce the total if all ships have
+		// been destroyed.
 		def := ShipInFleet{
 			ID:    unit.Ship,
 			Count: unit.Count,
@@ -588,12 +608,6 @@ func (d *defender) convertFleet(fleet string) interface{} {
 			continue
 		}
 
-		// Only consider elements where at least a
-		// ship is still remaining.
-		if s.Count <= 0 {
-			continue
-		}
-
 		ship := ShipInFleet{
 			ID:    s.Ship,
 			Count: s.Count,
@@ -617,12 +631,11 @@ func (d *defender) convertDefenses() interface{} {
 	defs := make([]aftermathDefense, 0)
 
 	for _, def := range d.defenses {
-		// Only consider elements where at least a
-		// defense is still remaining.
-		if def.Count <= 0 {
-			continue
-		}
-
+		// Similarly to the `convertShips` method
+		// we will use the case where a defense
+		// does not have any remaining system on
+		// the planet to update the count in the
+		// DB so we will consider this case.
 		d := aftermathDefense{
 			ID:    def.Defense,
 			Count: def.Count,
@@ -807,10 +820,11 @@ func (d *defender) defend(a *attacker, data Instance) (fightResult, error) {
 	copy(initDefs, d.defenses)
 
 	round := 0
-	destroyed := false
+	defDestroyed := false
+	attDestroyed := false
 	var err error
-	for ; round < maxCombatRounds && !destroyed; round++ {
-		destroyed, err = d.round(a, data)
+	for ; round < maxCombatRounds && !defDestroyed && !attDestroyed; round++ {
+		defDestroyed, attDestroyed, err = d.round(a, data)
 
 		if err != nil {
 			return fr, err
@@ -818,20 +832,28 @@ func (d *defender) defend(a *attacker, data Instance) (fightResult, error) {
 	}
 
 	// Update the result of the fight based on
-	// whether the defender was destroyed.
-	if destroyed {
+	// whether the defender was destroyed and
+	// the number of rounds.
+	// Indeed the possible outcomes are:
+	//  1. def destroyed, att destroyed
+	//  2. def destroyed, att not destroyed
+	//  3. def not destroyed, att destroyed
+	//  4. def not destroyed, att not destroyed
+	//
+	// Case 1. is a draw, case 2. is a loss for
+	// the defender, case 3. is a win for the
+	// defender and case 4. is a draw.
+	if defDestroyed && !attDestroyed {
 		fr.outcome = Loss
-	} else if round < maxCombatRounds {
+	} else if !defDestroyed && attDestroyed {
 		fr.outcome = Victory
 	} else {
-		// The defender was not destroyed but the
-		// fight went on for the maximum allowed
-		// number of rounds.
+		// Case 1 and 4.
 		fr.outcome = Draw
 	}
 
 	d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Fight at %v took %d round(s)", time.Unix(d.seed, 0), round))
-	d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Result of fight at %v is %d", time.Unix(d.seed, 0), fr.outcome))
+	d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Result of fight at %v is %s", time.Unix(d.seed, 0), fr.outcome))
 
 	// Assign the debris field computed during
 	// the simulation of the fight.
@@ -840,7 +862,7 @@ func (d *defender) defend(a *attacker, data Instance) (fightResult, error) {
 	}
 
 	// Rebuilt destroyed defense systems.
-	d.reconstruct(initDefs, defenseRebuildRatio)
+	d.reconstruct(initDefs, defenseRebuildRatio, data)
 
 	return fr, nil
 }
@@ -857,9 +879,12 @@ func (d *defender) defend(a *attacker, data Instance) (fightResult, error) {
 // from the DB.
 //
 // Returns any error along with a boolean
-// indicating whether the defender has been
-// destroyed during this round.
-func (d *defender) round(a *attacker, data Instance) (bool, error) {
+// indicating whether the defender or the
+// attacker has been destroyed during this
+// round.
+func (d *defender) round(a *attacker, data Instance) (bool, bool, error) {
+	d.roundCount++
+
 	// Create the equivalent structures for the
 	// attacker and the defender.
 	du := d.convertToUnits()
@@ -881,15 +906,14 @@ func (d *defender) round(a *attacker, data Instance) (bool, error) {
 
 	// In case the defender does not have any
 	// unit to defend, the attacker is winning.
-	if defCount == 0 {
-		return true, nil
+	// Similarly, if the attacker does not have
+	// any attacking units left, the defender
+	// is winning.
+	if defCount == 0 || attCount == 0 {
+		return defCount == 0, attCount == 0, nil
 	}
 
 	// First the attacker.
-	if len(au.ships) > 0 {
-		d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Simulating %d attacking ship(s)", len(au.ships)))
-	}
-
 	for _, u := range au.ships {
 		reshoot := true
 
@@ -908,15 +932,28 @@ func (d *defender) round(a *attacker, data Instance) (bool, error) {
 				target = &du.reinforcements[id-indigenousRange]
 			}
 
+			alreadyDead := (target.hull <= 0.0)
+
 			u.fire(target, d.rng.Float32())
 			reshoot = au.rf(u, target.id, d.rng.Float32())
+
+			if target.hull <= 0.0 && !alreadyDead {
+				if id < defRange {
+					dd, err := data.Defenses.GetDefenseFromID(target.id)
+					if err == nil {
+						d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Destroyed 1 \"%s\"", dd.Name))
+					}
+				} else {
+					sd, err := data.Ships.GetShipFromID(target.id)
+					if err == nil {
+						d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Destroyed 1 \"%s\"", sd.Name))
+					}
+				}
+			}
 		}
 	}
 
 	// Then defender.
-	if len(du.defenses) > 0 {
-		d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Simulating %d defense system(s)", len(du.defenses)))
-	}
 	for _, def := range du.defenses {
 		reshoot := true
 
@@ -926,12 +963,16 @@ func (d *defender) round(a *attacker, data Instance) (bool, error) {
 
 			def.fire(target, d.rng.Float32())
 			reshoot = du.rf(def, target.id, d.rng.Float32())
+
+			if target.hull <= 0.0 {
+				sd, err := data.Ships.GetShipFromID(target.id)
+				if err == nil {
+					d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Destroyed 1 \"%s\"", sd.Name))
+				}
+			}
 		}
 	}
 
-	if len(du.indigenous) > 0 {
-		d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Simulating %d indigenous ship(s)", len(du.indigenous)))
-	}
 	for _, i := range du.indigenous {
 		reshoot := true
 
@@ -941,12 +982,16 @@ func (d *defender) round(a *attacker, data Instance) (bool, error) {
 
 			i.fire(target, d.rng.Float32())
 			reshoot = du.rf(i, target.id, d.rng.Float32())
+
+			if target.hull <= 0.0 {
+				sd, err := data.Ships.GetShipFromID(target.id)
+				if err == nil {
+					d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Destroyed 1 \"%s\"", sd.Name))
+				}
+			}
 		}
 	}
 
-	if len(du.reinforcements) > 0 {
-		d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Simulating %d reinforcement ship(s)", len(du.reinforcements)))
-	}
 	for _, r := range du.reinforcements {
 		reshoot := true
 
@@ -956,14 +1001,21 @@ func (d *defender) round(a *attacker, data Instance) (bool, error) {
 
 			r.fire(target, d.rng.Float32())
 			reshoot = du.rf(r, target.id, d.rng.Float32())
+
+			if target.hull <= 0.0 {
+				sd, err := data.Ships.GetShipFromID(target.id)
+				if err == nil {
+					d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Destroyed 1 \"%s\"", sd.Name))
+				}
+			}
 		}
 	}
 
 	// For each unit that has been destroyed
 	// we need to increase the debris field.
-	generatedDebris, err := d.addShipsDebris(au.ships, data.Ships)
+	err := d.addShipsDebris(au.ships, data)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
 	for _, def := range du.defenses {
@@ -971,14 +1023,24 @@ func (d *defender) round(a *attacker, data Instance) (bool, error) {
 			ds, err := data.Defenses.GetDefenseFromID(def.id)
 
 			if err != nil {
-				return false, err
+				return false, false, err
 			}
 
 			for res, amount := range ds.Cost.InitCosts {
 				ex, ok := d.debris[res]
 
+				// Make sure that the resources can be
+				// dispersed in a debris field.
+				r, err := data.Resources.GetResourceFromID(res)
+				if err != nil {
+					return false, false, err
+				}
+
+				if !r.Dispersable {
+					continue
+				}
+
 				deb := d.defensesToRuins * float32(amount)
-				generatedDebris += deb
 
 				if ok {
 					ex.Amount += deb
@@ -994,29 +1056,34 @@ func (d *defender) round(a *attacker, data Instance) (bool, error) {
 		}
 	}
 
-	deb, err := d.addShipsDebris(du.indigenous, data.Ships)
+	err = d.addShipsDebris(du.indigenous, data)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
-	generatedDebris += deb
-
-	deb, err = d.addShipsDebris(du.reinforcements, data.Ships)
+	err = d.addShipsDebris(du.reinforcements, data)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
-	generatedDebris += deb
-	d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Round at %v generated %f debri(s)", time.Unix(d.seed, 0), generatedDebris))
+	msg := fmt.Sprintf("Debris after round %d are: ", d.roundCount)
+	for _, res := range d.debris {
+		r, err := data.Resources.GetResourceFromID(res.Resource)
+		if err == nil {
+			msg = fmt.Sprintf("%s %f %s", msg, res.Amount, r.Name)
+		}
+	}
+	d.log.Trace(logger.Verbose, "fight", msg)
 
 	// Convert back the units and save back
 	// to the defender and attacker.
-	destroyed, err := du.update(d)
+	defDestroyed, err := du.update(d)
 	if err != nil {
-		return destroyed, err
+		return defDestroyed, false, err
 	}
 
-	return destroyed, au.update(a)
+	attDestroyed, err := au.update(a)
+	return defDestroyed, attDestroyed, err
 }
 
 // addDebris :
@@ -1027,30 +1094,38 @@ func (d *defender) round(a *attacker, data Instance) (bool, error) {
 // The `units` are the units to scan for a
 // collection of destroyed units.
 //
-// The `ships` allows to access the initial
-// cost of each unit.
+// The `data` allows to access properties
+// of ships and resources.
 //
 // Returns any error and the total amount
 // of debris generated.
-func (d *defender) addShipsDebris(units []unit, ships *model.ShipsModule) (float32, error) {
-	debris := float32(0.0)
-
+func (d *defender) addShipsDebris(units []unit, data Instance) error {
 	// Traverse the input list of units.
 	for _, u := range units {
 		// If the unit is destroyed add it to
 		// the debris field.
 		if u.hull <= 0.0 {
-			desc, err := ships.GetShipFromID(u.id)
+			desc, err := data.Ships.GetShipFromID(u.id)
 
 			if err != nil {
-				return debris, err
+				return err
 			}
 
 			for res, amount := range desc.Cost.InitCosts {
 				ex, ok := d.debris[res]
 
+				// Make sure that the resources can be
+				// dispersed in a debris field.
+				r, err := data.Resources.GetResourceFromID(res)
+				if err != nil {
+					return err
+				}
+
+				if !r.Dispersable {
+					continue
+				}
+
 				deb := d.shipsToRuins * float32(amount)
-				debris += deb
 
 				if ok {
 					ex.Amount += deb
@@ -1066,7 +1141,7 @@ func (d *defender) addShipsDebris(units []unit, ships *model.ShipsModule) (float
 		}
 	}
 
-	return debris, nil
+	return nil
 }
 
 // reconstruct :
@@ -1080,7 +1155,11 @@ func (d *defender) addShipsDebris(units []unit, ships *model.ShipsModule) (float
 //
 // The `rebuildRatio` defines the chances for
 // a destroyed defense system to be rebuilt.
-func (d *defender) reconstruct(init []defenseInFight, rebuildRatio float32) {
+//
+// The `data` allows to notify information
+// about the rebuilt defense systems to the
+// user.
+func (d *defender) reconstruct(init []defenseInFight, rebuildRatio float32, data Instance) {
 	// We first have to determine how many of each
 	// defense system has been destroyed. This will
 	// condition the number of trials that we have
@@ -1100,12 +1179,21 @@ func (d *defender) reconstruct(init []defenseInFight, rebuildRatio float32) {
 	// Reconstruct the defense systems based on the
 	// amount that was destroyed.
 	for id, gone := range destroyed {
+		if gone <= 0 {
+			continue
+		}
+
 		rebuilt := 0
 
 		for i := 0; i < gone; i++ {
 			if d.rng.Float32() < rebuildRatio {
 				rebuilt++
 			}
+		}
+
+		dd, err := data.Defenses.GetDefenseFromID(d.defenses[id].Defense)
+		if err == nil {
+			d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Rebuilt %d \"%s\" (%d destroyed)", rebuilt, dd.Name, gone))
 		}
 
 		d.defenses[id].Count += rebuilt
@@ -1181,18 +1269,22 @@ func (u *unit) fire(target *unit, rnd float32) {
 //
 // The `a` defines the attacker unit to update.
 //
-// Returns any error.
-func (au attackerUnits) update(a *attacker) error {
+// Returns any error and a boolean indicating
+// whether all the units for the attacker have
+// been destroyed.
+func (au attackerUnits) update(a *attacker) (bool, error) {
 	// Consistency.
 	if len(a.units) != len(au.unitsIDs) {
-		return ErrInvalidAttackerStruct
+		return false, ErrInvalidAttackerStruct
 	}
 
 	for id, u := range a.units {
 		if len(u) != len(au.unitsIDs[id]) {
-			return ErrInvalidAttackerStruct
+			return false, ErrInvalidAttackerStruct
 		}
 	}
+
+	destroyed := true
 
 	for id, un := range a.units {
 		for shpID, u := range un {
@@ -1207,20 +1299,18 @@ func (au attackerUnits) update(a *attacker) error {
 				}
 			}
 
-			des := u.Count - remaining
-			if des > 0 {
-				a.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Destroyed %d attacking ship(s) of type \"%s\"", des, u.Ship))
+			if destroyed && remaining > 0 {
+				destroyed = false
 			}
 
 			u.Count = remaining
-
 			un[shpID] = u
 		}
 
 		a.units[id] = un
 	}
 
-	return nil
+	return destroyed, nil
 }
 
 // rf :
@@ -1300,11 +1390,6 @@ func (du defenderUnits) update(d *defender) (bool, error) {
 			destroyed = false
 		}
 
-		des := d.defenses[id].Count - remaining
-		if des > 0 {
-			d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Destroyed %d defense system(s) of type \"%s\"", des, def.Defense))
-		}
-
 		d.defenses[id].Count = remaining
 	}
 
@@ -1325,11 +1410,6 @@ func (du defenderUnits) update(d *defender) (bool, error) {
 			destroyed = false
 		}
 
-		des := d.indigenous[id].Count - remaining
-		if des > 0 {
-			d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Destroyed %d indigenous ship(s) of type \"%s\"", des, shp.Ship))
-		}
-
 		d.indigenous[id].Count = remaining
 	}
 
@@ -1348,11 +1428,6 @@ func (du defenderUnits) update(d *defender) (bool, error) {
 
 		if destroyed && remaining > 0 {
 			destroyed = false
-		}
-
-		des := d.reinforcements[id].Count - remaining
-		if des > 0 {
-			d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Destroyed %d reinforcement ship(s) of type \"%s\"", des, shp.Ship))
 		}
 
 		d.reinforcements[id].Count = remaining

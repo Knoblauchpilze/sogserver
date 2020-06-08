@@ -27,6 +27,12 @@ var ErrFleetFightSimulationFailure = fmt.Errorf("Failure to simulate fleet fight
 // script to execute to finalize the execution of
 // the fleet.
 func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
+	// Make sure that the fleet is not returning to
+	// its parent planet already.
+	if f.returning {
+		return "fleet_return_to_base", nil
+	}
+
 	// Convert this fleet and the planet into valid
 	// `defender` and `attacker` objects so that we
 	// can use them to simulate the attack.
@@ -54,8 +60,8 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 	// space available making it impossible to be
 	// carrying the initial resources.
 	enough := f.handleDumbMove(a)
-
 	carried := make([]model.ResourceAmount, 0)
+
 	for _, res := range f.Cargo {
 		carried = append(carried, res)
 	}
@@ -120,9 +126,6 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 		},
 	}
 
-	// TODO: Deactivate to handle simulation several times.
-	return "", fmt.Errorf("Deactivated")
-
 	err = data.Proxy.InsertToDB(query)
 	if err != nil {
 		return "", ErrFleetFightSimulationFailure
@@ -165,7 +168,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 
 	err = data.Proxy.InsertToDB(query)
 
-	return "fleet_return_to_base", err
+	return "", err
 }
 
 // toDefender :
@@ -507,8 +510,7 @@ func (f *Fleet) toAttacker(data Instance) (attacker, error) {
 		armour := int(math.Round(float64(hp) * armourIncrease))
 
 		sif := shipInFight{
-			// Empty fleet as this ship is not part of a fleet.
-			Fleet:        "",
+			Fleet:        f.ID,
 			Ship:         s.ID,
 			Count:        s.Count,
 			Cargo:        sd.Cargo,

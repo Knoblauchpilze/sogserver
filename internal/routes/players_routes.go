@@ -123,3 +123,61 @@ func (s *Server) createPlayer() http.HandlerFunc {
 
 	return ed.ServeRoute(s.log)
 }
+
+// changePlayers :
+// Used to perform the creation of a handler allowing to serve
+// the requests to change a player.
+//
+// Returns the handler to execute to perform said requests.
+func (s *Server) changePlayers() http.HandlerFunc {
+	// Create the endpoint with the suited route.
+	ed := NewCreateResourceEndpoint("players")
+
+	// Configure the endpoint.
+	ed.WithDataKey("player-data").WithModule("players").WithLocker(s.og)
+	ed.WithCreationFunc(
+		func(input RouteData) ([]string, error) {
+			// We need to iterate over the data retrieved from the route and
+			// create players from it.
+			var player game.Player
+			resources := make([]string, 0)
+
+			// Make sure that there's a route element.
+			if len(input.ExtraElems) == 0 {
+				return resources, ErrNoData
+			}
+
+			playerID := input.ExtraElems[0]
+
+			// Prevent request with no data.
+			if len(input.Data) == 0 {
+				return resources, ErrNoData
+			}
+
+			for _, rawData := range input.Data {
+				// Try to unmarshal the data into a valid `Player` struct.
+				err := json.Unmarshal([]byte(rawData), &player)
+				if err != nil {
+					return resources, ErrInvalidData
+				}
+
+				// Force the player's identifier with the route's data.
+				player.ID = playerID
+
+				// Update the player.
+				res, err := s.players.Update(player)
+				if err != nil {
+					return resources, err
+				}
+
+				// Successfully updated a player.
+				resources = append(resources, res)
+			}
+
+			// Return the path to the resources updated during the process.
+			return resources, nil
+		},
+	)
+
+	return ed.ServeRoute(s.log)
+}

@@ -138,3 +138,25 @@ func (p *AccountProxy) Create(acc game.Account) (string, error) {
 
 	return acc.ID, nil
 }
+
+// Update :
+// Used to perform the update of the account specified
+// by the input data. Most of the information for the
+// account can be changed.
+//
+// The `acc` defines the data to use to update the DB
+// version of the account.
+//
+// Returns the identifier of the account that has to
+// be updated (should match the `acc.ID`) along with
+// any errors.
+func (p *AccountProxy) Update(acc game.Account) (string, error) {
+	// Update the account in the DB.
+	err := acc.UpdateInDB(p.data.Proxy)
+
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not update account \"%s\" (err: %v)", acc.ID, err))
+	}
+
+	return acc.ID, err
+}

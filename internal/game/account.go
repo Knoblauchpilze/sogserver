@@ -158,7 +158,9 @@ func (a *Account) SaveToDB(proxy db.Proxy) error {
 		return err
 	}
 
-	// Create the query and execute it.
+	// Create the query and execute it: we will
+	// use the dedicated handler to provide a
+	// comprehensive error.
 	query := db.InsertReq{
 		Script: "create_account",
 		Args:   []interface{}{a},
@@ -166,13 +168,81 @@ func (a *Account) SaveToDB(proxy db.Proxy) error {
 
 	err := proxy.InsertToDB(query)
 
-	// Analyze the error in order to provide some
-	// comprehensive message.
+	return a.analyzeDBError(err)
+}
+
+// UpdateInDB :
+// Used to update the content of the account in
+// the DB. Only part of the account's data can
+// be updated as specified by this function.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns any error.
+func (a *Account) UpdateInDB(proxy db.Proxy) error {
+	// Make sure that at least one of the name, mail
+	// or password are valid. We want also to be sure
+	// that in case the mail is provided it is valid.
+	exp, _ := regexp.Compile("^[a-zA-Z0-9]*[a-zA-Z0-9_.+-][a-zA-Z0-9]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$")
+
+	if a.Name == "" && a.Password == "" {
+		// No mail nor password, check the case of the
+		// mail: it should be provided and valid.
+		if a.Mail == "" || !exp.MatchString(a.Mail) {
+			return ErrInvalidUpdateData
+		}
+	}
+
+	// Make sure that the email is valid if it is
+	// provided: we tolerate empty mail though as
+	// we know that either the name or the pwd
+	// is provided.
+	if a.Name != "" && !exp.MatchString(a.Mail) {
+		return ErrInvalidUpdateData
+	}
+
+	// Create the query and execute it. In a
+	// similar way we need to provide some
+	// analysis of any error.
+	query := db.InsertReq{
+		Script: "update_account",
+		Args: []interface{}{
+			a.ID,
+			struct {
+				Name     string `json:"name"`
+				Mail     string `json:"mail"`
+				Password string `json:"password"`
+			}{
+				Name:     a.Name,
+				Mail:     a.Mail,
+				Password: a.Password,
+			},
+		},
+	}
+
+	err := proxy.InsertToDB(query)
+
+	return a.analyzeDBError(err)
+}
+
+// analyzeDBError :
+// used to perform the analysis of a DB error based on
+// the structure of the accounts' table to produce a
+// comprehensive error of what went wrong.
+//
+// The `err` defines the error to analyze.
+//
+// Returns a comprehensive error or the input error if
+// nothing can be extracted from the input data.
+func (a *Account) analyzeDBError(err error) error {
+	// In case the error is not a `db.Error` we can't do
+	// anything, so just return the input error.
 	dbe, ok := err.(db.Error)
 	if !ok {
 		return err
 	}
 
+	// Otherwise we can try to make some sense of it.
 	dee, ok := dbe.Err.(db.DuplicatedElementError)
 	if ok {
 		switch dee.Constraint {

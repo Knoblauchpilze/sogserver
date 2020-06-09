@@ -225,3 +225,25 @@ func (p *PlanetProxy) CreateFor(player game.Player) (string, error) {
 
 	return id, nil
 }
+
+// Update :
+// Used to perform the update of the planet specified
+// by the input data. Most of the information for the
+// planet can be changed.
+//
+// The `planet` defines the data to use to update the
+// DB version of the planet.
+//
+// Returns the identifier of the planet that has to
+// be updated (should match the `planet.ID`) along
+// with any errors.
+func (p *PlanetProxy) Update(planet game.Planet) (string, error) {
+	// Update the account in the DB.
+	err := planet.UpdateInDB(p.data.Proxy)
+
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not update planet \"%s\" (err: %v)", planet.ID, err))
+	}
+
+	return planet.ID, err
+}

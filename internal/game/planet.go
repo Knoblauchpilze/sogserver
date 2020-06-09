@@ -1707,7 +1707,9 @@ func (p *Planet) fetchDefenses(data Instance) error {
 //
 // Returns any error.
 func (p *Planet) SaveToDB(proxy db.Proxy) error {
-	// Create the query and execute it.
+	// Create the query and execute it: we will
+	// use the dedicated handler to provide a
+	// comprehensive error.
 	query := db.InsertReq{
 		Script: "create_planet",
 		Args: []interface{}{
@@ -1719,13 +1721,64 @@ func (p *Planet) SaveToDB(proxy db.Proxy) error {
 
 	err := proxy.InsertToDB(query)
 
-	// Analyze the error in order to provide some
-	// comprehensive message.
+	return p.analyzeDBError(err)
+}
+
+// UpdateInDB :
+// used to update the content of the planet in
+// the DB. Only part of the planet's data can
+// be updated as specified by this function.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns any error.
+func (p *Planet) UpdateInDB(proxy db.Proxy) error {
+	// Make sure that the name of the planet is
+	// valid.
+	if p.Name == "" {
+		return ErrInvalidUpdateData
+	}
+
+	// Create the query and execute it. In a
+	// similar way we need to provide some
+	// analysis of any error.
+	query := db.InsertReq{
+		Script: "update_planet",
+		Args: []interface{}{
+			p.ID,
+			struct {
+				Name string `json:"name"`
+			}{
+				Name: p.Name,
+			},
+		},
+	}
+
+	err := proxy.InsertToDB(query)
+
+	return p.analyzeDBError(err)
+}
+
+// analyzeDBError :
+// used to perform the analysis of a DB error
+// based on the structure of the planets' table
+// to produce a comprehensive error of what
+// went wrong.
+//
+// The `err` defines the error to analyze.
+//
+// Returns a comprehensive error or the input
+// error if nothing can be extracted from the
+// input data.
+func (p *Planet) analyzeDBError(err error) error {
+	// In case the error is not a `db.Error` we can't do
+	// anything, so just return the input error.
 	dbe, ok := err.(db.Error)
 	if !ok {
 		return err
 	}
 
+	// Otherwise we can try to make some sense of it.
 	dee, ok := dbe.Err.(db.DuplicatedElementError)
 	if ok {
 		switch dee.Constraint {

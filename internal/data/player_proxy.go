@@ -208,3 +208,25 @@ func (p *PlayerProxy) Create(player game.Player) (string, error) {
 
 	return player.ID, nil
 }
+
+// Update :
+// Used to perform the update of the player specified
+// by the input data. Most of the information for the
+// player can be changed.
+//
+// The `player` defines the data to use to update the
+// DB version of the player.
+//
+// Returns the identifier of the player that has to
+// be updated (should match the `player.ID`) along
+// with any errors.
+func (p *PlayerProxy) Update(player game.Player) (string, error) {
+	// Update the player in the DB.
+	err := player.UpdateInDB(p.data.Proxy)
+
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not update player \"%s\" (err: %v)", player.ID, err))
+	}
+
+	return player.ID, err
+}

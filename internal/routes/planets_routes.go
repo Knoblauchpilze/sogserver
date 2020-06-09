@@ -1,7 +1,9 @@
 package routes
 
 import (
+	"encoding/json"
 	"net/http"
+	"oglike_server/internal/game"
 	"oglike_server/pkg/db"
 )
 
@@ -27,6 +29,64 @@ func (s *Server) listPlanets() http.HandlerFunc {
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
 			return s.planets.Planets(filters)
+		},
+	)
+
+	return ed.ServeRoute(s.log)
+}
+
+// changePlanets :
+// Used to perform the creation of a handler allowing to serve
+// the requests to change a planet.
+//
+// Returns the handler to execute to perform said requests.
+func (s *Server) changePlanets() http.HandlerFunc {
+	// Create the endpoint with the suited route.
+	ed := NewCreateResourceEndpoint("planets")
+
+	// Configure the endpoint.
+	ed.WithDataKey("planet-data").WithModule("planets").WithLocker(s.og)
+	ed.WithCreationFunc(
+		func(input RouteData) ([]string, error) {
+			// We need to iterate over the data retrieved from the route and
+			// create planets from it.
+			var planet game.Planet
+			resources := make([]string, 0)
+
+			// Make sure that there's a route element.
+			if len(input.ExtraElems) == 0 {
+				return resources, ErrNoData
+			}
+
+			planetID := input.ExtraElems[0]
+
+			// Prevent request with no data.
+			if len(input.Data) == 0 {
+				return resources, ErrNoData
+			}
+
+			for _, rawData := range input.Data {
+				// Try to unmarshal the data into a valid `Planet` struct.
+				err := json.Unmarshal([]byte(rawData), &planet)
+				if err != nil {
+					return resources, ErrInvalidData
+				}
+
+				// Force the planet's identifier with the route's data.
+				planet.ID = planetID
+
+				// Update the planet.
+				res, err := s.planets.Update(planet)
+				if err != nil {
+					return resources, err
+				}
+
+				// Successfully updated a planet.
+				resources = append(resources, res)
+			}
+
+			// Return the path to the resources updated during the process.
+			return resources, nil
 		},
 	)
 

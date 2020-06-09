@@ -17,6 +17,41 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
+-- Update data for an existing account.
+CREATE OR REPLACE FUNCTION update_account(account_id uuid, inputs json) RETURNS VOID AS $$
+DECLARE
+  acc_name text;
+  acc_mail text;
+  acc_password text;
+BEGIN
+  -- Fetch the data from the `inputs` and update only
+  -- values that are filled.
+  SELECT
+    t.name,
+    t.mail,
+    t.password
+  INTO
+    acc_name,
+    acc_mail,
+    acc_password
+  FROM
+    json_to_record(inputs) AS t(name text, mail text, password text);
+
+  -- Update each prop if it is defined.
+  IF acc_name != '' THEN
+    UPDATE accounts SET name = acc_name WHERE id = account_id;
+  END IF;
+
+  IF acc_mail != '' THEN
+    UPDATE accounts SET mail = acc_mail WHERE id = account_id;
+  END IF;
+
+  IF acc_password != '' THEN
+    UPDATE accounts SET password = acc_password WHERE id = account_id;
+  END IF;
+END
+$$ LANGUAGE plpgsql;
+
 -- Create players from the account and universe data.
 CREATE OR REPLACE FUNCTION create_player(inputs json) RETURNS VOID AS $$
 BEGIN
@@ -37,6 +72,23 @@ BEGIN
       0
     FROM
       technologies AS t;
+END
+$$ LANGUAGE plpgsql;
+
+-- Update data for an existing player.
+CREATE OR REPLACE FUNCTION update_player(player_id uuid, inputs json) RETURNS VOID AS $$
+DECLARE
+  p_name text;
+BEGIN
+  -- Fetch the data from the `inputs` and update only
+  -- values that are filled. For now there's only the
+  -- name of the player but we could add more later.
+  SELECT t.name INTO p_name FROM json_to_record(inputs) AS t(name text);
+
+  -- Update each prop if it is defined.
+  IF p_name != '' THEN
+    UPDATE players SET name = p_name WHERE id = player_id;
+  END IF;
 END
 $$ LANGUAGE plpgsql;
 
@@ -84,6 +136,23 @@ BEGIN
       0
     FROM
       defenses AS d;
+END
+$$ LANGUAGE plpgsql;
+
+-- Update data for an existing planet.
+CREATE OR REPLACE FUNCTION update_planet(planet_id uuid, inputs json) RETURNS VOID AS $$
+DECLARE
+  p_name text;
+BEGIN
+  -- Fetch the data from the `inputs` and update only
+  -- values that are filled. For now there's only the
+  -- name of the planet but we could add more later.
+  SELECT t.name INTO p_name FROM json_to_record(inputs) AS t(name text);
+
+  -- Update each prop if it is defined.
+  IF p_name != '' THEN
+    UPDATE planets SET name = p_name WHERE id = planet_id;
+  END IF;
 END
 $$ LANGUAGE plpgsql;
 

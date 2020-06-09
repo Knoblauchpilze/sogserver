@@ -34,6 +34,10 @@ func (s *Server) routes() {
 	s.route("POST", "/planets/[a-zA-Z0-9-]+/actions/defenses", s.registerDefenseAction())
 	s.route("POST", "/fleets", s.createFleet())
 	s.route("POST", "/fleets/acs", s.createACSFleet())
+
+	s.route("PATCH", "/accounts/[a-zA-Z0-9-]+", s.changeAccounts())
+	s.route("PATCH", "/players/[a-zA-Z0-9-]+", s.changePlayers())
+	s.route("PATCH", "/planets/[a-zA-Z0-9-]+", s.changePlanets())
 }
 
 // route :

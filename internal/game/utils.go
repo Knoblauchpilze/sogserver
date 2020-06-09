@@ -30,3 +30,6 @@ var ErrElementNotFound = fmt.Errorf("Identifier does not correspond to any known
 
 // ErrInvalidName : Indicates that the name is invalid or already exists.
 var ErrInvalidName = fmt.Errorf("Invalid or already existing name")
+
+// ErrInvalidUpdateData : Indicates that the update data is not valid.
+var ErrInvalidUpdateData = fmt.Errorf("Invalid update data")

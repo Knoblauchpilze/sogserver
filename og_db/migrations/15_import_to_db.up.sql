@@ -200,6 +200,23 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
+-- Update data for an existing moon.
+CREATE OR REPLACE FUNCTION update_moon(moon_id uuid, inputs json) RETURNS VOID AS $$
+DECLARE
+  m_name text;
+BEGIN
+  -- Fetch the data from the `inputs` and update only
+  -- values that are filled. For now there's only the
+  -- name of the moon but we could add more later.
+  SELECT t.name INTO m_name FROM json_to_record(inputs) AS t(name text);
+
+  -- Update each prop if it is defined.
+  IF p_name != '' THEN
+    UPDATE moons SET name = m_name WHERE id = moon_id;
+  END IF;
+END
+$$ LANGUAGE plpgsql;
+
 -- Delete a moon from the corresponding table.
 CREATE OR REPLACE FUNCTION delete_moon(moon_id uuid) RETURNS VOID AS $$
 BEGIN

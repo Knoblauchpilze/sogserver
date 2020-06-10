@@ -2,6 +2,9 @@
 -- Drop the moon's deletion script.
 DROP FUNCTION delete_moon(moon_id uuid);
 
+-- Drop the moon's update script.
+DROP FUNCTION update_moon(moon_id uuid, inputs json);
+
 -- Drop the moon's creation script.
 DROP FUNCTION create_moon(moon_data json, resources json);
 

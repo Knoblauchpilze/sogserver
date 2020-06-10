@@ -41,6 +41,10 @@ import (
 // used during the fight along some modifications like the techno of the
 // attackers (or maybe just fecthing them when the message is actually
 // interpreted is enough) and the amount of ships.
+// TODO: Route to get moon.
+// TODO: Creation of moon after fight.
+// TODO: Change name of moon.
+// TODO: Effect on the fields of a building (terraformer and lunar base).
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

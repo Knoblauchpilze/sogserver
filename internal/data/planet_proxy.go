@@ -124,6 +124,77 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]game.Planet, error) {
 	return planets, nil
 }
 
+// Moons :
+// Return a list of moons registered so far in the DB. A moon
+// is linked to a planet so some filters actually refer to the
+// planets' table. The input filters might help to narrow the
+// search a bit by providing coordinates to look for and a uni
+// to look into.
+//
+// The `filters` define some filtering properties that can
+// be applied to the SQL query to only select part of all
+// the moons available. Each one is appended `as-is` to the
+// query.
+//
+// Returns the list of moons registered in the DB and matching
+// the input list of filters. In case the error is not `nil` the
+// value of the array should be ignored.
+func (p *PlanetProxy) Moons(filters []db.Filter) ([]game.Planet, error) {
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"m.id",
+		},
+		Table:   "moons m inner join planets p on m.planet = p.id",
+		Filters: filters,
+	}
+
+	dbRes, err := p.data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch moons (err: %v)", err))
+		return []game.Planet{}, err
+	}
+	if dbRes.Err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch moons (err: %v)", dbRes.Err))
+		return []game.Planet{}, dbRes.Err
+	}
+
+	// Fetch the data for each planet.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Error while fetching moon ID (err: %v)", err))
+			continue
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	moons := make([]game.Planet, 0)
+
+	for _, ID = range IDs {
+		// Protect the fetching of the moon's data with a
+		// lock on the player.
+		m, err := game.NewMoonFromDB(ID, p.data)
+
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Unable to fetch moon \"%s\" data from DB (err: %v)", ID, err))
+			continue
+		}
+
+		moons = append(moons, m)
+	}
+
+	return moons, nil
+}
+
 // CreateFor :
 // Used to handle the creation of a planet for the specified
 // player. This method is only used when a new player needs

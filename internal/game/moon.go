@@ -149,7 +149,7 @@ func NewMoon(p *Planet, diameter int) *Planet {
 
 		technologies: p.technologies,
 
-		moon:   true,
+		Moon:   true,
 		planet: p.ID,
 	}
 

@@ -190,7 +190,7 @@ func (p *Planet) toDefender(data Instance, moment time.Time) (defender, error) {
 	var uni string
 	var err error
 
-	if p.moon {
+	if p.Moon {
 		uni, err = UniverseOfMoon(p.ID, data)
 	} else {
 		uni, err = UniverseOfPlanet(p.ID, data)

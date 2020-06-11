@@ -56,7 +56,7 @@ func (s *Server) listMoons() http.HandlerFunc {
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("moons").WithLocker(s.og)
+	ed.WithFilters(allowed).WithResourceFilter("m.id").WithModule("moons").WithLocker(s.og)
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
 			return s.planets.Moons(filters)
@@ -161,8 +161,10 @@ func (s *Server) changeMoons() http.HandlerFunc {
 					return resources, ErrInvalidData
 				}
 
-				// Force the moon's identifier with the route's data.
+				// Force the moon's identifier with the route's data and
+				// force the request to be applied on moon.
 				moon.ID = planetID
+				moon.Moon = true
 
 				// Update the planet.
 				res, err := s.planets.Update(moon)

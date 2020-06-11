@@ -52,7 +52,7 @@ func (p *Planet) UpdateInDB(proxy db.Proxy) error {
 	// or a moon: this will change the script to
 	// use to perform the update.
 	script := "update_planet"
-	if p.moon {
+	if p.Moon {
 		script = "update_moon"
 	}
 
@@ -69,7 +69,6 @@ func (p *Planet) UpdateInDB(proxy db.Proxy) error {
 				Name: p.Name,
 			},
 		},
-		Verbose: true,
 	}
 
 	err := proxy.InsertToDB(query)
@@ -130,7 +129,7 @@ func (p *Planet) analyzeDBError(err error) error {
 func (p *Planet) Convert() interface{} {
 	// We convert the this object differently based on
 	// whether it is a planet or a moon.
-	if p.moon {
+	if p.Moon {
 		return struct {
 			ID       string `json:"id"`
 			Planet   string `json:"planet"`

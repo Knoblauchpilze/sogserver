@@ -108,7 +108,7 @@ import (
 // It helps in various cases to be able to fetch player's
 // info about technology.
 //
-// The `moon` defines whether this data is related to
+// The `Moon` defines whether this data is related to
 // a planet or a moon. Indeed most of the information
 // defining a planet is common to the moon case. This
 // field will be used when interpreting data from the
@@ -138,7 +138,7 @@ type Planet struct {
 	SourceFleets         []string                `json:"-"`
 	IncomingFleets       []string                `json:"-"`
 	technologies         map[string]int
-	moon                 bool
+	Moon                 bool
 	planet               string
 }
 
@@ -309,7 +309,7 @@ func NewPlanetFromDB(ID string, data Instance) (Planet, error) {
 	// Create the planet.
 	p := Planet{
 		ID:     ID,
-		moon:   false,
+		Moon:   false,
 		planet: ID,
 	}
 
@@ -439,7 +439,7 @@ func NewPlanet(player string, coords Coordinate, homeworld bool, data Instance) 
 		// for the player associated to this planet.
 		technologies: make(map[string]int),
 
-		moon:   false,
+		Moon:   false,
 		planet: ID,
 	}
 
@@ -890,12 +890,12 @@ func (p *Planet) fetchBuildingsUpgrades(data Instance) error {
 
 	// Create the query and execute it.
 	table := "construction_actions_buildings"
-	if p.moon {
+	if p.Moon {
 		table = "construction_actions_buildings_moon"
 	}
 
 	key := "planet"
-	if p.moon {
+	if p.Moon {
 		key = "moon"
 	}
 
@@ -942,7 +942,7 @@ func (p *Planet) fetchBuildingsUpgrades(data Instance) error {
 	var bu BuildingAction
 
 	for _, ID = range IDs {
-		if p.moon {
+		if p.Moon {
 			bu, err = NewMoonBuildingActionFromDB(ID, data)
 		} else {
 			bu, err = NewBuildingActionFromDB(ID, data)
@@ -1034,12 +1034,12 @@ func (p *Planet) fetchShipsUpgrades(data Instance) error {
 
 	// Create the query and execute it.
 	table := "construction_actions_ships"
-	if p.moon {
+	if p.Moon {
 		table = "construction_actions_ships_moon"
 	}
 
 	key := "planet"
-	if p.moon {
+	if p.Moon {
 		key = "moon"
 	}
 
@@ -1086,7 +1086,7 @@ func (p *Planet) fetchShipsUpgrades(data Instance) error {
 	var su ShipAction
 
 	for _, ID = range IDs {
-		if p.moon {
+		if p.Moon {
 			su, err = NewMoonShipActionFromDB(ID, data)
 		} else {
 			su, err = NewShipActionFromDB(ID, data)
@@ -1114,12 +1114,12 @@ func (p *Planet) fetchDefensesUpgrades(data Instance) error {
 
 	// Create the query and execute it.
 	table := "construction_actions_defenses"
-	if p.moon {
+	if p.Moon {
 		table = "construction_actions_defenses_moon"
 	}
 
 	key := "planet"
-	if p.moon {
+	if p.Moon {
 		key = "moon"
 	}
 
@@ -1167,7 +1167,7 @@ func (p *Planet) fetchDefensesUpgrades(data Instance) error {
 	var du DefenseAction
 
 	for _, ID = range IDs {
-		if p.moon {
+		if p.Moon {
 			du, err = NewMoonDefenseActionFromDB(ID, data)
 		} else {
 			du, err = NewDefenseActionFromDB(ID, data)
@@ -1198,7 +1198,7 @@ func (p *Planet) fetchIncomingFleets(data Instance) error {
 
 	// Create the query and execute it.
 	kind := "planet"
-	if p.moon {
+	if p.Moon {
 		kind = "moon"
 	}
 
@@ -1259,7 +1259,7 @@ func (p *Planet) fetchSourceFleets(data Instance) error {
 
 	// Create the query and execute it.
 	kind := "planet"
-	if p.moon {
+	if p.Moon {
 		kind = "moon"
 	}
 
@@ -1399,12 +1399,12 @@ func (p *Planet) fetchBuildings(data Instance) error {
 
 	// Create the query and execute it.
 	table := "planets_buildings"
-	if p.moon {
+	if p.Moon {
 		table = "moons_buildings"
 	}
 
 	key := "planet"
-	if p.moon {
+	if p.Moon {
 		key = "moon"
 	}
 
@@ -1545,12 +1545,12 @@ func (p *Planet) fetchShips(data Instance) error {
 
 	// Create the query and execute it.
 	table := "planets_ships"
-	if p.moon {
+	if p.Moon {
 		table = "moons_ships"
 	}
 
 	key := "planet"
-	if p.moon {
+	if p.Moon {
 		key = "moon"
 	}
 
@@ -1626,12 +1626,12 @@ func (p *Planet) fetchDefenses(data Instance) error {
 
 	// Create the query and execute it.
 	table := "planets_defenses"
-	if p.moon {
+	if p.Moon {
 		table = "moons_defenses"
 	}
 
 	key := "planet"
-	if p.moon {
+	if p.Moon {
 		key = "moon"
 	}
 

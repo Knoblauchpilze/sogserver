@@ -42,6 +42,8 @@ import (
 // attackers (or maybe just fecthing them when the message is actually
 // interpreted is enough) and the amount of ships.
 // TODO: Effect on the fields of a building (terraformer and lunar base).
+// https://ogame.fandom.com/wiki/Terraformer
+// https://ogame.fandom.com/wiki/Lunar_Base
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

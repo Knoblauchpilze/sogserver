@@ -48,11 +48,19 @@ func (p *Planet) UpdateInDB(proxy db.Proxy) error {
 		return ErrInvalidUpdateData
 	}
 
+	// Check whether this planet is a real planet
+	// or a moon: this will change the script to
+	// use to perform the update.
+	script := "update_planet"
+	if p.moon {
+		script = "update_moon"
+	}
+
 	// Create the query and execute it. In a
 	// similar way we need to provide some
 	// analysis of any error.
 	query := db.InsertReq{
-		Script: "update_planet",
+		Script: script,
 		Args: []interface{}{
 			p.ID,
 			struct {
@@ -61,6 +69,7 @@ func (p *Planet) UpdateInDB(proxy db.Proxy) error {
 				Name: p.Name,
 			},
 		},
+		Verbose: true,
 	}
 
 	err := proxy.InsertToDB(query)

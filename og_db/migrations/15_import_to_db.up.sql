@@ -211,7 +211,7 @@ BEGIN
   SELECT t.name INTO m_name FROM json_to_record(inputs) AS t(name text);
 
   -- Update each prop if it is defined.
-  IF p_name != '' THEN
+  IF m_name != '' THEN
     UPDATE moons SET name = m_name WHERE id = moon_id;
   END IF;
 END

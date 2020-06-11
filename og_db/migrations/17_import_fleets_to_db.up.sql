@@ -1013,17 +1013,20 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION planet_fight_aftermath(target_id uuid, kind text, planet_ships json, planet_defenses json, debris json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION planet_fight_aftermath(target_id uuid, kind text, planet_ships json, planet_defenses json, debris json, moon boolean, diameter integer) RETURNS VOID AS $$
 DECLARE
   field_id uuid;
   target_galaxy integer;
   target_system integer;
   target_position integer;
   universe_id uuid;
+  moon_id uuid;
 BEGIN
   -- Update the ships and defenses for the target planet
   -- or moon: we assume that the input arguments are the
-  -- total final count of each system/ship.
+  -- total final count of each system/ship. We will also
+  -- handle the creation of the moon in the case of a
+  -- planet and if a moon does not already exist.
   IF kind = 'planet' THEN
     WITH rs AS (
       SELECT
@@ -1054,6 +1057,20 @@ BEGIN
     WHERE
       pd.planet = target_id
       AND pd.defense = rs.defense;
+
+    -- Attempt to create a moon if needed.
+    IF moon THEN
+      -- Check whether a moon already exist for the
+      -- parent planet: if it is the case we won't
+      -- create a new one.
+      SELECT id INTO moon_id FROM moons WHERE planet = target_id;
+
+      IF NOT FOUND THEN
+        -- The moon does not exist yet, create it.
+        moon_id = uuid_generate_v4();
+        PERFORM create_moon(moon_id, target_id, diameter);
+      END IF;
+    END IF;
   END IF;
 
   IF kind = 'moon' THEN
@@ -1108,7 +1125,7 @@ BEGIN
     p.id = target_id;
 
   IF NOT FOUND THEN
-      RAISE EXCEPTION 'Invalid target coordinates for fleet % in fleet fight operation', fleet_id;
+    RAISE EXCEPTION 'Invalid target coordinates for fleet % in fleet fight operation', fleet_id;
   END IF;
 
   SELECT

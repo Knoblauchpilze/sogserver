@@ -613,10 +613,12 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 		Script: "planet_fight_aftermath",
 		Args: []interface{}{
 			p.ID,
-			p.Coordinates.Type,
+			string(p.Coordinates.Type),
 			d.convertShips(),
 			d.convertDefenses(),
 			result.debris,
+			result.moon,
+			result.diameter,
 		},
 	}
 

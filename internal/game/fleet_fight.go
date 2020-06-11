@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/logger"
@@ -263,9 +264,17 @@ type aftermathDefense struct {
 //
 // The `outcome` defines a summary of the
 // fight.
+//
+// The `moon` defines whether or not a moon was
+// created during the fight.
+//
+// The `diameter` defines the diameter of the
+// moon that has been created by this fight.
 type fightResult struct {
-	debris  []model.ResourceAmount
-	outcome FightOutcome
+	debris   []model.ResourceAmount
+	outcome  FightOutcome
+	moon     bool
+	diameter int
 }
 
 // unit :
@@ -359,6 +368,12 @@ var defenseRebuildRatio float32 = 0.7
 // at which a ship or a defense system starts to become
 // unstable and has a risk to explode.
 var hullDamageToExplode float32 = 0.7
+
+// minMoonDiameter : Defines the minimum diameter for a moon.
+var minMoonDiameter float32 = 3464.0
+
+// maxMoonDiameter : Defines the maximum diameter for a moon.
+var maxMoonDiameter float32 = 8944.0
 
 // convertShips :
 // Used to convert the ships registered for
@@ -809,8 +824,10 @@ func (d *defender) defend(a *attacker, data Instance) (fightResult, error) {
 	// Destroyed units are removed at the end
 	// of the round.
 	fr := fightResult{
-		debris:  make([]model.ResourceAmount, 0),
-		outcome: Victory,
+		debris:   make([]model.ResourceAmount, 0),
+		outcome:  Victory,
+		moon:     false,
+		diameter: 0,
 	}
 
 	// Save the defenses so that we can try
@@ -852,13 +869,41 @@ func (d *defender) defend(a *attacker, data Instance) (fightResult, error) {
 		fr.outcome = Draw
 	}
 
-	d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Fight at %v took %d round(s)", time.Unix(d.seed, 0), round))
-	d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Result of fight at %v is %s", time.Unix(d.seed, 0), fr.outcome))
+	d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Fight at %v took %d round(s)", time.Unix(0, d.seed), round))
+	d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Result of fight at %v is %s", time.Unix(0, d.seed), fr.outcome))
 
 	// Assign the debris field computed during
-	// the simulation of the fight.
+	// the simulation of the fight. Also take
+	// into account the creation of a moon.
+	tot := float32(0.0)
+
 	for _, res := range d.debris {
 		fr.debris = append(fr.debris, res)
+
+		tot += res.Amount
+	}
+
+	moonChance := (tot / 100000.0) / 100.0
+	moonChance = float32(math.Min(float64(moonChance), 0.2))
+	getLucky := d.rng.Float32()
+
+	if getLucky > moonChance {
+		d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Failed to generate moon (out of %f)", moonChance))
+	} else {
+		fr.moon = true
+
+		// The diameter is computed based on the maximum
+		// size of the moon and the minimum size with a
+		// linear progression between both and based on
+		// the actual moon chance.
+		interval := maxMoonDiameter - minMoonDiameter
+
+		fDiameter := math.Round(float64(minMoonDiameter + interval*getLucky/moonChance))
+		fDiameter = math.Min(math.Max(float64(minMoonDiameter), fDiameter), float64(maxMoonDiameter))
+
+		fr.diameter = int(fDiameter)
+
+		d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Created moon with diameter %d (%f chances out of %f)", fr.diameter, getLucky, moonChance))
 	}
 
 	// Rebuilt destroyed defense systems.

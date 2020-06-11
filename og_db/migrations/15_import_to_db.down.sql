@@ -6,7 +6,7 @@ DROP FUNCTION delete_moon(moon_id uuid);
 DROP FUNCTION update_moon(moon_id uuid, inputs json);
 
 -- Drop the moon's creation script.
-DROP FUNCTION create_moon(moon_data json, resources json);
+DROP FUNCTION create_moon(moon_id uuid, planet_id uuid, diameter integer);
 
 -- Drop the planet's update script.
 DROP FUNCTION update_planet(planet_id uuid, inputs json);

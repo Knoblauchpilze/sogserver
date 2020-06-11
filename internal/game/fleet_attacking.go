@@ -119,10 +119,21 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 		Script: "planet_fight_aftermath",
 		Args: []interface{}{
 			p.ID,
-			p.Coordinates.Type,
+			// We need to convert this arg to a string
+			// because otherwise it gets marshalled as
+			// `"planet"` which is different from the
+			// expected `planet`: we can't rely on the
+			// `Convertible` interface neither because
+			// the process is to return a struct to be
+			// marshalled so even if we were to return
+			// a raw string it would still be packed
+			// as `"planet"`.
+			string(p.Coordinates.Type),
 			d.convertShips(),
 			d.convertDefenses(),
 			result.debris,
+			result.moon,
+			result.diameter,
 		},
 	}
 

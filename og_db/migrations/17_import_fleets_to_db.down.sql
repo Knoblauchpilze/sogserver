@@ -9,7 +9,7 @@ DROP FUNCTION acs_fleet_fight_aftermath(acs_id uuid);
 DROP FUNCTION fleet_fight_aftermath(fleet_id uuid, ships json, pillage json, outcome text);
 
 -- Drop the function handling the aftermath of a fight on a planet or moon.
-DROP FUNCTION planet_fight_aftermath(target_id uuid, kind text, planet_ships json, planet_defenses json, debris json);
+DROP FUNCTION planet_fight_aftermath(target_id uuid, kind text, planet_ships json, planet_defenses json, debris json, moon boolean, diameter integer);
 
 -- Drop the script performing a destruction of a moon.
 DROP FUNCTION fleet_destroy(fleet_id uuid, moon_destroyed boolean, fleet_destroyed boolean);

@@ -157,26 +157,25 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Import moon into the corresponding table.
-CREATE OR REPLACE FUNCTION create_moon(moon_data json, resources json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_moon(moon_id uuid, planet_id uuid, diameter integer) RETURNS VOID AS $$
 BEGIN
   -- Insert the moon in the moons table.
-  INSERT INTO moons
-    SELECT *
-    FROM json_populate_record(null::moons, moon_data);
+  INSERT INTO moons("id", "planet", "name", "fields", "diameter")
+    VALUES(moon_id, planet_id, 'moon', 1, diameter);
 
   -- Insert the base resources of the moon.
   INSERT INTO moons_resources(moon, res, amount)
     SELECT
-      (moon_data->>'id')::uuid,
-      res,
-      amount
+      moon_id,
+      r.id,
+      0.0
     FROM
-      json_populate_recordset(null::moons_resources, resources);
+      resources AS r;
 
   -- Insert base buildings, ships, defenses on the moon.
   INSERT INTO moons_buildings(moon, building, level)
     SELECT
-      (moon_data->>'id')::uuid,
+      moon_id,
       b.id,
       0
     FROM
@@ -184,7 +183,7 @@ BEGIN
 
   INSERT INTO moons_ships(moon, ship, count)
     SELECT
-      (moon_data->>'id')::uuid,
+      moon_id,
       s.id,
       0
     FROM
@@ -192,7 +191,7 @@ BEGIN
 
   INSERT INTO moons_defenses(moon, defense, count)
     SELECT
-      (moon_data->>'id')::uuid,
+      moon_id,
       d.id,
       0
     FROM

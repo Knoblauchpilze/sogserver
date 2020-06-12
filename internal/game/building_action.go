@@ -20,11 +20,16 @@ import (
 // The `StorageEffects` are similar to the production
 // effects except it applies to the storage capacities
 // of a resource on a planet.
+//
+// The `Fields` is similar to the above fields but is
+// used to describe the fields effects of a building
+// action.
 type BuildingAction struct {
 	ProgressAction
 
 	Production []ProductionEffect `json:"production_effects,omitempty"`
 	Storage    []StorageEffect    `json:"storage_effects,omitempty"`
+	Fields     FieldsEffect       `json:"fields_effects,omitempty"`
 }
 
 // ProductionEffect :
@@ -62,6 +67,13 @@ type ProductionEffect struct {
 type StorageEffect struct {
 	Resource string  `json:"resource"`
 	Storage  float32 `json:"storage_capacity_change"`
+}
+
+// FieldsEffect :
+// Defines the effect that a new building level has
+// on the fields registered on a planet.
+type FieldsEffect struct {
+	Additional int `json:"additional_fields"`
 }
 
 // ErrNoFieldsLeft : Indicates that there are not fields left to perform the action.
@@ -125,6 +137,11 @@ func newBuildingActionFromDB(ID string, data Instance, moon bool) (BuildingActio
 	}
 
 	err = a.fetchStorageEffects(data)
+	if err != nil {
+		return a, err
+	}
+
+	err = a.fetchFieldsEffects(data, moon)
 	if err != nil {
 		return a, err
 	}
@@ -292,6 +309,67 @@ func (a *BuildingAction) fetchStorageEffects(data Instance) error {
 	return nil
 }
 
+// fetchFieldsEffects :
+// Used to fetch the effects on the field of a planet
+// or moon for this action from the DB.
+//
+// The `data` provide a way to access to the DB.
+//
+// The `moon` defines whether or not this action is
+// registered for a moon or a planet.
+//
+// Returns any error.
+func (a *BuildingAction) fetchFieldsEffects(data Instance, moon bool) error {
+	a.Fields = FieldsEffect{
+		Additional: 0,
+	}
+
+	table := "construction_actions_buildings_fields_effects"
+	if moon {
+		table = "construction_actions_buildings_fields_effects_moon"
+	}
+
+	query := db.QueryDesc{
+		Props: []string{
+			"additional_fields",
+		},
+		Table: table,
+		Filters: []db.Filter{
+			{
+				Key:    "action",
+				Values: []interface{}{a.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Populate the return value.
+	err = dbRes.Scan(
+		&a.Fields.Additional,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	// Make sure that it's the only action.
+	if dbRes.Next() {
+		return ErrDuplicatedElement
+	}
+
+	return nil
+}
+
 // SaveToDB :
 // Used to save the content of this action to
 // the DB. In case an error is raised during
@@ -320,6 +398,7 @@ func (a *BuildingAction) SaveToDB(proxy db.Proxy) error {
 			a.Costs,
 			a.Production,
 			a.Storage,
+			a.Fields,
 			kind,
 		},
 	}
@@ -456,6 +535,9 @@ func (a *BuildingAction) ConsolidateEffects(data Instance, p *Planet, ratio floa
 
 		a.Storage = append(a.Storage, e)
 	}
+
+	// And finally fields effects.
+	a.Fields.Additional = bd.Fields.ComputeFields(a.DesiredLevel)
 
 	return nil
 }

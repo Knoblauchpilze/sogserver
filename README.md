@@ -263,22 +263,22 @@ A new fleet can be created through the `/fleets` endpoint. A fleet should define
 ```json:
 {
   "id": "fleet_id",
-	"universe": "universe_id",
-	"objective": "objective_id",
-	"player": "player_id",
-	"source": "id_of_source_celestial_body",
-	"source_type": "planet|moon"
-	"target_coordinates": {
+  "universe": "universe_id",
+  "objective": "objective_id",
+  "player": "player_id",
+  "source": "id_of_source_celestial_body",
+  "source_type": "planet|moon"
+  "target_coordinates": {
     "galaxy": 1,
     "system": 260,
     "position": 10,
     "location": "planet|moon|debris"
   },
-	"target": "id_of_target_celestial_body_if_any",
-	"acs": "id_of_parent_acs_attack_if_any",
-	"speed": 0.2,
-	"deployment_time": 3600, /* 1 hour */
-	"ships": [
+  "target": "id_of_target_celestial_body_if_any",
+  "acs": "id_of_parent_acs_attack_if_any",
+  "speed": 0.2,
+  "deployment_time": 3600, /* 1 hour */
+  "ships": [
     {
       "ship": "ship_id_1",
       "count": 1
@@ -288,7 +288,7 @@ A new fleet can be created through the `/fleets` endpoint. A fleet should define
       "count": 2
     }
   ]
-	"cargo": [
+  "cargo": [
     {
       "resource": "res_id_1",
       "amount": 26.2

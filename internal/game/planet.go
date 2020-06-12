@@ -1735,21 +1735,21 @@ func (p *Planet) validateAction(costs map[string]int, desc model.UpgradableDesc,
 
 	// Make sure that the tech tree is consistent with the
 	// expectations.
-	for _, bDep := range desc.BuildingsDeps {
-		bi, ok := p.Buildings[bDep.ID]
+	// for _, bDep := range desc.BuildingsDeps {
+	// 	bi, ok := p.Buildings[bDep.ID]
 
-		if !ok || bi.Level < bDep.Level {
-			return ErrTechDepsNotMet
-		}
-	}
+	// 	if !ok || bi.Level < bDep.Level {
+	// 		return ErrTechDepsNotMet
+	// 	}
+	// }
 
-	for _, tDep := range desc.TechnologiesDeps {
-		level, ok := p.technologies[tDep.ID]
+	// for _, tDep := range desc.TechnologiesDeps {
+	// 	level, ok := p.technologies[tDep.ID]
 
-		if !ok || level < tDep.Level {
-			return ErrTechDepsNotMet
-		}
-	}
+	// 	if !ok || level < tDep.Level {
+	// 		return ErrTechDepsNotMet
+	// 	}
+	// }
 
 	// Seems like all conditions are valid.
 	return nil

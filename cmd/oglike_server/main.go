@@ -41,9 +41,9 @@ import (
 // used during the fight along some modifications like the techno of the
 // attackers (or maybe just fecthing them when the message is actually
 // interpreted is enough) and the amount of ships.
-// TODO: Effect on the fields of a building (terraformer and lunar base).
-// https://ogame.fandom.com/wiki/Terraformer
-// https://ogame.fandom.com/wiki/Lunar_Base
+// TODO: Prevent buildings to be built on planets/moons if needed.
+// TODO: Prevent resources not usable to be depleted by the creation
+// of a building action.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

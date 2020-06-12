@@ -353,6 +353,15 @@ func (a *BuildingAction) fetchFieldsEffects(data Instance, moon bool) error {
 		return dbRes.Err
 	}
 
+	// Make sure that there is a fields effects for
+	// this action: if it is not the case we will
+	// assume that no fields effects are actually
+	// defined for it.
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return nil
+	}
+
 	// Populate the return value.
 	err = dbRes.Scan(
 		&a.Fields.Additional,

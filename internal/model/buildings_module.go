@@ -258,8 +258,14 @@ func newFieldsRule() FieldsRule {
 // Returns the number of fields added by building the
 // input level of the building.
 func (fr FieldsRule) ComputeFields(level int) int {
+	prevFields := float64(0.0)
+	if level > 0 {
+		prevFields = float64(fr.Multiplier)*float64(level-1) + float64(fr.Constant)
+	}
+
 	fFields := float64(fr.Multiplier)*float64(level) + float64(fr.Constant)
-	return int(math.Floor(fFields))
+
+	return int(math.Floor(fFields - prevFields))
 }
 
 // NewBuildingsModule :

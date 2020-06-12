@@ -36,9 +36,11 @@ BEGIN
     INSERT INTO construction_actions_buildings_fields_effects
       SELECT
         (upgrade->>'id')::uuid,
-        fields_increase
+        additional_fields
       FROM
-        json_populate_record(null::construction_actions_buildings_fields_effects, fields_effects);
+        json_populate_record(null::construction_actions_buildings_fields_effects, fields_effects)
+      WHERE
+        additional_fields > 0;
 
     -- Decrease the amount of resources existing on the planet
     -- after the construction of this building. Note that we
@@ -82,7 +84,7 @@ BEGIN
     INSERT INTO construction_actions_buildings_fields_effects_moon
       SELECT
         (upgrade->>'id')::uuid,
-        fields_increase
+        additional_fields
       FROM
         json_populate_record(null::construction_actions_buildings_fields_effects_moon, fields_effects);
 
@@ -417,7 +419,7 @@ BEGIN
       RAISE EXCEPTION 'Unable to fetch planet id for action %', action_id;
     END IF;
 
-    PERFORM update_resources_for_planet(planet_id, moment);
+    PERFORM update_resources_for_planet_to_time(planet_id, moment);
 
     -- 2.b) Proceed to update the mines with their new prod
     -- values.

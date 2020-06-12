@@ -42,8 +42,6 @@ import (
 // attackers (or maybe just fecthing them when the message is actually
 // interpreted is enough) and the amount of ships.
 // TODO: Prevent buildings to be built on planets/moons if needed.
-// TODO: Prevent resources not usable to be depleted by the creation
-// of a building action.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

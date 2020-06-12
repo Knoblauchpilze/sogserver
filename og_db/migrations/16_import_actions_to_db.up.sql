@@ -55,13 +55,15 @@ BEGIN
       FROM
         json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
       )
-    UPDATE planets_resources
-      SET amount = amount - rc.cost
+    UPDATE planets_resources AS pr
+      SET amount = pr.amount - rc.cost
     FROM
       rc
+      INNER JOIN resources AS r ON rc.resource = r.id
     WHERE
-      planet = (upgrade->>'planet')::uuid
-      AND res = rc.resource;
+      pr.planet = (upgrade->>'planet')::uuid
+      AND pr.res = rc.resource
+      AND r.storable = 'true';
 
     -- Register this action in the actions system.
     INSERT INTO actions_queue
@@ -86,7 +88,9 @@ BEGIN
         (upgrade->>'id')::uuid,
         additional_fields
       FROM
-        json_populate_record(null::construction_actions_buildings_fields_effects_moon, fields_effects);
+        json_populate_record(null::construction_actions_buildings_fields_effects_moon, fields_effects)
+      WHERE
+        additional_fields > 0;
 
     -- No production or storage effects available
     -- on moons as most of the buildings are not
@@ -99,13 +103,15 @@ BEGIN
       FROM
         json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
       )
-    UPDATE moons_resources
-      SET amount = amount - rc.cost
+    UPDATE moons_resources AS mr
+      SET amount = mr.amount - rc.cost
     FROM
       rc
+      INNER JOIN resources AS r ON rc.resource = r.id
     WHERE
-      moon = (upgrade->>'planet')::uuid
-      AND res = rc.resource;
+      mr.moon = (upgrade->>'planet')::uuid
+      AND mr.res = rc.resource
+      AND r.storable = 'true';
 
     -- Register this action in the actions system.
     INSERT INTO actions_queue
@@ -142,13 +148,15 @@ BEGIN
     FROM
       json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
     )
-  UPDATE planets_resources
-    SET amount = amount - rc.cost
+  UPDATE planets_resources AS pr
+    SET amount = pr.amount - rc.cost
   FROM
     rc
+    INNER JOIN resources AS r ON rc.resource = r.id
   WHERE
-    planet = (upgrade->>'planet')::uuid
-    AND res = rc.resource;
+    pr.planet = (upgrade->>'planet')::uuid
+    AND pr.res = rc.resource
+    AND r.storable = 'true';
 
   -- Register this action in the actions system.
   INSERT INTO actions_queue
@@ -189,13 +197,15 @@ BEGIN
       FROM
         json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
       )
-    UPDATE planets_resources
-      SET amount = amount - rc.cost
+    UPDATE planets_resources AS pr
+      SET amount = pr.amount - rc.cost
     FROM
       rc
+      INNER JOIN resources AS r ON rc.resource = r.id
     WHERE
-      planet = (upgrade->>'planet')::uuid
-      AND res = rc.resource;
+      pr.planet = (upgrade->>'planet')::uuid
+      AND pr.res = rc.resource
+      AND r.storable = 'true';
 
     -- Register this action in the actions system. Note
     -- that the completion time will be computed from
@@ -227,13 +237,15 @@ BEGIN
       FROM
         json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
       )
-    UPDATE moons_resources
-      SET amount = amount - rc.cost
+    UPDATE moons_resources AS mr
+      SET amount = mr.amount - rc.cost
     FROM
       rc
+      INNER JOIN resources AS r ON rc.resource = r.id
     WHERE
-      moon = (upgrade->>'planet')::uuid
-      AND res = rc.resource;
+      mr.moon = (upgrade->>'planet')::uuid
+      AND mr.res = rc.resource
+      AND r.storable = 'true';
 
     -- See comment in above section.
     INSERT INTO actions_queue
@@ -278,13 +290,15 @@ BEGIN
       FROM
         json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
       )
-    UPDATE planets_resources
-      SET amount = amount - rc.cost
+    UPDATE planets_resources AS pr
+      SET amount = pr.amount - rc.cost
     FROM
       rc
+      INNER JOIN resources AS r ON rc.resource = r.id
     WHERE
-      planet = (upgrade->>'planet')::uuid
-      AND res = rc.resource;
+      pr.planet = (upgrade->>'planet')::uuid
+      AND pr.res = rc.resource
+      AND r.storable = 'true';
 
     -- Register this action in the actions system. Note
     -- that the completion time will be computed from
@@ -316,13 +330,15 @@ BEGIN
       FROM
         json_to_recordset(costs) AS t(resource uuid, cost numeric(15, 5))
       )
-    UPDATE moons_resources
-      SET amount = amount - rc.cost
+    UPDATE moons_resources AS mr
+      SET amount = mr.amount - rc.cost
     FROM
       rc
+      INNER JOIN resources AS r ON rc.resource = r.id
     WHERE
-      moon = (upgrade->>'planet')::uuid
-      AND res = rc.resource;
+      mr.moon = (upgrade->>'planet')::uuid
+      AND mr.res = rc.resource
+      AND r.storable = 'true';
 
     -- See comment in above section.
     INSERT INTO actions_queue

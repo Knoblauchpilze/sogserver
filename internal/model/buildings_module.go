@@ -25,11 +25,15 @@ import (
 //
 // The `storage` fills a similar purpose but for the
 // storage effects a building has.
+//
+// The `fields` defines the rules to increase the fields
+// available on a planet for each level of a building.
 type BuildingsModule struct {
 	progressCostsModule
 
 	production map[string][]ProductionRule
 	storage    map[string][]StorageRule
+	fields     map[string]FieldsRule
 }
 
 // BuildingDesc :
@@ -47,12 +51,17 @@ type BuildingsModule struct {
 //
 // The `Storage` defines how upgrading this building
 // impacts the storage capacities of the planet.
+//
+// The `Fields` defines the rules that are assigned to
+// an increase in the available field for each level
+// of this building built.
 type BuildingDesc struct {
 	UpgradableDesc
 
 	Cost       ProgressCost     `json:"cost"`
 	Production []ProductionRule `json:"production,omitempty"`
 	Storage    []StorageRule    `json:"storage,omitempty"`
+	Fields     FieldsRule       `json:"fields,omitempty"`
 }
 
 // ProductionRule :
@@ -179,8 +188,8 @@ type StorageRule struct {
 	Progress    float32
 }
 
-// newProductionRule :
-// Creates a new stroage rule which does not allow to
+// newStorageRule :
+// Creates a new storage rule which does not allow to
 // store anything for the specified resource.
 //
 // The `res` defines the identifier of the resource to
@@ -210,6 +219,49 @@ func (sr StorageRule) ComputeStorage(level int) int {
 	return sr.InitStorage * int(math.Floor(factor))
 }
 
+// FieldsRule :
+// Defines the rule to update the fields of a planet
+// or a moon based on the level of a building. It is
+// used to change the available number of fields.
+//
+// The `Multiplier` defines the slope of the linear
+// function defining the increase in fields.
+//
+// The `Constant` defines the ordinate of the fields
+// increase rule.
+type FieldsRule struct {
+	Multiplier float32
+	Constant   int
+}
+
+// newFieldsRule :
+// Creates a new fields rule which does not lead to
+// any increase in fields count based on the level
+// of a building.
+//
+// Returns the created fields rule.
+func newFieldsRule() FieldsRule {
+	return FieldsRule{
+		Multiplier: 0.0,
+		Constant:   0,
+	}
+}
+
+// ComputeFields :
+// Used to perform the computation of the additional
+// fields provided by the level of the building in
+// input.
+//
+// The `level` for which the increase in fields needs
+// to be computed.
+//
+// Returns the number of fields added by building the
+// input level of the building.
+func (fr FieldsRule) ComputeFields(level int) int {
+	fFields := float64(fr.Multiplier)*float64(level) + float64(fr.Constant)
+	return int(math.Floor(fFields))
+}
+
 // NewBuildingsModule :
 // Creates a new module allowing to handle buildings
 // defined in the game. It applies the abstract set
@@ -225,6 +277,7 @@ func NewBuildingsModule(log logger.Logger) *BuildingsModule {
 		progressCostsModule: *newProgressCostsModule(log, Building, "buildings"),
 		production:          nil,
 		storage:             nil,
+		fields:              nil,
 	}
 }
 
@@ -236,7 +289,7 @@ func NewBuildingsModule(log logger.Logger) *BuildingsModule {
 // Returns `true` if the progress costs module is valid
 // and the internal resources as well.
 func (bm *BuildingsModule) valid() bool {
-	return bm.progressCostsModule.valid() && len(bm.production) > 0 && len(bm.storage) > 0
+	return bm.progressCostsModule.valid() && len(bm.production) > 0 && len(bm.storage) > 0 && len(bm.fields) > 0
 }
 
 // Init :
@@ -262,6 +315,7 @@ func (bm *BuildingsModule) Init(proxy db.Proxy, force bool) error {
 	// Initialize internal values.
 	bm.production = make(map[string][]ProductionRule)
 	bm.storage = make(map[string][]StorageRule)
+	bm.fields = make(map[string]FieldsRule)
 
 	// Load the names and base information for each building.
 	// This operation is performed first so that the rest of
@@ -288,10 +342,17 @@ func (bm *BuildingsModule) Init(proxy db.Proxy, force bool) error {
 		return err
 	}
 
-	// And finally update the storage rules.
+	// Update the storage rules.
 	err = bm.initStorage(proxy)
 	if err != nil {
 		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize storage rules (err: %v)", err))
+		return err
+	}
+
+	// Update the fields increase rules.
+	err = bm.initFields(proxy)
+	if err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize fields rules (err: %v)", err))
 		return err
 	}
 
@@ -535,7 +596,7 @@ func (bm *BuildingsModule) initStorage(proxy db.Proxy) error {
 
 		// Check whether a building with this identifier exists.
 		if !bm.existsID(ID) {
-			bm.trace(logger.Error, fmt.Sprintf("Cannot register stroage rule for \"%s\" not defined in DB", ID))
+			bm.trace(logger.Error, fmt.Sprintf("Cannot register storage rule for \"%s\" not defined in DB", ID))
 			inconsistent = true
 
 			continue
@@ -570,6 +631,90 @@ func (bm *BuildingsModule) initStorage(proxy db.Proxy) error {
 
 		storageRules = append(storageRules, rule)
 		bm.storage[ID] = storageRules
+	}
+
+	if override || inconsistent {
+		return ErrInconsistentDB
+	}
+
+	return nil
+}
+
+// initFields :
+// Similar to the above functions but handles the loading of
+// the fields increase rules associated to buildings. Rules
+// are checked to make sure that they reference existing
+// buildings.
+//
+// The `proxy` defines a convenient way to access to the DB.
+//
+// Returns any error.
+func (bm *BuildingsModule) initFields(proxy db.Proxy) error {
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"element",
+			"multiplier",
+			"constant",
+		},
+		Table:   "buildings_fields_progress",
+		Filters: []db.Filter{},
+	}
+
+	rows, err := proxy.FetchFromDB(query)
+	defer rows.Close()
+
+	if err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize fields rules (err: %v)", err))
+		return ErrNotInitialized
+	}
+	if rows.Err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize fields rules (err: %v)", rows.Err))
+		return ErrNotInitialized
+	}
+
+	// Analyze the query and populate internal values.
+	var ID string
+	var rule FieldsRule
+
+	override := false
+	inconsistent := false
+
+	sanity := make(map[string]bool)
+
+	for rows.Next() {
+		err := rows.Scan(
+			&ID,
+			&rule.Multiplier,
+			&rule.Constant,
+		)
+
+		if err != nil {
+			bm.trace(logger.Error, fmt.Sprintf("Failed to initialize fields rules from row (err: %v)", err))
+			continue
+		}
+
+		// Check whether a building with this identifier exists.
+		if !bm.existsID(ID) {
+			bm.trace(logger.Error, fmt.Sprintf("Cannot register fields rule for \"%s\" not defined in DB", ID))
+			inconsistent = true
+
+			continue
+		}
+
+		// Check for overrides.
+		_, ok := sanity[ID]
+		if ok {
+			bm.trace(logger.Error, fmt.Sprintf("Prevented override of fields rule for building \"%s\"", ID))
+			override = true
+
+			continue
+		}
+
+		sanity[ID] = true
+
+		// Register this value.
+		bm.fields[ID] = rule
 	}
 
 	if override || inconsistent {
@@ -678,6 +823,13 @@ func (bm *BuildingsModule) GetBuildingFromID(ID string) (BuildingDesc, error) {
 		desc.Storage = storage
 	} else {
 		desc.Storage = make([]StorageRule, 0)
+	}
+
+	fields, ok := bm.fields[ID]
+	if ok {
+		desc.Fields = fields
+	} else {
+		desc.Fields = newFieldsRule()
 	}
 
 	return desc, nil

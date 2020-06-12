@@ -5,6 +5,9 @@ DROP TABLE construction_actions_defenses_moon;
 -- Drop the table referencing ships construction actions for moons.
 DROP TABLE construction_actions_ships_moon;
 
+-- Drop the fields effects table for moon buildings.
+DROP TABLE construction_actions_buildings_fields_effects_moon;
+
 -- Drop the table referencing buildings construction actions for moons.
 DROP TABLE construction_actions_buildings_moon;
 
@@ -16,6 +19,9 @@ DROP TABLE construction_actions_ships;
 
 -- Drop the table referencing technologies construction.
 DROP TABLE construction_actions_technologies;
+
+-- Drop the table registering effects of a building upgrade action on the fields.
+DROP TABLE construction_actions_buildings_fields_effects;
 
 -- Drop the table registering effects of a building upgrade action on the storage.
 DROP TABLE construction_actions_buildings_storage_effects;

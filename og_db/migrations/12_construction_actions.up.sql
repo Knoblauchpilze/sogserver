@@ -36,6 +36,15 @@ CREATE TABLE construction_actions_buildings_storage_effects (
   UNIQUE (action, resource)
 );
 
+-- Similar to the above tables, used to describe the table
+-- for fields increase for buildings.
+CREATE TABLE construction_actions_buildings_fields_effects (
+  action uuid NOT NULL,
+  additional_fields integer NOT NULL,
+  FOREIGN KEY (action) REFERENCES construction_actions_buildings(id),
+  UNIQUE (action)
+);
+
 -- Create the table defining technologies research actions.
 CREATE TABLE construction_actions_technologies (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -94,6 +103,15 @@ CREATE TABLE construction_actions_buildings_moon (
   FOREIGN KEY (moon) REFERENCES moons(id),
   FOREIGN KEY (element) REFERENCES buildings(id),
   UNIQUE (moon)
+);
+
+-- Similar table to the one defined for buildings on a planet but in
+-- the case of a moon.
+CREATE TABLE construction_actions_buildings_fields_effects_moon (
+  action uuid NOT NULL,
+  additional_fields integer NOT NULL,
+  FOREIGN KEY (action) REFERENCES construction_actions_buildings_moon(id),
+  UNIQUE (action)
 );
 
 -- Create the table defining ships construction actions for moons.

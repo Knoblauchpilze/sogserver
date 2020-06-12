@@ -27,4 +27,4 @@ DROP FUNCTION create_ship_upgrade_action(upgrade json, costs json, kind text);
 DROP FUNCTION create_technology_upgrade_action(upgrade json, costs json);
 
 -- Drop the building upgrade insertion script.
-DROP FUNCTION create_building_upgrade_action(upgrade json, costs json, production_effects json, storage_effects json, kind text);
+DROP FUNCTION create_building_upgrade_action(upgrade json, costs json, production_effects json, storage_effects json, fields_effects json, kind text);

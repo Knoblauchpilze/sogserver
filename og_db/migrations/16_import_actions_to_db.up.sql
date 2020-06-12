@@ -1,6 +1,6 @@
 
 -- Import building upgrade action in the dedicated table.
-CREATE OR REPLACE FUNCTION create_building_upgrade_action(upgrade json, costs json, production_effects json, storage_effects json, kind text) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_building_upgrade_action(upgrade json, costs json, production_effects json, storage_effects json, fields_effects json, kind text) RETURNS VOID AS $$
 BEGIN
   -- The `kind` can reference either a planet or a moon.
   -- We have to make sure that it's a valid value before
@@ -32,6 +32,13 @@ BEGIN
         storage_capacity_change
       FROM
         json_populate_recordset(null::construction_actions_buildings_storage_effects, storage_effects);
+
+    INSERT INTO construction_actions_buildings_fields_effects
+      SELECT
+        (upgrade->>'id')::uuid,
+        fields_increase
+      FROM
+        json_populate_record(null::construction_actions_buildings_fields_effects, fields_effects);
 
     -- Decrease the amount of resources existing on the planet
     -- after the construction of this building. Note that we
@@ -71,6 +78,13 @@ BEGIN
     INSERT INTO construction_actions_buildings_moon
       SELECT *
       FROM json_populate_record(null::construction_actions_buildings_moon, upgrade);
+
+    INSERT INTO construction_actions_buildings_fields_effects_moon
+      SELECT
+        (upgrade->>'id')::uuid,
+        fields_increase
+      FROM
+        json_populate_record(null::construction_actions_buildings_fields_effects_moon, fields_effects);
 
     -- No production or storage effects available
     -- on moons as most of the buildings are not
@@ -429,20 +443,23 @@ BEGIN
       AND pr.planet = cab.planet
       AND pr.res = cabse.resource;
 
-    -- 3. Destroy the processed action effects.
-    DELETE FROM
-      construction_actions_buildings_production_effects cabpe
-      USING construction_actions_buildings cab
+    -- 2.d) Update the fields available on the planet based
+    -- on the additional fields produced by the building.
+    UPDATE planets AS p
+      SET fields = fields + cabfe.additional_fields
+    FROM
+      construction_actions_buildings_fields_effects AS cabfe
+      INNER JOIN construction_actions_buildings AS cab ON cabfe.action = cab.id
     WHERE
-      cabpe.action = cab.id AND
-      cab.id = action_id;
+      cabfe.action = action_id
+      AND p.id = cab.planet;
 
-    DELETE FROM
-      construction_actions_buildings_storage_effects cabse
-      USING construction_actions_buildings cab
-    WHERE
-      cabse.action = cab.id AND
-      cab.id = action_id;
+    -- 3. Destroy the processed action effects.
+    DELETE FROM construction_actions_buildings_production_effects WHERE action = action_id;
+
+    DELETE FROM construction_actions_buildings_storage_effects WHERE action = action_id;
+
+    DELETE FROM construction_actions_buildings_fields_effects WHERE action = action_id;
 
     -- 4. Remove the processed action from the events queue.
     DELETE FROM actions_queue WHERE action = action_id;
@@ -464,10 +481,20 @@ BEGIN
       AND mb.level = cabm.current_level;
 
     -- 2. No need to update the resources, there's no prod
-    -- that can happen on a moon (at least for now).
+    -- that can happen on a moon (at least for now). There
+    -- is a need to update the fields for moons though.
+    UPDATE moons AS m
+      SET fields = fields + cabfem.additional_fields
+    FROM
+      construction_actions_buildings_fields_effects_moon AS cabfem
+      INNER JOIN construction_actions_buildings_moon AS cabm ON cabfe.action = cab.id
+    WHERE
+      cabfem.action = action_id
+      AND m.id = cabm.moon;
 
-    -- 3. As no effects can be applied there's no need to
-    -- delete the corresponding lines in tables.
+    -- 3. Only fields effects can be applied in the case of
+    -- moon buildings.
+    DELETE FROM construction_actions_buildings_fields_effects_moon WHERE action = action_id;
 
     -- 4. See comment in above section.
     DELETE FROM actions_queue WHERE action = action_id;

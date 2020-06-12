@@ -1,4 +1,7 @@
 
+-- Drop the buildings' fields progress table.
+DROP TABLE buildings_fields_progress;
+
 -- Drop the buildings' storage progress table.
 DROP TABLE buildings_storage_progress;
 

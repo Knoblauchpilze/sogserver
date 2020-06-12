@@ -45,6 +45,15 @@ CREATE TABLE buildings_storage_progress (
   FOREIGN KEY (res) REFERENCES resources(id)
 );
 
+-- Create the table defining the law of progression of fields created by a building.
+CREATE TABLE buildings_fields_progress (
+  element uuid NOT NULL,
+  multiplier numeric(15, 5) NOT NULL,
+  constant integer NOT NULL,
+  FOREIGN KEY (element) REFERENCES buildings(id),
+  UNIQUE (element)
+);
+
 -- Seed the available buildings.
 INSERT INTO public.buildings ("name") VALUES('metal mine');
 INSERT INTO public.buildings ("name") VALUES('crystal mine');
@@ -606,4 +615,19 @@ INSERT INTO public.buildings_storage_progress ("element", "res", "base", "multip
     5000,
     2.5,
     0.606060606
+  );
+
+-- Seed the available buildings.
+INSERT INTO public.buildings_fields_progress ("element", "multiplier", "constant")
+  VALUES(
+    (SELECT id FROM buildings WHERE name='terraformer'),
+    5.5,
+    0
+  );
+
+INSERT INTO public.buildings_fields_progress ("element", "multiplier", "constant")
+  VALUES(
+    (SELECT id FROM buildings WHERE name='moon base'),
+    0.0,
+    3
   );

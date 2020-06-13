@@ -20,6 +20,12 @@ import (
 // parent planet. The higher the level the more effects
 // it has.
 //
+// The `allowedOnPlanet` defines whether the buildings
+// are allowed on a planet.
+//
+// The `allowedOnMoon` is similar to the above param
+// but defines whether buildings can be built on moons.
+//
 // The `production` allows to store all the production
 // rules for buildings handled by the module.
 //
@@ -31,9 +37,11 @@ import (
 type BuildingsModule struct {
 	progressCostsModule
 
-	production map[string][]ProductionRule
-	storage    map[string][]StorageRule
-	fields     map[string]FieldsRule
+	allowedOnPlanet map[string]bool
+	allowedOnMoon   map[string]bool
+	production      map[string][]ProductionRule
+	storage         map[string][]StorageRule
+	fields          map[string]FieldsRule
 }
 
 // BuildingDesc :
@@ -41,6 +49,12 @@ type BuildingsModule struct {
 // with its name and unique identifier. It provides
 // some info about the effects that this building has
 // on production, storage, etc.
+//
+// The `AllowedOnPlanet` defines whether the item
+// can be built on a planet.
+//
+// The `AllowedOnMoon` is similar to the above param
+// but for the construction status on moons.
 //
 // The `Cost` allows to compute the cost of this item
 // at any level.
@@ -58,10 +72,12 @@ type BuildingsModule struct {
 type BuildingDesc struct {
 	UpgradableDesc
 
-	Cost       ProgressCost     `json:"cost"`
-	Production []ProductionRule `json:"production,omitempty"`
-	Storage    []StorageRule    `json:"storage,omitempty"`
-	Fields     FieldsRule       `json:"fields,omitempty"`
+	AllowedOnPlanet bool             `json:"allowed_on_planet"`
+	AllowedOnMoon   bool             `json:"allowed_on_moon"`
+	Cost            ProgressCost     `json:"cost"`
+	Production      []ProductionRule `json:"production,omitempty"`
+	Storage         []StorageRule    `json:"storage,omitempty"`
+	Fields          FieldsRule       `json:"fields,omitempty"`
 }
 
 // ProductionRule :
@@ -281,6 +297,8 @@ func (fr FieldsRule) ComputeFields(level int) int {
 func NewBuildingsModule(log logger.Logger) *BuildingsModule {
 	return &BuildingsModule{
 		progressCostsModule: *newProgressCostsModule(log, Building, "buildings"),
+		allowedOnPlanet:     nil,
+		allowedOnMoon:       nil,
 		production:          nil,
 		storage:             nil,
 		fields:              nil,
@@ -295,7 +313,12 @@ func NewBuildingsModule(log logger.Logger) *BuildingsModule {
 // Returns `true` if the progress costs module is valid
 // and the internal resources as well.
 func (bm *BuildingsModule) valid() bool {
-	return bm.progressCostsModule.valid() && len(bm.production) > 0 && len(bm.storage) > 0 && len(bm.fields) > 0
+	return bm.progressCostsModule.valid() &&
+		len(bm.allowedOnPlanet) > 0 &&
+		len(bm.allowedOnMoon) > 0 &&
+		len(bm.production) > 0 &&
+		len(bm.storage) > 0 &&
+		len(bm.fields) > 0
 }
 
 // Init :
@@ -319,6 +342,8 @@ func (bm *BuildingsModule) Init(proxy db.Proxy, force bool) error {
 	}
 
 	// Initialize internal values.
+	bm.allowedOnPlanet = make(map[string]bool)
+	bm.allowedOnMoon = make(map[string]bool)
 	bm.production = make(map[string][]ProductionRule)
 	bm.storage = make(map[string][]StorageRule)
 	bm.fields = make(map[string]FieldsRule)
@@ -338,6 +363,13 @@ func (bm *BuildingsModule) Init(proxy db.Proxy, force bool) error {
 	err = bm.progressCostsModule.Init(proxy, force)
 	if err != nil {
 		bm.trace(logger.Error, fmt.Sprintf("Failed to initialize base module (err: %v)", err))
+		return err
+	}
+
+	// Initialize allowed on planets and moons status.
+	err = bm.initAllowedStatus(proxy)
+	if err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize allowed status (err: %v)", err))
 		return err
 	}
 
@@ -429,6 +461,90 @@ func (bm *BuildingsModule) initNames(proxy db.Proxy) error {
 			bm.trace(logger.Error, fmt.Sprintf("Cannot register building \"%s\" (id: \"%s\") (err: %v)", name, ID, err))
 			inconsistent = true
 		}
+	}
+
+	if override || inconsistent {
+		return ErrInconsistentDB
+	}
+
+	return nil
+}
+
+// initAllowedStatus :
+// Used to fetch for each building whether it can be built on
+// planets and moons. It is used to make sure that buildings
+// are built only on relevant celestial bodies.
+//
+// The `proxy` defines a convenient way to access to the DB.
+//
+// Returns any error.
+func (bm *BuildingsModule) initAllowedStatus(proxy db.Proxy) error {
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"id",
+			"buildable_on_planet",
+			"buildable_on_moon",
+		},
+		Table:   "buildings",
+		Filters: []db.Filter{},
+	}
+
+	rows, err := proxy.FetchFromDB(query)
+	defer rows.Close()
+
+	if err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Unable to initialize allowed construction rules (err: %v)", err))
+		return ErrNotInitialized
+	}
+	if rows.Err != nil {
+		bm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize allowed construction rules (err: %v)", rows.Err))
+		return ErrNotInitialized
+	}
+
+	// Analyze the query and populate internal values.
+	var ID string
+	var allowedOnP, allowedOnM bool
+
+	override := false
+	inconsistent := false
+
+	sanity := make(map[string]bool)
+
+	for rows.Next() {
+		err := rows.Scan(
+			&ID,
+			&allowedOnP,
+			&allowedOnM,
+		)
+
+		if err != nil {
+			bm.trace(logger.Error, fmt.Sprintf("Failed to initialize allowed construction rules from row (err: %v)", err))
+			continue
+		}
+
+		// Check whether a building with this identifier exists.
+		if !bm.existsID(ID) {
+			bm.trace(logger.Error, fmt.Sprintf("Cannot register allowed construction rule for \"%s\" not defined in DB", ID))
+			inconsistent = true
+
+			continue
+		}
+
+		// Check for overrides.
+		_, ok := sanity[ID]
+		if ok {
+			bm.trace(logger.Error, fmt.Sprintf("Prevented override of allowed construction rule for building \"%s\"", ID))
+			override = true
+
+			continue
+		}
+
+		sanity[ID] = true
+
+		// Register this value.
+		bm.allowedOnPlanet[ID] = allowedOnP
+		bm.allowedOnMoon[ID] = allowedOnM
 	}
 
 	if override || inconsistent {
@@ -816,6 +932,9 @@ func (bm *BuildingsModule) GetBuildingFromID(ID string) (BuildingDesc, error) {
 		return desc, ErrInvalidID
 	}
 	desc.Cost = cost
+
+	desc.AllowedOnPlanet = bm.allowedOnPlanet[ID]
+	desc.AllowedOnMoon = bm.allowedOnMoon[ID]
 
 	prod, ok := bm.production[ID]
 	if ok {

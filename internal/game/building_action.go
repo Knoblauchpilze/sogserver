@@ -79,6 +79,10 @@ type FieldsEffect struct {
 // ErrNoFieldsLeft : Indicates that there are not fields left to perform the action.
 var ErrNoFieldsLeft = fmt.Errorf("No remaining fields left for action")
 
+// ErrBuildingCannotBeBuilt : Indicates that the building cannot be built on this
+// celestial body.
+var ErrBuildingCannotBeBuilt = fmt.Errorf("Building cannot be built on this location")
+
 // valid :
 // Determines whether this action is valid. By valid we
 // only mean obvious syntax errors.
@@ -679,6 +683,15 @@ func (a *BuildingAction) Validate(data Instance, p *Planet, ratio float32) error
 	bi, ok := p.Buildings[bd.ID]
 	if !ok || bi.Level != a.CurrentLevel {
 		return ErrLevelIncorrect
+	}
+
+	// Make sure that this building can be build on
+	// this planet/moon.
+	if !bd.AllowedOnPlanet && !p.Moon {
+		return ErrBuildingCannotBeBuilt
+	}
+	if !bd.AllowedOnMoon && p.Moon {
+		return ErrBuildingCannotBeBuilt
 	}
 
 	// Make sure that if the action requires to use one

@@ -3,6 +3,8 @@
 CREATE TABLE buildings (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
+  buildable_on_planet boolean NOT NULL,
+  buildable_on_moon boolean NOT NULL,
   PRIMARY KEY (id)
 );
 
@@ -55,29 +57,48 @@ CREATE TABLE buildings_fields_progress (
 );
 
 -- Seed the available buildings.
-INSERT INTO public.buildings ("name") VALUES('metal mine');
-INSERT INTO public.buildings ("name") VALUES('crystal mine');
-INSERT INTO public.buildings ("name") VALUES('deuterium synthetizer');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('metal mine', 'true', 'false');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('crystal mine', 'true', 'false');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('deuterium synthetizer', 'true', 'false');
 
-INSERT INTO public.buildings ("name") VALUES('metal storage');
-INSERT INTO public.buildings ("name") VALUES('crystal storage');
-INSERT INTO public.buildings ("name") VALUES('deuterium tank');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('metal storage', 'true', 'true');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('crystal storage', 'true', 'true');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('deuterium tank', 'true', 'true');
 
-INSERT INTO public.buildings ("name") VALUES('solar plant');
-INSERT INTO public.buildings ("name") VALUES('fusion reactor');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('solar plant', 'true', 'false');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('fusion reactor', 'true', 'false');
 
-INSERT INTO public.buildings ("name") VALUES('robotics factory');
-INSERT INTO public.buildings ("name") VALUES('shipyard');
-INSERT INTO public.buildings ("name") VALUES('research lab');
-INSERT INTO public.buildings ("name") VALUES('alliance depot');
-INSERT INTO public.buildings ("name") VALUES('missile silo');
-INSERT INTO public.buildings ("name") VALUES('nanite factory');
-INSERT INTO public.buildings ("name") VALUES('terraformer');
-INSERT INTO public.buildings ("name") VALUES('space dock');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('robotics factory', 'true', 'true');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('shipyard', 'true', 'true');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('research lab', 'true', 'false');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('alliance depot', 'true', 'false');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('missile silo', 'true', 'false');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('nanite factory', 'true', 'false');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('terraformer', 'true', 'false');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('space dock', 'true', 'false');
 
-INSERT INTO public.buildings ("name") VALUES('moon base');
-INSERT INTO public.buildings ("name") VALUES('jump gate');
-INSERT INTO public.buildings ("name") VALUES('sensor phalanx');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('moon base', 'false', 'true');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('jump gate', 'false', 'true');
+INSERT INTO public.buildings ("name", "buildable_on_planet", "buildable_on_moon")
+  VALUES('sensor phalanx', 'false', 'true');
 
 -- Seed the building costs.
 -- Mines.
@@ -628,6 +649,6 @@ INSERT INTO public.buildings_fields_progress ("element", "multiplier", "constant
 INSERT INTO public.buildings_fields_progress ("element", "multiplier", "constant")
   VALUES(
     (SELECT id FROM buildings WHERE name='moon base'),
-    0.0,
-    3
+    3.0,
+    0
   );

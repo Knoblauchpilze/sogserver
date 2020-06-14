@@ -413,7 +413,7 @@ func (i Instance) performFleetAction(ID string) error {
 	// does not have a target, use a `nil` value.
 	var p *Planet
 
-	if f.TargetCoords.Type == World || f.TargetCoords.Type == Moon {
+	if f.Target != "" {
 		valid := true
 		var rp Planet
 

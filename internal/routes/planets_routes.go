@@ -183,3 +183,23 @@ func (s *Server) changeMoons() http.HandlerFunc {
 
 	return ed.ServeRoute(s.log)
 }
+
+// deletePlanet :
+// Used to perform the creation of a handler allowing to serve
+// the requests to delete a planet.
+//
+// Returns the handler to execute to perform said requests.
+func (s *Server) deletePlanet() http.HandlerFunc {
+	// Create the endpoint with the suited route.
+	ed := NewDeleteResourceEndpoint("planets")
+
+	// Configure the endpoint.
+	ed.WithModule("planets").WithLocker(s.og)
+	ed.WithDeleterFunc(
+		func(resource string) error {
+			return s.planets.Delete(resource)
+		},
+	)
+
+	return ed.ServeRoute(s.log)
+}

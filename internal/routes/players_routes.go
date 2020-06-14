@@ -181,3 +181,23 @@ func (s *Server) changePlayers() http.HandlerFunc {
 
 	return ed.ServeRoute(s.log)
 }
+
+// deletePlayer :
+// Used to perform the creation of a handler allowing to serve
+// the requests to delete a player.
+//
+// Returns the handler to execute to perform said requests.
+func (s *Server) deletePlayer() http.HandlerFunc {
+	// Create the endpoint with the suited route.
+	ed := NewDeleteResourceEndpoint("players")
+
+	// Configure the endpoint.
+	ed.WithModule("players").WithLocker(s.og)
+	ed.WithDeleterFunc(
+		func(resource string) error {
+			return s.players.Delete(resource)
+		},
+	)
+
+	return ed.ServeRoute(s.log)
+}

@@ -49,7 +49,7 @@ type creationFunc func(data RouteData) ([]string, error)
 // request and converted into something meaningful.
 //
 // The `module` defines a string that can be used to make the
-// logs display more explicit by specifying this module's id.
+// logs displayed more explicit by specifying this module's id.
 // This string should be unique across the application and is
 // used as a mean to easily distinguish between the different
 // services composing the server.

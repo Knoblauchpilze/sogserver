@@ -92,6 +92,13 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
+-- Delete data for an existing player.
+CREATE OR REPLACE FUNCTION delete_player(player_id uuid) RETURNS VOID AS $$
+BEGIN
+  -- TODO: Handle this.
+END
+$$ LANGUAGE plpgsql;
+
 -- Import planet into the corresponding table.
 CREATE OR REPLACE FUNCTION create_planet(planet_data json, resources json, moment TIMESTAMP WITH TIME ZONE) RETURNS VOID AS $$
 BEGIN
@@ -153,6 +160,13 @@ BEGIN
   IF p_name != '' THEN
     UPDATE planets SET name = p_name WHERE id = planet_id;
   END IF;
+END
+$$ LANGUAGE plpgsql;
+
+-- Delete data for an existing planet.
+CREATE OR REPLACE FUNCTION delete_planet(planet_id uuid) RETURNS VOID AS $$
+BEGIN
+  -- TODO: Handle this.
 END
 $$ LANGUAGE plpgsql;
 

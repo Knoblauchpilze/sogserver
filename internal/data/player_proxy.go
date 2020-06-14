@@ -230,3 +230,23 @@ func (p *PlayerProxy) Update(player game.Player) (string, error) {
 
 	return player.ID, err
 }
+
+// Delete :
+// Used to perform the deletion of the player specified
+// by the input identifier. Checks are performed to make
+// sure that the player can actually be removed.
+//
+// The `player` defines the identifier of the player to
+// delete.
+//
+// Returns any error that occurred during the deletion.
+func (p *PlayerProxy) Delete(player string) error {
+	// Retrieve the player from the DB.
+	pl, err := game.NewPlayerFromDB(player, p.data)
+	if err != nil {
+		return err
+	}
+
+	// We could fetch the player, attempt to delete it.
+	return pl.DeleteFromDB(p.data)
+}

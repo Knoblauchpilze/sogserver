@@ -318,3 +318,23 @@ func (p *PlanetProxy) Update(planet game.Planet) (string, error) {
 
 	return planet.ID, err
 }
+
+// Delete :
+// Used to perform the deletion of the planet specified
+// by the input identifier. Checks are performed to make
+// sure that the planet can actually be removed.
+//
+// The `planet` defines the identifier of the planet to
+// delete.
+//
+// Returns any error that occurred during the deletion.
+func (p *PlanetProxy) Delete(planet string) error {
+	// Retrieve the planet from the DB.
+	pl, err := game.NewPlanetFromDB(planet, p.data)
+	if err != nil {
+		return err
+	}
+
+	// We could fetch the planet, attempt to delete it.
+	return pl.DeleteFromDB(p.data)
+}

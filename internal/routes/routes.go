@@ -40,6 +40,9 @@ func (s *Server) routes() {
 	s.route("PATCH", "/players/[a-zA-Z0-9-]+", s.changePlayers())
 	s.route("PATCH", "/planets/[a-zA-Z0-9-]+", s.changePlanets())
 	s.route("PATCH", "/moons/[a-zA-Z0-9-]+", s.changeMoons())
+
+	s.route("DELETE", "/planets/[a-zA-Z0-9-]+", s.deletePlanet())
+	s.route("DELETE", "/player/[a-zA-Z0-9-]+", s.deletePlayer())
 }
 
 // route :

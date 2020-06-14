@@ -2,9 +2,28 @@ package game
 
 import (
 	"encoding/json"
+	"fmt"
 	"oglike_server/pkg/db"
 	"time"
 )
+
+// ErrActionStillInProgress : Indicates that an action is still running on a planet
+// hence preventing its deletion.
+var ErrActionStillInProgress = fmt.Errorf("Unable to delete planet due to an action still being in progress")
+
+// ErrFleetNotYetReturned : Indicates that a fleet did not yet returned to the
+// planet hence preventing its deletion.
+var ErrFleetNotYetReturned = fmt.Errorf("Unable to delete planet due to fleet not yet returned")
+
+// ErrFleetNotYetArrived : Indicates that a fleet did not yet arrived to the planet
+// hence preventing its deletion.
+var ErrFleetNotYetArrived = fmt.Errorf("Unable to delete planet due to fleet not yet arrived")
+
+// ErrCannotDeleteMoon : Indicates that it is not possible to voluntarily delete a moon.
+var ErrCannotDeleteMoon = fmt.Errorf("Cannot voluntarily delete a moon")
+
+// ErrHomeworldCannotBeDeleted : Indicates that a deletion of the homeworld is not possible.
+var ErrHomeworldCannotBeDeleted = fmt.Errorf("Cannot delete homeworld for player")
 
 // SaveToDB :
 // Used to save the content of this planet to
@@ -74,6 +93,94 @@ func (p *Planet) UpdateInDB(proxy db.Proxy) error {
 	err := proxy.InsertToDB(query)
 
 	return p.analyzeDBError(err)
+}
+
+// isEligibleForDeletion :
+// Defines whether this planet is eligible to be
+// deleted from the DB. This only include the
+// *planet*'s status and does not verify that the
+// parent player has more than one planet. So keep
+// in mind that calling this function is *not*
+// enough to check whether this planet can be
+// deleted.
+//
+// The return value indicates whether the planet
+// can be deleted. If it is `nil` it means that
+// there are no obvious obstacles to the deletion
+// of the planet.
+func (p *Planet) isEligibleForDeletion() error {
+	// Make sure that there are no upgrade actions.
+	if len(p.BuildingsUpgrade) > 0 {
+		return ErrActionStillInProgress
+	}
+	if len(p.TechnologiesUpgrade) > 0 {
+		return ErrActionStillInProgress
+	}
+	if len(p.ShipsConstruction) > 0 {
+		return ErrActionStillInProgress
+	}
+	if len(p.DefensesConstruction) > 0 {
+		return ErrActionStillInProgress
+	}
+
+	// Make sure that there are no incoming fleets or fleets
+	// that started from this planet.
+	if len(p.SourceFleets) > 0 {
+		return ErrFleetNotYetReturned
+	}
+	if len(p.IncomingFleets) > 0 {
+		return ErrFleetNotYetArrived
+	}
+
+	// Finally make sure that we're not deleting a moon.
+	if p.Moon {
+		return ErrCannotDeleteMoon
+	}
+
+	return nil
+}
+
+// DeleteFromDB :
+// Used to perform the deletion of the planet from the
+// DB if the conditions are matched. It will make sure
+// that nothing prevents the deletion of the planet in
+// the DB before doing so.
+//
+// The `data` defines a way to access to the DB.
+//
+// Returns any error.
+func (p *Planet) DeleteFromDB(data Instance) error {
+	// A planet can only be deleted if it is not referenced
+	// by any fleet and does not have any related action to
+	// be completed.
+	// Part of the checks are handled by the above method.
+	if err := p.isEligibleForDeletion(); err != nil {
+		return err
+	}
+
+	// We should also make sure that it's not the last planet
+	// of the player associated to the planet.
+	player, err := NewPlayerFromDB(p.Player, data)
+	if err != nil {
+		return err
+	}
+
+	if player.planetsCount == 1 {
+		return ErrHomeworldCannotBeDeleted
+	}
+
+	// No obvious reasons prevent the deletion of the planet
+	// we can proceed.
+	query := db.InsertReq{
+		Script: "delete_planet",
+		Args: []interface{}{
+			p.ID,
+		},
+	}
+
+	err = data.Proxy.InsertToDB(query)
+
+	return err
 }
 
 // analyzeDBError :

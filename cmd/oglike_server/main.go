@@ -14,8 +14,6 @@ import (
 	"oglike_server/pkg/logger"
 )
 
-// TODO: Allow to delete a player.
-// TODO: Allow to delete a planet.
 // TODO: Use the token mechanism to make sure that a client has access
 // to some information (typically to the data for a planet or a player).
 // TODO: It seems like some assumptions we make when updating resources in
@@ -41,6 +39,7 @@ import (
 // used during the fight along some modifications like the techno of the
 // attackers (or maybe just fecthing them when the message is actually
 // interpreted is enough) and the amount of ships.
+// TODO: Should handle the homeworld mechanism.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

@@ -94,8 +94,22 @@ $$ LANGUAGE plpgsql;
 
 -- Delete data for an existing player.
 CREATE OR REPLACE FUNCTION delete_player(player_id uuid) RETURNS VOID AS $$
+DECLARE
+  temprow record;
+  planet_id uuid;
 BEGIN
-  -- TODO: Handle this.
+  -- We need to delete all the planets owned
+  -- by the player, then the technologies and
+  -- finally the player entry.
+  FOR temprow IN
+    SELECT id FROM planets WHERE player = player_id
+  LOOP
+    PERFORM delete_planet(temprow.id);
+  END LOOP;
+
+  DELETE FROM players_technologies WHERE player = player_id;
+
+  DELETE FROM players WHERE id = player_id;
 END
 $$ LANGUAGE plpgsql;
 
@@ -165,8 +179,36 @@ $$ LANGUAGE plpgsql;
 
 -- Delete data for an existing planet.
 CREATE OR REPLACE FUNCTION delete_planet(planet_id uuid) RETURNS VOID AS $$
+DECLARE
+  moon_id uuid;
 BEGIN
-  -- TODO: Handle this.
+  -- We need to delete the buildings, resources,
+  -- ships and defenses of the planet. We also
+  -- need to delete the moon associated to the
+  -- planet if any.
+  -- We know that there can't be any upgrade
+  -- actions or fleets linked to this planet
+  -- as it is not possible to call this script
+  -- otherwise.
+  SELECT id INTO moon_id FROM moons WHERE planet = planet_id;
+
+  IF FOUND THEN
+    DELETE FROM moons_resources WHERE moon = moon_id;
+
+    DELETE FROM moons_buildings WHERE moon = moon_id;
+    DELETE FROM moons_ships WHERE moon = moon_id;
+    DELETE FROM moons_defenses WHERE moon = moon_id;
+
+    DELETE FROM moons WHERE id = moon_id;
+  END IF;
+
+  DELETE FROM planets_resources WHERE planet = planet_id;
+
+  DELETE FROM planets_buildings WHERE planet = planet_id;
+  DELETE FROM planets_ships WHERE planet = planet_id;
+  DELETE FROM planets_defenses WHERE planet = planet_id;
+
+  DELETE FROM planets WHERE id = planet_id;
 END
 $$ LANGUAGE plpgsql;
 

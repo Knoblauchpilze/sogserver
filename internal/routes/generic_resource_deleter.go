@@ -82,7 +82,7 @@ func (dre *DeleteResourceEndpoint) WithDeleterFunc(d deleteFunc) *DeleteResource
 // Assigns a new string as the module name for this object.
 //
 // The `module` defines the name of the module to assign to
-// this object
+// this object.
 //
 // Returns this endpoint to allow chain calling.
 func (dre *DeleteResourceEndpoint) WithModule(module string) *DeleteResourceEndpoint {

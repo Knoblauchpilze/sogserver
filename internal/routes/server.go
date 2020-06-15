@@ -180,9 +180,12 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 }
 
 // Serve :
-// Used to start listening to the port associated to this server
-// and handle incoming requests. This will return an error in case
-// something went wrong while listening to the port.
+// Used to start listening to the port associated to this
+// server and handle incoming requests. This will return
+// an error in case something went wrong while listening
+// to the port.
+//
+// Returns any error occurred during the serve operation.
 func (s *Server) Serve() error {
 	// Create a new router if one is not already started.
 	if s.router != nil {
@@ -196,6 +199,11 @@ func (s *Server) Serve() error {
 
 	// Register the router as the main listener.
 	http.Handle("/", s.router)
+
+	// Start the routine which will handle the automatic
+	// update of some processes if it is not done often
+	// enough.
+	// TODO: Handle this by creating a server object.
 
 	s.log.Trace(logger.Notice, "server", "Server has started")
 

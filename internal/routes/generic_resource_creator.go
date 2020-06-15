@@ -131,7 +131,7 @@ func (cre *CreateResourceEndpoint) WithCreationFunc(f creationFunc) *CreateResou
 // Assigns a new string as the module name for this object.
 //
 // The `module` defines the name of the module to assign to
-// this object
+// this object.
 //
 // Returns this endpoint to allow chain calling.
 func (cre *CreateResourceEndpoint) WithModule(module string) *CreateResourceEndpoint {

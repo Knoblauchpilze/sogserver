@@ -324,6 +324,7 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 		DefensesConstruction []DefenseAction    `json:"defenses_construction,omitempty"`
 		SourceFleets         []string           `json:"source_fleets,omitempty"`
 		IncomingFleets       []string           `json:"incoming_fleets,omitempty"`
+		CreatedAt            time.Time          `json:"created_at"`
 	}
 
 	// Copy the planet's data.
@@ -342,6 +343,7 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 		DefensesConstruction: p.DefensesConstruction,
 		SourceFleets:         p.SourceFleets,
 		IncomingFleets:       p.IncomingFleets,
+		CreatedAt:            p.CreatedAt,
 	}
 
 	// Copy resources from map to slice.

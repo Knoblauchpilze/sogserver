@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -103,6 +104,9 @@ import (
 // The `IncomingFleets` defines a similar list of IDs
 // but for fleets that will land on this planet.
 //
+// The `CreatedAt` defines the date at which the planet
+// has been created or colonized by the player.
+//
 // The `technologies` defines the technologies that have
 // already been researched by the player owning this tech.
 // It helps in various cases to be able to fetch player's
@@ -137,6 +141,7 @@ type Planet struct {
 	DefensesConstruction []DefenseAction         `json:"-"`
 	SourceFleets         []string                `json:"-"`
 	IncomingFleets       []string                `json:"-"`
+	CreatedAt            time.Time               `json:"-"`
 	technologies         map[string]int
 	Moon                 bool
 	planet               string
@@ -831,6 +836,7 @@ func (p *Planet) fetchGeneralInfo(data Instance) error {
 			"solar_system",
 			"position",
 			"diameter",
+			"created_at",
 		},
 		Table: "planets",
 		Filters: []db.Filter{
@@ -866,6 +872,7 @@ func (p *Planet) fetchGeneralInfo(data Instance) error {
 			&system,
 			&position,
 			&p.Diameter,
+			&p.CreatedAt,
 		)
 
 		if err != nil {

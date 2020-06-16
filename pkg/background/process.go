@@ -185,15 +185,21 @@ func (p *Process) WithOperation(operation OperationFunc) *Process {
 // callback.
 func (p *Process) Stop() {
 	// Make sure that this process is started.
-	p.lock.Lock()
-	defer p.lock.Unlock()
+	exited := false
 
-	if !p.running {
+	func() {
+		defer p.lock.Unlock()
+		p.lock.Lock()
+
+		exited = !p.running
+	}()
+
+	if exited {
 		return
 	}
 
 	// The process is running, stop it.
-	p.termination <- true
+	p.termination <- false
 
 	// And wait for the process to terminate.
 	p.waiter.Wait()
@@ -232,8 +238,8 @@ func (p *Process) Start() error {
 // will sleep for the required period of time
 // and execute the attached operation.
 func (p *Process) activeLoop() {
-	// Create the timer.
-	timer := time.NewTimer(p.interval)
+	// Create the ticker.
+	ticker := time.NewTicker(p.interval)
 
 	// Prevent errors.
 	defer func() {
@@ -267,7 +273,9 @@ func (p *Process) activeLoop() {
 		case connected = <-p.termination:
 			// Termination requested.
 			break
-		case <-timer.C:
+		case t := <-ticker.C:
+			p.log.Trace(logger.Notice, p.module, fmt.Sprintf("Executing process at %v", t))
+
 			err := p.execute()
 			if err != nil {
 				func() {
@@ -289,6 +297,8 @@ func (p *Process) activeLoop() {
 			}()
 		}
 	}
+
+	p.log.Trace(logger.Info, p.module, fmt.Sprintf("Stopping background process"))
 }
 
 // execute :
@@ -307,8 +317,6 @@ func (p *Process) execute() error {
 		func() {
 			p.lock.Lock()
 			defer p.lock.Unlock()
-
-			p.log.Trace(logger.Verbose, p.module, fmt.Sprintf("Executing process"))
 
 			// Perform the operation.
 			success, err = p.operation()
@@ -329,7 +337,7 @@ func (p *Process) execute() error {
 
 				wait = p.retryInterval
 
-				p.log.Trace(logger.Verbose, p.module, fmt.Sprintf("Failed to execute process, retrying in %v", wait))
+				p.log.Trace(logger.Info, p.module, fmt.Sprintf("Failed to execute process, retrying in %v", wait))
 			}()
 
 			time.Sleep(wait)

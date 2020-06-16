@@ -1,15 +1,21 @@
 package routes
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"oglike_server/internal/data"
 	"oglike_server/internal/game"
 	"oglike_server/internal/model"
+	"oglike_server/pkg/background"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/dispatcher"
 	"oglike_server/pkg/logger"
+	"os"
+	"os/signal"
 	"strconv"
+	"sync"
+	"time"
 )
 
 // Server :
@@ -72,10 +78,14 @@ import (
 //
 // The `proxy` defines the DB to use to access to the data.
 //
-// The `logger` allows to perform most of the logging on any
+// The `log` allows to perform most of the logging on any
 // action done by the server such as logging connections or
 // generally any useful information that could be monitored
 // by the execution system of the server.
+//
+// The `process` defines the background process that is used
+// to make sure that certain operations are executed in a way
+// that guarantee consistency of the data in the server's DB.
 type Server struct {
 	port      int
 	router    *dispatcher.Router
@@ -89,7 +99,17 @@ type Server struct {
 	og    game.Instance
 	proxy db.Proxy
 	log   logger.Logger
+
+	process *background.Process
 }
+
+// ErrUnexpectedServeError : Indicates that an error occurred
+// while serving the root endpoint.
+var ErrUnexpectedServeError = fmt.Errorf("Unexpected error occurred while serving http requests")
+
+// ErrServerShutdownError : Indicates that an error occurred
+// while shutting down the server.
+var ErrServerShutdownError = fmt.Errorf("Unexpected error occurred while shutting down the server")
 
 // NewServer :
 // Create a new server with the input elements to use internally to
@@ -162,6 +182,19 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 	fp := data.NewFleetProxy(ogDataModel, log)
 	aap := data.NewActionProxy(ogDataModel, log)
 
+	// Create the background process to ensure
+	// data consistency in the game's DB.
+	p := background.NewProcess(2*time.Second, log)
+
+	p.WithModule("cron").WithRetry().WithOperation(
+		func() (bool, error) {
+			defer ogDataModel.Unlock()
+			ogDataModel.Lock()
+
+			return true, nil
+		},
+	)
+
 	return Server{
 		port:   port,
 		router: nil,
@@ -176,6 +209,8 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 		og:    ogDataModel,
 		proxy: proxy,
 		log:   log,
+
+		process: p,
 	}
 }
 
@@ -197,16 +232,78 @@ func (s *Server) Serve() error {
 	// Setup routes.
 	s.routes()
 
-	// Register the router as the main listener.
-	http.Handle("/", s.router)
+	// Create the server which will serve requests. The
+	// idiom used to serve requests is inspired from the
+	// following link:
+	// https://stackoverflow.com/questions/39320025/how-to-stop-http-listenandserve
+	// which describes a way to gracefully shutdown a
+	// HTTP server. We figure it's worth doing it.
+	server := &http.Server{
+		Addr:    ":" + strconv.FormatInt(int64(s.port), 10),
+		Handler: s.router,
+	}
 
 	// Start the routine which will handle the automatic
 	// update of some processes if it is not done often
 	// enough.
-	// TODO: Handle this by creating a server object.
-
-	s.log.Trace(logger.Notice, "server", "Server has started")
+	s.process.Start()
 
 	// Serve the root path.
-	return http.ListenAndServe(":"+strconv.FormatInt(int64(s.port), 10), nil)
+	var serveErr error
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				s.log.Trace(logger.Fatal, "server", fmt.Sprintf("Caught unexpected error while serving requests (err: %v)", err))
+
+				serveErr = ErrUnexpectedServeError
+			}
+
+			wg.Done()
+
+			s.log.Trace(logger.Notice, "server", "Server has stopped")
+		}()
+
+		s.log.Trace(logger.Notice, "server", "Server has started")
+
+		// Serve the main endpoint and panic in case something
+		// bad occurs in the process.
+		err := server.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			panic(err)
+		}
+	}()
+
+	// Setting up signal capturing.
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+
+	// Waiting for SIGINT (pkill -2).
+	<-stop
+
+	s.shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil && err != http.ErrServerClosed {
+		s.log.Trace(logger.Error, "server", fmt.Sprintf("Caught unexpected error while shutting down server (err: %v)", err))
+
+		return ErrServerShutdownError
+	}
+
+	// Wait for `ListenAndServe` to perform cleanup.
+	wg.Wait()
+
+	return serveErr
+}
+
+// shutdown :
+// Requests the server to gracefully shutdown and
+// terminate all the processes that are pending
+// before doing so.
+func (s *Server) shutdown() {
+	s.process.Stop()
 }

@@ -1,9 +1,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
 	"runtime/debug"
+	"sync"
+	"time"
 
 	// Note that this link: https://stackoverflow.com/questions/55442878/organize-local-code-in-packages-using-go-modules
 	// proved helpful when trying to determine which syntax to adopt to use packages defined locally.
@@ -24,6 +30,7 @@ import (
 // night (or another duration which would be consistent with the maximum
 // interval with no issues) to perform update for players that didn't
 // connect for a long time.
+// We should define the interval between automatic updates.
 // TODO: We don't really have a proper mechanism for messages in the case
 // of fleet fight report. How could we do that ? We have a similar issue
 // in the case of an esionage report where all the info is available but
@@ -95,4 +102,53 @@ func main() {
 	if err != nil {
 		panic(fmt.Errorf("Unexpected error while listening to port %d (err: %v)", metadata.Port, err))
 	}
+}
+
+// TODO: This is the base
+func startHttpServer(wg *sync.WaitGroup) *http.Server {
+	srv := &http.Server{Addr: ":8080"}
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, "hello world\n")
+	})
+
+	go func() {
+		defer wg.Done() // let main know we are done cleaning up
+
+		// always returns error. ErrServerClosed on graceful close
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			// unexpected error. port in use?
+			log.Fatalf("ListenAndServe(): %v", err)
+		}
+	}()
+
+	// returning reference so caller can call Shutdown()
+	return srv
+}
+
+func main2() {
+	log.Printf("main: starting HTTP server")
+
+	httpServerExitDone := &sync.WaitGroup{}
+
+	httpServerExitDone.Add(1)
+	srv := startHttpServer(httpServerExitDone)
+
+	log.Printf("main: serving for 10 seconds")
+
+	time.Sleep(10 * time.Second)
+
+	log.Printf("main: stopping HTTP server")
+
+	// now close the server gracefully ("shutdown")
+	// timeout could be given with a proper context
+	// (in real world you shouldn't use TODO()).
+	if err := srv.Shutdown(context.TODO()); err != nil {
+		panic(err) // failure/timeout shutting down the server gracefully
+	}
+
+	// wait for goroutine started in startHttpServer() to stop
+	httpServerExitDone.Wait()
+
+	log.Printf("main: done. exiting")
 }

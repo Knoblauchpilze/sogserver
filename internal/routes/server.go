@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 // Server :
@@ -111,6 +113,46 @@ var ErrUnexpectedServeError = fmt.Errorf("Unexpected error occurred while servin
 // while shutting down the server.
 var ErrServerShutdownError = fmt.Errorf("Unexpected error occurred while shutting down the server")
 
+// configuration :
+// Defines the custom properties that can be defined for the
+// server through the configuration file.
+//
+// The `BackgroundUpdate` defines the time interval between
+// two consecutive update of the background processes of the
+// serevr. This allows to keep the amount of pending tasks
+// for the game actions to a reasonable level and prevent
+// some weirdness that could appear with time management if
+// the duration become too long.
+// The duration is expressed in minutes and the default value
+// is set to `60`.
+type configuration struct {
+	BackgroundUpdate time.Duration
+}
+
+// parseConfiguration :
+// Used to parse the configuration file and environment
+// variables provided when executing this server to get
+// the values of the `Server` properties. These props
+// allow to customize the behavior of the processes to
+// be performed by the server.
+//
+// Returns the parsed configuration where all non-set
+// properties have their default values.
+func parseConfiguration() configuration {
+	// Create the default configuration.
+	config := configuration{
+		BackgroundUpdate: 60 * time.Minute,
+	}
+
+	// Parse custom properties.
+	if viper.IsSet("Server.BackgroundUpdate") {
+		min := viper.GetInt("Server.BackgroundUpdate")
+		config.BackgroundUpdate = time.Duration(min) * time.Minute
+	}
+
+	return config
+}
+
 // NewServer :
 // Create a new server with the input elements to use internally to
 // access data and perform logging.
@@ -184,7 +226,9 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 
 	// Create the background process to ensure
 	// data consistency in the game's DB.
-	p := background.NewProcess(2*time.Second, log)
+	config := parseConfiguration()
+
+	p := background.NewProcess(config.BackgroundUpdate, log)
 
 	p.WithModule("cron").WithRetry().WithOperation(
 		func() (bool, error) {

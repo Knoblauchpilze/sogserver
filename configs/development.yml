@@ -16,6 +16,6 @@ Logger:
   Environment: "dev"
   ForceLocal: true
   Level: "verbose"
-# Concurrent lock for upgrade actions
-Concurrent:
-  LockCount : 4
+# Server processes
+Server:
+  BackgroundUpdate: 1

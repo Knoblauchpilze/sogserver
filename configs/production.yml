@@ -16,6 +16,6 @@ Logger:
   Environment: "prod"
   ForceLocal: true
   Level: "notice"
-# Concurrent lock for upgrade actions
-Concurrent:
-  LockCount : 1
+# Server processes
+  Server:
+    BackgroundUpdate: 60

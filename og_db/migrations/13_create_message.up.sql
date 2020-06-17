@@ -53,7 +53,7 @@ INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'colonization_suceeded',
-    'the fleet has arrived at the assigned coordinates %1, found a new planet there and are beginning to develop upon it immediately'
+    'the fleet has arrived at the assigned coordinates $COORD, found a new planet there and are beginning to develop upon it immediately'
   );
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
@@ -66,43 +66,80 @@ INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'harvesting_report',
-    'your recycler(s) (%1) have a total cargo capacity of %2. At the target %3, %4 are floating in space. You have harvested %5.'
+    'your recycler(s) ($SHIP_COUNT) have a total cargo capacity of $CARGO. At the target $COORD, $RESOURCES are floating in space. You have harvested $HARVESTED.'
   );
 
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'destruction_report_all_destroyed',
-    'your deathstar(s) (%1) fire at the moon at %2. The moon is shaking, and finally collapse under the concentrated graviton influx. However some debris seem to head to your fleet, destroying it.'
+    'your deathstar(s) ($SHIP_COUNT) fire at the moon at $COORD. The moon is shaking, and finally collapse under the concentrated graviton influx. However some debris seem to head to your fleet, destroying it.'
   );
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'destruction_report_moon_destroyed',
-    'your deathstar(s) (%1) fire at the moon at %2. The moon is shaking, and finally collapse under the concentrated graviton influx. Your fleet returns home.'
+    'your deathstar(s) ($SHIP_COUNT) fire at the moon at $COORD. The moon is shaking, and finally collapse under the concentrated graviton influx. Your fleet returns home.'
   );
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'destruction_report_fleet_destroyed',
-    'your deathstar(s) (%1) fire at the moon at %2. The moon seems to take the hit and not collapse. However a critical failure in the graviton generators occurs, destroying your fleet.'
+    'your deathstar(s) ($SHIP_COUNT) fire at the moon at $COORD. The moon seems to take the hit and not collapse. However a critical failure in the graviton generators occurs, destroying your fleet.'
   );
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'destruction_report_failed',
-    'your deathstar(s) (%1) fire at the moon at %2. The moon seems to take the hit and not collapse. Your fleet returns home.'
+    'your deathstar(s) ($SHIP_COUNT) fire at the moon at $COORD. The moon seems to take the hit and not collapse. Your fleet returns home.'
   );
 
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'counter_espionage_report',
-    'a foreign fleet from planet %1 %2 (%3) has been spotted near your planet %4 %5. Probability of counter-espionage: %6%.'
+    'a foreign fleet from planet $PLANET_NAME $COORD ($PLAYER_NAME) has been spotted near your planet $OWN_PLANET_NAME $OWN_COORD. Probability of counter-espionage: $COUNTER_ESPIONAGE%.'
   );
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'espionage_report',
     '%1'
+  );
+
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'fight_report_header',
+    'combat report. Battle of $PLANET_NAME $COORD ($DATE)'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'fight_report_participant',
+    'Ships/Defense systems $UNITS_COUNT Unit(s) lost: $UNITS_LOST_COUNT Weapons: $WEAPONS_TECH% Shielding: $SHIELDING_TECH% Armour: $ARMOUR_TECH%'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'fight_report_result_attacker_win',
+    'Attacker has won the fight !'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'fight_report_result_defender_win',
+    'Defender has won the fight !'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'fight_report_result_draw',
+    'Combat ends in a draw !'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'fight_report_footer',
+    'Attacker has won the fight ! Plunder: $RESOURCES. Debris: $DEBRIS_FIELD. Unit(s) rebuilt: $UNITS_REBUILT.'
   );

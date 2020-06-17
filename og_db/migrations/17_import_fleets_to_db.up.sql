@@ -1185,6 +1185,14 @@ CREATE OR REPLACE FUNCTION fleet_fight_aftermath(fleet_id uuid, ships json, pill
 DECLARE
   check_fleet_id uuid;
 BEGIN
+  -- TODO: Should handle this:
+  -- fight_report_header
+  -- fight_report_participant
+  -- fight_report_result_attacker_win
+  -- fight_report_result_defender_win
+  -- fight_report_result_draw
+  -- fight_report_footer
+
   -- Update the resources carried by the fleet with the
   -- input values. The `pillage` actually describes all
   -- the resources carried by the fleet.
@@ -1233,11 +1241,7 @@ BEGIN
     AND fs.ship = rs.ship;
 
   -- Delete empty entries in the `fleets_ships` table.
-  DELETE FROM
-    fleets_ships
-  WHERE
-    fleet = fleet_id
-    AND count = 0;
+  DELETE FROM fleets_ships WHERE fleet = fleet_id AND count = 0;
 
   -- Delete the fleet in case it does not contain any
   -- ship anymore. We won't consider the ACS case in

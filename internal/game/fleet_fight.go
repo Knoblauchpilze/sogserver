@@ -224,11 +224,11 @@ const (
 func (fo FightOutcome) String() string {
 	switch fo {
 	case Victory:
-		return "\"victory\""
+		return "victory"
 	case Draw:
-		return "\"draw\""
+		return "draw"
 	case Loss:
-		return "\"loss\""
+		return "loss"
 	}
 
 	return "\"unknown\""
@@ -870,7 +870,7 @@ func (d *defender) defend(a *attacker, data Instance) (fightResult, error) {
 	}
 
 	d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Fight at %v took %d round(s)", time.Unix(0, d.seed), round))
-	d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Result of fight at %v is %s", time.Unix(0, d.seed), fr.outcome))
+	d.log.Trace(logger.Verbose, "fight", fmt.Sprintf("Result of fight at %v is \"%s\"", time.Unix(0, d.seed), fr.outcome))
 
 	// Assign the debris field computed during
 	// the simulation of the fight. Also take

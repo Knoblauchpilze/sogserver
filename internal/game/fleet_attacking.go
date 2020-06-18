@@ -156,7 +156,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 				fID,
 				d.convertFleet(fID),
 				emptyRes,
-				result.outcome,
+				fmt.Sprintf("%s", result.outcome),
 			},
 		}
 
@@ -173,7 +173,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 			f.ID,
 			a.convertShips(f.ID),
 			carried,
-			result.outcome,
+			fmt.Sprintf("%s", result.outcome),
 		},
 	}
 

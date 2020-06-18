@@ -642,7 +642,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 				f.ID,
 				a.convertShips(f.ID),
 				pillageForFleet,
-				result.outcome,
+				fmt.Sprintf("%s", result.outcome),
 			},
 		}
 

@@ -38,6 +38,10 @@ import (
 // attackers (or maybe just fecthing them when the message is actually
 // interpreted is enough) and the amount of ships.
 // https://lng.xooit.com/t1488-Mettre-en-page-un-RC-avec-ogame-winner.htm
+// TODO: SHould probably extract the generation of the report in its own
+// function because in the case of an ACS we want a single report with
+// all the participants.
+// TODO: Endpoints to fetch all messages.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

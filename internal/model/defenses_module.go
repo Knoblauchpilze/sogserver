@@ -185,6 +185,8 @@ func (dm *DefensesModule) initProps(proxy db.Proxy) error {
 
 		if err != nil {
 			dm.trace(logger.Error, fmt.Sprintf("Failed to initialize defense from row (err: %v)", err))
+			inconsistent = true
+
 			continue
 		}
 

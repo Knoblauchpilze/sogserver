@@ -250,6 +250,8 @@ func (fom *FleetObjectivesModule) fetchObjectives(proxy db.Proxy) error {
 
 		if err != nil {
 			fom.trace(logger.Error, fmt.Sprintf("Failed to initialize objective from row (err: %v)", err))
+			inconsistent = true
+
 			continue
 		}
 
@@ -344,6 +346,8 @@ func (fom *FleetObjectivesModule) fetchAllowedShips(proxy db.Proxy) error {
 
 		if err != nil {
 			fom.trace(logger.Error, fmt.Sprintf("Failed to initialize objective from row (err: %v)", err))
+			inconsistent = true
+
 			continue
 		}
 
@@ -409,8 +413,6 @@ func (fom *FleetObjectivesModule) GetObjectiveFromID(id string) (Objective, erro
 		Allowed:  fom.allowedShips[id],
 	}
 
-	// Convert the allowed ships.
-
 	return res, nil
 }
 
@@ -441,8 +443,8 @@ func (fom *FleetObjectivesModule) GetObjectiveFromName(name string) (Objective, 
 // has not yet been polled to retrieve data, we will
 // return an error.
 //
-// The `proxy` defines the DB to use to fetch the res
-// description.
+// The `proxy` defines the DB to use to fetch fleets
+// objectives description.
 //
 // The `filters` represent the list of filters to apply
 // to the data fecthing. This will select only part of

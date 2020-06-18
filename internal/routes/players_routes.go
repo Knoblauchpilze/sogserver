@@ -34,12 +34,12 @@ func (s *Server) listPlayers() http.HandlerFunc {
 	return ed.ServeRoute(s.log)
 }
 
-// listMessages :
+// listPlayersMessages :
 // Used to perform the creation of a handler allowing to serve
 // the requests to list messages.
 //
 // Returns the handler to execute to perform said requests.
-func (s *Server) listMessages() http.HandlerFunc {
+func (s *Server) listPlayersMessages() http.HandlerFunc {
 	// Create the endpoint with the suited route.
 	ed := NewGetResourceEndpoint("players")
 

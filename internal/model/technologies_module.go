@@ -138,6 +138,8 @@ func (tm *TechnologiesModule) initNames(proxy db.Proxy) error {
 
 		if err != nil {
 			tm.trace(logger.Error, fmt.Sprintf("Failed to initialize technology from row (err: %v)", err))
+			inconsistent = true
+
 			continue
 		}
 

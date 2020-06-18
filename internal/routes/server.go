@@ -175,6 +175,7 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 	dm := model.NewDefensesModule(log)
 	rm := model.NewResourcesModule(log)
 	om := model.NewFleetObjectivesModule(log)
+	mm := model.NewMessagesModule(log)
 
 	err := bm.Init(proxy, false)
 	if err != nil {
@@ -206,6 +207,11 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 		panic(fmt.Errorf("Cannot create server (err: %v)", err))
 	}
 
+	err = mm.Init(proxy, false)
+	if err != nil {
+		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+	}
+
 	// Create the data model from it.
 	ogDataModel := game.NewInstance(proxy, log)
 
@@ -215,6 +221,7 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 	ogDataModel.Defenses = dm
 	ogDataModel.Resources = rm
 	ogDataModel.Objectives = om
+	ogDataModel.Messages = mm
 
 	// Create proxies on composite types.
 	up := data.NewUniverseProxy(ogDataModel, log)

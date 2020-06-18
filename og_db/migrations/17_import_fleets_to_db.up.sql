@@ -1284,9 +1284,9 @@ BEGIN
       id = fleet_id;
   END IF;
 
-  PERFORM create_message_for(player_id, 'fleet_report_participant', player_name, source_name, source_coordinates, );
-  PERFORM create_message_for(player_id, 'fleet_report_participant', target_player_name, target_name, target_coordinates, );
-  '$PLAYER_NAME, $PLANET_NAME $COORD. Ships/Defense systems $UNITS_COUNT Unit(s) lost: $UNITS_LOST_COUNT Weapons: $WEAPONS_TECH% Shielding: $SHIELDING_TECH% Armour: $ARMOUR_TECH%'
+  PERFORM create_message_for(player_id, 'fleet_report_participant', player_name, source_name, source_coordinates, 'haha');
+  PERFORM create_message_for(player_id, 'fleet_report_participant', target_player_name, target_name, target_coordinates, 'hoho');
+  -- '$PLAYER_NAME, $PLANET_NAME $COORD. Ships/Defense systems $UNITS_COUNT Unit(s) lost: $UNITS_LOST_COUNT Weapons: $WEAPONS_TECH% Shielding: $SHIELDING_TECH% Armour: $ARMOUR_TECH%'
   -- TODO: Generate forces participating to the fight for
   -- each participant.
 
@@ -1305,6 +1305,7 @@ BEGIN
     PERFORM create_message_for(player_id, 'fight_report_result_attacker_win');
   END IF;
 
+
   -- Generate the footer of the fight report.
   -- PERFORM create_message_for(player_id, 'fight_report_footer', );
   -- 'Attacker has won the fight ! Plunder: $RESOURCES. Debris: $DEBRIS_FIELD. Unit(s) rebuilt: $UNITS_REBUILT.'
@@ -1313,7 +1314,7 @@ BEGIN
   -- create_message_for(player_id uuid, message_name text, VARIADIC args text[]) RETURNS VOID AS $$
   -- fight_report_participant
   -- fight_report_footer
-DECLARE
+END
 $$ LANGUAGE plpgsql;
 
 -- Handle the aftermath of a fleet fight on a planet. We

@@ -444,6 +444,8 @@ func (bm *BuildingsModule) initNames(proxy db.Proxy) error {
 
 		if err != nil {
 			bm.trace(logger.Error, fmt.Sprintf("Failed to initialize building from row (err: %v)", err))
+			inconsistent = true
+
 			continue
 		}
 

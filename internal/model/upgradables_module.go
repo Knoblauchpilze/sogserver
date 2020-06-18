@@ -239,6 +239,8 @@ func (um *upgradablesModule) initDeps(rows db.QueryResult, deps *map[string][]De
 
 		if err != nil {
 			um.trace(logger.Error, fmt.Sprintf("Failed to initialize dependency from row (err: %v)", err))
+			inconsistent = true
+
 			continue
 		}
 

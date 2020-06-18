@@ -419,6 +419,8 @@ func (sm *ShipsModule) initCharacteristics(proxy db.Proxy) error {
 
 		if err != nil {
 			sm.trace(logger.Error, fmt.Sprintf("Failed to initialize ship from row (err: %v)", err))
+			inconsistent = true
+
 			continue
 		}
 

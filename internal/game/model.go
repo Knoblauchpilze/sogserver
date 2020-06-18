@@ -35,6 +35,12 @@ import (
 // The `Objectives` defines the module to access to all
 // the fleet objectives defined in the game.
 //
+// The `Messages` defines the module to access to all
+// the messages defined in the game.
+//
+// The `log` defines a logger object to use to notify
+// information or errors to the user.
+//
 // The `waiter` allows to lock this instance which will
 // prevent any unauthorized use of the DB.
 type Instance struct {
@@ -45,6 +51,7 @@ type Instance struct {
 	Defenses     *model.DefensesModule
 	Resources    *model.ResourcesModule
 	Objectives   *model.FleetObjectivesModule
+	Messages     *model.MessagesModule
 
 	log    logger.Logger
 	waiter *locker

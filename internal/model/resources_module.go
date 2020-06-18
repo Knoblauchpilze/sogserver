@@ -234,6 +234,8 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 
 		if err != nil {
 			rm.trace(logger.Error, fmt.Sprintf("Failed to initialize resource from row (err: %v)", err))
+			inconsistent = true
+
 			continue
 		}
 

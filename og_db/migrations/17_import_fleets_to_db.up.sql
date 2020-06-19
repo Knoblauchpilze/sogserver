@@ -1157,6 +1157,9 @@ BEGIN
       WHERE
         r.dispersable = 'true';
   ELSE
+    -- TODO: Make sure that the debris are added correctly
+    -- and that all resources existing in the new debris
+    -- are created.
   END IF;
 
   WITH dr AS (

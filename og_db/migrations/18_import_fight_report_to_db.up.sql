@@ -1,4 +1,6 @@
 
+-- Generate the fight report header. The report will
+-- be posted for the player specified in input.
 CREATE OR REPLACE FUNCTION fleet_fight_report_header(fleet_id uuid, player_id uuid) RETURNS VOID AS $$
 DECLARE
   target_kind text;
@@ -51,6 +53,93 @@ BEGIN
 
   -- Create the message for the specified player.
   PERFORM create_message_for(player_id, 'fight_report_header', target_name, target_coordinates, moment);
+END
+$$ LANGUAGE plpgsql;
+
+-- Generate the list of forces in a fleet fight and
+-- post the created report to the specified player.
+CREATE OR REPLACE FUNCTION fleet_fight_report_attacker_participant(fleet_id uuid, player_id uuid) RETURNS VOID AS $$
+DECLARE
+  source_kind text;
+
+  source_name text;
+  source_coordinates text;
+  source_player_name text;
+
+  
+BEGIN
+  -- Fetch information about the source planet of the
+  -- participant.
+  SELECT source_type INTO source_kind FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid source type for fleet % in fleet fight report attacker participant operation', fleet_id;
+  END IF;
+
+  IF target_kind = 'planet' THEN
+    SELECT
+      p.name,
+      concat_ws(':', p.galaxy,  p.solar_system,  p.position),
+      pl.name
+    INTO
+      source_name,
+      source_coordinates,
+      source_player_name
+    FROM
+      fleets AS f
+      INNER JOIN planets AS p ON f.source = p.id
+      INNER JOIN players AS pl ON p.player = pl.id
+    WHERE
+      id = fleet_id;
+  END IF;
+
+  IF target_kind = 'moon' THEN
+    SELECT
+      m.name,
+      concat_ws(':', p.galaxy,  p.solar_system,  p.position),
+      pl.name
+    INTO
+      source_name,
+      source_coordinates,
+      source_player_name
+    FROM
+      fleets AS f
+      INNER JOIN moons AS m ON f.source = m.id
+      INNER JOIN planets AS p ON m.planet = p.id
+      INNER JOIN players AS pl ON p.player = pl.id
+    WHERE
+      id = fleet_id;
+  END IF;
+
+  -- Create the message for the specified player.
+  PERFORM create_message_for(player_id, source_player_name, source_name, source_coordinates, 'TODO: S/D count', 'TODO: Units lost', 'TODO: Techs');
+END
+$$ LANGUAGE plpgsql;
+
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'fight_report_participant',
+    '$PLAYER_NAME, $PLANET_NAME $COORD. Ships/Defense systems $UNITS_COUNT Unit(s) lost: $UNITS_LOST_COUNT Weapons: $WEAPONS_TECH% Shielding: $SHIELDING_TECH% Armour: $ARMOUR_TECH%'
+  );
+
+-- Generate the status of the fight. Depending on the
+-- provided outcome the correct message will be posted
+-- to the specified player.
+CREATE OR REPLACE FUNCTION fleet_fight_report_status(outcome text, player_id uuid) RETURNS VOID AS $$
+BEGIN
+  -- The perspective of the fight is seen from the
+  -- defender point of view.
+  IF outcome = 'victory' THEN
+    PERFORM create_message_for(player_id, 'fight_report_result_defender_win');
+  END IF;
+
+  IF outcome = 'draw' THEN
+    PERFORM create_message_for(player_id, 'fight_report_result_draw');
+  END IF;
+
+  IF outcome = 'loss' THEN
+    PERFORM create_message_for(player_id, 'fight_report_result_attacker_win');
+  END IF;
 END
 $$ LANGUAGE plpgsql;
 

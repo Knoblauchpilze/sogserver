@@ -66,7 +66,9 @@ DECLARE
   source_coordinates text;
   source_player_name text;
 
-  
+  weapon_tech text;
+  shielding_tech text;
+  armour_tech text;
 BEGIN
   -- Fetch information about the source planet of the
   -- participant.
@@ -110,8 +112,43 @@ BEGIN
       id = fleet_id;
   END IF;
 
+  -- Fetch the level of the technologies for the player.
+  SELECT
+    level
+  INTO
+    weapon_tech
+  FROM
+    players_technologies AS pt
+    INNER JOIN technologies AS t ON pt.technology = t.id
+  WHERE
+    player = player_id
+    AND t.name = 'weapons';
+
+  SELECT
+    level
+  INTO
+    shielding_tech
+  FROM
+    players_technologies AS pt
+    INNER JOIN technologies AS t ON pt.technology = t.id
+  WHERE
+    player = player_id
+    AND t.name = 'shielding';
+
+  SELECT
+    level
+  INTO
+    armour_tech
+  FROM
+    players_technologies AS pt
+    INNER JOIN technologies AS t ON pt.technology = t.id
+  WHERE
+    player = player_id
+    AND t.name = 'armour';
+
   -- Create the message for the specified player.
-  PERFORM create_message_for(player_id, source_player_name, source_name, source_coordinates, 'TODO: S/D count', 'TODO: Units lost', 'TODO: Techs');
+  -- TODO: Percentage.
+  PERFORM create_message_for(player_id, source_player_name, source_name, source_coordinates, 'TODO: S/D count', 'TODO: Units lost', weapons_tech, shielding_tech, armour_tech);
 END
 $$ LANGUAGE plpgsql;
 

@@ -58,7 +58,7 @@ $$ LANGUAGE plpgsql;
 
 -- Generate the list of forces in a fleet fight and
 -- post the created report to the specified player.
-CREATE OR REPLACE FUNCTION fleet_fight_report_attacker_participant(fleet_id uuid, player_id uuid) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fleet_fight_report_outsiders_participant(fleet_id uuid, player_id uuid, remains json) RETURNS VOID AS $$
 DECLARE
   source_kind text;
 
@@ -69,6 +69,9 @@ DECLARE
   weapon_tech text;
   shielding_tech text;
   armour_tech text;
+
+  units_count text;
+  units_lost integer;
 BEGIN
   -- Fetch information about the source planet of the
   -- participant.
@@ -114,7 +117,7 @@ BEGIN
 
   -- Fetch the level of the technologies for the player.
   SELECT
-    level
+    concat_ws('%', 10 * level)
   INTO
     weapon_tech
   FROM
@@ -125,7 +128,7 @@ BEGIN
     AND t.name = 'weapons';
 
   SELECT
-    level
+    concat_ws('%', 10 * level)
   INTO
     shielding_tech
   FROM
@@ -136,7 +139,7 @@ BEGIN
     AND t.name = 'shielding';
 
   SELECT
-    level
+    concat_ws('%', 10 * level)
   INTO
     armour_tech
   FROM
@@ -146,18 +149,52 @@ BEGIN
     player = player_id
     AND t.name = 'armour';
 
+  -- Compute the total amount of ships brought by
+  -- this participant into the fight. It is just
+  -- the number of ships sent to attack.
+  SELECT COALESCE(SUM(count), 0) INTO units_count FROM fleets_ships WHERE fleet = fleet_id;
+
+  -- Compute the total amount of resources lost
+  -- by this attacker: it is computed as the
+  -- difference between the initial fleet and
+  -- the remaining fleet, only considering the
+  -- resources that can be dispersed.
+  WITH rs AS (
+    SELECT
+      t.ship,
+      t.count
+    FROM
+      json_to_recordset(remains) AS t(ship uuid, count integer)
+    )
+  SELECT
+    COALESCE(SUM(sc.cost), 0)
+  INTO
+    units_lost
+  FROM
+    fleets_ships AS fs
+    LEFT JOIN rs ON fs.ship = rs.ship
+    INNER JOIN ships_costs AS sc ON fs.ship = sc.element
+    INNER JOIN resources AS r ON sc.res = r.id
+  WHERE
+    fs.fleet = fleet_id
+    AND r.dispersable = 'true';
+
   -- Create the message for the specified player.
-  -- TODO: Percentage.
-  PERFORM create_message_for(player_id, source_player_name, source_name, source_coordinates, 'TODO: S/D count', 'TODO: Units lost', weapons_tech, shielding_tech, armour_tech);
+  PERFORM create_message_for(player_id, 'fight_report_participant', source_player_name, source_name, source_coordinates, units_count, units_lost::text, weapons_tech, shielding_tech, armour_tech);
 END
 $$ LANGUAGE plpgsql;
 
-INSERT INTO public.messages_ids ("type", "name", "content")
-  VALUES(
-    (SELECT id FROM messages_types WHERE type='fleets'),
-    'fight_report_participant',
-    '$PLAYER_NAME, $PLANET_NAME $COORD. Ships/Defense systems $UNITS_COUNT Unit(s) lost: $UNITS_LOST_COUNT Weapons: $WEAPONS_TECH% Shielding: $SHIELDING_TECH% Armour: $ARMOUR_TECH%'
-  );
+-- Generate the list of forces in a fleet fight in
+-- the case of the defender. Note that this should
+-- only be used for the owner of the planet where
+-- the fleet is fighting as it includes the sum
+-- of the defense systems existing on the planet.
+CREATE OR REPLACE FUNCTION fleet_fight_report_indigenous_participant(fleet_id uuid, def_remains json, ships_remains json) RETURNS VOID AS $$
+DECLARE
+BEGIN
+  -- TODO: Handle this.
+END
+$$ LANGUAGE plpgsql;
 
 -- Generate the status of the fight. Depending on the
 -- provided outcome the correct message will be posted
@@ -180,143 +217,3 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
--- Generate a fight report for the specified fleet. The
--- report is generated for the owner of the fleet.
-CREATE OR REPLACE FUNCTION fleet_fight_report(fleet_id uuid, outcome text) RETURNS VOID AS $$
-DECLARE
-  target_kind text;
-  target_name text;
-  target_coordinates text;
-  target_player_name text;
-  moment text;
-  player_id uuid;
-  player_name text;
-  source_kind text;
-  source_name text;
-  source_coordinates text;
-BEGIN
-  SELECT target_type INTO target_kind FROM fleets WHERE id = fleet_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid target type for fleet % in fleet fight report operation', fleet_id;
-  END IF;
-
-  SELECT source_type INTO source_kind FROM fleets WHERE id = fleet_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid source type for fleet % in fleet fight report operation', fleet_id;
-  END IF;
-
-  -- Generate the report's header.
-  IF target_kind = 'planet' THEN
-    SELECT
-      p.name,
-      concat_ws(':', p.galaxy,  p.solar_system,  p.position),
-      to_char(f.arrival_time, 'MM-DD-YYYY HH24:MI:SS'),
-      f.player,
-      pl.name
-    INTO
-      target_name,
-      target_coordinates,
-      moment,
-      player_id,
-      target_player_name
-    FROM
-      fleets AS f
-      INNER JOIN planets AS p ON f.target = p.id
-      INNER JOIN players AS pl ON p.player = pl.id
-    WHERE
-      id = fleet_id;
-  END IF;
-
-  IF target_kind = 'moon' THEN
-    SELECT
-      m.name,
-      concat_ws(':', p.galaxy,  p.solar_system,  p.position),
-      to_char(f.arrival_time, 'MM-DD-YYYY HH24:MI:SS'),
-      f.player,
-      pl.name
-    INTO
-      target_name,
-      target_coordinates,
-      moment,
-      player_id,
-      target_player_name
-    FROM
-      fleets AS f
-      INNER JOIN moons AS m ON f.target = m.id
-      INNER JOIN planets AS p ON m.planet = p.id
-      INNER JOIN players AS pl ON p.player = pl.id
-    WHERE
-      id = fleet_id;
-  END IF;
-
-  PERFORM create_message_for(player_id, 'fight_report_header', target_name, target_coordinates, moment);
-
-  -- Generate the forces that were involved in this fight
-  -- for the attacker.
-  IF source_kind = 'planet' THEN
-    SELECT
-      p.name,
-      concat_ws(':', p.galaxy,  p.solar_system,  p.position),
-      pl.name
-    INTO
-      source_name,
-      source_coordinates,
-      player_name
-    FROM
-      fleets AS f
-      INNER JOIN planets AS p ON p.source = p.id
-      INNER JOIN players AS pl ON f.player = pl.id
-    WHERE
-      id = fleet_id;
-  END IF;
-
-  IF source_kind = 'moon' THEN
-    SELECT
-      m.name,
-      concat_ws(':', p.galaxy,  p.solar_system,  p.position),
-      pl.player
-    INTO
-      source_name,
-      source_coordinates,
-      player_name
-    FROM
-      fleets AS f
-      INNER JOIN moons AS m ON f.source = m.id
-      INNER JOIN planets AS p ON m.planet = p.id
-      INNER JOIN players AS pl ON f.player = pl.id
-    WHERE
-      id = fleet_id;
-  END IF;
-
-  PERFORM create_message_for(player_id, 'fleet_report_participant', player_name, source_name, source_coordinates, 'haha');
-  PERFORM create_message_for(player_id, 'fleet_report_participant', target_player_name, target_name, target_coordinates, 'hoho');
-  -- '$PLAYER_NAME, $PLANET_NAME $COORD. Ships/Defense systems $UNITS_COUNT Unit(s) lost: $UNITS_LOST_COUNT Weapons: $WEAPONS_TECH% Shielding: $SHIELDING_TECH% Armour: $ARMOUR_TECH%'
-  -- TODO: Generate forces participating to the fight for
-  -- each participant.
-
-  -- Generate the result for the fight. Note that
-  -- the outcome is expressed using the defender's
-  -- perspective.
-  IF outcome = 'victory' THEN
-    PERFORM create_message_for(player_id, 'fight_report_result_defender_win');
-  END IF;
-
-  IF outcome = 'draw' THEN
-    PERFORM create_message_for(player_id, 'fight_report_result_draw');
-  END IF;
-
-  IF outcome = 'loss' THEN
-    PERFORM create_message_for(player_id, 'fight_report_result_attacker_win');
-  END IF;
-
-
-  -- Generate the footer of the fight report.
-  -- PERFORM create_message_for(player_id, 'fight_report_footer', );
-  -- 'Attacker has won the fight ! Plunder: $RESOURCES. Debris: $DEBRIS_FIELD. Unit(s) rebuilt: $UNITS_REBUILT.'
-
-  -- TODO: Should handle this:
-  -- create_message_for(player_id uuid, message_name text, VARIADIC args text[]) RETURNS VOID AS $$
-  -- fight_report_participant
-  -- fight_report_footer
-END
-$$ LANGUAGE plpgsql;

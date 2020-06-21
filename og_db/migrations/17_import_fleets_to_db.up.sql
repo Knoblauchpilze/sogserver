@@ -1142,6 +1142,11 @@ BEGIN
 
   IF NOT FOUND THEN
     -- The debris field does not exist yet, create it.
+    -- Note that as we create entries for all the res
+    -- that might be dispersed in a debris field we
+    -- don't have to worry about a resource not being
+    -- present later on (i.e. when debris are added to
+    -- the field).
     field_id = uuid_generate_v4();
 
     INSERT INTO debris_fields("id", "universe", "galaxy", "solar_system", "position")
@@ -1156,10 +1161,6 @@ BEGIN
         resources AS r
       WHERE
         r.dispersable = 'true';
-  ELSE
-    -- TODO: Make sure that the debris are added correctly
-    -- and that all resources existing in the new debris
-    -- are created.
   END IF;
 
   WITH dr AS (

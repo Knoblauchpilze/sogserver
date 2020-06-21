@@ -147,5 +147,5 @@ INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'fight_report_footer',
-    'Attacker has won the fight ! Plunder: $RESOURCES. Debris: $DEBRIS_FIELD. Unit(s) rebuilt: $UNITS_REBUILT.'
+    'Plunder: $RESOURCES. Debris: $DEBRIS_FIELD. Unit(s) rebuilt: $UNITS_REBUILT.'
   );

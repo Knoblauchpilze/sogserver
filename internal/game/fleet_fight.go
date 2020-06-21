@@ -525,6 +525,9 @@ func (a *attacker) convertToUnits() attackerUnits {
 // defender object that can be used in a
 // fleet fight.
 //
+// The `seed` defines the base for the
+// RNG to use for the fight.
+//
 // The `uni` defines the identifier of
 // the universe associated to this def.
 // It helps fetching information about
@@ -535,9 +538,7 @@ func (a *attacker) convertToUnits() attackerUnits {
 //
 // Returns the created defender object
 // along with any error.
-func newDefender(uni string, data Instance) (defender, error) {
-	seed := time.Now().UTC().UnixNano()
-
+func newDefender(seed int64, uni string, data Instance) (defender, error) {
 	rngSource := rand.NewSource(seed)
 
 	d := defender{

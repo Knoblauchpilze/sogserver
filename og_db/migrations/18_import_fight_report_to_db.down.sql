@@ -1,4 +1,10 @@
 
+-- Drop the orcherstration function to generate the fight reports.
+DROP FUNCTION fight_report(fleet_id uuid);
+
+-- Drop the function handling the generation of a fight report footer.
+DROP FUNCTION fight_report_footer(player_id uuid, pillage json, debris json, rebuilt json);
+
 -- Drop the function handling the generation of the fight status.
 DROP FUNCTION fleet_fight_report_status(outcome text, player_id uuid);
 

@@ -608,6 +608,9 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 		return ErrFleetFightSimulationFailure
 	}
 
+	// Post fight reports.
+	// TODO: Handle this.
+
 	// Update the planet's data in the DB.
 	query := db.InsertReq{
 		Script: "planet_fight_aftermath",

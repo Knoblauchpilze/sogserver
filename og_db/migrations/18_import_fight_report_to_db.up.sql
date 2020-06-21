@@ -417,3 +417,80 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
+-- Generate the report indicating the final result
+-- of the fight including the generated debris field
+-- and the plundered resources if any.
+CREATE OR REPLACE FUNCTION fight_report_footer(player_id uuid, pillage json, debris json, rebuilt json) RETURNS VOID AS $$
+DECLARE
+  resources_pillaged text;
+  resources_dispersed text;
+  units_rebuilt integer;
+BEGIN
+  -- Generate the plundered resources string.
+  -- TODO: The pillage should decrease the amount of
+  -- res existing on the planet.
+  WITH rp AS (
+    SELECT
+      t.resource,
+      t.amount
+    FROM
+      json_to_recordset(pillage) AS t(resource uuid, amount numeric(15, 5))
+    )
+  SELECT
+    string_agg(concat_ws(' unit(s) of ', floor(rp.amount)::integer::text, r.name), ', ')
+  INTO
+    resources_pillaged
+  FROM
+    rp
+    INNER JOIN resources AS r ON rp.resource = r.id;
+
+  -- Generate resources that end up in the debris field
+  -- in a similar way to the resources pillaged.
+  WITH rp AS (
+    SELECT
+      t.resource,
+      t.amount
+    FROM
+      json_to_recordset(debris) AS t(resource uuid, amount numeric(15, 5))
+    )
+  SELECT
+    string_agg(concat_ws(' unit(s) of ', floor(rp.amount)::integer::text, r.name), ', ')
+  INTO
+    resources_dispersed
+  FROM
+    rp
+    INNER JOIN resources AS r ON rp.resource = r.id;
+
+  -- Generate the count of rebuilt units. We need to
+  -- compute the difference between the existing units
+  -- and the ones that remain.
+  WITH ru AS (
+    SELECT
+      t.defense,
+      t.count
+    FROM
+      json_to_recordset(rebuilt) AS t(defense uuid, count integer)
+    )
+  SELECT
+    COALESCE(SUM(ru.count), 0)
+  INTO
+    units_rebuilt
+  FROM
+    ru;
+
+  -- Create the message entry.
+  PERFORM create_message_for(player_id, 'fight_report_footer', resources_pillaged, resources_dispersed, units_rebuilt::text);
+END
+$$ LANGUAGE plpgsql;
+
+-- General orchestration function allowing to perform
+-- the genration of the fight reports for the fleet
+-- in input. Reports for both participants will be
+-- generated assuming that the fleet is not part of
+-- an ACS operation
+CREATE OR REPLACE FUNCTION fight_report(fleet_id uuid) RETURNS VOID AS $$
+DECLARE
+BEGIN
+  -- TODO: Handle this.
+END
+$$ LANGUAGE plpgsql;

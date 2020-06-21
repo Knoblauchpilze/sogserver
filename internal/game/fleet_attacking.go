@@ -114,6 +114,14 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 		}
 	}
 
+	// Post fight reports: we need one for each
+	// participant and a special one for the owner
+	// of the planet where the fight took place.
+	err = f.generateReports(a, d, result)
+	if err != nil {
+		return "", ErrFleetFightSimulationFailure
+	}
+
 	// Update the planet's data in the DB.
 	query := db.InsertReq{
 		Script: "planet_fight_aftermath",
@@ -211,7 +219,7 @@ func (p *Planet) toDefender(data Instance, moment time.Time) (defender, error) {
 		return defender{}, err
 	}
 
-	d, err := newDefender(uni, data)
+	d, err := newDefender(moment.UnixNano(), uni, data)
 	if err != nil {
 		return d, err
 	}
@@ -580,4 +588,45 @@ func (f *Fleet) handleDumbMove(a attacker) bool {
 	}
 
 	return false
+}
+
+// generateReports :
+// Used to perform the generation of the reports after
+// a fight for all participants. It will analyze the
+// result of the fight so that a comprehensive report
+// is generated.
+//
+// The `a` defines the attacker that was involved in
+// the attack. It contains the remains of the attacking
+// ships.
+//
+// The `d` defines the remains of the defender fleet
+// for this fight.
+//
+// The `fr` defines the final result of the fight.
+//
+// The `proxy` allows to perform queries on the DB.
+//
+// Returns any error.
+func (f *Fleet) generateReports(a *attacker, d *defender, fr fightResult, proxy db.Proxy) error {
+	// We need to generate a report for the attacker and
+	// one for each defender. Each report is divided into
+	// several parts:
+	//  1. the header
+	//  2. the participants
+	//  3. the status
+	//  4. the footer
+	//  5. the final report
+	// Failure to generate any part of any of the reports
+	// will be reported. For convenience we will use the
+	// dedicated DB script which will make sure that no
+	// report can be generated incompletely.
+	query := db.InsertReq{
+		Script: "fight_report",
+		Args: []interface{}{
+			f.ID,
+		},
+	}
+
+	return proxy.InsertToDB(query)
 }

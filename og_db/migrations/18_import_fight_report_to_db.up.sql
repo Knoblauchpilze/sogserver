@@ -31,7 +31,7 @@ BEGIN
       fleets AS f
       INNER JOIN planets AS p ON f.target = p.id
     WHERE
-      id = fleet_id;
+      f.id = fleet_id;
   END IF;
 
   IF target_kind = 'moon' THEN
@@ -48,7 +48,7 @@ BEGIN
       INNER JOIN moons AS m ON f.target = m.id
       INNER JOIN planets AS p ON m.planet = p.id
     WHERE
-      id = fleet_id;
+      f.id = fleet_id;
   END IF;
 
   -- Create the message for the specified player.
@@ -70,7 +70,7 @@ DECLARE
   shielding_tech text;
   armour_tech text;
 
-  units_count text;
+  units_count integer;
   units_lost integer;
 BEGIN
   -- Fetch information about the source planet of the
@@ -94,7 +94,7 @@ BEGIN
       INNER JOIN planets AS p ON f.source = p.id
       INNER JOIN players AS pl ON p.player = pl.id
     WHERE
-      id = fleet_id;
+      f.id = fleet_id;
   END IF;
 
   IF target_kind = 'moon' THEN
@@ -180,7 +180,7 @@ BEGIN
     AND r.dispersable = 'true';
 
   -- Create the message for the specified player.
-  PERFORM create_message_for(player_id, 'fight_report_participant', source_player_name, source_name, source_coordinates, units_count, units_lost::text, weapons_tech, shielding_tech, armour_tech);
+  PERFORM create_message_for(player_id, 'fight_report_participant', source_player_name, source_name, source_coordinates, units_count::text, units_lost::text, weapons_tech, shielding_tech, armour_tech);
 END
 $$ LANGUAGE plpgsql;
 
@@ -189,10 +189,210 @@ $$ LANGUAGE plpgsql;
 -- only be used for the owner of the planet where
 -- the fleet is fighting as it includes the sum
 -- of the defense systems existing on the planet.
-CREATE OR REPLACE FUNCTION fleet_fight_report_indigenous_participant(fleet_id uuid, def_remains json, ships_remains json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fleet_fight_report_indigenous_participant(planet_id uuid, kind text, ships_remains json, def_remains json) RETURNS VOID AS $$
 DECLARE
+  player_id uuid;
+
+  target_name text;
+  target_coordinates text;
+  target_player_name text;
+
+  weapon_tech text;
+  shielding_tech text;
+  armour_tech text;
+
+  ships_count text;
+  defenses_count text;
+  ships_lost integer;
+  defenses_lost integer;
 BEGIN
-  -- TODO: Handle this.
+  -- Fetch information about the target planet of the
+  -- participant: this is what is really meant by the
+  -- 'indigenous' term. Compared to a regular attacker
+  -- or defender it also includes the defenses that
+  -- exist on the planet where the fight is happening.
+  IF kind != 'planet' AND kind != 'moon' THEN
+    RAISE EXCEPTION 'Invalid kind % specified for % in indigenous participant fight report', kind, planet_id;
+  END IF;
+
+  IF kind = 'planet' THEN
+    SELECT
+      pl.id,
+      p.name,
+      concat_ws(':', p.galaxy,  p.solar_system,  p.position),
+      pl.name
+    INTO
+      player_id,
+      target_name,
+      target_coordinates,
+      target_player_name
+    FROM
+      planets AS p
+      INNER JOIN players AS pl ON p.player = pl.id
+    WHERE
+      p.id = planet_id;
+  END IF;
+
+  IF kind = 'moon' THEN
+    SELECT
+      pl.id,
+      m.name,
+      concat_ws(':', p.galaxy,  p.solar_system,  p.position),
+      pl.name
+    INTO
+      player_id,
+      target_name,
+      target_coordinates,
+      target_player_name
+    FROM
+      moons AS m
+      INNER JOIN planets AS p ON m.planet = p.id
+      INNER JOIN players AS pl ON p.player = pl.id
+    WHERE
+      m.id = planet_id;
+  END IF;
+
+  -- Fetch the level of the technologies for the player.
+  SELECT
+    concat_ws('%', 10 * level)
+  INTO
+    weapon_tech
+  FROM
+    players_technologies AS pt
+    INNER JOIN technologies AS t ON pt.technology = t.id
+  WHERE
+    player = player_id
+    AND t.name = 'weapons';
+
+  SELECT
+    concat_ws('%', 10 * level)
+  INTO
+    shielding_tech
+  FROM
+    players_technologies AS pt
+    INNER JOIN technologies AS t ON pt.technology = t.id
+  WHERE
+    player = player_id
+    AND t.name = 'shielding';
+
+  SELECT
+    concat_ws('%', 10 * level)
+  INTO
+    armour_tech
+  FROM
+    players_technologies AS pt
+    INNER JOIN technologies AS t ON pt.technology = t.id
+  WHERE
+    player = player_id
+    AND t.name = 'armour';
+
+  -- The total amount of ships used by this player
+  -- is the amount of ships deployed on the planet
+  -- (or moon).
+  IF kind = 'planet' THEN
+    SELECT COALESCE(SUM(count), 0) INTO ships_count FROM planets_ships WHERE planet = planet_id;
+
+    SELECT COALESCE(SUM(count), 0) INTO defenses_count FROM planets_defenses WHERE planet = planet_id;
+  END IF;
+
+  IF kind = 'moon' THEN
+    SELECT COALESCE(SUM(count), 0) INTO ships_count FROM moons_ships WHERE moon = planet_id;
+
+    SELECT COALESCE(SUM(count), 0) INTO defenses_count FROM moons_defenses WHERE moon = planet_id;
+  END IF;
+
+  -- Compute the total amount of resources lost
+  -- by this player: it is computed as the diff
+  -- between the initial fleet and the remaining
+  -- fleet, only considering the resources that
+  -- can be dispersed. Note that we also need to
+  -- include the defenses in the total.
+  IF kind = 'planet' THEN
+    WITH rs AS (
+      SELECT
+        t.ship,
+        t.count
+      FROM
+        json_to_recordset(ships_remains) AS t(ship uuid, count integer)
+      )
+    SELECT
+      COALESCE(SUM(sc.cost), 0)
+    INTO
+      ships_lost
+    FROM
+      planets_ships AS ps
+      LEFT JOIN rs ON ps.ship = rs.ship
+      INNER JOIN ships_costs AS sc ON ps.ship = sc.element
+      INNER JOIN resources AS r ON sc.res = r.id
+    WHERE
+      ps.planet = planet_id
+      AND r.dispersable = 'true';
+
+    WITH rs AS (
+      SELECT
+        t.defense,
+        t.count
+      FROM
+        json_to_recordset(def_remains) AS t(defense uuid, count integer)
+      )
+    SELECT
+      COALESCE(SUM(dc.cost), 0)
+    INTO
+      defenses_lost
+    FROM
+      planets_defenses AS pd
+      LEFT JOIN rs ON pd.defense = rs.defense
+      INNER JOIN defenses_costs AS dc ON pd.defense = dc.element
+      INNER JOIN resources AS r ON dc.res = r.id
+    WHERE
+      pd.planet = planet_id
+      AND r.dispersable = 'true';
+  END IF;
+
+  IF kind = 'moon' THEN
+    WITH rs AS (
+      SELECT
+        t.ship,
+        t.count
+      FROM
+        json_to_recordset(ships_remains) AS t(ship uuid, count integer)
+      )
+    SELECT
+      COALESCE(SUM(sc.cost), 0)
+    INTO
+      ships_lost
+    FROM
+      moons_ships AS ms
+      LEFT JOIN rs ON ms.ship = rs.ship
+      INNER JOIN ships_costs AS sc ON ms.ship = sc.element
+      INNER JOIN resources AS r ON sc.res = r.id
+    WHERE
+      ms.moon = planet_id
+      AND r.dispersable = 'true';
+
+    WITH rs AS (
+      SELECT
+        t.defense,
+        t.count
+      FROM
+        json_to_recordset(def_remains) AS t(defense uuid, count integer)
+      )
+    SELECT
+      COALESCE(SUM(dc.cost), 0)
+    INTO
+      defenses_lost
+    FROM
+      moons_defenses AS md
+      LEFT JOIN rs ON md.defense = rs.defense
+      INNER JOIN defenses_costs AS dc ON md.defense = dc.element
+      INNER JOIN resources AS r ON dc.res = r.id
+    WHERE
+      md.moon = planet_id
+      AND r.dispersable = 'true';
+  END IF;
+
+  -- Create the message for the specified player.
+  PERFORM create_message_for(player_id, 'fight_report_participant', target_player_name, target_name, target_coordinates, (ships_count + defenses_count)::text, (ships_lost + defenses_lost)::text, weapons_tech, shielding_tech, armour_tech);
 END
 $$ LANGUAGE plpgsql;
 

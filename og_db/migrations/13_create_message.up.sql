@@ -110,6 +110,12 @@ INSERT INTO public.messages_ids ("type", "name", "content")
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
+    'fight_report',
+    '$REPORT_HEADER $REPORT_PARTICIPANTS $REPORT_RESULT $REPORT_FOOTER'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
     'fight_report_header',
     'combat report. Battle of $PLANET_NAME $COORD ($DATE)'
   );

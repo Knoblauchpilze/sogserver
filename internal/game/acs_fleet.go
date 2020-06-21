@@ -619,6 +619,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 			string(p.Coordinates.Type),
 			d.convertShips(),
 			d.convertDefenses(),
+			pillage,
 			result.debris,
 			result.moon,
 			result.diameter,

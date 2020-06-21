@@ -427,8 +427,6 @@ DECLARE
   units_rebuilt integer;
 BEGIN
   -- Generate the plundered resources string.
-  -- TODO: The pillage should decrease the amount of
-  -- res existing on the planet.
   WITH rp AS (
     SELECT
       t.resource,

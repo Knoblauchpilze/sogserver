@@ -1013,7 +1013,7 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION planet_fight_aftermath(target_id uuid, kind text, planet_ships json, planet_defenses json, debris json, moon boolean, diameter integer) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION planet_fight_aftermath(target_id uuid, kind text, planet_ships json, planet_defenses json, pillage json, debris json, moon boolean, diameter integer) RETURNS VOID AS $$
 DECLARE
   field_id uuid;
   target_galaxy integer;
@@ -1027,7 +1027,24 @@ BEGIN
   -- total final count of each system/ship. We will also
   -- handle the creation of the moon in the case of a
   -- planet and if a moon does not already exist.
+  -- We also need to update the pillaged resources by a
+  -- decrease of the amount available.
   IF kind = 'planet' THEN
+    WITH rp AS (
+      SELECT
+        t.resource,
+        t.amount
+      FROM
+        json_to_recordset(pillage) AS t(resource uuid, count integer)
+      )
+    UPDATE planets_resources AS pr
+      SET amount = pr.amount - rp.amount
+    FROM
+      rp
+    WHERE
+      pr.planet = target_id
+      AND pr.res = rp.res;
+
     WITH rs AS (
       SELECT
         t.ship,
@@ -1074,6 +1091,21 @@ BEGIN
   END IF;
 
   IF kind = 'moon' THEN
+    WITH rp AS (
+      SELECT
+        t.resource,
+        t.amount
+      FROM
+        json_to_recordset(pillage) AS t(resource uuid, count integer)
+      )
+    UPDATE moons_resources AS mr
+      SET amount = mr.amount - rp.amount
+    FROM
+      rp
+    WHERE
+      mr.moon = target_id
+      AND mr.res = rp.res;
+
     WITH rs AS (
       SELECT
         t.ship,
@@ -1125,7 +1157,7 @@ BEGIN
     p.id = target_id;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid target coordinates for fleet % in fleet fight operation', fleet_id;
+    RAISE EXCEPTION 'Invalid target coordinates for planet % in fleet fight operation', target_id;
   END IF;
 
   SELECT

@@ -61,6 +61,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 	// carrying the initial resources.
 	enough := f.handleDumbMove(a)
 	carried := make([]model.ResourceAmount, 0)
+	pillaged := make([]model.ResourceAmount, 0)
 
 	for _, res := range f.Cargo {
 		carried = append(carried, res)
@@ -74,7 +75,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 		// says so. Note that the outcome is expressed in
 		// the defender's point of view.
 		if result.outcome == Loss {
-			pillaged, err := a.pillage(p, data)
+			pillaged, err = a.pillage(p, data)
 			if err != nil {
 				return "", ErrFleetFightSimulationFailure
 			}
@@ -117,7 +118,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 	// Post fight reports: we need one for each
 	// participant and a special one for the owner
 	// of the planet where the fight took place.
-	err = f.generateReports(a, d, result)
+	err = f.generateReports(&a, &d, result, data.Proxy)
 	if err != nil {
 		return "", ErrFleetFightSimulationFailure
 	}
@@ -139,6 +140,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 			string(p.Coordinates.Type),
 			d.convertShips(),
 			d.convertDefenses(),
+			pillaged,
 			result.debris,
 			result.moon,
 			result.diameter,
@@ -627,6 +629,8 @@ func (f *Fleet) generateReports(a *attacker, d *defender, fr fightResult, proxy 
 			f.ID,
 		},
 	}
+
+	// TODO: Should post a report for each participant.
 
 	return proxy.InsertToDB(query)
 }

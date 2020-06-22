@@ -64,6 +64,7 @@ DECLARE
 
   source_name text;
   source_coordinates text;
+  source_player_id uuid;
   source_player_name text;
 
   weapon_tech text;
@@ -84,10 +85,12 @@ BEGIN
     SELECT
       p.name,
       concat_ws(':', p.galaxy,  p.solar_system,  p.position),
+      f.player,
       pl.name
     INTO
       source_name,
       source_coordinates,
+      source_player_id,
       source_player_name
     FROM
       fleets AS f
@@ -124,7 +127,7 @@ BEGIN
     players_technologies AS pt
     INNER JOIN technologies AS t ON pt.technology = t.id
   WHERE
-    player = player_id
+    player = source_player_id
     AND t.name = 'weapons';
 
   SELECT
@@ -135,7 +138,7 @@ BEGIN
     players_technologies AS pt
     INNER JOIN technologies AS t ON pt.technology = t.id
   WHERE
-    player = player_id
+    player = source_player_id
     AND t.name = 'shielding';
 
   SELECT
@@ -146,7 +149,7 @@ BEGIN
     players_technologies AS pt
     INNER JOIN technologies AS t ON pt.technology = t.id
   WHERE
-    player = player_id
+    player = source_player_id
     AND t.name = 'armour';
 
   -- Compute the total amount of ships brought by
@@ -189,10 +192,9 @@ $$ LANGUAGE plpgsql;
 -- only be used for the owner of the planet where
 -- the fleet is fighting as it includes the sum
 -- of the defense systems existing on the planet.
-CREATE OR REPLACE FUNCTION fleet_fight_report_indigenous_participant(planet_id uuid, kind text, ships_remains json, def_remains json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fleet_fight_report_indigenous_participant(planet_id uuid, kind text, player_id uuid, ships_remains json, def_remains json) RETURNS VOID AS $$
 DECLARE
-  player_id uuid;
-
+  target_player_id uuid;
   target_name text;
   target_coordinates text;
   target_player_name text;
@@ -222,7 +224,7 @@ BEGIN
       concat_ws(':', p.galaxy,  p.solar_system,  p.position),
       pl.name
     INTO
-      player_id,
+      target_player_id,
       target_name,
       target_coordinates,
       target_player_name
@@ -240,7 +242,7 @@ BEGIN
       concat_ws(':', p.galaxy,  p.solar_system,  p.position),
       pl.name
     INTO
-      player_id,
+      target_player_id,
       target_name,
       target_coordinates,
       target_player_name
@@ -261,7 +263,7 @@ BEGIN
     players_technologies AS pt
     INNER JOIN technologies AS t ON pt.technology = t.id
   WHERE
-    player = player_id
+    player = target_player_id
     AND t.name = 'weapons';
 
   SELECT
@@ -272,7 +274,7 @@ BEGIN
     players_technologies AS pt
     INNER JOIN technologies AS t ON pt.technology = t.id
   WHERE
-    player = player_id
+    player = target_player_id
     AND t.name = 'shielding';
 
   SELECT
@@ -283,7 +285,7 @@ BEGIN
     players_technologies AS pt
     INNER JOIN technologies AS t ON pt.technology = t.id
   WHERE
-    player = player_id
+    player = target_player_id
     AND t.name = 'armour';
 
   -- The total amount of ships used by this player
@@ -486,9 +488,73 @@ $$ LANGUAGE plpgsql;
 -- in input. Reports for both participants will be
 -- generated assuming that the fleet is not part of
 -- an ACS operation
-CREATE OR REPLACE FUNCTION fight_report(fleet_id uuid) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fight_report(fleet_id uuid, outcome text, fleet_remains json, ships_remains json, def_remains json, pillage json, debris json, rebuilt json) RETURNS VOID AS $$
 DECLARE
+  source_player uuid;
+
+  target_kind text;
+  target_id uuid;
+  target_player uuid;
 BEGIN
-  -- TODO: Handle this.
+  -- Fetch the source and target players.
+  SELECT player INTO source_player FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid source player for fleet % in fight report operation', fleet_id;
+  END IF;
+
+  SELECT target_type INTO target_kind FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid target player for fleet % in fight report operation', fleet_id;
+  END IF;
+
+  IF target_kind = 'planet' THEN
+    SELECT
+      p.player,
+      f.target
+    INTO
+      target_player,
+      target_id
+    FROM
+      fleets AS f
+      INNER JOIN planets AS p ON f.target = p.id
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  IF target_kind = 'moon' THEN
+    SELECT
+      p.player,
+      f.target
+    INTO
+      target_player,
+      target_id
+    FROM
+      fleets AS f
+      INNER JOIN moons AS m ON f.target = m.id
+      INNER JOIN planets AS p ON m.planet = p.id
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  -- Post headers for each player.
+  PERFORM fleet_fight_report_header(fleet_id, source_player);
+  PERFORM fleet_fight_report_header(fleet_id, target_player);
+
+  -- Post participants for each player.
+  PERFORM fleet_fight_report_outsiders_participant(fleet_id, source_player, fleet_remains);
+  PERFORM fleet_fight_report_outsiders_participant(fleet_id, target_player, fleet_remains);
+
+  PERFORM fleet_fight_report_indigenous_participant(target_id, target_kind, source_player, ships_remains, def_remains);
+  PERFORM fleet_fight_report_indigenous_participant(target_id, target_kind, target_player, ships_remains, def_remains);
+
+  -- Post status for each player.
+  PERFORM fleet_fight_report_status(outcome, source_player);
+  PERFORM fleet_fight_report_status(outcome, target_player);
+
+  -- Post footer for each player.
+  PERFORM fight_report_footer(source_player, pillage, debris, rebuilt);
+  PERFORM fight_report_footer(target_player, pillage, debris, rebuilt);
+
+  -- TODO: Add other fleets (and thus reports for other players).
 END
 $$ LANGUAGE plpgsql;

@@ -118,7 +118,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 	// Post fight reports: we need one for each
 	// participant and a special one for the owner
 	// of the planet where the fight took place.
-	err = f.generateReports(&a, &d, result, data.Proxy)
+	err = f.generateReports(&a, &d, result, pillaged, data.Proxy)
 	if err != nil {
 		return "", ErrFleetFightSimulationFailure
 	}
@@ -607,10 +607,13 @@ func (f *Fleet) handleDumbMove(a attacker) bool {
 //
 // The `fr` defines the final result of the fight.
 //
+// The `pillage` defines the result of the pillage
+// performed by the attacker. Might be empty.
+//
 // The `proxy` allows to perform queries on the DB.
 //
 // Returns any error.
-func (f *Fleet) generateReports(a *attacker, d *defender, fr fightResult, proxy db.Proxy) error {
+func (f *Fleet) generateReports(a *attacker, d *defender, fr fightResult, pillage []model.ResourceAmount, proxy db.Proxy) error {
 	// We need to generate a report for the attacker and
 	// one for each defender. Each report is divided into
 	// several parts:
@@ -627,6 +630,13 @@ func (f *Fleet) generateReports(a *attacker, d *defender, fr fightResult, proxy 
 		Script: "fight_report",
 		Args: []interface{}{
 			f.ID,
+			fmt.Sprintf("%s", fr.outcome),
+			a.convertShips(f.ID),
+			d.convertShips(),
+			d.convertDefenses(),
+			pillage,
+			fr.debris,
+			fr.rebuilt,
 		},
 	}
 

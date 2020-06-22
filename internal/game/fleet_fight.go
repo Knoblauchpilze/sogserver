@@ -270,11 +270,15 @@ type aftermathDefense struct {
 //
 // The `diameter` defines the diameter of the
 // moon that has been created by this fight.
+//
+// The `rebuilt` defines how many defense
+// systems have been rebuilt after the fight.
 type fightResult struct {
 	debris   []model.ResourceAmount
 	outcome  FightOutcome
 	moon     bool
 	diameter int
+	rebuilt  int
 }
 
 // unit :
@@ -829,6 +833,7 @@ func (d *defender) defend(a *attacker, data Instance) (fightResult, error) {
 		outcome:  Victory,
 		moon:     false,
 		diameter: 0,
+		rebuilt:  0,
 	}
 
 	// Save the defenses so that we can try
@@ -908,7 +913,7 @@ func (d *defender) defend(a *attacker, data Instance) (fightResult, error) {
 	}
 
 	// Rebuilt destroyed defense systems.
-	d.reconstruct(initDefs, defenseRebuildRatio, data)
+	fr.rebuilt = d.reconstruct(initDefs, defenseRebuildRatio, data)
 
 	return fr, nil
 }
@@ -1205,7 +1210,10 @@ func (d *defender) addShipsDebris(units []unit, data Instance) error {
 // The `data` allows to notify information
 // about the rebuilt defense systems to the
 // user.
-func (d *defender) reconstruct(init []defenseInFight, rebuildRatio float32, data Instance) {
+//
+// Returns the amount of defense systmes that
+// have been rebuilt.
+func (d *defender) reconstruct(init []defenseInFight, rebuildRatio float32, data Instance) int {
 	// We first have to determine how many of each
 	// defense system has been destroyed. This will
 	// condition the number of trials that we have
@@ -1221,6 +1229,8 @@ func (d *defender) reconstruct(init []defenseInFight, rebuildRatio float32, data
 		des := (init[id].Count - def.Count)
 		destroyed[id] = des
 	}
+
+	reconstructed := 0
 
 	// Reconstruct the defense systems based on the
 	// amount that was destroyed.
@@ -1243,7 +1253,11 @@ func (d *defender) reconstruct(init []defenseInFight, rebuildRatio float32, data
 		}
 
 		d.defenses[id].Count += rebuilt
+
+		reconstructed += rebuilt
 	}
+
+	return reconstructed
 }
 
 // fire :

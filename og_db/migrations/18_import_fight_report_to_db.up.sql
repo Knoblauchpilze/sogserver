@@ -556,5 +556,8 @@ BEGIN
   PERFORM fight_report_footer(target_player, pillage, debris, rebuilt);
 
   -- TODO: Add other fleets (and thus reports for other players).
+  -- To do that we could add the list of fleets that were considered
+  -- in the fight, the problem being that we should also add the
+  -- `fleet_remains` for each one of them.
 END
 $$ LANGUAGE plpgsql;

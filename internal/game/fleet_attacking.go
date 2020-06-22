@@ -641,6 +641,7 @@ func (f *Fleet) generateReports(a *attacker, d *defender, fr fightResult, pillag
 	}
 
 	// TODO: Should post a report for each participant.
+	// TODO: Maybe we should remove this function.
 
 	return proxy.InsertToDB(query)
 }

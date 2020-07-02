@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"oglike_server/internal/model"
+	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
 	"time"
 )
@@ -114,6 +115,9 @@ type shipsUnit []shipInFight
 // can reduce drastically the amount of some
 // specific units).
 //
+// The `participants` defines the list of
+// players registered in this attack.
+//
 // The `units` define the list of individual
 // group of ships composing this attacker.
 //
@@ -124,9 +128,10 @@ type shipsUnit []shipInFight
 // The `log` allows to notify information
 // during the simulation of the fight.
 type attacker struct {
-	units     []shipsUnit
-	usedCargo float32
-	log       logger.Logger
+	participants []string
+	units        []shipsUnit
+	usedCargo    float32
+	log          logger.Logger
 }
 
 // defender :
@@ -147,10 +152,22 @@ type attacker struct {
 // reset in order to make sure that the
 // fight is repeatable if needed.
 //
+// The `mainDef` defines the identifier
+// of the main defender in the fight. it
+// corresponds to the player owning the
+// planet/moon where the fight is taking
+// place.
+//
 // The `indigenous` defines the ships that
 // are deployed on the moon/planet where
 // the fight is taking plance and belong
 // to the owner of the celestial body.
+//
+// The `participants` defines the list
+// of all players participating to the
+// defense of the planet/moon. Should
+// correspond to the players owning a
+// fleet in the `fleets` array.
 //
 // The `fleets` represents the list of IDs
 // of fleets that are part of the fight as
@@ -186,7 +203,9 @@ type attacker struct {
 type defender struct {
 	seed            int64
 	rng             *rand.Rand
+	mainDef         string
 	indigenous      shipsUnit
+	participants    []string
 	fleets          []string
 	reinforcements  shipsUnit
 	defenses        []defenseInFight
@@ -232,6 +251,26 @@ func (fo FightOutcome) String() string {
 	}
 
 	return "\"unknown\""
+}
+
+// aftermathShip :
+// Allow to count ships belonging to each
+// fleet after a fight: it helps building
+// the report for each participant to a
+// fleet fight.
+//
+// The `Fleet` defines the fleet to which
+// the ship belongs.
+//
+// The `ID` defines the identifier of the
+// ship.
+//
+// The `Count` defines how many of this
+// ships remain after the fight.
+type aftermathShip struct {
+	Fleet string `json:"fleet"`
+	ID    string `json:"ships"`
+	Count int    `json:"count"`
 }
 
 // aftermathDefense :
@@ -379,7 +418,7 @@ var minMoonDiameter float32 = 3464.0
 // maxMoonDiameter : Defines the maximum diameter for a moon.
 var maxMoonDiameter float32 = 8944.0
 
-// convertShips :
+// convertShipsForFleet :
 // Used to convert the ships registered for
 // this attacker into a marshallable struct
 // that can be used to modify the content of
@@ -388,9 +427,10 @@ var maxMoonDiameter float32 = 8944.0
 // The `fleet` defines the identifier of the
 // fleet to which the ships should belong in
 // order to be considered for the marshalling.
+// In case it is empty all ships will be
 //
 // Returns the converted interface for ships.
-func (a attacker) convertShips(fleet string) interface{} {
+func (a attacker) convertShipsForFleet(fleet string) interface{} {
 	ships := make([]ShipInFleet, 0)
 
 	// Note that we will traverse only the units
@@ -409,6 +449,41 @@ func (a attacker) convertShips(fleet string) interface{} {
 			// destroyed to update the corresponding
 			// entry in the DB for this fleet.
 			sif := ShipInFleet{
+				ID:    s.Ship,
+				Count: s.Count,
+			}
+
+			ships = append(ships, sif)
+		}
+	}
+
+	return ships
+}
+
+// convertShips :
+// Used to convert the ships registered for
+// this attacker into a marshallable struct
+// that can be used to modify the content of
+// the DB. Unlike the above method no fleet
+// is considered in particular.
+//
+// The `fleet` defines the identifier of the
+// fleet to which the ships should belong in
+// order to be considered for the marshalling.
+// In case it is empty all ships will be
+//
+// Returns the converted interface for ships.
+func (a attacker) convertShips() []aftermathShip {
+	ships := make([]aftermathShip, 0)
+
+	// Note that we will traverse only the units
+	// that are owned by the planet itself: the
+	// fleets that might have come to defend will
+	// be marshalled in a different step.
+	for _, unit := range a.units {
+		for _, s := range unit {
+			sif := aftermathShip{
+				Fleet: s.Fleet,
 				ID:    s.Ship,
 				Count: s.Count,
 			}
@@ -551,6 +626,7 @@ func newDefender(seed int64, uni string, data Instance) (defender, error) {
 		seed:           seed,
 		rng:            rand.New(rngSource),
 		indigenous:     make(shipsUnit, 0),
+		participants:   make([]string, 0),
 		fleets:         make([]string, 0),
 		reinforcements: make(shipsUnit, 0),
 		defenses:       make([]defenseInFight, 0),
@@ -579,7 +655,7 @@ func newDefender(seed int64, uni string, data Instance) (defender, error) {
 // the DB.
 //
 // Returns the converted interface for ships.
-func (d *defender) convertShips() interface{} {
+func (d *defender) convertShips() []ShipInFleet {
 	ships := make([]ShipInFleet, 0)
 
 	// Note that we will traverse only the units
@@ -603,7 +679,7 @@ func (d *defender) convertShips() interface{} {
 	return ships
 }
 
-// convertFleet :
+// convertShipsForFleet :
 // Used to convert the ships registered for
 // the input fleet as reinforcements of the
 // defender. The content is returned into a
@@ -614,7 +690,7 @@ func (d *defender) convertShips() interface{} {
 // to defend the planet should be fetched.
 //
 // Returns the converted interface for ships.
-func (d *defender) convertFleet(fleet string) interface{} {
+func (d *defender) convertShipsForFleet(fleet string) interface{} {
 	ships := make([]ShipInFleet, 0)
 
 	// Note that we will traverse only the units
@@ -639,6 +715,33 @@ func (d *defender) convertFleet(fleet string) interface{} {
 	return ships
 }
 
+// convertAttackerShips :
+// Used to convert the defender ships sent
+// to protect the defender into a single
+// array registering the ships and their
+// parent fleet.
+//
+// Returns the converted interface for ships.
+func (d defender) convertAttackerShips() []aftermathShip {
+	ships := make([]aftermathShip, 0)
+
+	// Note that we will traverse only the units
+	// that are owned by the planet itself: the
+	// fleets that might have come to defend will
+	// be marshalled in a different step.
+	for _, s := range d.reinforcements {
+		sif := aftermathShip{
+			Fleet: s.Fleet,
+			ID:    s.Ship,
+			Count: s.Count,
+		}
+
+		ships = append(ships, sif)
+	}
+
+	return ships
+}
+
 // convertDefenses :
 // Used to convert the defenses registered for
 // this defender into a marshallable structure
@@ -647,7 +750,6 @@ func (d *defender) convertFleet(fleet string) interface{} {
 //
 // Returns the converted interface for defenses.
 func (d *defender) convertDefenses() interface{} {
-
 	defs := make([]aftermathDefense, 0)
 
 	for _, def := range d.defenses {
@@ -1258,6 +1360,68 @@ func (d *defender) reconstruct(init []defenseInFight, rebuildRatio float32, data
 	}
 
 	return reconstructed
+}
+
+// generateReports :
+// Used to perform the generation of the reports after
+// a fight for all participants. It will analyze the
+// result of the fight so that a comprehensive report
+// is generated.
+//
+// The `a` defines the attacker that was involved in
+// the attack. It contains the remains of the attacking
+// ships.
+//
+// The `d` defines the remains of the defender fleet
+// for this fight.
+//
+// The `fr` defines the final result of the fight.
+//
+// The `pillage` defines the result of the pillage
+// performed by the attacker. Might be empty.
+//
+// The `proxy` allows to perform queries on the DB.
+//
+// Returns any error.
+func (d *defender) generateReports(a *attacker, fr fightResult, pillage []model.ResourceAmount, proxy db.Proxy) error {
+	// We need to generate a report for the attacker and
+	// one for each defender. Each report is divided into
+	// several parts:
+	//  1. the header
+	//  2. the participants
+	//  3. the status
+	//  4. the footer
+	//  5. the final report
+	// Failure to generate any part of any of the reports
+	// will be reported. For convenience we will use the
+	// dedicated DB script which will make sure that no
+	// report can be generated incompletely.
+
+	// Convert the remaining ships of both the attackers
+	// and the defenders.
+	remains := a.convertShips()
+	defenderRemains := d.convertAttackerShips()
+
+	remains = append(remains, defenderRemains...)
+
+	// Create the query and execute it.
+	query := db.InsertReq{
+		Script: "fight_report",
+		Args: []interface{}{
+			a.participants,
+			d.participants,
+			d.mainDef,
+			fmt.Sprintf("%s", fr.outcome),
+			remains,
+			d.convertShips(),
+			d.convertDefenses(),
+			pillage,
+			fr.debris,
+			fr.rebuilt,
+		},
+	}
+
+	return proxy.InsertToDB(query)
 }
 
 // fire :

@@ -118,7 +118,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 	// Post fight reports: we need one for each
 	// participant and a special one for the owner
 	// of the planet where the fight took place.
-	err = f.generateReports(&a, &d, result, pillaged, data.Proxy)
+	err = d.generateReports(&a, result, pillaged, data.Proxy)
 	if err != nil {
 		return "", ErrFleetFightSimulationFailure
 	}
@@ -164,7 +164,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 			Script: "fleet_fight_aftermath",
 			Args: []interface{}{
 				fID,
-				d.convertFleet(fID),
+				d.convertShipsForFleet(fID),
 				emptyRes,
 				fmt.Sprintf("%s", result.outcome),
 			},
@@ -181,7 +181,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 		Script: "fleet_fight_aftermath",
 		Args: []interface{}{
 			f.ID,
-			a.convertShips(f.ID),
+			a.convertShipsForFleet(f.ID),
 			carried,
 			fmt.Sprintf("%s", result.outcome),
 		},
@@ -225,6 +225,10 @@ func (p *Planet) toDefender(data Instance, moment time.Time) (defender, error) {
 	if err != nil {
 		return d, err
 	}
+
+	// Assign the main defender: it is the player
+	// owning this celestial body.
+	d.mainDef = p.Player
 
 	// Fetch the fighting technologies for the player
 	// owning the planet so that we can update the
@@ -350,6 +354,8 @@ func (p *Planet) toDefender(data Instance, moment time.Time) (defender, error) {
 		return d, err
 	}
 
+	playersRegistered := make(map[string]bool)
+
 	for _, fID := range p.IncomingFleets {
 		// Fetch the fleet.
 		f, err := NewFleetFromDB(fID, data)
@@ -374,6 +380,11 @@ func (p *Planet) toDefender(data Instance, moment time.Time) (defender, error) {
 
 		// This fleet is part of the reinforcement forces
 		// for this fight.
+		_, ok := playersRegistered[f.Player]
+		if !ok {
+			d.participants = append(d.participants, f.Player)
+			playersRegistered[f.Player] = true
+		}
 		d.fleets = append(d.fleets, f.ID)
 
 		// We need to include the ships of this fleet
@@ -446,8 +457,9 @@ func (p *Planet) toDefender(data Instance, moment time.Time) (defender, error) {
 // planet along with any error.
 func (f *Fleet) toAttacker(data Instance) (attacker, error) {
 	a := attacker{
-		usedCargo: f.usedCargoSpace(),
-		log:       data.log,
+		participants: []string{f.Player},
+		usedCargo:    f.usedCargoSpace(),
+		log:          data.log,
 	}
 
 	// A fleet only has a single batch of ships.
@@ -590,58 +602,4 @@ func (f *Fleet) handleDumbMove(a attacker) bool {
 	}
 
 	return false
-}
-
-// generateReports :
-// Used to perform the generation of the reports after
-// a fight for all participants. It will analyze the
-// result of the fight so that a comprehensive report
-// is generated.
-//
-// The `a` defines the attacker that was involved in
-// the attack. It contains the remains of the attacking
-// ships.
-//
-// The `d` defines the remains of the defender fleet
-// for this fight.
-//
-// The `fr` defines the final result of the fight.
-//
-// The `pillage` defines the result of the pillage
-// performed by the attacker. Might be empty.
-//
-// The `proxy` allows to perform queries on the DB.
-//
-// Returns any error.
-func (f *Fleet) generateReports(a *attacker, d *defender, fr fightResult, pillage []model.ResourceAmount, proxy db.Proxy) error {
-	// We need to generate a report for the attacker and
-	// one for each defender. Each report is divided into
-	// several parts:
-	//  1. the header
-	//  2. the participants
-	//  3. the status
-	//  4. the footer
-	//  5. the final report
-	// Failure to generate any part of any of the reports
-	// will be reported. For convenience we will use the
-	// dedicated DB script which will make sure that no
-	// report can be generated incompletely.
-	query := db.InsertReq{
-		Script: "fight_report",
-		Args: []interface{}{
-			f.ID,
-			fmt.Sprintf("%s", fr.outcome),
-			a.convertShips(f.ID),
-			d.convertShips(),
-			d.convertDefenses(),
-			pillage,
-			fr.debris,
-			fr.rebuilt,
-		},
-	}
-
-	// TODO: Should post a report for each participant.
-	// TODO: Maybe we should remove this function.
-
-	return proxy.InsertToDB(query)
 }

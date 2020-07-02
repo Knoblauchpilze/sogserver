@@ -547,9 +547,12 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 	// desired joining time so we can just traverse
 	// the slice from the beginning to the end.
 	a := attacker{
-		units:     make([]shipsUnit, 0),
-		usedCargo: cargo,
+		participants: make([]string, 0),
+		units:        make([]shipsUnit, 0),
+		usedCargo:    cargo,
 	}
+
+	attackers := make(map[string]bool)
 
 	for _, f := range fleets {
 		att, err := f.toAttacker(data)
@@ -558,6 +561,15 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 		}
 
 		a.units = append(a.units, att.units...)
+
+		// Register new participants.
+		for _, p := range att.participants {
+			_, ok := attackers[p]
+			if !ok {
+				a.participants = append(a.participants, p)
+				attackers[p] = true
+			}
+		}
 	}
 
 	// Create the defender from the planet.
@@ -644,7 +656,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 			Script: "fleet_fight_aftermath",
 			Args: []interface{}{
 				f.ID,
-				a.convertShips(f.ID),
+				a.convertShipsForFleet(f.ID),
 				pillageForFleet,
 				fmt.Sprintf("%s", result.outcome),
 			},

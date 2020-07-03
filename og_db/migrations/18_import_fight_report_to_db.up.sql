@@ -1,31 +1,20 @@
 
 -- Generate the fight report header. The report will
 -- be posted for the player specified in input.
-CREATE OR REPLACE FUNCTION fleet_fight_report_header(player_id uuid, fleet_id uuid) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fleet_fight_report_header(player_id uuid, planet_id uuid, planet_kind text) RETURNS VOID AS $$
 DECLARE
-  target_kind text;
-
-  target_name text;
-  target_coordinates text;
+  planet_name text;
+  planet_coordinates text;
   moment text;
 BEGIN
-  -- Select the name of the planet where the fight took
-  -- place. It can either be a planet or a moon. We will
-  -- also fetch the coordinates of the planet along with
-  -- the date at which the fight occurred.
-  SELECT target_type INTO target_kind FROM fleets WHERE id = fleet_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid target type for fleet % in fleet fight report header operation', fleet_id;
-  END IF;
-
-  IF target_kind = 'planet' THEN
+  IF planet_kind = 'planet' THEN
     SELECT
       p.name,
       concat_ws(':', p.galaxy,  p.solar_system,  p.position),
       to_char(f.arrival_time, 'MM-DD-YYYY HH24:MI:SS')
     INTO
-      target_name,
-      target_coordinates,
+      planet_name,
+      planet_coordinates,
       moment
     FROM
       fleets AS f
@@ -34,14 +23,14 @@ BEGIN
       f.id = fleet_id;
   END IF;
 
-  IF target_kind = 'moon' THEN
+  IF planet_kind = 'moon' THEN
     SELECT
       m.name,
       concat_ws(':', p.galaxy,  p.solar_system,  p.position),
       to_char(f.arrival_time, 'MM-DD-YYYY HH24:MI:SS')
     INTO
-      target_name,
-      target_coordinates,
+      planet_name,
+      planet_coordinates,
       moment
     FROM
       fleets AS f
@@ -52,13 +41,13 @@ BEGIN
   END IF;
 
   -- Create the message for the specified player.
-  PERFORM create_message_for(player_id, 'fight_report_header', target_name, target_coordinates, moment);
+  PERFORM create_message_for(player_id, 'fight_report_header', planet_name, planet_coordinates, moment);
 END
 $$ LANGUAGE plpgsql;
 
 -- Generate the list of forces in a fleet fight and
 -- post the created report to the specified player.
-CREATE OR REPLACE FUNCTION fleet_fight_report_outsiders_participant(player_id uuid, fleet_id uuid, remains json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fleet_fight_report_outsider_participant(player_id uuid, fleet_id uuid, remains json) RETURNS VOID AS $$
 DECLARE
   source_kind text;
 
@@ -164,10 +153,13 @@ BEGIN
   -- resources that can be dispersed.
   WITH rs AS (
     SELECT
+      t.fid,
       t.ship,
       t.count
     FROM
-      json_to_recordset(remains) AS t(ship uuid, count integer)
+      json_to_recordset(remains) AS t(fid uuid, ship uuid, count integer)
+    WHERE
+      t.fid = fleet_id
     )
   SELECT
     COALESCE(SUM(sc.cost), 0)
@@ -422,7 +414,7 @@ $$ LANGUAGE plpgsql;
 -- Generate the report indicating the final result
 -- of the fight including the generated debris field
 -- and the plundered resources if any.
-CREATE OR REPLACE FUNCTION fight_report_footer(player_id uuid, pillage json, debris json, rebuilt json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fleet_fight_report_footer(player_id uuid, pillage json, debris json, rebuilt json) RETURNS VOID AS $$
 DECLARE
   resources_pillaged text;
   resources_dispersed text;
@@ -461,9 +453,7 @@ BEGIN
     rp
     INNER JOIN resources AS r ON rp.resource = r.id;
 
-  -- Generate the count of rebuilt units. We need to
-  -- compute the difference between the existing units
-  -- and the ones that remain.
+  -- Generate the count of rebuilt units.
   WITH ru AS (
     SELECT
       t.defense,
@@ -488,13 +478,67 @@ $$ LANGUAGE plpgsql;
 -- in input. Reports for both participants will be
 -- generated assuming that the fleet is not part of
 -- an ACS operation
-CREATE OR REPLACE FUNCTION fight_report(attackers json, defenders json, indigenous uuid, outcome text, fleet_remains json, ships_remains json, def_remains json, pillage json, debris json, rebuilt json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fight_report(players json, fleets json, indigenous uuid, planet_id uuid, planet_kind text, outcome text, fleet_remains json, ships_remains json, def_remains json, pillage json, debris json, rebuilt json) RETURNS VOID AS $$
+DECLARE
+  player_txt text;
+  fleet_txt text;
+
+  fleet_target_kind text;
+  fleet_target uuid;
+
+  player_id uuid;
+  fleet_id uuid;
 BEGIN
-  -- Post each part of the report.
-  PERFORM fleet_fight_report_header(player_id, fleet_id);
-  PERFORM fleet_fight_report_outsiders_participant(player_id, fleet_id, fleet_remains);
-  PERFORM fleet_fight_report_indigenous_participant(player_id, target_id, target_kind, ships_remains, def_remains);
-  PERFORM fleet_fight_report_status(player_id, outcome);
-  PERFORM fight_report_footer(player_id, pillage, debris, rebuilt);
+  -- Post each part of the report. We need to post
+  -- a full report to each of the players that are
+  -- defined in the `attackers` and `defenders`
+  -- arrays and also to the `indigenous` guy.
+  -- Some part of the reports are actually always
+  -- the same and should be sent only once per
+  -- player.
+  -- The `attackers` and `defenders` on the other
+  -- hand contain duplicates if a player has more
+  -- than one fleet participating to the fight.
+  
+  -- Post fight report headers for all players
+  -- along with the footer and the status.
+  FOR player_id IN SELECT player::uuid FROM json_object_keys(players)
+  LOOP
+    PERFORM fleet_fight_report_header(player_id, planet_id, planet_kind);
+    PERFORM fleet_fight_report_status(player_id, outcome);
+    PERFORM fight_report_footer(player_id, pillage, debris, rebuilt);
+  END LOOP;
+
+  -- We can now generate participants for all the
+  -- players involved. It includes posting for
+  -- each attacker and defender the contributions
+  -- of all other participants (except themselves).
+  FOR player_id IN SELECT player::uuid FROM json_object_keys(players)
+  LOOP
+    -- While looping on players, post all the
+    -- fleets participating to the fight.
+    FOR fleet_id IN SELECT fleet::uuid FROM json_object_keys(fleets)
+    LOOP
+      -- Generate report for the current player.
+      PERFORM fleet_fight_report_outsiders_participant(player_id, fleet_id, fleet_remains);
+    END LOOP;
+
+    -- Don't forget the indigenous guy.
+    PERFORM fleet_fight_report_indigenous_participant(player_id, planet_id, planet_kind, ships_remains, def_remains);
+  END LOOP;
+
+  -- Generate the fight report for the indigenous
+  -- guy as well.
+  PERFORM fleet_fight_report_header(indigenous, planet_id, planet_kind);
+  PERFORM fleet_fight_report_status(indigenous, outcome);
+  PERFORM fleet_fight_report_footer(indigenous, pillage, debris, rebuilt);
+
+  FOR fleet_id IN SELECT fleet::uuid FROM json_object_keys(fleets)
+  LOOP
+    PERFORM fleet_fight_report_outsiders_participant(indigenous, fleet_id, fleet_remains);
+  END LOOP;
+
+  -- Don't forget the indigenous guy.
+  PERFORM fleet_fight_report_indigenous_participant(indigenous, planet_id, planet_kind, ships_remains, def_remains);
 END
 $$ LANGUAGE plpgsql;

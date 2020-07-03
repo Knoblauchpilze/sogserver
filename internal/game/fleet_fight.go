@@ -118,6 +118,10 @@ type shipsUnit []shipInFight
 // The `participants` defines the list of
 // players registered in this attack.
 //
+// The `fleets` represents the list of IDs
+// of fleets that are part of the fight as
+// reinforcement on the defender.
+//
 // The `units` define the list of individual
 // group of ships composing this attacker.
 //
@@ -129,6 +133,7 @@ type shipsUnit []shipInFight
 // during the simulation of the fight.
 type attacker struct {
 	participants []string
+	fleets       []string
 	units        []shipsUnit
 	usedCargo    float32
 	log          logger.Logger
@@ -157,6 +162,14 @@ type attacker struct {
 // corresponds to the player owning the
 // planet/moon where the fight is taking
 // place.
+//
+// The `location` defines the identifier
+// of the location where the fight is
+// taking place: can be either an ID of
+// a planet or a moon.
+//
+// The `moon` is `true` if the `location`
+// refers to a moon.
 //
 // The `indigenous` defines the ships that
 // are deployed on the moon/planet where
@@ -204,6 +217,8 @@ type defender struct {
 	seed            int64
 	rng             *rand.Rand
 	mainDef         string
+	location        string
+	moon            bool
 	indigenous      shipsUnit
 	participants    []string
 	fleets          []string
@@ -715,14 +730,14 @@ func (d *defender) convertShipsForFleet(fleet string) interface{} {
 	return ships
 }
 
-// convertAttackerShips :
+// convertReinforcementShips :
 // Used to convert the defender ships sent
 // to protect the defender into a single
 // array registering the ships and their
 // parent fleet.
 //
 // Returns the converted interface for ships.
-func (d defender) convertAttackerShips() []aftermathShip {
+func (d defender) convertReinforcementShips() []aftermathShip {
 	ships := make([]aftermathShip, 0)
 
 	// Note that we will traverse only the units
@@ -1400,9 +1415,21 @@ func (d *defender) generateReports(a *attacker, fr fightResult, pillage []model.
 	// Convert the remaining ships of both the attackers
 	// and the defenders.
 	remains := a.convertShips()
-	defenderRemains := d.convertAttackerShips()
+	defenderRemains := d.convertReinforcementShips()
 
 	remains = append(remains, defenderRemains...)
+
+	// Create the involved fleets and players.
+	players := a.participants
+	players = append(players, d.participants...)
+
+	fleets := a.fleets
+	fleets = append(fleets, d.fleets...)
+
+	kind := "planet"
+	if d.moon {
+		kind = "moon"
+	}
 
 	// Create the query and execute it.
 	query := db.InsertReq{
@@ -1411,6 +1438,8 @@ func (d *defender) generateReports(a *attacker, fr fightResult, pillage []model.
 			a.participants,
 			d.participants,
 			d.mainDef,
+			d.location,
+			kind,
 			fmt.Sprintf("%s", fr.outcome),
 			remains,
 			d.convertShips(),

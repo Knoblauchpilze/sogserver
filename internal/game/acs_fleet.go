@@ -548,6 +548,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 	// the slice from the beginning to the end.
 	a := attacker{
 		participants: make([]string, 0),
+		fleets:       make([]string, 0),
 		units:        make([]shipsUnit, 0),
 		usedCargo:    cargo,
 	}
@@ -562,7 +563,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 
 		a.units = append(a.units, att.units...)
 
-		// Register new participants.
+		// Register new participants and fleets.
 		for _, p := range att.participants {
 			_, ok := attackers[p]
 			if !ok {
@@ -570,6 +571,8 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 				attackers[p] = true
 			}
 		}
+
+		a.fleets = append(a.fleets, f.ID)
 	}
 
 	// Create the defender from the planet.

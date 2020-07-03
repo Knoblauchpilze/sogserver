@@ -34,6 +34,8 @@ import (
 // https://lng.xooit.com/t1488-Mettre-en-page-un-RC-avec-ogame-winner.htm
 // TODO: We should probably indicate the parent fight report's id in
 // each part of the report.
+// TODO: Also, the participants cannot be easily identified as either
+// attackers or defenders.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

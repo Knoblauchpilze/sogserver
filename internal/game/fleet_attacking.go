@@ -229,6 +229,8 @@ func (p *Planet) toDefender(data Instance, moment time.Time) (defender, error) {
 	// Assign the main defender: it is the player
 	// owning this celestial body.
 	d.mainDef = p.Player
+	d.location = p.ID
+	d.moon = p.Moon
 
 	// Fetch the fighting technologies for the player
 	// owning the planet so that we can update the
@@ -385,6 +387,7 @@ func (p *Planet) toDefender(data Instance, moment time.Time) (defender, error) {
 			d.participants = append(d.participants, f.Player)
 			playersRegistered[f.Player] = true
 		}
+
 		d.fleets = append(d.fleets, f.ID)
 
 		// We need to include the ships of this fleet
@@ -458,6 +461,7 @@ func (p *Planet) toDefender(data Instance, moment time.Time) (defender, error) {
 func (f *Fleet) toAttacker(data Instance) (attacker, error) {
 	a := attacker{
 		participants: []string{f.Player},
+		fleets:       []string{f.ID},
 		usedCargo:    f.usedCargoSpace(),
 		log:          data.log,
 	}

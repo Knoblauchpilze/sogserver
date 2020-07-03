@@ -621,7 +621,10 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 	}
 
 	// Post fight reports.
-	// TODO: Handle this.
+	err = d.generateReports(&a, result, pillage, data.Proxy)
+	if err != nil {
+		return ErrFleetFightSimulationFailure
+	}
 
 	// Update the planet's data in the DB.
 	query := db.InsertReq{

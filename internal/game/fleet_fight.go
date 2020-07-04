@@ -1411,6 +1411,13 @@ func (d *defender) generateReports(a *attacker, fr fightResult, pillage []model.
 	// will be reported. For convenience we will use the
 	// dedicated DB script which will make sure that no
 	// report can be generated incompletely.
+	// Note that the structure of the report was taken
+	// from this link:
+	// https://lng.xooit.com/t1488-Mettre-en-page-un-RC-avec-ogame-winner.htm
+	// Which provide useful information in the case of a
+	// single attacker and defender. We extrapolated for
+	// the case of an ACS operation or when some defenders
+	// are also participating to the fight.
 
 	// Convert the remaining ships of both the attackers
 	// and the defenders.

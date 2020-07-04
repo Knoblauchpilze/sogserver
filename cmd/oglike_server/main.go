@@ -27,15 +27,7 @@ import (
 // on the `planet` endpoint to fetch the info accessible given the info
 // level provided by the spying. This would play nicely with the sort of
 // authentication through tokens to access endpoints.
-// In the case of a fight report we could maybe save only the rng seed
-// used during the fight along some modifications like the techno of the
-// attackers (or maybe just fecthing them when the message is actually
-// interpreted is enough) and the amount of ships.
 // https://lng.xooit.com/t1488-Mettre-en-page-un-RC-avec-ogame-winner.htm
-// TODO: We should probably indicate the parent fight report's id in
-// each part of the report.
-// TODO: Also, the participants cannot be easily identified as either
-// attackers or defenders.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

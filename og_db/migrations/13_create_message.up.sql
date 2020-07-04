@@ -111,7 +111,7 @@ INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'fight_report',
-    '$REPORT_HEADER $REPORT_PARTICIPANTS $REPORT_RESULT $REPORT_FOOTER'
+    '$REPORT_HEADER $REPORT_RESULT $REPORT_FOOTER $REPORT_ATTACKERS $REPORT_DEFENDERS'
   );
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
@@ -123,7 +123,7 @@ INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'fight_report_participant',
-    '$PLAYER_NAME, $PLANET_NAME $COORD. Ships/Defense systems $UNITS_COUNT Unit(s) lost: $UNITS_LOST_COUNT Weapons: $WEAPONS_TECH% Shielding: $SHIELDING_TECH% Armour: $ARMOUR_TECH%'
+    '$ATTACKER $PLAYER_NAME, $PLANET_NAME $COORD. Ships/Defense systems $UNITS_COUNT Unit(s) lost: $UNITS_LOST_COUNT Weapons: $WEAPONS_TECH% Shielding: $SHIELDING_TECH% Armour: $ARMOUR_TECH%'
   );
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(

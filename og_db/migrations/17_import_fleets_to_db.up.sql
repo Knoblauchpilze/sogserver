@@ -1,7 +1,7 @@
 
 -- Create a function allowing to register a message with
 -- the specified type for a given player.
-CREATE OR REPLACE FUNCTION create_message_for(player_id uuid, message_name text, VARIADIC args text[]) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION create_message_for(player_id uuid, message_name text, VARIADIC args text[]) RETURNS uuid AS $$
 DECLARE
   msg_id uuid := uuid_generate_v4();
   pos integer := 0;
@@ -28,6 +28,8 @@ BEGIN
 
     pos := pos + 1;
   END LOOP;
+
+  RETURN msg_id;
 END
 $$ LANGUAGE plpgsql;
 

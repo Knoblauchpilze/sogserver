@@ -381,11 +381,14 @@ func (p *Planet) toDefender(data Instance, moment time.Time) (defender, error) {
 		}
 
 		// This fleet is part of the reinforcement forces
-		// for this fight.
-		_, ok := playersRegistered[f.Player]
-		if !ok {
-			d.participants = append(d.participants, f.Player)
-			playersRegistered[f.Player] = true
+		// for this fight. Note that we *don't* register
+		// the main defender as a participant.
+		if f.Player != d.mainDef {
+			_, ok := playersRegistered[f.Player]
+			if !ok {
+				d.participants = append(d.participants, f.Player)
+				playersRegistered[f.Player] = true
+			}
 		}
 
 		d.fleets = append(d.fleets, f.ID)

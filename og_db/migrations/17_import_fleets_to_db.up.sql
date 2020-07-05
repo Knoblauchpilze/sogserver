@@ -1037,7 +1037,7 @@ BEGIN
         t.resource,
         t.amount
       FROM
-        json_to_recordset(pillage) AS t(resource uuid, count integer)
+        json_to_recordset(pillage) AS t(resource uuid, amount numeric(15, 5))
       )
     UPDATE planets_resources AS pr
       SET amount = pr.amount - rp.amount
@@ -1045,7 +1045,7 @@ BEGIN
       rp
     WHERE
       pr.planet = target_id
-      AND pr.res = rp.res;
+      AND pr.res = rp.resource;
 
     WITH rs AS (
       SELECT
@@ -1098,7 +1098,7 @@ BEGIN
         t.resource,
         t.amount
       FROM
-        json_to_recordset(pillage) AS t(resource uuid, count integer)
+        json_to_recordset(pillage) AS t(resource uuid, amount numeric(15, 5))
       )
     UPDATE moons_resources AS mr
       SET amount = mr.amount - rp.amount
@@ -1106,7 +1106,7 @@ BEGIN
       rp
     WHERE
       mr.moon = target_id
-      AND mr.res = rp.res;
+      AND mr.res = rp.resource;
 
     WITH rs AS (
       SELECT
@@ -1269,12 +1269,6 @@ BEGIN
   WHERE
     fs.fleet = fleet_id
     AND fs.ship = rs.ship;
-
-  -- Handle the creation of the fight report for the
-  -- attacking player before deleting the fleet. We
-  -- don't know for sure that this will happen but
-  -- we handle this now to be on the safe side.
-  PERFORM fleet_fight_report(fleet_id);
 
   -- Delete empty entries in the `fleets_ships` table.
   DELETE FROM fleets_ships WHERE fleet = fleet_id AND count = 0;

@@ -311,6 +311,9 @@ type aftermathDefense struct {
 // between the incoming fleets is not processed
 // at this step.
 //
+// The `date` defines the moment in time at
+// which the fight took place.
+//
 // The `debris` defines the resources that are
 // dispersed in the debris field created by
 // the fight. Might be empty in case no ships
@@ -328,6 +331,7 @@ type aftermathDefense struct {
 // The `rebuilt` defines how many defense
 // systems have been rebuilt after the fight.
 type fightResult struct {
+	date     time.Time
 	debris   []model.ResourceAmount
 	outcome  FightOutcome
 	moon     bool
@@ -927,6 +931,12 @@ func (d *defender) convertToUnits() defenderUnits {
 // The `a` defines the attacker that tries
 // to eradicate the defender.
 //
+// The `moment` defines when the fight is
+// actually taking place. It is used as a
+// way to ensure that various computations
+// always use the same timestamp throughout
+// the fight.
+//
 // The `data` defines a way to access to
 // the ships and defense systems information
 // from the DB.
@@ -934,7 +944,7 @@ func (d *defender) convertToUnits() defenderUnits {
 // The return value is `nil` in case the
 // fight went well and contain the summary
 // of the fight.
-func (d *defender) defend(a *attacker, data Instance) (fightResult, error) {
+func (d *defender) defend(a *attacker, moment time.Time, data Instance) (fightResult, error) {
 	// The process of the combat is explained
 	// quite thoroughly in the following link:
 	// https://ogame.fandom.com/wiki/Combat
@@ -946,6 +956,7 @@ func (d *defender) defend(a *attacker, data Instance) (fightResult, error) {
 	// Destroyed units are removed at the end
 	// of the round.
 	fr := fightResult{
+		date:     moment,
 		debris:   make([]model.ResourceAmount, 0),
 		outcome:  Victory,
 		moon:     false,
@@ -1427,11 +1438,46 @@ func (d *defender) generateReports(a *attacker, fr fightResult, pillage []model.
 	remains = append(remains, defenderRemains...)
 
 	// Create the involved fleets and players.
-	players := a.participants
-	players = append(players, d.participants...)
+	type reportPlayer struct {
+		Player string `json:"player"`
+	}
+	type reportFleet struct {
+		Fleet string `json:"fleet"`
+	}
 
-	fleets := a.fleets
-	fleets = append(fleets, d.fleets...)
+	players := make([]reportPlayer, 0)
+	for _, p := range a.participants {
+		rp := reportPlayer{
+			Player: p,
+		}
+
+		players = append(players, rp)
+	}
+
+	for _, p := range d.participants {
+		rp := reportPlayer{
+			Player: p,
+		}
+
+		players = append(players, rp)
+	}
+
+	fleets := make([]reportFleet, 0)
+	for _, f := range a.fleets {
+		rf := reportFleet{
+			Fleet: f,
+		}
+
+		fleets = append(fleets, rf)
+	}
+
+	for _, f := range d.fleets {
+		rf := reportFleet{
+			Fleet: f,
+		}
+
+		fleets = append(fleets, rf)
+	}
 
 	kind := "planet"
 	if d.moon {
@@ -1442,11 +1488,12 @@ func (d *defender) generateReports(a *attacker, fr fightResult, pillage []model.
 	query := db.InsertReq{
 		Script: "fight_report",
 		Args: []interface{}{
-			a.participants,
-			d.participants,
+			players,
+			fleets,
 			d.mainDef,
 			d.location,
 			kind,
+			fr.date,
 			fmt.Sprintf("%s", fr.outcome),
 			remains,
 			d.convertShips(),

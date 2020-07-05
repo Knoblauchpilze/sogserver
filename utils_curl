@@ -47,4 +47,8 @@ select pl.name as player, d.name as defense, pd.count as count from planets_defe
 Get resources on planets by player:
 select pl.name as player, r.name as resource, pr.amount as amount from planets_resources pr inner join planets p on pr.planet=p.id inner join resources r on pr.res=r.id inner join players pl on p.player=pl.id order by pl.name, r.name;
 
+Get resources in debris field:
+select df.galaxy, df.solar_system, df.position, r.name, dfr.amount from debris_fields_resources dfr inner join resources r on dfr.res = r.id inner join debris_fields df on dfr.field = df.id;
 
+Get messages by players and by types:
+select p.name, m.name, mp.id from messages_players mp inner join messages_ids m on mp.message = m.id inner join players p on mp.player = p.id order by p.name, m.name;

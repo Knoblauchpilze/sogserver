@@ -87,7 +87,7 @@ func newMessageDesc(msg Message) messageDesc {
 	}
 
 	// Find arguments.
-	re := regexp.MustCompile("\\$[A-Z]+")
+	re := regexp.MustCompile("\\$[A-Z_]+")
 
 	args := re.FindAllString(desc.content, -1)
 	if args != nil {

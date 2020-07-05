@@ -150,7 +150,6 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 			result.moon,
 			result.diameter,
 		},
-		Verbose: true,
 	}
 
 	err = data.Proxy.InsertToDB(query)
@@ -197,14 +196,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 
 	err = data.Proxy.InsertToDB(query)
 
-	// TODO: Deactivated.
-	// return "", err
-	if err != nil {
-		fmt.Println(fmt.Sprintf("Err 8: %v", err))
-		return "", err
-	}
-
-	return "", fmt.Errorf("Deactivated")
+	return "", err
 }
 
 // toDefender :

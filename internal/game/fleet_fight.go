@@ -284,7 +284,7 @@ func (fo FightOutcome) String() string {
 // ships remain after the fight.
 type aftermathShip struct {
 	Fleet string `json:"fleet"`
-	ID    string `json:"ships"`
+	ID    string `json:"ship"`
 	Count int    `json:"count"`
 }
 

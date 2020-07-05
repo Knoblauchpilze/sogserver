@@ -155,25 +155,25 @@ BEGIN
   -- resources that can be dispersed.
   WITH rs AS (
     SELECT
-      t.fid,
+      t.fleet,
       t.ship,
       t.count
     FROM
-      json_to_recordset(remains) AS t(fid uuid, ship uuid, count integer)
+      json_to_recordset(remains) AS t(fleet uuid, ship uuid, count integer)
     WHERE
-      t.fid = fleet_id
+      t.fleet = fleet_id
     )
   SELECT
-    COALESCE(SUM(sc.cost), 0)
+    COALESCE(SUM((COALESCE(fs.count, rs.count) - rs.count) * sc.cost), 0)
   INTO
     units_lost
   FROM
-    fleets_ships AS fs
-    LEFT JOIN rs ON fs.ship = rs.ship
-    INNER JOIN ships_costs AS sc ON fs.ship = sc.element
+    rs
+    LEFT JOIN fleets_ships AS fs ON rs.ship = fs.ship
+    INNER JOIN ships_costs AS sc ON rs.ship = sc.element
     INNER JOIN resources AS r ON sc.res = r.id
   WHERE
-    fs.fleet = fleet_id
+    rs.fleet = fleet_id
     AND r.dispersable = 'true';
 
   -- Create the message for the specified player.
@@ -199,8 +199,8 @@ DECLARE
 
   ships_count integer;
   defenses_count integer;
-  ships_lost integer;
-  defenses_lost integer;
+  ships_lost integer := 0;
+  defenses_lost integer := 0;
 BEGIN
   -- Fetch information about the target planet of the
   -- participant: this is what is really meant by the
@@ -312,7 +312,7 @@ BEGIN
         json_to_recordset(ships_remains) AS t(ship uuid, count integer)
       )
     SELECT
-      COALESCE(SUM(sc.cost), 0)
+      COALESCE(SUM((ps.count - COALESCE(rs.count, ps.count)) * sc.cost), 0)
     INTO
       ships_lost
     FROM
@@ -324,7 +324,7 @@ BEGIN
       ps.planet = planet_id
       AND r.dispersable = 'true';
 
-    WITH rs AS (
+    WITH rd AS (
       SELECT
         t.defense,
         t.count
@@ -332,12 +332,12 @@ BEGIN
         json_to_recordset(def_remains) AS t(defense uuid, count integer)
       )
     SELECT
-      COALESCE(SUM(dc.cost), 0)
+      COALESCE(SUM((pd.count - COALESCE(rd.count, pd.count)) * dc.cost), 0)
     INTO
       defenses_lost
     FROM
       planets_defenses AS pd
-      LEFT JOIN rs ON pd.defense = rs.defense
+      LEFT JOIN rd ON pd.defense = rd.defense
       INNER JOIN defenses_costs AS dc ON pd.defense = dc.element
       INNER JOIN resources AS r ON dc.res = r.id
     WHERE
@@ -354,7 +354,7 @@ BEGIN
         json_to_recordset(ships_remains) AS t(ship uuid, count integer)
       )
     SELECT
-      COALESCE(SUM(sc.cost), 0)
+      COALESCE(SUM((ms.count - COALESCE(rs.count, ms.count)) * sc.cost), 0)
     INTO
       ships_lost
     FROM
@@ -366,7 +366,7 @@ BEGIN
       ms.moon = planet_id
       AND r.dispersable = 'true';
 
-    WITH rs AS (
+    WITH rd AS (
       SELECT
         t.defense,
         t.count
@@ -374,12 +374,12 @@ BEGIN
         json_to_recordset(def_remains) AS t(defense uuid, count integer)
       )
     SELECT
-      COALESCE(SUM(dc.cost), 0)
+      COALESCE(SUM((md.count - COALESCE(rd.count, md.count)) * dc.cost), 0)
     INTO
       defenses_lost
     FROM
       moons_defenses AS md
-      LEFT JOIN rs ON md.defense = rs.defense
+      LEFT JOIN rd ON md.defense = rd.defense
       INNER JOIN defenses_costs AS dc ON md.defense = dc.element
       INNER JOIN resources AS r ON dc.res = r.id
     WHERE

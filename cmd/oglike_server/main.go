@@ -28,6 +28,9 @@ import (
 // level provided by the spying. This would play nicely with the sort of
 // authentication through tokens to access endpoints.
 // https://lng.xooit.com/t1488-Mettre-en-page-un-RC-avec-ogame-winner.htm
+// TODO: Maybe we should update the fight report to have the arguments
+// in the suited order (so typically update the participants to be
+// before the footer).
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

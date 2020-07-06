@@ -122,8 +122,14 @@ INSERT INTO public.messages_ids ("type", "name", "content")
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
-    'espionage_report_activity',
-    'TODO: NOT HANDLED'
+    'espionage_report_some_activity',
+    'your probe scan found abnormalities in the planet\'s atmosphere indicating an activity in the last $INTERVAL minute(s).'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'espionage_report_no_activity',
+    'your probe scan found no abnormalities in the planet\'s atmosphere. An activity on this planet within the last hour can therefore almost be ruled out'
   );
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(

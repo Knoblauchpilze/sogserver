@@ -181,8 +181,64 @@ $$ LANGUAGE plpgsql;
 -- that indicates the activity on a spied planet.
 CREATE OR REPLACE FUNCTION generate_activity_report(player_id uuid, fleet_id uuid) RETURNS uuid AS $$
 DECLARE
+  spied_planet_kind text;
+  last_activity timestamp with time zone;
+
+  moment timestamp with time zone;
+  limit_for_activity timestamp with time zone;
+
+  minutes_elapsed integer;
 BEGIN
-  -- TODO: Handle this.
+  -- Fetch information on the spied guy.
+  SELECT target_type INTO spied_planet_kind FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid spied planet kind for fleet % in report activity for espionage operation', fleet_id;
+  END IF;
+
+  IF spied_planet_kind = 'planet' THEN
+    SELECT
+      -- TODO: We should add some mechanism to account for the activity of a planet.
+      p.created_at,
+      f.arrival_time
+    INTO
+      last_activity,
+      moment
+    FROM
+      fleets AS f
+      INNER JOIN planets AS p ON f.target = p.id
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  IF spied_planet_kind = 'moon' THEN
+    SELECT
+      -- TODO: We should add some mechanism to account for the activity of a planet.
+      p.created_at,
+      f.arrival_time
+    INTO
+      last_activity,
+      moment
+    FROM
+      fleets AS f
+      INNER JOIN moons AS m ON f.target = m.id
+      INNER JOIN planets AS p ON m.planet = p.id
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  -- Compute whether the planet was active in the
+  -- last hour.
+  limit_for_activity = last_activity - interval '1 hour';
+
+  IF limit_for_activity < moment THEN
+    RETURN create_message_for(player_id, 'espionage_report_no_activity', VARIADIC '{}'::text[]);
+  END IF;
+
+  IF limit_for_activity >= moment THEN
+    SELECT EXTRACT(MINUTE FROM moment - last_activity) INTO minutes_elapsed;
+
+    RETURN create_message_for(player_id, 'espionage_report_some_activity', minutes_elapsed);
+  END IF;
 END
 $$ LANGUAGE plpgsql;
 

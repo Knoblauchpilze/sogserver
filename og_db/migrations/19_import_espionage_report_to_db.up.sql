@@ -110,8 +110,60 @@ $$ LANGUAGE plpgsql;
 -- the planet that was spied.
 CREATE OR REPLACE FUNCTION generate_header_report(player_id uuid, fleet_id uuid) RETURNS uuid AS $$
 DECLARE
+  spied_planet_kind text;
+  spied_planet_name text;
+  spied_coordinates text;
+  spied_name uuid;
+
+  moment_text text;
 BEGIN
-  -- TODO: Handle this.
+  -- Fetch information on the spied guy.
+  SELECT target_type INTO spied_planet_kind FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid spied planet kind for fleet % in report header for espionage operation', fleet_id;
+  END IF;
+
+  IF spied_planet_kind = 'planet' THEN
+    SELECT
+      p.name,
+      concat_ws(':', p.galaxy,  p.solar_system,  p.position),
+      pl.name,
+      to_char(f.arrival_time, 'MM-DD-YYYY HH24:MI:SS')
+    INTO
+      spied_planet_name,
+      spied_coordinates,
+      spied_name,
+      moment_text
+    FROM
+      fleets AS f
+      INNER JOIN planets AS p ON f.target = p.id
+      INNER JOIN players AS pl ON p.player = pl.id
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  IF spied_planet_kind = 'moon' THEN
+    SELECT
+      p.name,
+      concat_ws(':', p.galaxy,  p.solar_system,  p.position),
+      pl.name,
+      to_char(f.arrival_time, 'MM-DD-YYYY HH24:MI:SS')
+    INTO
+      spied_planet_name,
+      spied_coordinates,
+      spied_name,
+      moment_text
+    FROM
+      fleets AS f
+      INNER JOIN moons AS m ON f.target = m.id
+      INNER JOIN planets AS p ON m.planet = p.id
+      INNER JOIN players AS pl ON p.player = pl.id
+    WHERE
+      f.id = fleet_id;
+  END IF;
+  
+  -- Perform the creation of the message.
+  RETURN create_message_for(player_id, 'espionage_report_header', spied_planet_name, spied_coordinates, spied_name, moment_text);
 END
 $$ LANGUAGE plpgsql;
 

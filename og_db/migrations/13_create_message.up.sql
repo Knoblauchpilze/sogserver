@@ -100,11 +100,54 @@ INSERT INTO public.messages_ids ("type", "name", "content")
     'counter_espionage_report',
     'a foreign fleet from planet $PLANET_NAME $COORD ($PLAYER_NAME) has been spotted near your planet $OWN_PLANET_NAME $OWN_COORD. Probability of counter-espionage: $COUNTER_ESPIONAGE%.'
   );
+
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'espionage_report',
     '$REPORT_HEADER $REPORT_RESOURCES $REPORT_ACTIVITY $REPORT_SHIPS $REPORT_DEFENSES $REPORT_BUILDINGS $REPORT_TECHNOLOGIES'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'espionage_report_header',
+    'Resources on $PLANET_NAME $COORD ($PLAYER_NAME) at $DATE'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'espionage_report_resources',
+    '$RESOURCE_NAME: $AMOUNT'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'espionage_report_activity',
+    'TODO: NOT HANDLED'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'espionage_report_ships',
+    '$SHIP_NAME: $COUNT'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'espionage_report_defenses',
+    '$DEFENSE_SYSTEM_NAME: $COUNT'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'espionage_report_buildings',
+    '$BUILDING_NAME: $LEVEL'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'espionage_report_technologies',
+    '$TECHNOLOGY_NAME: $LEVEL'
   );
 
 INSERT INTO public.messages_ids ("type", "name", "content")

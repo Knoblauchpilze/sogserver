@@ -305,7 +305,7 @@ BEGIN
     AND cabm.moon = moon_id;
 
   DELETE FROM construction_actions_buildings_moon WHERE moon = moon_id;
-  
+
   -- Reroute fleets to the parent planet when
   -- possible.
   UPDATE fleets

@@ -108,7 +108,7 @@ $$ LANGUAGE plpgsql;
 -- for the spy. It includes the time at which
 -- the whole report was generated and info on
 -- the planet that was spied.
-CREATE OR REPLACE FUNCTION generate_header_report(player_id uuid, fleet_id uuid) RETURNS uuid AS $$
+CREATE OR REPLACE FUNCTION generate_header_report(player_id uuid, fleet_id uuid, report_id uuid) RETURNS VOID AS $$
 DECLARE
   spied_planet_kind text;
   spied_planet_name text;
@@ -116,6 +116,8 @@ DECLARE
   spied_name uuid;
 
   moment_text text;
+
+  header_id uuid;
 BEGIN
   -- Fetch information on the spied guy.
   SELECT target_type INTO spied_planet_kind FROM fleets WHERE id = fleet_id;
@@ -161,25 +163,30 @@ BEGIN
     WHERE
       f.id = fleet_id;
   END IF;
-  
+
   -- Perform the creation of the message.
-  RETURN create_message_for(player_id, 'espionage_report_header', spied_planet_name, spied_coordinates, spied_name, moment_text);
+  SELECT * INTO header_id FROM create_message_for(player_id, 'espionage_report_header', spied_planet_name, spied_coordinates, spied_name, moment_text);
+
+  -- Register this header as the first argument
+  -- of the parent espionage report.
+  INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, 0, header_id);
 END
 $$ LANGUAGE plpgsql;
 
 -- This function generates the part of the report
 -- that indicates the resources on the target of
 -- the espionage fleet.
-CREATE OR REPLACE FUNCTION generate_resources_report(player_id uuid, fleet_id uuid) RETURNS uuid AS $$
+CREATE OR REPLACE FUNCTION generate_resources_report(player_id uuid, fleet_id uuid, pOffset integer, report_id uuid) RETURNS integer AS $$
 DECLARE
 BEGIN
   -- TODO: Handle this.
+  RETURN pOffset;
 END
 $$ LANGUAGE plpgsql;
 
 -- This function generates the part of the report
 -- that indicates the activity on a spied planet.
-CREATE OR REPLACE FUNCTION generate_activity_report(player_id uuid, fleet_id uuid) RETURNS uuid AS $$
+CREATE OR REPLACE FUNCTION generate_activity_report(player_id uuid, fleet_id uuid, pOffset integer, report_id uuid) RETURNS integer AS $$
 DECLARE
   spied_planet_kind text;
   last_activity timestamp with time zone;
@@ -188,6 +195,8 @@ DECLARE
   limit_for_activity timestamp with time zone;
 
   minutes_elapsed integer;
+
+  activity_id uuid;
 BEGIN
   -- Fetch information on the spied guy.
   SELECT target_type INTO spied_planet_kind FROM fleets WHERE id = fleet_id;
@@ -231,47 +240,58 @@ BEGIN
   limit_for_activity = last_activity - interval '1 hour';
 
   IF limit_for_activity < moment THEN
-    RETURN create_message_for(player_id, 'espionage_report_no_activity', VARIADIC '{}'::text[]);
+    SELECT * INTO activity_id FROM create_message_for(player_id, 'espionage_report_no_activity', VARIADIC '{}'::text[]);
   END IF;
 
   IF limit_for_activity >= moment THEN
     SELECT EXTRACT(MINUTE FROM moment - last_activity) INTO minutes_elapsed;
 
-    RETURN create_message_for(player_id, 'espionage_report_some_activity', minutes_elapsed);
+    SELECT * INTO activity_id FROM create_message_for(player_id, 'espionage_report_some_activity', minutes_elapsed);
   END IF;
+
+  -- Register this header as an argument of the
+  -- parent espionage report.
+  INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, pOffset, activity_id);
+
+  -- Return the next offset for a parameter of the
+  -- parent espionage message.
+  RETURN pOffset + 1;
 END
 $$ LANGUAGE plpgsql;
 
 -- Similar to the `generate_resources_report` but
 -- for the ships part of the espionage report.
-CREATE OR REPLACE FUNCTION generate_ships_report(player_id uuid, fleet_id uuid) RETURNS uuid AS $$
+CREATE OR REPLACE FUNCTION generate_ships_report(player_id uuid, fleet_id uuid, pOffset integer, report_id uuid) RETURNS integer AS $$
 DECLARE
 BEGIN
   -- TODO: Handle this.
+  RETURN pOffset;
 END
 $$ LANGUAGE plpgsql;
 
 -- Similar to the `generate_resources_report` but
 -- for the defenses part of the espionage report.
-CREATE OR REPLACE FUNCTION generate_defenses_report(player_id uuid, fleet_id uuid) RETURNS uuid AS $$
+CREATE OR REPLACE FUNCTION generate_defenses_report(player_id uuid, fleet_id uuid, pOffset integer, report_id uuid) RETURNS integer AS $$
 DECLARE
 BEGIN
   -- TODO: Handle this.
+  RETURN pOffset;
 END
 $$ LANGUAGE plpgsql;
 
 -- Similar to the `generate_resources_report` but
 -- for the buildings part of the espionage report.
-CREATE OR REPLACE FUNCTION generate_buildings_report(player_id uuid, fleet_id uuid) RETURNS uuid AS $$
+CREATE OR REPLACE FUNCTION generate_buildings_report(player_id uuid, fleet_id uuid, pOffset integer, report_id uuid) RETURNS integer AS $$
 DECLARE
 BEGIN
   -- TODO: Handle this.
+  RETURN pOffset;
 END
 $$ LANGUAGE plpgsql;
 
 -- Similar to the `generate_resources_report` but
 -- for the technologies part of the espionage report.
-CREATE OR REPLACE FUNCTION generate_technologies_report(player_id uuid, fleet_id uuid) RETURNS uuid AS $$
+CREATE OR REPLACE FUNCTION generate_technologies_report(player_id uuid, fleet_id uuid, pOffset integer, report_id uuid) RETURNS VOID AS $$
 DECLARE
 BEGIN
   -- TODO: Handle this.
@@ -285,16 +305,10 @@ CREATE OR REPLACE FUNCTION espionage_report(fleet_id uuid, counter_espionage int
 DECLARE
   report_id uuid := uuid_generate_v4();
 
+  arg_count integer := 0;
+
   spy_planet_kind text;
   spy_id uuid;
-
-  header_id uuid;
-  resources_id uuid;
-  activity_id uuid;
-  ships_id uuid;
-  defenses_id uuid;
-  buildings_id uuid;
-  technologies_id uuid;
 BEGIN
   -- We need to generate the counter espionage report for
   -- the player that was targeted by the fleet.
@@ -334,32 +348,12 @@ BEGIN
   END IF;
 
   -- Based on the info level we will generate all the
-  -- needed parts of the report.
-  SELECT * INTO header_id FROM generate_header_report(spy_id, fleet_id);
-  
-  -- Always display the resources.
-  SELECT * INTO resources_id FROM generate_resources_report(spy_id, fleet_id);
-
-  -- Always display the activity.
-  SELECT * INTO activity_id FROM generate_activity_report(spy_id, fleet_id);
-
-  IF info_level > 0 THEN
-    SELECT * INTO ships_id FROM generate_ships_report(spy_id, fleet_id);
-  END IF;
-
-  IF info_level > 1 THEN
-    SELECT * INTO defenses_id FROM generate_defenses_report(spy_id, fleet_id);
-  END IF;
-
-  IF info_level > 2 THEN
-    SELECT * INTO buildings_id FROM generate_buildings_report(spy_id, fleet_id);
-  END IF;
-
-  IF info_level > 3 THEN
-    SELECT * INTO technologies_id FROM generate_technologies_report(spy_id, fleet_id);
-  END IF;
-
-  -- Create the wrapper around the espionage message.
+  -- needed parts of the report. The parts were derived
+  -- from this report:
+  -- http://wiki.ogame.org/index.php/Tutorial:Espionage
+  -- First we need to create the wrapper around the
+  -- espionage message: this will be used by the parts
+  -- of the report to link to the parent report.
   INSERT INTO messages_players(id, player, message)
     SELECT
       report_id,
@@ -370,12 +364,28 @@ BEGIN
     WHERE
       mi.name = 'espionage_report';
 
-  INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, 0, header_id);
-  INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, 1, resources_id);
-  INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, 2, activity_id);
-  INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, 3, ships_id);
-  INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, 4, defenses_id);
-  INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, 5, buildings_id);
-  INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, 6, technologies_id);
+  PERFORM generate_header_report(spy_id, fleet_id, report_id);
+
+  -- Always display the resources.
+  SELECT * INTO arg_count FROM generate_resources_report(spy_id, fleet_id, arg_count, report_id);
+
+  -- Always display the activity.
+  SELECT * INTO arg_count FROM generate_activity_report(spy_id, fleet_id, arg_count, report_id);
+
+  IF info_level > 0 THEN
+    SELECT * INTO arg_count FROM generate_ships_report(spy_id, fleet_id, arg_count, report_id);
+  END IF;
+
+  IF info_level > 1 THEN
+    SELECT * INTO arg_count FROM generate_defenses_report(spy_id, fleet_id, arg_count, report_id);
+  END IF;
+
+  IF info_level > 2 THEN
+    SELECT * INTO arg_count FROM generate_buildings_report(spy_id, fleet_id, arg_count, report_id);
+  END IF;
+
+  IF info_level > 3 THEN
+    PERFORM generate_technologies_report(spy_id, fleet_id, arg_count, report_id);
+  END IF;
 END
 $$ LANGUAGE plpgsql;

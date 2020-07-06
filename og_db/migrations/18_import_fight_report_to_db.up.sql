@@ -494,7 +494,7 @@ BEGIN
   -- defined in the `players` input argument and
   -- also to the indigenous guy (identifier on its
   -- own with the `indigenous` variable).
-  
+
   -- Iterate over the list of players and post the
   -- fight report for each one of them.
   FOR player_data IN SELECT * FROM json_array_elements(players)

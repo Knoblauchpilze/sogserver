@@ -951,7 +951,7 @@ BEGIN
   -- any deathstar from the attacking fleet.
   IF fleet_destroyed THEN
     DELETE FROM fleets_ships AS fs
-      USING ships AS s 
+      USING ships AS s
     WHERE
       fs.ships = s.id
       AND s.name = 'deathstar';

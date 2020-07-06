@@ -198,8 +198,8 @@ func (f *Fleet) spy(p *Planet, data Instance) (string, error) {
 		Script: "espionage_report",
 		Args: []interface{}{
 			f.ID,
-			il,
 			int(math.Round(float64(ce) * 100.0)),
+			il,
 		},
 	}
 

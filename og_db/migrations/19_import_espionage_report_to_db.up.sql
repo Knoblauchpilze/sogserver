@@ -113,7 +113,7 @@ DECLARE
   spied_planet_kind text;
   spied_planet_name text;
   spied_coordinates text;
-  spied_name uuid;
+  spied_name text;
 
   moment_text text;
 
@@ -178,8 +178,146 @@ $$ LANGUAGE plpgsql;
 -- the espionage fleet.
 CREATE OR REPLACE FUNCTION generate_resources_report(player_id uuid, fleet_id uuid, pOffset integer, report_id uuid) RETURNS integer AS $$
 DECLARE
+  spied_planet_kind text;
+  spied_planet_id uuid;
+
+  moment timestamp with time zone;
+
+  temprow record;
+  resource_msg_id uuid;
 BEGIN
-  -- TODO: Handle this.
+  -- To generate the resources, we need to create
+  -- a message for each resource existing on the
+  -- planet that is the destination of the fleet.
+  -- To do so, we will first select all the res,
+  -- and then iterate over each one of them.
+  -- For each one, we will have to create a new
+  -- message of type `espionage_report_resources`
+  -- with arguments the name of the resource and
+  -- its amount.
+  -- We will also need to update the resources
+  -- on the planet to be sure that it's up to
+  -- date. We consider that fleets and other
+  -- actions have already be handled for the
+  -- planet at the moment of calling this script
+  -- though.
+
+  -- Gather information about the spied planet.
+  SELECT target_type INTO spied_planet_kind FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid spied planet kind for fleet % in report resources for espionage operation', fleet_id;
+  END IF;
+
+  IF spied_planet_kind = 'planet' THEN
+    SELECT
+      p.id,
+      f.arrival_time
+    INTO
+      spied_planet_id,
+      moment
+    FROM
+      fleets AS f
+      INNER JOIN planets AS p ON f.target = p.id
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  IF spied_planet_kind = 'moon' THEN
+    SELECT
+      p.id,
+      f.arrival_time
+    INTO
+      spied_planet_id,
+      moment
+    FROM
+      fleets AS f
+      INNER JOIN moons AS m ON f.target = m.id
+      INNER JOIN planets AS p ON m.planet = p.id
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  -- Update the resources on the planet.
+  PERFORM update_resources_for_planet_to_time(spied_planet_id, moment);
+
+  -- Traverse all the resources existing on
+  -- the target planet.
+  IF spied_planet_kind = 'planet' THEN
+    FOR temprow IN
+      SELECT res FROM planets_resources WHERE planet = spied_planet_id AND movable = 'true'
+    LOOP
+      -- Create the message representing this resource.
+      resource_msg_id := uuid_generate_v4();
+
+      INSERT INTO messages_players(id, player, message)
+        SELECT
+          resource_msg_id,
+          player_id,
+          mi.id
+        FROM
+          messages_ids AS mi
+        WHERE
+          mi.name = 'espionage_report_resources';
+
+      -- Register this message as an argument of
+      -- the main espionage report.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, pOffset, resource_msg_id);
+      pOffset := pOffset + 1;
+
+      -- Generate the argument for this message.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(resource_msg_id, 0, temprow.res);
+
+      INSERT INTO messages_arguments("message", "position", "argument")
+        SELECT
+          resource_msg_id,
+          1,
+          amount
+        FROM
+          planets_resources
+        WHERE
+          planet = spied_planet_id
+          AND res = temprow.res;
+    END LOOP;
+  END IF;
+
+  IF spied_planet_kind = 'moon' THEN
+    FOR temprow IN
+      SELECT res FROM moons_resources WHERE moon = spied_planet_id AND movable = 'true'
+    LOOP
+      -- Create the message representing this resource.
+      resource_msg_id := uuid_generate_v4();
+
+      INSERT INTO messages_players(id, player, message)
+        SELECT
+          resource_msg_id,
+          player_id,
+          mi.id
+        FROM
+          messages_ids AS mi
+        WHERE
+          mi.name = 'espionage_report_resources';
+
+      -- Register this message as an argument of
+      -- the main espionage report.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, pOffset, resource_msg_id);
+      pOffset := pOffset + 1;
+
+      -- Generate the argument for this message.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(resource_msg_id, 0, temprow.res);
+
+      INSERT INTO messages_arguments("message", "position", "argument")
+        SELECT
+          resource_msg_id,
+          1,
+          amount
+        FROM
+          moons_resources
+        WHERE
+          moon = spied_planet_id
+          AND res = temprow.res;
+    END LOOP;
+  END IF;
+
   RETURN pOffset;
 END
 $$ LANGUAGE plpgsql;

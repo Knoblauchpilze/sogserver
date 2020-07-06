@@ -104,7 +104,7 @@ INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'espionage_report',
-    '%1'
+    '$REPORT_HEADER $REPORT_RESOURCES $REPORT_ACTIVITY $REPORT_SHIPS $REPORT_DEFENSES $REPORT_BUILDINGS $REPORT_TECHNOLOGIES'
   );
 
 INSERT INTO public.messages_ids ("type", "name", "content")

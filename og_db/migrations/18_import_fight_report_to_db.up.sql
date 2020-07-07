@@ -191,7 +191,7 @@ BEGIN
   
   -- Register this participant as a child of the
   -- parent fight report.
-  INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_uuid, pOffset, msg_id);
+  INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, pOffset, msg_id);
 
   -- Return the index of the next argument of the
   -- fight report.
@@ -414,7 +414,7 @@ BEGIN
 
   -- Register this participant as a child of the
   -- parent fight report.
-  INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_uuid, pOffset, msg_id);
+  INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, pOffset, msg_id);
 
   -- Return the index of the next argument of the
   -- fight report.
@@ -587,6 +587,6 @@ BEGIN
   -- The indigenous guy does not exist in the
   -- input `players` array so we need to
   -- handle this case afterwards.
-  PERFORM fight_report_for_player(indigenous, fleets, indigenous, planet_id, planet_kind, moment, outcome, fleet_remains, ships_remains, def_remains, pillage, debris, rebuilt);
+  PERFORM fight_report_for_player(indigenous, attacking_fleets, defending_fleets, indigenous, planet_id, planet_kind, moment, outcome, fleet_remains, ships_remains, def_remains, pillage, debris, rebuilt);
 END
 $$ LANGUAGE plpgsql;

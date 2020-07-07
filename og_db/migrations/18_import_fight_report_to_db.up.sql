@@ -517,7 +517,7 @@ $$ LANGUAGE plpgsql;
 -- Allows to mutualize a bit the code used in the
 -- `fight_report` function where a lot of reports
 -- need to be created for all the involved players.
-CREATE OR REPLACE FUNCTION fight_report_for_player(player_id uuid, fleets json, indigenous uuid, planet_id uuid, planet_kind text, moment timestamp with time zone, outcome text, fleet_remains json, ships_remains json, def_remains json, pillage json, debris json, rebuilt integer) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fight_report_for_player(player_id uuid, attacking_fleets json, defending_fleets json, indigenous uuid, planet_id uuid, planet_kind text, moment timestamp with time zone, outcome text, fleet_remains json, ships_remains json, def_remains json, pillage json, debris json, rebuilt integer) RETURNS VOID AS $$
 DECLARE
   report_id uuid := uuid_generate_v4();
   pOffset integer := 0;
@@ -541,17 +541,21 @@ BEGIN
   PERFORM fleet_fight_report_header(player_id, planet_id, planet_kind, moment, report_id);
 
   -- Generate attackers.
-  -- TODO: Should probably indicate whether the player
-  -- is a defender or an attacker in the input json.
   pOffset := 1;
 
-  FOR fleet_data IN SELECT * FROM json_array_elements(fleets)
+  FOR fleet_data IN SELECT * FROM json_array_elements(attacking_fleets)
   LOOP
     fleet_id := (fleet_data->>'fleet')::uuid;
     SELECT * INTO pOffset FROM fleet_fight_report_outsider_participant(player_id, fleet_id, fleet_remains, report_id, pOffset);
   END LOOP;
 
   -- Generate defenders.
+  FOR fleet_data IN SELECT * FROM json_array_elements(defending_fleets)
+  LOOP
+    fleet_id := (fleet_data->>'fleet')::uuid;
+    SELECT * INTO pOffset FROM fleet_fight_report_outsider_participant(player_id, fleet_id, fleet_remains, report_id, pOffset);
+  END LOOP;
+
   SELECT * INTO pOffset FROM fleet_fight_report_indigenous_participant(player_id, planet_id, planet_kind, ships_remains, def_remains, report_id, pOffset);
 
   -- Generate status.
@@ -567,19 +571,17 @@ $$ LANGUAGE plpgsql;
 -- in input. Reports for both participants will be
 -- generated assuming that the fleet is not part of
 -- an ACS operation
-CREATE OR REPLACE FUNCTION fight_report(players json, fleets json, indigenous uuid, planet_id uuid, planet_kind text, moment timestamp with time zone, outcome text, fleet_remains json, ships_remains json, def_remains json, pillage json, debris json, rebuilt integer) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fight_report(players json, attacking_fleets json, defending_fleets json, indigenous uuid, planet_id uuid, planet_kind text, moment timestamp with time zone, outcome text, fleet_remains json, ships_remains json, def_remains json, pillage json, debris json, rebuilt integer) RETURNS VOID AS $$
 DECLARE
   player_data json;
   player_id uuid;
 BEGIN
   -- Generate a report for each of the players
   -- involved in the fight.
-  -- TODO: We should somehow split the players
-  -- into attackers and defenders.
   FOR player_data IN SELECT * FROM json_array_elements(players)
   LOOP
      player_id := (player_data->>'player')::uuid;
-     PERFORM fight_report_for_player(player_id, fleets, indigenous, planet_id, planet_kind, moment, outcome, fleet_remains, ships_remains, def_remains, pillage, debris, rebuilt);
+     PERFORM fight_report_for_player(player_id, attacking_fleets, defending_fleets, indigenous, planet_id, planet_kind, moment, outcome, fleet_remains, ships_remains, def_remains, pillage, debris, rebuilt);
   END LOOP;
 
   -- The indigenous guy does not exist in the

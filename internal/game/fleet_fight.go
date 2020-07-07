@@ -1462,21 +1462,22 @@ func (d *defender) generateReports(a *attacker, fr fightResult, pillage []model.
 		players = append(players, rp)
 	}
 
-	fleets := make([]reportFleet, 0)
+	attackingFleets := make([]reportFleet, 0)
 	for _, f := range a.fleets {
 		rf := reportFleet{
 			Fleet: f,
 		}
 
-		fleets = append(fleets, rf)
+		attackingFleets = append(attackingFleets, rf)
 	}
 
+	defendingFleets := make([]reportFleet, 0)
 	for _, f := range d.fleets {
 		rf := reportFleet{
 			Fleet: f,
 		}
 
-		fleets = append(fleets, rf)
+		defendingFleets = append(defendingFleets, rf)
 	}
 
 	kind := "planet"
@@ -1484,12 +1485,16 @@ func (d *defender) generateReports(a *attacker, fr fightResult, pillage []model.
 		kind = "moon"
 	}
 
+	// TODO: We should somehow split the players
+	// into attackers and defenders.
+
 	// Create the query and execute it.
 	query := db.InsertReq{
 		Script: "fight_report",
 		Args: []interface{}{
 			players,
-			fleets,
+			attackingFleets,
+			defendingFleets,
 			d.mainDef,
 			d.location,
 			kind,

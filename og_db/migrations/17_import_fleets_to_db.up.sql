@@ -8,7 +8,7 @@ DECLARE
   arg text;
 BEGIN
   -- Insert the message itself.
-  INSERT INTO messages_players(id, player, message)
+  INSERT INTO messages_players("id", "player", "message")
     SELECT
       msg_id,
       player_id,

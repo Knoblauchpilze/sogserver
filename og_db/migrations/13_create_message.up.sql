@@ -160,7 +160,7 @@ INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'fight_report',
-    '$REPORT_HEADER $REPORT_RESULT $REPORT_FOOTER $REPORT_ATTACKERS $REPORT_DEFENDERS'
+    '$REPORT_HEADER $REPORT_ATTACKERS $REPORT_DEFENDERS $REPORT_RESULT $REPORT_FOOTER'
   );
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(

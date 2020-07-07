@@ -1485,9 +1485,6 @@ func (d *defender) generateReports(a *attacker, fr fightResult, pillage []model.
 		kind = "moon"
 	}
 
-	// TODO: We should somehow split the players
-	// into attackers and defenders.
-
 	// Create the query and execute it.
 	query := db.InsertReq{
 		Script: "fight_report",

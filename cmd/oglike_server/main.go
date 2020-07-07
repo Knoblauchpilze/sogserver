@@ -16,18 +16,6 @@ import (
 
 // TODO: Use the token mechanism to make sure that a client has access
 // to some information (typically to the data for a planet or a player).
-// TODO: We don't really have a proper mechanism for messages in the case
-// of fleet fight report. How could we do that ? We have a similar issue
-// in the case of an esionage report where all the info is available but
-// we don't really know how to persist the info.
-// Maybe we could do something similar to the `espionage_report` message
-// where only a single value is persisted and the data can be computed
-// client-side. Typically for the espionage maybe we could persist the
-// info-level along with a token and the client would then issue a request
-// on the `planet` endpoint to fetch the info accessible given the info
-// level provided by the spying. This would play nicely with the sort of
-// authentication through tokens to access endpoints.
-// https://lng.xooit.com/t1488-Mettre-en-page-un-RC-avec-ogame-winner.htm
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

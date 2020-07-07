@@ -181,6 +181,7 @@ func (f *Fleet) spy(p *Planet, data Instance) (string, error) {
 	// of the fleet and the fleet itself.
 	sm, err := newSpyModule(f, p, data)
 	if err != nil {
+		fmt.Println(fmt.Sprintf("Err 1: %v", err))
 		return "", ErrFleetEspionageSimulationFailure
 	}
 
@@ -201,10 +202,12 @@ func (f *Fleet) spy(p *Planet, data Instance) (string, error) {
 			int(math.Round(float64(ce) * 100.0)),
 			il,
 		},
+		Verbose: true,
 	}
 
 	err = data.Proxy.InsertToDB(query)
 	if err != nil {
+		fmt.Println(fmt.Sprintf("Err 2: %v", err))
 		return "", ErrFleetFightSimulationFailure
 	}
 

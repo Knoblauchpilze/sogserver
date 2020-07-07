@@ -100,7 +100,7 @@ BEGIN
 
   -- Perform the generation of the counter espionage
   -- report for the target of the fleet.
-  PERFORM create_message_for(spied_id, 'counter_espionage_report', spy_planet_name, spy_coordinates, spy_name, spied_planet_name, spied_coordinates, prob);
+  PERFORM create_message_for(spied_id, 'counter_espionage_report', spy_planet_name, spy_coordinates, spy_name, spied_planet_name, spied_coordinates, prob::text);
 END
 $$ LANGUAGE plpgsql;
 
@@ -244,7 +244,14 @@ BEGIN
   -- the target planet.
   IF spied_planet_kind = 'planet' THEN
     FOR temprow IN
-      SELECT res FROM planets_resources WHERE planet = spied_planet_id AND movable = 'true'
+      SELECT
+        pr.res
+      FROM
+        planets_resources AS pr
+        INNER JOIN resources AS r ON pr.res = r.id
+      WHERE
+        pr.planet = spied_planet_id
+        AND r.movable = 'true'
     LOOP
       -- Create the message representing this resource.
       resource_msg_id := uuid_generate_v4();
@@ -443,7 +450,7 @@ CREATE OR REPLACE FUNCTION espionage_report(fleet_id uuid, counter_espionage int
 DECLARE
   report_id uuid := uuid_generate_v4();
 
-  arg_count integer := 0;
+  arg_count integer := 1;
 
   spy_planet_kind text;
   spy_id uuid;

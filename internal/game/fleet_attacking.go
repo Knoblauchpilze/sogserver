@@ -38,19 +38,16 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 	// can use them to simulate the attack.
 	a, err := f.toAttacker(data)
 	if err != nil {
-		fmt.Println(fmt.Sprintf("Err 1: %v", err))
 		return "", ErrFleetFightSimulationFailure
 	}
 
 	d, err := p.toDefender(data, f.ArrivalTime)
 	if err != nil {
-		fmt.Println(fmt.Sprintf("Err 2: %v", err))
 		return "", ErrFleetFightSimulationFailure
 	}
 
 	result, err := d.defend(&a, f.ArrivalTime, data)
 	if err != nil {
-		fmt.Println(fmt.Sprintf("Err 3: %v", err))
 		return "", ErrFleetFightSimulationFailure
 	}
 
@@ -80,7 +77,6 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 		if result.outcome == Loss {
 			pillaged, err = a.pillage(p, data)
 			if err != nil {
-				fmt.Println(fmt.Sprintf("Err 4: %v", err))
 				return "", ErrFleetFightSimulationFailure
 			}
 
@@ -124,7 +120,6 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 	// of the planet where the fight took place.
 	err = d.generateReports(&a, result, pillaged, data.Proxy)
 	if err != nil {
-		fmt.Println(fmt.Sprintf("Err 5: %v", err))
 		return "", ErrFleetFightSimulationFailure
 	}
 
@@ -154,7 +149,6 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 
 	err = data.Proxy.InsertToDB(query)
 	if err != nil {
-		fmt.Println(fmt.Sprintf("Err 6: %v", err))
 		return "", ErrFleetFightSimulationFailure
 	}
 
@@ -178,7 +172,6 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 
 		err = data.Proxy.InsertToDB(query)
 		if err != nil {
-			fmt.Println(fmt.Sprintf("Err 7: %v", err))
 			return "", ErrFleetFightSimulationFailure
 		}
 	}

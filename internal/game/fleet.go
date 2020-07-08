@@ -1349,9 +1349,9 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 		script, err = f.destroy(p, data)
 	case "expedition":
 		return fmt.Errorf("Not implemented")
-	case "ACSdefend'":
-		fallthrough
-	case "ACSattack'":
+	case "ACS defend'":
+		script = "fleet_acs_defend"
+	case "ACS attack'":
 		// The `ACS` are not actually valid objectives
 		// for a fleet. It is converted when creating
 		// the fleet and the corresponding ACS element.

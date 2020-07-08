@@ -188,7 +188,7 @@ BEGIN
 
   -- Create the message for the specified player.
   SELECT * INTO msg_id FROM create_message_for(player_id, 'fight_report_participant', hostile_status::text, source_player_name, source_name, source_coordinates, units_count::text, units_lost::text, weapon_tech, shielding_tech, armour_tech);
-  
+
   -- Register this participant as a child of the
   -- parent fight report.
   INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, pOffset, msg_id);

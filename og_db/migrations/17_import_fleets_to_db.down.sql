@@ -2,6 +2,9 @@
 -- Drop the function handling an ACS fleet fight aftermath.
 DROP FUNCTION acs_fleet_fight_aftermath(acs_id uuid);
 
+-- Drop the function handling an ACS defend operation.
+DROP FUNCTION fleet_acs_defend(fleet_id uuid);
+
 -- Drop the function handling the aftermath of a fight for a fleet.
 DROP FUNCTION fleet_fight_aftermath(fleet_id uuid, ships json, pillage json, outcome text);
 
@@ -33,7 +36,7 @@ DROP FUNCTION fleet_return_to_base(fleet_id uuid);
 DROP FUNCTION fleet_update_to_return_time(fleet_id uuid);
 
 -- Drop the function allowing to delete a fleet from the DB.
-DROP FUNCTION fleet_deletion(fleet_id uuid);
+DROP FUNCTION fleet_deletion(fleet_id uuid, post_message boolean);
 
 -- Drop the function allowing to deploy ships on a location.
 DROP FUNCTION fleet_ships_deployment(fleet_id uuid, target_id uuid, target_kind text);

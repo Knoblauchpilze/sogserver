@@ -16,6 +16,11 @@ import (
 
 // TODO: Use the token mechanism to make sure that a client has access
 // to some information (typically to the data for a planet or a player).
+// TODO: Add messages for missing cases (notably: `acs_defend_arrival_owner`
+// and `acs_defend_arrival_receiver`).
+// TODO: Add consumption for ACS defend case.
+// TODO: Maybe change the `pillaged` etc to use the new aggregation func
+// from the `fleet_deletion` script.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

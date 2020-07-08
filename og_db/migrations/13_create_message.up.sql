@@ -72,7 +72,7 @@ INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'transport_arrival_receiver',
-    'a fleet from $PLANET_NAME $COORD ($PLAYER_NAME) has reached the planet $PLANET_NAME $COORD. The fleet deposits $RESOURCES'
+    'a fleet from $PLANET_NAME $COORD ($PLAYER_NAME) has reached your planet $PLANET_NAME $COORD. The fleet deposits $RESOURCES'
   );
 
 INSERT INTO public.messages_ids ("type", "name", "content")
@@ -99,7 +99,7 @@ INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'fleet_return_owner',
-    'your fleet returns from $PLANET_NAME $COORD. The fleet deposits $RESOURCES'
+    'your fleet returns from $PLANET_NAME $COORD ($PLAYER_NAME). The fleet deposits $RESOURCES'
   );
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(

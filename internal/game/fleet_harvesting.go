@@ -45,24 +45,12 @@ func (f *Fleet) harvest(data Instance) (string, error) {
 
 		// Now perform the update of resources to
 		// the DB given what has been harvested.
-		dispersed, err := data.Resources.Description(df.Resources)
-		if err != nil {
-			return "", ErrUnableToSimulateFleet
-		}
-
-		harvested, err := data.Resources.Description(hp.collected)
-		if err != nil {
-			return "", ErrUnableToSimulateFleet
-		}
-
 		query := db.InsertReq{
 			Script: "fleet_harvesting_success",
 			Args: []interface{}{
 				f.ID,
 				df.ID,
 				hp.collected,
-				dispersed,
-				harvested,
 			},
 		}
 

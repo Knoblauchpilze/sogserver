@@ -15,7 +15,7 @@ DROP FUNCTION planet_fight_aftermath(target_id uuid, kind text, planet_ships jso
 DROP FUNCTION fleet_destroy(fleet_id uuid, moon_destroyed boolean, fleet_destroyed boolean);
 
 -- Drop the function performing the update of debris fields after harvesting.
-DROP FUNCTION fleet_harvesting_success(fleet_id uuid, debris_id uuid, resources json, dispersed text, gathered text);
+DROP FUNCTION fleet_harvesting_success(fleet_id uuid, debris_id uuid, resources json);
 
 -- Drop the function allowing to notify a colonization failure.
 DROP FUNCTION fleet_colonization_failed(fleet_id uuid);

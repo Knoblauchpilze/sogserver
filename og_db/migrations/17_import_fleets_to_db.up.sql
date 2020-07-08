@@ -947,12 +947,17 @@ $$ LANGUAGE plpgsql;
 -- In case a harvesting mission manages to collect at
 -- least a single resource we need to update the data
 -- of the field and the cargo carried by the fleet.
-CREATE OR REPLACE FUNCTION fleet_harvesting_success(fleet_id uuid, debris_id uuid, resources json, dispersed text, gathered text) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fleet_harvesting_success(fleet_id uuid, debris_id uuid, resources json) RETURNS VOID AS $$
 DECLARE
   player_id uuid;
+
   recyclers_count integer;
   recyclers_capacity integer;
+
   coordinates text;
+
+  dispersed text;
+  gathered text;
 BEGIN
   -- Attempt to retrieve the player as it will be
   -- needed afterwards anyways.
@@ -1025,6 +1030,41 @@ BEGIN
         WHERE
           fleet = fleet_id
       );
+
+  -- Generate the text corresponding to the resources dispersed.
+  WITH res AS (
+    SELECT
+      dfr.field AS fld,
+      concat_ws(' unit(s) of ', dfr.amount::integer, r.name) AS txt
+    FROM
+      debris_fields_resources AS dfr
+      INNER JOIN resources AS r ON dfr.res = r.id
+  )
+  SELECT
+    string_agg(txt, ', ')
+  INTO
+    dispersed
+  FROM
+    res
+  GROUP BY
+    fld;
+
+  -- Generate the text corresponding to the resources collected.
+  WITH res AS (
+    SELECT
+      fleet_id AS flt,
+      concat_ws(' unit(s) of ', t.resource, t.amount) AS txt
+    FROM
+      json_to_recordset(resources) AS t(resource uuid, amount numeric(15, 5))
+  )
+  SELECT
+    string_agg(txt, ', ')
+  INTO
+    gathered
+  FROM
+    res
+  GROUP BY
+    flt;
 
   -- Remove resources from the debris field.
   WITH rc AS (

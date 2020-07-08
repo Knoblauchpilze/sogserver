@@ -1549,7 +1549,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION fleet_acs_defend(fleet_id uuid) RETURNS VOID AS $$
 DECLARE
 BEGIN
-  -- TODO: Handle this.
+  -- TODO: Handle this with notably: `acs_defend_arrival_owner` and `acs_defend_arrival_receiver`.
 END
 $$ LANGUAGE plpgsql;
 

@@ -203,38 +203,21 @@ BEGIN
   -- though.
 
   -- Gather information about the spied planet.
-  SELECT target_type INTO spied_planet_kind FROM fleets WHERE id = fleet_id;
+  SELECT
+    target_type,
+    target,
+    arrival_time
+  INTO
+    spied_planet_kind,
+    spied_planet_id,
+    moment
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
+
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid spied planet kind for fleet % in report resources for espionage operation', fleet_id;
-  END IF;
-
-  IF spied_planet_kind = 'planet' THEN
-    SELECT
-      p.id,
-      f.arrival_time
-    INTO
-      spied_planet_id,
-      moment
-    FROM
-      fleets AS f
-      INNER JOIN planets AS p ON f.target = p.id
-    WHERE
-      f.id = fleet_id;
-  END IF;
-
-  IF spied_planet_kind = 'moon' THEN
-    SELECT
-      p.id,
-      f.arrival_time
-    INTO
-      spied_planet_id,
-      moment
-    FROM
-      fleets AS f
-      INNER JOIN moons AS m ON f.target = m.id
-      INNER JOIN planets AS p ON m.planet = p.id
-    WHERE
-      f.id = fleet_id;
+    RAISE EXCEPTION 'Invalid spied planet kind for fleet % in report ships for espionage operation', fleet_id;
   END IF;
 
   -- Update the resources on the planet.
@@ -289,7 +272,14 @@ BEGIN
 
   IF spied_planet_kind = 'moon' THEN
     FOR temprow IN
-      SELECT res FROM moons_resources WHERE moon = spied_planet_id AND movable = 'true'
+      SELECT
+        mr.res
+      FROM
+        moons_resources AS mr
+        INNER JOIN resources AS r ON mr.res = r.id
+      WHERE
+        mr.moon = spied_planet_id
+        AND r.movable = 'true'
     LOOP
       -- Create the message representing this resource.
       resource_msg_id := uuid_generate_v4();
@@ -408,8 +398,116 @@ $$ LANGUAGE plpgsql;
 -- for the ships part of the espionage report.
 CREATE OR REPLACE FUNCTION generate_ships_report(player_id uuid, fleet_id uuid, pOffset integer, report_id uuid) RETURNS integer AS $$
 DECLARE
+  spied_planet_kind text;
+  spied_planet_id uuid;
+
+  temprow record;
+  ship_msg_id uuid;
 BEGIN
-  -- TODO: Handle this.
+  -- To generate the ships, we need to create a
+  -- message for each ship existing on the planet
+  -- that is the destination of the fleet.
+  -- To do so, we will first select all the ships,
+  -- and then iterate over each one of them.
+  -- For each one, we will have to create a new
+  -- message of type `espionage_report_ships`
+  -- with arguments the name of the ship and
+  -- its count.
+
+  -- Gather information about the spied planet.
+  SELECT
+    target_type,
+    target
+  INTO
+    spied_planet_kind,
+    spied_planet_id
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid spied planet kind for fleet % in report ships for espionage operation', fleet_id;
+  END IF;
+
+  -- Traverse all the ships existing on
+  -- the target planet.
+  IF spied_planet_kind = 'planet' THEN
+    FOR temprow IN
+      SELECT ship FROM planets_ships WHERE planet = spied_planet_id AND count > 0
+    LOOP
+      -- Create the message representing this ship.
+      ship_msg_id := uuid_generate_v4();
+
+      INSERT INTO messages_players(id, player, message)
+        SELECT
+          ship_msg_id,
+          player_id,
+          mi.id
+        FROM
+          messages_ids AS mi
+        WHERE
+          mi.name = 'espionage_report_ships';
+
+      -- Register this message as an argument of
+      -- the main espionage report.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, pOffset, ship_msg_id);
+      pOffset := pOffset + 1;
+
+      -- Generate the argument for this message.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(ship_msg_id, 0, temprow.ship);
+
+      INSERT INTO messages_arguments("message", "position", "argument")
+        SELECT
+          ship_msg_id,
+          1,
+          count
+        FROM
+          planets_ships
+        WHERE
+          planet = spied_planet_id
+          AND ship = temprow.ship;
+    END LOOP;
+  END IF;
+
+  IF spied_planet_kind = 'moon' THEN
+    FOR temprow IN
+      SELECT ship FROM moons_ships WHERE moon = spied_planet_id AND count > 0
+    LOOP
+      -- Create the message representing this ship.
+      ship_msg_id := uuid_generate_v4();
+
+      INSERT INTO messages_players(id, player, message)
+        SELECT
+          resourceship_msg_id_msg_id,
+          player_id,
+          mi.id
+        FROM
+          messages_ids AS mi
+        WHERE
+          mi.name = 'espionage_report_ships';
+
+      -- Register this message as an argument of
+      -- the main espionage report.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, pOffset, ship_msg_id);
+      pOffset := pOffset + 1;
+
+      -- Generate the argument for this message.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(ship_msg_id, 0, temprow.ship);
+
+      INSERT INTO messages_arguments("message", "position", "argument")
+        SELECT
+          ship_msg_id,
+          1,
+          amount
+        FROM
+          moons_ships
+        WHERE
+          moon = spied_planet_id
+          AND ship = temprow.ship;
+    END LOOP;
+  END IF;
+
   RETURN pOffset;
 END
 $$ LANGUAGE plpgsql;
@@ -418,8 +516,117 @@ $$ LANGUAGE plpgsql;
 -- for the defenses part of the espionage report.
 CREATE OR REPLACE FUNCTION generate_defenses_report(player_id uuid, fleet_id uuid, pOffset integer, report_id uuid) RETURNS integer AS $$
 DECLARE
+  spied_planet_kind text;
+  spied_planet_id uuid;
+
+  temprow record;
+  defense_msg_id uuid;
 BEGIN
-  -- TODO: Handle this.
+  -- To generate the defenses, we need to create
+  -- a message for each defense existing on the
+  -- planet that is the destination of the fleet.
+  -- To do so, we will first select all defense
+  -- systems, and then iterate over each one of
+  -- them.
+  -- For each one, we will have to create a new
+  -- message of type `espionage_report_defenses`
+  -- with arguments the name of the defense and
+  -- its count.
+
+  -- Gather information about the spied planet.
+  SELECT
+    target_type,
+    target
+  INTO
+    spied_planet_kind,
+    spied_planet_id
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid spied planet kind for fleet % in report defenses for espionage operation', fleet_id;
+  END IF;
+
+  -- Traverse all the defenses existing on
+  -- the target planet.
+  IF spied_planet_kind = 'planet' THEN
+    FOR temprow IN
+      SELECT defense FROM planets_defenses WHERE planet = spied_planet_id AND count > 0
+    LOOP
+      -- Create the message representing this defense.
+      defense_msg_id := uuid_generate_v4();
+
+      INSERT INTO messages_players(id, player, message)
+        SELECT
+          defense_msg_id,
+          player_id,
+          mi.id
+        FROM
+          messages_ids AS mi
+        WHERE
+          mi.name = 'espionage_report_defenses';
+
+      -- Register this message as an argument of
+      -- the main espionage report.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, pOffset, defense_msg_id);
+      pOffset := pOffset + 1;
+
+      -- Generate the argument for this message.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(defense_msg_id, 0, temprow.defense);
+
+      INSERT INTO messages_arguments("message", "position", "argument")
+        SELECT
+          defense_msg_id,
+          1,
+          count
+        FROM
+          planets_defenses
+        WHERE
+          planet = spied_planet_id
+          AND defense = temprow.defense;
+    END LOOP;
+  END IF;
+
+  IF spied_planet_kind = 'moon' THEN
+    FOR temprow IN
+      SELECT defense FROM moons_defenses WHERE moon = spied_planet_id AND count > 0
+    LOOP
+      -- Create the message representing this defense.
+      defense_msg_id := uuid_generate_v4();
+
+      INSERT INTO messages_players(id, player, message)
+        SELECT
+          defense_msg_id,
+          player_id,
+          mi.id
+        FROM
+          messages_ids AS mi
+        WHERE
+          mi.name = 'espionage_report_defenses';
+
+      -- Register this message as an argument of
+      -- the main espionage report.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, pOffset, defense_msg_id);
+      pOffset := pOffset + 1;
+
+      -- Generate the argument for this message.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(defense_msg_id, 0, temprow.defense);
+
+      INSERT INTO messages_arguments("message", "position", "argument")
+        SELECT
+          defense_msg_id,
+          1,
+          amount
+        FROM
+          moons_defenses
+        WHERE
+          moon = spied_planet_id
+          AND defense = temprow.defense;
+    END LOOP;
+  END IF;
+
   RETURN pOffset;
 END
 $$ LANGUAGE plpgsql;
@@ -428,8 +635,110 @@ $$ LANGUAGE plpgsql;
 -- for the buildings part of the espionage report.
 CREATE OR REPLACE FUNCTION generate_buildings_report(player_id uuid, fleet_id uuid, pOffset integer, report_id uuid) RETURNS integer AS $$
 DECLARE
+  spied_planet_kind text;
+  spied_planet_id uuid;
+
+  temprow record;
+  building_msg_id uuid;
 BEGIN
-  -- TODO: Handle this.
+  -- The creation of the buildings in the report
+  -- is similar to what happens for the defenses
+  -- and ships and resources.
+
+  -- Gather information about the spied planet.
+  SELECT
+    target_type,
+    target
+  INTO
+    spied_planet_kind,
+    spied_planet_id
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid spied planet kind for fleet % in report buildings for espionage operation', fleet_id;
+  END IF;
+
+  -- Traverse all the buildings existing on
+  -- the target planet.
+  IF spied_planet_kind = 'planet' THEN
+    FOR temprow IN
+      SELECT building FROM planets_buildings WHERE planet = spied_planet_id AND level > 0
+    LOOP
+      -- Create the message representing this building.
+      building_msg_id := uuid_generate_v4();
+
+      INSERT INTO messages_players(id, player, message)
+        SELECT
+          building_msg_id,
+          player_id,
+          mi.id
+        FROM
+          messages_ids AS mi
+        WHERE
+          mi.name = 'espionage_report_buildings';
+
+      -- Register this message as an argument of
+      -- the main espionage report.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, pOffset, building_msg_id);
+      pOffset := pOffset + 1;
+
+      -- Generate the argument for this message.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(building_msg_id, 0, temprow.building);
+
+      INSERT INTO messages_arguments("message", "position", "argument")
+        SELECT
+          building_msg_id,
+          1,
+          level
+        FROM
+          planets_buildings
+        WHERE
+          planet = spied_planet_id
+          AND building = temprow.building;
+    END LOOP;
+  END IF;
+
+  IF spied_planet_kind = 'moon' THEN
+    FOR temprow IN
+      SELECT building FROM moons_buildings WHERE moon = spied_planet_id AND level > 0
+    LOOP
+      -- Create the message representing this building.
+      building_msg_id := uuid_generate_v4();
+
+      INSERT INTO messages_players(id, player, message)
+        SELECT
+          building_msg_id,
+          player_id,
+          mi.id
+        FROM
+          messages_ids AS mi
+        WHERE
+          mi.name = 'espionage_report_buildings';
+
+      -- Register this message as an argument of
+      -- the main espionage report.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, pOffset, building_msg_id);
+      pOffset := pOffset + 1;
+
+      -- Generate the argument for this message.
+      INSERT INTO messages_arguments("message", "position", "argument") VALUES(building_msg_id, 0, temprow.building);
+
+      INSERT INTO messages_arguments("message", "position", "argument")
+        SELECT
+          building_msg_id,
+          1,
+          amount
+        FROM
+          moons_buildings
+        WHERE
+          moon = spied_planet_id
+          AND building = temprow.building;
+    END LOOP;
+  END IF;
+
   RETURN pOffset;
 END
 $$ LANGUAGE plpgsql;
@@ -438,8 +747,105 @@ $$ LANGUAGE plpgsql;
 -- for the technologies part of the espionage report.
 CREATE OR REPLACE FUNCTION generate_technologies_report(player_id uuid, fleet_id uuid, pOffset integer, report_id uuid) RETURNS VOID AS $$
 DECLARE
+  spied_planet_kind text;
+  spied_planet_id uuid;
+  spied_player_id uuid;
+
+  temprow record;
+  tech_msg_id uuid;
 BEGIN
-  -- TODO: Handle this.
+  -- The creation of the technologies in the
+  -- report is similar to what happens for
+  -- ships, defenses or buildings.
+  -- The difference though is that the techs
+  -- are identical whether the fleet spies a
+  -- planet or a moon so we have to fetch the
+  -- player owning the celestial body instead.
+
+  -- Gather information about the spied planet
+  -- and player.
+  SELECT
+    target_type,
+    target
+  INTO
+    spied_planet_kind,
+    spied_planet_id
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid spied planet kind for fleet % in report technologies for espionage operation', fleet_id;
+  END IF;
+
+  -- Traverse all the technologies existing on
+  -- the target planet.
+  IF spied_planet_kind = 'planet' THEN
+    SELECT
+      pl.id
+    INTO
+      spied_player_id
+    FROM
+      fleets AS f
+      INNER JOIN planets AS p ON p.id = f.target
+      INNER JOIN players AS pl ON pl.id = p.player
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  IF spied_planet_kind = 'moon' THEN
+    SELECT
+      pl.id
+    INTO
+      spied_player_id
+    FROM
+      fleets AS f
+      INNER JOIN moons AS m ON m.id = f.target
+      INNER JOIN planets AS p ON p.id = m.planet
+      INNER JOIN players AS pl ON pl.id = p.player
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  -- Traverse all technologies developed by this player.
+  -- Note that we will only consider techs that have a
+  -- level greater than `0`.
+  FOR temprow IN
+    SELECT technology FROM players_technologies WHERE technology = spied_player_id AND level > 0
+  LOOP
+    -- Create the message representing this building.
+    tech_msg_id := uuid_generate_v4();
+
+    INSERT INTO messages_players(id, player, message)
+      SELECT
+        tech_msg_id,
+        player_id,
+        mi.id
+      FROM
+        messages_ids AS mi
+      WHERE
+        mi.name = 'espionage_report_buildings';
+
+    -- Register this message as an argument of
+    -- the main espionage report.
+    INSERT INTO messages_arguments("message", "position", "argument") VALUES(report_id, pOffset, tech_msg_id);
+    pOffset := pOffset + 1;
+
+    -- Generate the argument for this message.
+    INSERT INTO messages_arguments("message", "position", "argument") VALUES(tech_msg_id, 0, temprow.technology);
+
+    INSERT INTO messages_arguments("message", "position", "argument")
+      SELECT
+        tech_msg_id,
+        1,
+        level
+      FROM
+        players_technologies
+      WHERE
+        player = spied_player_id
+        AND technology = temprow.technology;
+  END LOOP;
 END
 $$ LANGUAGE plpgsql;
 

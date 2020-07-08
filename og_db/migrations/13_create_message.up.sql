@@ -65,8 +65,47 @@ INSERT INTO public.messages_ids ("type", "name", "content")
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
+    'transport_arrival_owner',
+    'your fleet from $PLANET_NAME $COORD arrives at $PLANET_NAME $COORD ($PLAYER_NAME). The fleet deposits $RESOURCES'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'transport_arrival_receiver',
+    'a fleet from $PLANET_NAME $COORD ($PLAYER_NAME) has reached the planet $PLANET_NAME $COORD. The fleet deposits $RESOURCES'
+  );
+
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'acs_defend_arrival_owner',
+    'your fleet from $PLANET_NAME $COORD arrives at $PLANET_NAME $COORD ($PLAYER_NAME) and parks in orbit for a watchful defense'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'acs_defend_arrival_receiver',
+    'a fleet from $PLANET_NAME $COORD ($PLAYER_NAME) arrives at $PLANET_NAME $COORD. The fleet parks in orbit to defend us against any threats'
+  );
+
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
     'harvesting_report',
     'your recycler(s) ($SHIP_COUNT) have a total cargo capacity of $CARGO. At the target $COORD, $RESOURCES are floating in space. You have harvested $HARVESTED.'
+  );
+
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'fleet_return_owner',
+    'your fleet returns from $PLANET_NAME $COORD. The fleet deposits $RESOURCES'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'fleet_return_owner_harvest',
+    'your fleet returns from $PLANET_NAME $COORD. The fleet deposits $RESOURCES'
   );
 
 INSERT INTO public.messages_ids ("type", "name", "content")

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"oglike_server/pkg/db"
 )
 
@@ -52,10 +53,13 @@ func (f *Fleet) harvest(data Instance) (string, error) {
 				df.ID,
 				hp.collected,
 			},
+			Verbose: true,
 		}
 
 		err = data.Proxy.InsertToDB(query)
 		if err != nil {
+
+			fmt.Println(fmt.Sprintf("Error: %v", err))
 			return "", err
 		}
 	}

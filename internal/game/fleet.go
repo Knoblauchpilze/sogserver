@@ -1379,6 +1379,7 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 		Args: []interface{}{
 			f.ID,
 		},
+		Verbose: true,
 	}
 
 	err = data.Proxy.InsertToDB(query)

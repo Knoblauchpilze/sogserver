@@ -285,7 +285,7 @@ $$ LANGUAGE plpgsql;
 -- The return value indicates whether the target to
 -- deposit the resources to (computed with the data
 -- from the input fleet) actually existed.
-CREATE OR REPLACE FUNCTION fleet_deposit_resources(fleet_id uuid, target_id uuid, target_kind text) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fleet_deposit_resources(fleet_id uuid, target_id uuid, target_kind text, post_message boolean) RETURNS VOID AS $$
 DECLARE
   arrival timestamp with time zone;
 BEGIN
@@ -387,25 +387,148 @@ $$ LANGUAGE plpgsql;
 
 -- Performs the deletion of the fleet from the DB
 -- along with its erasing from ACS and other tables.
-CREATE OR REPLACE FUNCTIOn fleet_deletion(fleet_id uuid, post_message boolean) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTIOn fleet_deletion(fleet_id uuid) RETURNS VOID AS $$
+BEGIN
+  -- Remove the resources carried by the fleet.
+  DELETE FROM
+    fleets_resources AS fr
+    USING fleets AS f
+  WHERE
+    fr.fleet = f.id
+    AND f.id = fleet_id;
+
+  -- Remove the ships associated to this fleet.
+  DELETE FROM
+    fleets_ships AS fs
+    USING fleets AS f
+  WHERE
+    fs.fleet = f.id
+    AND f.id = fleet_id;
+
+  -- Remove from the actions' queue.
+  DELETE FROM actions_queue WHERE action = fleet_id;
+
+  -- And finally remove the fleet which is now as
+  -- empty as my bank account.
+  DELETE FROM fleets WHERE id = fleet_id;
+END
+$$ LANGUAGE plpgsql;
+
+-- Perform the update of the entry related to the fleet
+-- in the actions queue to be equal to the return time
+-- of the fleet.
+CREATE OR REPLACE FUNCTION fleet_update_to_return_time(fleet_id uuid) RETURNS VOID AS $$
 DECLARE
+  wait_time integer;
+BEGIN
+  -- Select the wait time for this fleet at its target
+  -- destination. This will indicate whether we should
+  -- make the fleet return immediately or wait at its
+  -- destination.
+  SELECT deployment_time INTO wait_time FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid deployment time for fleet % in update return time operation', fleet_id;
+  END IF;
+
+  IF wait_time > 0 THEN
+    UPDATE actions_queue
+      SET completion_time = arrival_time + make_interval(secs := CAST(wait_time AS DOUBLE PRECISION))
+    FROM
+      fleets AS f
+    WHERE
+      f.id = fleet_id
+      AND action = fleet_id;
+  ELSE
+    -- Update the corresponding entry in the actions queue.
+    UPDATE actions_queue
+      SET completion_time = return_time
+    FROM
+      fleets AS f
+    WHERE
+      f.id = fleet_id
+      AND action = fleet_id;
+
+    -- Indicate that this fleet is now returning to its
+    -- source.
+    UPDATE fleets SET is_returning = 'true' WHERE id = fleet_id;
+  END IF;
+END
+$$ LANGUAGE plpgsql;
+
+-- Perform the deletion of the fleet and the assignement
+-- of the resources carried by it to the source object.
+CREATE OR REPLACE FUNCTION fleet_return_to_base(fleet_id uuid) RETURNS VOID AS $$
+DECLARE
+  processing_time timestamp with time zone = NOW();
+
   player_id uuid;
 
   target_kind text;
+  target_id uuid;
   target_name text;
   target_coords text;
   target_player_name text;
+
+  arrival_date timestamp with time zone;
+  return_date timestamp with time zone;
+  deployment_date timestamp with time zone;
+  deployment_duration integer;
 
   objective_name text;
 
   resources_txt text;
 BEGIN
-  -- Post the message indicating that the fleet
-  -- is back if needed.
-  IF post_message THEN
-    -- Fetch information about the fleet.
-    -- Post the message to the owner of the fleet indicating
-    -- that the fleet is back.
+  SELECT arrival_time INTO arrival_date FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid arrival time for fleet % in return to base operation', fleet_id;
+  END IF;
+  SELECT return_time INTO return_date FROM fleets WHERE id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid return time for fleet % in return to base operation', fleet_id;
+  END IF;
+
+  SELECT
+    arrival_time + make_interval(secs := CAST(deployment_time AS DOUBLE PRECISION)),
+    deployment_time
+  INTO
+    deployment_date,
+    deployment_duration
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid deployment time for fleet % in return to base operation', fleet_id;
+  END IF;
+
+  -- Update the next activation time for this fleet if it
+  -- is consistent with the current time.
+  IF arrival_date < processing_time THEN
+    PERFORM fleet_update_to_return_time(fleet_id);
+  END IF;
+
+  -- Update the next activation time in case the deployment
+  -- is not set to `0` and we reached the end of it.
+  IF deployment_duration > 0 AND deployment_date < processing_time THEN
+    PERFORM fleet_update_to_return_time(fleet_id);
+  END IF;
+
+  -- Handle the return of the fleet to its source in case
+  -- the processing time indicates so.
+  IF return_date < processing_time THEN
+    -- Fetch the source's data.
+    SELECT source INTO target_id FROM fleets WHERE id = fleet_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Invalid source destination for fleet % in harvesting operation', fleet_id;
+    END IF;
+
+    SELECT source_type INTO target_kind FROM fleets WHERE id = fleet_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Invalid source kind for fleet % in harvesting operation', fleet_id;
+    END IF;
+
+    -- Post the message indicating that the fleet
+    -- is back.
     SELECT
       f.player,
       f.target_type,
@@ -485,9 +608,9 @@ BEGIN
     -- does not bring back any resources.
     IF objective_name = 'harvesting' THEN
       IF resources_txt IS NULL THEN
-        PERFORM create_message_for(player_id, 'fleet_return_owner_harvest_no_resources', target_name, target_coords);
+        PERFORM create_message_for(player_id, 'fleet_return_owner_harvest_no_resources', target_coords);
       ELSE
-        PERFORM create_message_for(player_id, 'fleet_return_owner_harvest', target_name, target_coords, resources_txt);
+        PERFORM create_message_for(player_id, 'fleet_return_owner_harvest', target_coords, resources_txt);
       END IF;
     ELSE
       IF resources_txt IS NULL THEN
@@ -496,144 +619,16 @@ BEGIN
         PERFORM create_message_for(player_id, 'fleet_return_owner', target_name, target_coords, target_player_name, resources_txt);
       END IF;
     END IF;
-  END IF;
-
-  -- Remove the resources carried by the fleet.
-  DELETE FROM
-    fleets_resources AS fr
-    USING fleets AS f
-  WHERE
-    fr.fleet = f.id
-    AND f.id = fleet_id;
-
-  -- Remove the ships associated to this fleet.
-  DELETE FROM
-    fleets_ships AS fs
-    USING fleets AS f
-  WHERE
-    fs.fleet = f.id
-    AND f.id = fleet_id;
-
-  -- Remove from the actions' queue.
-  DELETE FROM actions_queue WHERE action = fleet_id;
-
-  -- And finally remove the fleet which is now as
-  -- empty as my bank account.
-  DELETE FROM fleets WHERE id = fleet_id;
-END
-$$ LANGUAGE plpgsql;
-
--- Perform the update of the entry related to the fleet
--- in the actions queue to be equal to the return time
--- of the fleet.
-CREATE OR REPLACE FUNCTION fleet_update_to_return_time(fleet_id uuid) RETURNS VOID AS $$
-DECLARE
-  wait_time integer;
-BEGIN
-  -- Select the wait time for this fleet at its target
-  -- destination. This will indicate whether we should
-  -- make the fleet return immediately or wait at its
-  -- destination.
-  SELECT deployment_time INTO wait_time FROM fleets WHERE id = fleet_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid deployment time for fleet % in update return time operation', fleet_id;
-  END IF;
-
-  IF wait_time > 0 THEN
-    UPDATE actions_queue
-      SET completion_time = arrival_time + make_interval(secs := CAST(wait_time AS DOUBLE PRECISION))
-    FROM
-      fleets AS f
-    WHERE
-      f.id = fleet_id
-      AND action = fleet_id;
-  ELSE
-    -- Update the corresponding entry in the actions queue.
-    UPDATE actions_queue
-      SET completion_time = return_time
-    FROM
-      fleets AS f
-    WHERE
-      f.id = fleet_id
-      AND action = fleet_id;
-
-    -- Indicate that this fleet is now returning to its
-    -- source.
-    UPDATE fleets SET is_returning = 'true' WHERE id = fleet_id;
-  END IF;
-END
-$$ LANGUAGE plpgsql;
-
--- Perform the deletion of the fleet and the assignement
--- of the resources carried by it to the source object.
-CREATE OR REPLACE FUNCTION fleet_return_to_base(fleet_id uuid) RETURNS VOID AS $$
-DECLARE
-  processing_time timestamp with time zone = NOW();
-  target_id uuid;
-  target_kind text;
-  arrival_date timestamp with time zone;
-  return_date timestamp with time zone;
-  deployment_date timestamp with time zone;
-  deployment_duration integer;
-BEGIN
-  SELECT arrival_time INTO arrival_date FROM fleets WHERE id = fleet_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid arrival time for fleet % in return to base operation', fleet_id;
-  END IF;
-  SELECT return_time INTO return_date FROM fleets WHERE id = fleet_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid return time for fleet % in return to base operation', fleet_id;
-  END IF;
-
-  SELECT
-    arrival_time + make_interval(secs := CAST(deployment_time AS DOUBLE PRECISION)),
-    deployment_time
-  INTO
-    deployment_date,
-    deployment_duration
-  FROM
-    fleets
-  WHERE
-    id = fleet_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid deployment time for fleet % in return to base operation', fleet_id;
-  END IF;
-
-  -- Update the next activation time for this fleet if it
-  -- is consistent with the current time.
-  IF arrival_date < processing_time THEN
-    PERFORM fleet_update_to_return_time(fleet_id);
-  END IF;
-
-  -- Update the next activation time in case the deployment
-  -- is not set to `0` and we reached the end of it.
-  IF deployment_duration > 0 AND deployment_date < processing_time THEN
-    PERFORM fleet_update_to_return_time(fleet_id);
-  END IF;
-
-  -- Handle the return of the fleet to its source in case
-  -- the processing time indicates so.
-  IF return_date < processing_time THEN
-    -- Fetch the source's data.
-    SELECT source INTO target_id FROM fleets WHERE id = fleet_id;
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Invalid source destination for fleet % in harvesting operation', fleet_id;
-    END IF;
-
-    SELECT source_type INTO target_kind FROM fleets WHERE id = fleet_id;
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Invalid source kind for fleet % in harvesting operation', fleet_id;
-    END IF;
 
     -- Deposit the resources that were fetched from the
     -- debris field to the source location.
-    PERFORM fleet_deposit_resources(fleet_id, target_id, target_kind);
+    PERFORM fleet_deposit_resources(fleet_id, target_id, target_kind, false);
 
     -- Restore the ships to the source.
     PERFORM fleet_ships_deployment(fleet_id, target_id, target_kind);
 
     -- Delete the fleet from the DB.
-    PERFORM fleet_deletion(fleet_id, true);
+    PERFORM fleet_deletion(fleet_id);
   END IF;
 END
 $$ LANGUAGE plpgsql;
@@ -778,9 +773,10 @@ BEGIN
       flt;
 
     -- Deposit the resources on the target planet.
-    PERFORM fleet_deposit_resources(fleet_id, target_planet_id, target_planet_kind);
+    PERFORM fleet_deposit_resources(fleet_id, target_planet_id, target_planet_kind, true);
 
     -- Create message for both players.
+    -- TODO: Should be moved inside the fleet deposit resources.
     PERFORM create_message_for(source_player_id, 'transport_arrival_owner', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, target_player_name, resources_txt);
 
     PERFORM create_message_for(target_player_id, 'transport_arrival_receiver', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, resources_txt);
@@ -797,7 +793,7 @@ BEGIN
     PERFORM fleet_ships_deployment(fleet_id, source_planet_id, source_planet_kind);
 
     -- Delete the fleet from the DB.
-    PERFORM fleet_deletion(fleet_id, true);
+    PERFORM fleet_deletion(fleet_id);
   END IF;
 END
 $$ LANGUAGE plpgsql;
@@ -819,9 +815,13 @@ BEGIN
     RAISE EXCEPTION 'Invalid target kind for fleet % in deploy operation', fleet_id;
   END IF;
 
+  -- TOOD: Should include the messages for resources here.
+  -- This should be handled by the fact that the deposit
+  -- resources will include these messages.
+
   -- Deposit the resources of the fleet at the target
   -- destination.
-  PERFORM fleet_deposit_resources(fleet_id, target_id, target_kind);
+  PERFORM fleet_deposit_resources(fleet_id, target_id, target_kind, true);
 
   -- Add the ships in the target destination.
   PERFORM fleet_ships_deployment(fleet_id, target_id, target_kind);
@@ -874,7 +874,7 @@ BEGIN
 
   -- Dump the resources transported by the fleet to the
   -- new planet.
-  PERFORM fleet_deposit_resources(fleet_id, (planet->>'id')::uuid, 'planet');
+  PERFORM fleet_deposit_resources(fleet_id, (planet->>'id')::uuid, 'planet', false);
 
   -- Remove one colony ship from the fleet. We know that
   -- there should be at least one.
@@ -1055,16 +1055,13 @@ BEGIN
   WITH res AS (
     SELECT
       dfr.field AS fld,
-      concat_ws(' unit(s) of ', dfr.amount::integer, r.name) AS txt
+      concat_ws(' unit(s) of ', COALESCE(0.0, dfr.amount)::integer, r.name) AS txt
     FROM
-      debris_fields_resources AS dfr
-      INNER JOIN resources AS r ON dfr.res = r.id
-      INNER JOIN debris_fields AS df ON df.id = dfr.field
+      resources AS r
+      LEFT JOIN debris_fields_resources AS dfr ON dfr.res = r.id
     WHERE
-      df.universe = f.universe
-      AND df.galaxy = f.target_galaxy
-      AND df.solar_system = f.target_solar_system
-      AND df.position = f.target_position
+      r.dispersable = 'true'
+      AND dfr.field = debris_id
   )
   SELECT
     string_agg(txt, ', ')
@@ -1075,13 +1072,37 @@ BEGIN
   GROUP BY
     fld;
 
+  -- Handle cases where there are no resources in the debris field.
+  IF dispersed IS NULL THEN
+    WITH res AS (
+      SELECT
+        debris_id AS fld,
+        concat_ws(' unit(s) of ', 0, r.name) AS txt
+      FROM
+        resources AS r
+      WHERE
+        r.dispersable = 'true'
+    )
+    SELECT
+      string_agg(txt, ', ')
+    INTO
+      dispersed
+    FROM
+      res
+    GROUP BY
+      fld;
+  END IF;
+
   -- Generate the text corresponding to the resources collected.
   WITH res AS (
     SELECT
       fleet_id AS flt,
-      concat_ws(' unit(s) of ', t.resource, t.amount) AS txt
+      concat_ws(' unit(s) of ', COALESCE(0.0, t.amount)::integer, r.name) AS txt
     FROM
-      json_to_recordset(resources) AS t(resource uuid, amount numeric(15, 5))
+      resources AS r
+      LEFT JOIN json_to_recordset(resources) AS t(resource uuid, amount numeric(15, 5)) ON t.resource = r.id
+    WHERE
+      r.dispersable = 'true'
   )
   SELECT
     string_agg(txt, ', ')
@@ -1127,7 +1148,7 @@ BEGIN
 
   -- We need to register a new message indicating the
   -- resources that were harvested.
-  PERFORM create_message_for(player_id, 'harvesting_report', recyclers_count, recyclers_capacity, coordinates, dispersed, gathered);
+  PERFORM create_message_for(player_id, 'harvesting_report', recyclers_count::text, recyclers_capacity::text, coordinates, dispersed, gathered);
 END
 $$ LANGUAGE plpgsql;
 

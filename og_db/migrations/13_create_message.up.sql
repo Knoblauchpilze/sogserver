@@ -111,13 +111,13 @@ INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'fleet_return_owner_harvest',
-    'your fleet returns from $PLANET_NAME $COORD. The fleet deposits $RESOURCES'
+    'your fleet returns from $COORD. The fleet deposits $RESOURCES'
   );
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'fleet_return_owner_harvest_no_resources',
-    'your fleet returns from $PLANET_NAME $COORD. The fleet does not bring any resources'
+    'your fleet returns from $COORD. The fleet does not bring any resources'
   );
 
 INSERT INTO public.messages_ids ("type", "name", "content")

@@ -36,13 +36,13 @@ DROP FUNCTION fleet_return_to_base(fleet_id uuid);
 DROP FUNCTION fleet_update_to_return_time(fleet_id uuid);
 
 -- Drop the function allowing to delete a fleet from the DB.
-DROP FUNCTION fleet_deletion(fleet_id uuid, post_message boolean);
+DROP FUNCTION fleet_deletion(fleet_id uuid);
 
 -- Drop the function allowing to deploy ships on a location.
 DROP FUNCTION fleet_ships_deployment(fleet_id uuid, target_id uuid, target_kind text);
 
 -- Drop the function allowing to deposit resources on a location.
-DROP FUNCTION fleet_deposit_resources(fleet_id uuid, target_id uuid, target_kind text);
+DROP FUNCTION fleet_deposit_resources(fleet_id uuid, target_id uuid, target_kind text, post_message boolean);
 
 -- Drop the ACS fleet import function.
 DROP FUNCTION create_acs_fleet(acs_id uuid, fleet json, ships json, resources json, consumption json);

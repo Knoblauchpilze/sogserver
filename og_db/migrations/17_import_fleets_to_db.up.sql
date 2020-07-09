@@ -467,6 +467,8 @@ BEGIN
       FROM
         fleets_resources AS fr
         INNER JOIN resources AS r ON fr.resource = r.id
+      WHERE
+        fr.fleet = fleet_id
     )
     SELECT
       string_agg(txt, ', ')
@@ -477,10 +479,22 @@ BEGIN
     GROUP BY
       flt;
 
+    -- We need to handle cases where the fleet comes back
+    -- from a harvesting mission in which case no player
+    -- is assigned to the target and cases where the fleet
+    -- does not bring back any resources.
     IF objective_name = 'harvesting' THEN
-      PERFORM create_message_for(player_id, 'fleet_return_owner_harvest', target_name, target_coords, resources_txt);
+      IF resources_txt IS NULL THEN
+        PERFORM create_message_for(player_id, 'fleet_return_owner_harvest_no_resources', target_name, target_coords);
+      ELSE
+        PERFORM create_message_for(player_id, 'fleet_return_owner_harvest', target_name, target_coords, resources_txt);
+      END IF;
     ELSE
-      PERFORM create_message_for(player_id, 'fleet_return_owner', target_name, target_coords, target_player_name, resources_txt);
+      IF resources_txt IS NULL THEN
+        PERFORM create_message_for(player_id, 'fleet_return_owner_no_resources', target_name, target_coords, target_player_name);
+      ELSE
+        PERFORM create_message_for(player_id, 'fleet_return_owner', target_name, target_coords, target_player_name, resources_txt);
+      END IF;
     END IF;
   END IF;
 
@@ -637,6 +651,7 @@ DECLARE
   target_planet_name text;
   target_planet_coords text;
   target_player_id uuid;
+  target_player_name text;
 
   source_planet_kind text;
   source_planet_id uuid;
@@ -660,6 +675,7 @@ BEGIN
     f.target_type,
     f.target,
     p.player,
+    pl.name,
     f.source_type,
     f.source,
     f.player
@@ -669,12 +685,14 @@ BEGIN
     target_planet_kind,
     target_planet_id,
     target_player_id,
+    target_player_name,
     source_planet_kind,
     source_planet_id,
     source_player_id
   FROM
     fleets AS f
     INNER JOIN planets AS p ON p.id = f.target
+    INNER JOIN players AS pl ON pl.id = p.player
   WHERE
     f.id = fleet_id;
 
@@ -747,6 +765,8 @@ BEGIN
       FROM
         fleets_resources AS fr
         INNER JOIN resources AS r ON fr.resource = r.id
+      WHERE
+        fr.fleet = fleet_id
     )
     SELECT
       string_agg(txt, ', ')
@@ -1039,6 +1059,12 @@ BEGIN
     FROM
       debris_fields_resources AS dfr
       INNER JOIN resources AS r ON dfr.res = r.id
+      INNER JOIN debris_fields AS df ON df.id = dfr.field
+    WHERE
+      df.universe = f.universe
+      AND df.galaxy = f.target_galaxy
+      AND df.solar_system = f.target_solar_system
+      AND df.position = f.target_position
   )
   SELECT
     string_agg(txt, ', ')

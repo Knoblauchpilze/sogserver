@@ -690,6 +690,17 @@ BEGIN
       f.id = fleet_id;
   END IF;
 
+  IF target_kind = 'debris' THEN
+    SELECT
+      concat_ws(':', target_galaxy, target_solar_system, target_position)
+    INTO
+      target_coords
+    FROM
+      fleets
+    WHERE
+      id = fleet_id;
+  END IF;
+
   -- Generate the text corresponding to the resources
   -- brought back by the fleet.
   WITH res AS (

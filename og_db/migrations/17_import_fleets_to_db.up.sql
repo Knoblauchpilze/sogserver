@@ -436,13 +436,36 @@ BEGIN
     GROUP BY
       flt;
 
+    -- In case the fleet does not bring any resource,
+    -- generate a message with all possible movable
+    -- resources.
+    IF resources_txt IS NULL THEN
+      WITH res AS (
+        SELECT
+          fleet_id AS flt,
+          concat_ws(' unit(s) of ', 0, r.name) AS txt
+        FROM
+          resources AS r
+        WHERE
+          r.movable = 'true'
+      )
+      SELECT
+        string_agg(txt, ', ')
+      INTO
+        resources_txt
+      FROM
+        res
+      GROUP BY
+        flt;
+    END IF;
+
     -- Depending on whether the player owns only the
     -- fleet or both the fleet and the planet we will
     -- generate different messages.
     IF source_player_id = target_player_id THEN
-      PERFORM create_message_for(source_player_id, 'transport_arrival_sender', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, resources_txt);
+      PERFORM create_message_for(source_player_id, 'transport_arrival_owner', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, resources_txt);
     ELSE
-      PERFORM create_message_for(source_player_id, 'transport_arrival_owner', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, target_player_name, resources_txt);
+      PERFORM create_message_for(source_player_id, 'transport_arrival_sender', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, target_player_name, resources_txt);
       PERFORM create_message_for(target_player_id, 'transport_arrival_receiver', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, resources_txt);
     END IF;
   END IF;
@@ -595,36 +618,136 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
+-- Perform the creation of a message indicating that
+-- the input `fleet_id` is returning from its mission
+-- to the player owning it.
+-- No checks are performed to verify that the fleet
+-- has actually returned.
+CREATE OR REPLACE FUNCTION fleet_post_return_message(fleet_id uuid) RETURNS VOID AS $$
+DECLARE
+  player_id uuid;
+
+  target_kind text;
+  target_name text;
+  target_player_name text;
+  target_coords text;
+
+  objective_name text;
+
+  resources_txt text;
+BEGIN
+  -- Fetch information for this fleet.
+  SELECT
+    f.player,
+    f.target_type,
+    fo.name
+  INTO
+    player_id,
+    target_kind,
+    objective_name
+  FROM
+    fleets AS f
+    INNER JOIN fleets_objectives AS fo ON fo.id = f.objective
+  WHERE
+    f.id = fleet_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid data for fleet % in deletion operation', fleet_id;
+  END IF;
+
+  IF target_kind = 'planet' THEN
+    SELECT
+      p.name,
+      pl.name,
+      concat_ws(':', p.galaxy, p.solar_system, p.position)
+    INTO
+      target_name,
+      target_player_name,
+      target_coords
+    FROM
+      fleets AS f
+      INNER JOIN planets AS p ON p.id = f.target
+      INNER JOIN players AS pl ON p.player = pl.id
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  IF target_kind = 'moon' THEN
+    SELECT
+      m.name,
+      pl.name,
+      concat_ws(':', p.galaxy, p.solar_system, p.position)
+    INTO
+      target_name,
+      target_player_name,
+      target_coords
+    FROM
+      fleets AS f
+      INNER JOIN moons AS m ON m.id = f.target
+      INNER JOIN planets AS p ON m.planet = p.id
+      INNER JOIN players AS pl ON p.player = pl.id
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  -- Generate the text corresponding to the resources
+  -- brought back by the fleet.
+  WITH res AS (
+    SELECT
+      fr.fleet AS flt,
+      concat_ws(' unit(s) of ', fr.amount::integer, r.name) AS txt
+    FROM
+      fleets_resources AS fr
+      INNER JOIN resources AS r ON fr.resource = r.id
+    WHERE
+      fr.fleet = fleet_id
+  )
+  SELECT
+    string_agg(txt, ', ')
+  INTO
+    resources_txt
+  FROM
+    res
+  GROUP BY
+    flt;
+
+  -- We need to handle cases where the fleet comes back
+  -- from a harvesting mission in which case no player
+  -- is assigned to the target and cases where the fleet
+  -- does not bring back any resources.
+  IF objective_name = 'harvesting' THEN
+    IF resources_txt IS NULL THEN
+      PERFORM create_message_for(player_id, 'fleet_return_owner_harvest_no_resources', target_coords);
+    ELSE
+      PERFORM create_message_for(player_id, 'fleet_return_owner_harvest', target_coords, resources_txt);
+    END IF;
+  ELSE
+    IF resources_txt IS NULL THEN
+      PERFORM create_message_for(player_id, 'fleet_return_owner_no_resources', target_name, target_coords, target_player_name);
+    ELSE
+      PERFORM create_message_for(player_id, 'fleet_return_owner', target_name, target_coords, target_player_name, resources_txt);
+    END IF;
+  END IF;
+END
+$$ LANGUAGE plpgsql;
+
 -- Perform the deletion of the fleet and the assignement
 -- of the resources carried by it to the source object.
 CREATE OR REPLACE FUNCTION fleet_return_to_base(fleet_id uuid) RETURNS VOID AS $$
 DECLARE
   processing_time timestamp with time zone = NOW();
 
-  player_id uuid;
-
-  target_kind text;
-  target_id uuid;
-  target_name text;
-  target_coords text;
-  target_player_name text;
+  source_id uuid;
+  source_kind text;
 
   arrival_date timestamp with time zone;
   return_date timestamp with time zone;
   deployment_date timestamp with time zone;
   deployment_duration integer;
-
-  objective_name text;
-
-  resources_txt text;
 BEGIN
-  SELECT arrival_time INTO arrival_date FROM fleets WHERE id = fleet_id;
+  SELECT arrival_time, return_time INTO arrival_date, return_date FROM fleets WHERE id = fleet_id;
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid arrival time for fleet % in return to base operation', fleet_id;
-  END IF;
-  SELECT return_time INTO return_date FROM fleets WHERE id = fleet_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid return time for fleet % in return to base operation', fleet_id;
+    RAISE EXCEPTION 'Invalid arrival/return time for fleet % in return to base operation', fleet_id;
   END IF;
 
   SELECT
@@ -657,115 +780,20 @@ BEGIN
   -- the processing time indicates so.
   IF return_date < processing_time THEN
     -- Fetch the source's data.
-    SELECT source INTO target_id FROM fleets WHERE id = fleet_id;
+    SELECT source, source_type INTO source_id, source_kind FROM fleets WHERE id = fleet_id;
     IF NOT FOUND THEN
       RAISE EXCEPTION 'Invalid source destination for fleet % in harvesting operation', fleet_id;
     END IF;
 
-    SELECT source_type INTO target_kind FROM fleets WHERE id = fleet_id;
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Invalid source kind for fleet % in harvesting operation', fleet_id;
-    END IF;
-
-    -- Post the message indicating that the fleet
-    -- is back.
-    SELECT
-      f.player,
-      f.target_type,
-      fo.name
-    INTO
-      player_id,
-      target_kind,
-      objective_name
-    FROM
-      fleets AS f
-      INNER JOIN fleets_objectives AS fo ON fo.id = f.objective
-    WHERE
-      f.id = fleet_id;
-
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Invalid data for fleet % in deletion operation', fleet_id;
-    END IF;
-
-    IF target_kind = 'planet' THEN
-      SELECT
-        p.name,
-        pl.name,
-        concat_ws(':', p.galaxy, p.solar_system, p.position)
-      INTO
-        target_name,
-        target_player_name,
-        target_coords
-      FROM
-        fleets AS f
-        INNER JOIN planets AS p ON p.id = f.target
-        INNER JOIN players AS pl ON p.player = pl.id
-      WHERE
-        f.id = fleet_id;
-    END IF;
-
-    IF target_kind = 'moon' THEN
-      SELECT
-        m.name,
-        pl.name,
-        concat_ws(':', p.galaxy, p.solar_system, p.position)
-      INTO
-        target_name,
-        target_player_name,
-        target_coords
-      FROM
-        fleets AS f
-        INNER JOIN moons AS m ON m.id = f.target
-        INNER JOIN planets AS p ON m.planet = p.id
-        INNER JOIN players AS pl ON p.player = pl.id
-      WHERE
-        f.id = fleet_id;
-    END IF;
-
-    -- Generate the text corresponding to the resources to drop.
-    WITH res AS (
-      SELECT
-        fr.fleet AS flt,
-        concat_ws(' unit(s) of ', fr.amount::integer, r.name) AS txt
-      FROM
-        fleets_resources AS fr
-        INNER JOIN resources AS r ON fr.resource = r.id
-      WHERE
-        fr.fleet = fleet_id
-    )
-    SELECT
-      string_agg(txt, ', ')
-    INTO
-      resources_txt
-    FROM
-      res
-    GROUP BY
-      flt;
-
-    -- We need to handle cases where the fleet comes back
-    -- from a harvesting mission in which case no player
-    -- is assigned to the target and cases where the fleet
-    -- does not bring back any resources.
-    IF objective_name = 'harvesting' THEN
-      IF resources_txt IS NULL THEN
-        PERFORM create_message_for(player_id, 'fleet_return_owner_harvest_no_resources', target_coords);
-      ELSE
-        PERFORM create_message_for(player_id, 'fleet_return_owner_harvest', target_coords, resources_txt);
-      END IF;
-    ELSE
-      IF resources_txt IS NULL THEN
-        PERFORM create_message_for(player_id, 'fleet_return_owner_no_resources', target_name, target_coords, target_player_name);
-      ELSE
-        PERFORM create_message_for(player_id, 'fleet_return_owner', target_name, target_coords, target_player_name, resources_txt);
-      END IF;
-    END IF;
+    -- Post a message to indicate that the fleet is back.
+    PERFORM fleet_post_return_message(fleet_id);
 
     -- Deposit the resources that were fetched from the
     -- debris field to the source location.
-    PERFORM fleet_deposit_resources(fleet_id, target_id, target_kind, false);
+    PERFORM fleet_deposit_resources(fleet_id, source_id, source_kind, false);
 
     -- Restore the ships to the source.
-    PERFORM fleet_ships_deployment(fleet_id, target_id, target_kind);
+    PERFORM fleet_ships_deployment(fleet_id, source_id, source_kind);
 
     -- Delete the fleet from the DB.
     PERFORM fleet_deletion(fleet_id);
@@ -780,6 +808,8 @@ DECLARE
 
   arrival_date timestamp with time zone;
   return_date timestamp with time zone;
+
+  fleet_returning boolean;
 
   target_planet_id uuid;
   target_planet_kind text;
@@ -801,14 +831,16 @@ BEGIN
     f.target,
     f.target_type,
     f.source,
-    f.source_type
+    f.source_type,
+    f.is_returning
   INTO
     arrival_date,
     return_date,
     target_planet_id,
     target_planet_kind,
     source_planet_id,
-    source_planet_kind
+    source_planet_kind,
+    fleet_returning
   FROM
     fleets AS f
   WHERE
@@ -820,7 +852,7 @@ BEGIN
 
   -- In case the current time is posterior to the arrival
   -- time, dump the resources to the target element.
-  IF arrival_date < processing_time THEN
+  IF arrival_date < processing_time AND fleet_returning = 'false' THEN
     -- Deposit the resources on the target planet.
     PERFORM fleet_deposit_resources(fleet_id, target_planet_id, target_planet_kind, true);
 
@@ -832,6 +864,9 @@ BEGIN
   -- Handle the return of the fleet to its source in case
   -- the processing time indicates so.
   IF return_date < processing_time THEN
+    -- Post a message indicating that the fleet has returned.
+    PERFORM fleet_post_return_message(fleet_id);
+
     -- Restore the ships to the source.
     PERFORM fleet_ships_deployment(fleet_id, source_planet_id, source_planet_kind);
 

@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"oglike_server/pkg/db"
+	"oglike_server/pkg/logger"
 )
 
 // spyInfo : Convenience define to refer to the
@@ -17,17 +18,50 @@ type spyInfo int
 const (
 	Materials spyInfo = iota
 	Fleets
-	Defense
+	Defenses
 	Buildings
-	Research
+	Researches
 )
+
+// String :
+// Implementation of the string interface for
+// the `spyInfo` type.
+//
+// Returns the created string.
+func (si spyInfo) String() string {
+	switch si {
+	case Materials:
+		return "\"materials\""
+	case Fleets:
+		return "\"fleets\""
+	case Defenses:
+		return "\"defenses\""
+	case Buildings:
+		return "\"buildings\""
+	case Researches:
+		return "\"researches\""
+	}
+
+	return "\"unknown\""
+}
 
 // spyModule :
 // Used as a convenience object to handle the
 // possible otucomes of an espionage operation.
 //
+// The `spyEspionageTechLevel` defines the tech
+// level of espionage reached by the spy.
+//
+// The `targetEspionageTechLevel` defines the
+// tech of espionage reached by the spied.
+//
+// The `probes` defines the number of probes
+// sent by the spy.
+//
+// The `ships` defines the number of ships on
+// the spied planet.
 type spyModule struct {
-	spyerEspionageTechLevel  int
+	spyEspionageTechLevel    int
 	targetEspionageTechLevel int
 	probes                   int
 	ships                    int
@@ -48,9 +82,9 @@ type spyModule struct {
 // Returns the spy module along with any errors.
 func newSpyModule(fleet *Fleet, target *Planet, data Instance) (spyModule, error) {
 	sm := spyModule{
-		spyerEspionageTechLevel:  0,
+		spyEspionageTechLevel:    0,
 		targetEspionageTechLevel: 0,
-		probes:                   1,
+		probes:                   0,
 		ships:                    0,
 	}
 
@@ -66,7 +100,7 @@ func newSpyModule(fleet *Fleet, target *Planet, data Instance) (spyModule, error
 		return sm, err
 	}
 
-	sm.spyerEspionageTechLevel = p.Technologies[techID].Level
+	sm.spyEspionageTechLevel = p.Technologies[techID].Level
 	sm.targetEspionageTechLevel = target.technologies[techID]
 
 	// Fetch the number of probes sent in this
@@ -102,7 +136,7 @@ func newSpyModule(fleet *Fleet, target *Planet, data Instance) (spyModule, error
 // Returns the level of information that will
 // be provided.
 func (sm spyModule) infoLevel() spyInfo {
-	sEspDif := sm.spyerEspionageTechLevel - sm.targetEspionageTechLevel
+	sEspDif := sm.spyEspionageTechLevel - sm.targetEspionageTechLevel
 	espDif := int(math.Abs(float64(sEspDif)))
 
 	det := sm.probes + sEspDif*espDif
@@ -110,15 +144,15 @@ func (sm spyModule) infoLevel() spyInfo {
 	// This information is directly extracted
 	// from here:
 	// https://ogame.fandom.com/wiki/Espionage
-	switch det {
-	case 2:
+	switch {
+	case det == 2:
 		return Fleets
-	case 3:
-		return Defense
-	case 5:
+	case det < 5:
+		return Defenses
+	case det < 7:
 		return Buildings
-	case 7:
-		return Research
+	case det >= 7:
+		return Researches
 	default:
 		// Only resources visible.
 		return Materials
@@ -142,7 +176,7 @@ func (sm spyModule) counterEspionageProbability() float32 {
 	fProbes := float64(sm.probes)
 	fShips := float64(sm.ships)
 	fE := float64(sm.targetEspionageTechLevel)
-	fO := float64(sm.spyerEspionageTechLevel)
+	fO := float64(sm.spyEspionageTechLevel)
 
 	prob := math.Pow(2.0, fE-fO) * fShips * fProbes * 0.25 / 100.0
 	prob = math.Min(1.0, math.Max(0.0, prob))
@@ -179,42 +213,47 @@ func (f *Fleet) spy(p *Planet, data Instance) (string, error) {
 	// chances of counter-espionage which can lead to
 	// a fight between the ships deployed at the dest
 	// of the fleet and the fleet itself.
-	sm, err := newSpyModule(f, p, data)
-	if err != nil {
-		fmt.Println(fmt.Sprintf("Err 1: %v", err))
-		return "", ErrFleetEspionageSimulationFailure
-	}
 
-	// Determine the information level provided by the
-	// spying operation.
-	il := sm.infoLevel()
+	// The process is only relevant is the fleet is
+	// not already returning to its base.
+	if !f.returning {
+		sm, err := newSpyModule(f, p, data)
+		if err != nil {
+			return "", ErrFleetEspionageSimulationFailure
+		}
 
-	// Compute the counter-espionage probability.
-	ce := sm.counterEspionageProbability()
-	source := rand.NewSource(f.ArrivalTime.UnixNano())
-	rng := rand.New(source)
+		// Determine the information level provided by the
+		// spying operation.
+		il := sm.infoLevel()
 
-	// Notify an espionage report in the DB.
-	query := db.InsertReq{
-		Script: "espionage_report",
-		Args: []interface{}{
-			f.ID,
-			int(math.Round(float64(ce) * 100.0)),
-			il,
-		},
-	}
+		data.log.Trace(logger.Verbose, "spy", fmt.Sprintf("Spy level for fleet \"%s\" is %s", f.ID, il))
 
-	err = data.Proxy.InsertToDB(query)
-	if err != nil {
-		fmt.Println(fmt.Sprintf("Err 2: %v", err))
-		return "", ErrFleetFightSimulationFailure
-	}
+		// Compute the counter-espionage probability.
+		ce := sm.counterEspionageProbability()
+		source := rand.NewSource(f.ArrivalTime.UnixNano())
+		rng := rand.New(source)
 
-	if rng.Float32() <= ce {
-		// The fleet is detected, proceed to a fight
-		// between the attacker fleet and the target
-		// defense.
-		return f.attack(p, data)
+		// Notify an espionage report in the DB.
+		query := db.InsertReq{
+			Script: "espionage_report",
+			Args: []interface{}{
+				f.ID,
+				int(math.Round(float64(ce) * 100.0)),
+				il,
+			},
+		}
+
+		err = data.Proxy.InsertToDB(query)
+		if err != nil {
+			return "", ErrFleetFightSimulationFailure
+		}
+
+		if rng.Float32() <= ce {
+			// The fleet is detected, proceed to a fight
+			// between the attacker fleet and the target
+			// defense.
+			return f.attack(p, data)
+		}
 	}
 
 	return "fleet_return_to_base", nil

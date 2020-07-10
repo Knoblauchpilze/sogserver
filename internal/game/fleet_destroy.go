@@ -32,6 +32,12 @@ func (f *Fleet) destroy(m *Planet, data Instance) (string, error) {
 		return "", ErrUnableToSimulateFleet
 	}
 
+	// In case the fleet is already returning to its
+	// base, return early.
+	if f.returning {
+		return "fleet_return_to_base", nil
+	}
+
 	// First attack the moon.
 	script, err := f.attack(m, data)
 	if err != nil {

@@ -202,7 +202,6 @@ func (f *Fleet) spy(p *Planet, data Instance) (string, error) {
 			int(math.Round(float64(ce) * 100.0)),
 			il,
 		},
-		Verbose: true,
 	}
 
 	err = data.Proxy.InsertToDB(query)

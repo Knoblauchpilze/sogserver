@@ -66,6 +66,12 @@ INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
     'transport_arrival_owner',
+    'your fleet from $PLANET_NAME $COORD arrives at $PLANET_NAME $COORD. The fleet deposits $RESOURCES'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'transport_arrival_sender',
     'your fleet from $PLANET_NAME $COORD arrives at $PLANET_NAME $COORD ($PLAYER_NAME). The fleet deposits $RESOURCES'
   );
 INSERT INTO public.messages_ids ("type", "name", "content")

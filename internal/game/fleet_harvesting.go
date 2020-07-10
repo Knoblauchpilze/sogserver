@@ -53,7 +53,6 @@ func (f *Fleet) harvest(data Instance) (string, error) {
 				df.ID,
 				hp.collected,
 			},
-			Verbose: true,
 		}
 
 		err = data.Proxy.InsertToDB(query)

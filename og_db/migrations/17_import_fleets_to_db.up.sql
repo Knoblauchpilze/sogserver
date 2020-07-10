@@ -287,7 +287,23 @@ $$ LANGUAGE plpgsql;
 -- from the input fleet) actually existed.
 CREATE OR REPLACE FUNCTION fleet_deposit_resources(fleet_id uuid, target_id uuid, target_kind text, post_message boolean) RETURNS VOID AS $$
 DECLARE
-  arrival timestamp with time zone;
+  arrival_date timestamp with time zone;
+  return_date timestamp with time zone;
+
+  target_planet_kind text;
+  target_planet_id uuid;
+  target_planet_name text;
+  target_planet_coords text;
+  target_player_id uuid;
+  target_player_name text;
+
+  source_planet_kind text;
+  source_planet_id uuid;
+  source_planet_name text;
+  source_planet_coords text;
+  source_player_id uuid;
+
+  resources_txt text;
 BEGIN
   -- Perform the update of the resources on the planet
   -- so as to be sure that the player gets the max of
@@ -296,13 +312,139 @@ BEGIN
   -- This is only relevant in case the target is indeed
   -- a planet.
   IF target_kind = 'planet' THEN
-    SELECT arrival_time INTO arrival FROM fleets WHERE id = fleet_id;
+    SELECT arrival_time INTO arrival_date FROM fleets WHERE id = fleet_id;
 
     IF NOT FOUND THEN
-      RAISE EXCEPTION 'Unable to fetch arrival time for fleet %', fleet_id;
+      RAISE EXCEPTION 'Unable to fetch arrival time for fleet % in deposit operation', fleet_id;
     END IF;
 
-    PERFORM update_resources_for_planet_to_time(target_id, arrival);
+    PERFORM update_resources_for_planet_to_time(target_id, arrival_date);
+  END IF;
+
+  -- Generate messages for both the player owning the
+  -- fleet and the player owning the planet to notify
+  -- that the fleet has brought some resources.
+  -- We will generate only a single message in case
+  -- the player owning the fleet is also owning the
+  -- destination planet.
+  IF post_message THEN
+    -- Fetch information about the fleet.
+    SELECT
+      f.arrival_time,
+      f.return_time,
+      f.target_type,
+      f.target,
+      p.player,
+      pl.name,
+      f.source_type,
+      f.source,
+      f.player
+    INTO
+      arrival_date,
+      return_date,
+      target_planet_kind,
+      target_planet_id,
+      target_player_id,
+      target_player_name,
+      source_planet_kind,
+      source_planet_id,
+      source_player_id
+    FROM
+      fleets AS f
+      INNER JOIN planets AS p ON p.id = f.target
+      INNER JOIN players AS pl ON pl.id = p.player
+    WHERE
+      f.id = fleet_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Invalid data for fleet % in transport operation', fleet_id;
+    END IF;
+
+    IF target_planet_kind = 'planet' THEN
+      SELECT
+        name,
+        concat_ws(':', galaxy, solar_system, position)
+      INTO
+        target_planet_name,
+        target_planet_coords
+      FROM
+        planets
+      WHERE
+        id = target_planet_id;
+    END IF;
+
+    IF target_planet_kind = 'moon' THEN
+      SELECT
+        m.name,
+        concat_ws(':', p.galaxy, p.solar_system, p.position)
+      INTO
+        target_planet_name,
+        target_planet_coords
+      FROM
+        moons AS m
+        INNER JOIN planets AS p ON p.id = m.planet
+      WHERE
+        m.id = target_planet_id;
+    END IF;
+
+    IF source_planet_kind = 'planet' THEN
+      SELECT
+        name,
+        concat_ws(':', galaxy, solar_system, position)
+      INTO
+        source_planet_name,
+        source_planet_coords
+      FROM
+        planets
+      WHERE
+        id = source_planet_id;
+    END IF;
+
+    IF source_planet_kind = 'moon' THEN
+      SELECT
+        m.name,
+        concat_ws(':', p.galaxy, p.solar_system, p.position)
+      INTO
+        source_planet_name,
+        source_planet_coords
+      FROM
+        moons AS m
+        INNER JOIN planets AS p ON p.id = m.planet
+      WHERE
+        m.id = source_planet_id;
+    END IF;
+
+    -- Generate the text describing resources brought by
+    -- the fleet.
+    WITH res AS (
+      SELECT
+        fr.fleet AS flt,
+        concat_ws(' unit(s) of ', COALESCE(fr.amount::integer, 0), r.name) AS txt
+      FROM
+        resources AS r
+        LEFT JOIN fleets_resources AS fr ON fr.resource = r.id
+      WHERE
+        fr.fleet = fleet_id
+        AND r.movable = 'true'
+    )
+    SELECT
+      string_agg(txt, ', ')
+    INTO
+      resources_txt
+    FROM
+      res
+    GROUP BY
+      flt;
+
+    -- Depending on whether the player owns only the
+    -- fleet or both the fleet and the planet we will
+    -- generate different messages.
+    IF source_player_id = target_player_id THEN
+      PERFORM create_message_for(source_player_id, 'transport_arrival_sender', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, resources_txt);
+    ELSE
+      PERFORM create_message_for(source_player_id, 'transport_arrival_owner', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, target_player_name, resources_txt);
+      PERFORM create_message_for(target_player_id, 'transport_arrival_receiver', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, resources_txt);
+    END IF;
   END IF;
 
   -- Add the resources carried by the fleet to the
@@ -323,9 +465,8 @@ BEGIN
       SET amount = pr.amount + fr.amount
     FROM
       fleets_resources AS fr
-      INNER JOIN fleets f ON fr.fleet = f.id
     WHERE
-      f.id = fleet_id
+      fr.fleet = fleet_id
       AND pr.res = fr.resource
       AND pr.planet = target_id;
   END IF;
@@ -335,9 +476,8 @@ BEGIN
       SET amount = mr.amount + fr.amount
     FROM
       fleets_resources AS fr
-      INNER JOIN fleets f ON fr.fleet = f.id
     WHERE
-      f.id = fleet_id
+      fr.fleet = fleet_id
       AND mr.res = fr.resource
       AND mr.moon = target_id;
   END IF;
@@ -641,20 +781,11 @@ DECLARE
   arrival_date timestamp with time zone;
   return_date timestamp with time zone;
 
-  target_planet_kind text;
   target_planet_id uuid;
-  target_planet_name text;
-  target_planet_coords text;
-  target_player_id uuid;
-  target_player_name text;
+  target_planet_kind text;
 
-  source_planet_kind text;
   source_planet_id uuid;
-  source_planet_name text;
-  source_planet_coords text;
-  source_player_id uuid;
-
-  resources_txt text;
+  source_planet_kind text;
 BEGIN
   -- The transport mission has two main events associated
   -- to it: the first one corresponds to when it arrives
@@ -667,27 +798,19 @@ BEGIN
   SELECT
     f.arrival_time,
     f.return_time,
-    f.target_type,
     f.target,
-    p.player,
-    pl.name,
-    f.source_type,
+    f.target_type,
     f.source,
-    f.player
+    f.source_type
   INTO
     arrival_date,
     return_date,
-    target_planet_kind,
     target_planet_id,
-    target_player_id,
-    target_player_name,
-    source_planet_kind,
+    target_planet_kind,
     source_planet_id,
-    source_player_id
+    source_planet_kind
   FROM
     fleets AS f
-    INNER JOIN planets AS p ON p.id = f.target
-    INNER JOIN players AS pl ON pl.id = p.player
   WHERE
     f.id = fleet_id;
 
@@ -695,91 +818,11 @@ BEGIN
     RAISE EXCEPTION 'Invalid data for fleet % in transport operation', fleet_id;
   END IF;
 
-  IF target_planet_kind = 'planet' THEN
-    SELECT
-      name,
-      concat_ws(':', galaxy, solar_system, position)
-    INTO
-      target_planet_name,
-      target_planet_coords
-    FROM
-      planets
-    WHERE
-      id = target_planet_id;
-  END IF;
-
-  IF target_planet_kind = 'moon' THEN
-    SELECT
-      m.name,
-      concat_ws(':', p.galaxy, p.solar_system, p.position)
-    INTO
-      target_planet_name,
-      target_planet_coords
-    FROM
-      moons AS m
-      INNER JOIN planets AS p ON p.id = m.planet
-    WHERE
-      m.id = target_planet_id;
-  END IF;
-
-  IF source_planet_kind = 'planet' THEN
-    SELECT
-      name,
-      concat_ws(':', galaxy, solar_system, position)
-    INTO
-      source_planet_name,
-      source_planet_coords
-    FROM
-      planets
-    WHERE
-      id = source_planet_id;
-  END IF;
-
-  IF source_planet_kind = 'moon' THEN
-    SELECT
-      m.name,
-      concat_ws(':', p.galaxy, p.solar_system, p.position)
-    INTO
-      source_planet_name,
-      source_planet_coords
-    FROM
-      moons AS m
-      INNER JOIN planets AS p ON p.id = m.planet
-    WHERE
-      m.id = source_planet_id;
-  END IF;
-
   -- In case the current time is posterior to the arrival
   -- time, dump the resources to the target element.
   IF arrival_date < processing_time THEN
-    -- Generate the text corresponding to the resources to drop.
-    WITH res AS (
-      SELECT
-        fr.fleet AS flt,
-        concat_ws(' unit(s) of ', fr.amount::integer, r.name) AS txt
-      FROM
-        fleets_resources AS fr
-        INNER JOIN resources AS r ON fr.resource = r.id
-      WHERE
-        fr.fleet = fleet_id
-    )
-    SELECT
-      string_agg(txt, ', ')
-    INTO
-      resources_txt
-    FROM
-      res
-    GROUP BY
-      flt;
-
     -- Deposit the resources on the target planet.
     PERFORM fleet_deposit_resources(fleet_id, target_planet_id, target_planet_kind, true);
-
-    -- Create message for both players.
-    -- TODO: Should be moved inside the fleet deposit resources.
-    PERFORM create_message_for(source_player_id, 'transport_arrival_owner', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, target_player_name, resources_txt);
-
-    PERFORM create_message_for(target_player_id, 'transport_arrival_receiver', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, resources_txt);
 
     -- Update the next time the fleet needs processing
     -- to be the return time.
@@ -814,10 +857,6 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invalid target kind for fleet % in deploy operation', fleet_id;
   END IF;
-
-  -- TOOD: Should include the messages for resources here.
-  -- This should be handled by the fact that the deposit
-  -- resources will include these messages.
 
   -- Deposit the resources of the fleet at the target
   -- destination.
@@ -1055,7 +1094,7 @@ BEGIN
   WITH res AS (
     SELECT
       dfr.field AS fld,
-      concat_ws(' unit(s) of ', COALESCE(0.0, dfr.amount)::integer, r.name) AS txt
+      concat_ws(' unit(s) of ', COALESCE(dfr.amount::integer, 0), r.name) AS txt
     FROM
       resources AS r
       LEFT JOIN debris_fields_resources AS dfr ON dfr.res = r.id
@@ -1097,7 +1136,7 @@ BEGIN
   WITH res AS (
     SELECT
       fleet_id AS flt,
-      concat_ws(' unit(s) of ', COALESCE(0.0, t.amount)::integer, r.name) AS txt
+      concat_ws(' unit(s) of ', COALESCE(t.amount::integer, 0), r.name) AS txt
     FROM
       resources AS r
       LEFT JOIN json_to_recordset(resources) AS t(resource uuid, amount numeric(15, 5)) ON t.resource = r.id

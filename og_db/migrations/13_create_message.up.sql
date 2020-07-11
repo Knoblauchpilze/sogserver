@@ -84,14 +84,26 @@ INSERT INTO public.messages_ids ("type", "name", "content")
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
+    'acs_defend_arrival_receiver',
+    'a fleet from $PLANET_NAME $COORD ($PLAYER_NAME) arrives at $PLANET_NAME $COORD. The fleet parks in orbit to defend us against any threats'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
     'acs_defend_arrival_owner',
     'your fleet from $PLANET_NAME $COORD arrives at $PLANET_NAME $COORD ($PLAYER_NAME) and parks in orbit for a watchful defense'
   );
 INSERT INTO public.messages_ids ("type", "name", "content")
   VALUES(
     (SELECT id FROM messages_types WHERE type='fleets'),
-    'acs_defend_arrival_receiver',
-    'a fleet from $PLANET_NAME $COORD ($PLAYER_NAME) arrives at $PLANET_NAME $COORD. The fleet parks in orbit to defend us against any threats'
+    'acs_defend_leaving_receiver',
+    'a fleet from $PLANET_NAME $COORD ($PLAYER_NAME) leaves $PLANET_NAME $COORD'
+  );
+INSERT INTO public.messages_ids ("type", "name", "content")
+  VALUES(
+    (SELECT id FROM messages_types WHERE type='fleets'),
+    'acs_defend_leaving_owner',
+    'your fleet from $PLANET_NAME $COORD leaves $PLANET_NAME $COORD ($PLAYER_NAME)'
   );
 
 INSERT INTO public.messages_ids ("type", "name", "content")

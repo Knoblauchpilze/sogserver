@@ -1680,8 +1680,175 @@ $$ LANGUAGE plpgsql;
 -- the fleet arrives and  go back.
 CREATE OR REPLACE FUNCTION fleet_acs_defend(fleet_id uuid) RETURNS VOID AS $$
 DECLARE
+  processing_time timestamp with time zone = NOW();
+
+  arrival_date timestamp with time zone;
+  deployment_duration integer;
+  deployment_date timestamp with time zone;
+  return_date timestamp with time zone;
+
+  fleet_returning boolean;
+
+  target_planet_id uuid;
+  target_planet_kind text;
+  target_planet_name text;
+  target_coords text;
+  target_player_id uuid;
+  target_player_name text;
+
+  source_planet_id uuid;
+  source_planet_kind text;
+  source_planet_name text;
+  source_coords text;
+  source_player_id uuid;
+  source_player_name text;
 BEGIN
-  -- TODO: Handle this with notably: `acs_defend_arrival_owner` and `acs_defend_arrival_receiver`.
+  -- Fetch information about the fleet.
+  SELECT
+    f.arrival_time,
+    f.deployment_time,
+    f.arrival_time + make_interval(secs := CAST(f.deployment_time AS DOUBLE PRECISION)),
+    f.return_time,
+    f.target,
+    f.target_type,
+    f.source,
+    f.source_type,
+    f.is_returning
+  INTO
+    arrival_date,
+    deployment_duration,
+    deployment_date,
+    return_date,
+    target_planet_id,
+    target_planet_kind,
+    source_planet_id,
+    source_planet_kind,
+    fleet_returning
+  FROM
+    fleets AS f
+  WHERE
+    f.id = fleet_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid fleet properties for % in acs defend operation', fleet_id;
+  END IF;
+
+  IF target_planet_kind = 'planet' THEN
+    SELECT
+      p.name,
+      concat_ws(':', p.galaxy, p.solar_system, p.position),
+      pl.id,
+      pl.name
+    INTO
+      target_planet_name,
+      target_coords,
+      target_player_id,
+      target_player_name
+    FROM
+      fleets AS f
+      INNER JOIN planets AS p ON p.id = f.target
+      INNER JOIN players AS pl ON pl.id = p.player
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  IF target_planet_kind = 'moon' THEN
+    SELECT
+      m.name,
+      concat_ws(':', p.galaxy, p.solar_system, p.position),
+      pl.id,
+      pl.name
+    INTO
+      target_planet_name,
+      target_coords,
+      target_player_id,
+      target_player_name
+    FROM
+      fleets AS f
+      INNER JOIN moons AS m ON m.id = f.target
+      INNER JOIN planets AS p ON p.id = m.planet
+      INNER JOIN players AS pl ON pl.id = p.player
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  IF source_planet_kind = 'planet' THEN
+    SELECT
+      p.name,
+      concat_ws(':', p.galaxy, p.solar_system, p.position),
+      pl.id,
+      pl.name
+    INTO
+      source_planet_name,
+      source_coords,
+      source_player_id,
+      source_player_name
+    FROM
+      fleets AS f
+      INNER JOIN planets AS p ON p.id = f.source
+      INNER JOIN players AS pl ON pl.id = p.player
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  IF source_planet_kind = 'moon' THEN
+    SELECT
+      m.name,
+      concat_ws(':', p.galaxy, p.solar_system, p.position),
+      pl.id,
+      pl.name
+    INTO
+      source_planet_name,
+      source_coords,
+      source_player_id,
+      source_player_name
+    FROM
+      fleets AS f
+      INNER JOIN moons AS m ON m.id = f.source
+      INNER JOIN planets AS p ON p.id = m.planet
+      INNER JOIN players AS pl ON pl.id = p.player
+    WHERE
+      f.id = fleet_id;
+  END IF;
+
+  -- In case the current time is posterior to the arrival
+  -- time, indicate to both the source and target players
+  -- that the fleet is now deployed.
+  IF arrival_date < processing_time AND fleet_returning = 'false' AND (deployment_duration > 0  AND deployment_date < processing_time) THEN
+    -- TODO: We need to make sure that the message is only
+    -- posted once: we could add a `is_deployed` boolean
+    -- in the `fleets` table and see whether this makes
+    -- sense.
+    PERFORM create_message_for(target_player_id, 'acs_defend_arrival_receiver', source_planet_name, source_coords, source_player_name, target_planet_name, target_coords);
+    PERFORM create_message_for(source_player_id, 'acs_defend_arrival_owner', source_planet_name, source_coords, target_planet_name, target_coords, target_player_name);
+
+    -- We also need to update the return time and the next
+    -- action for this fleet.
+    PERFORM fleet_update_to_return_time(fleet_id);
+  END IF;
+
+  -- In case the deployment phase of this fleet is over
+  -- we need to notify players as well.
+  IF deployment_duration > 0 AND deployment_date < processing_time AND fleet_returning = 'false' THEN
+    PERFORM create_message_for(target_player_id, 'acs_defend_leaving_receiver', source_planet_name, source_coords, source_player_name, target_planet_name, target_coords);
+    PERFORM create_message_for(source_player_id, 'acs_defend_leaving_owner', source_planet_name, source_coords, target_planet_name, target_coords, target_player_name);
+
+    -- Update the return time of the fleet.
+    PERFORM fleet_update_to_return_time(fleet_id);
+  END IF;
+
+  -- Handle the return of the fleet to its source in case
+  -- the processing time indicates so.
+  IF return_date < processing_time THEN
+    -- Post a message indicating that the fleet has returned.
+    PERFORM fleet_post_return_message(fleet_id);
+
+    -- Restore the ships to the source.
+    PERFORM fleet_ships_deployment(fleet_id, source_planet_id, source_planet_kind);
+
+    -- Delete the fleet from the DB.
+    PERFORM fleet_deletion(fleet_id);
+  END IF;
 END
 $$ LANGUAGE plpgsql;
 

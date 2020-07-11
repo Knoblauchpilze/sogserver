@@ -480,9 +480,9 @@ BEGIN
     resources_pillaged
   FROM
     resources AS r
-    LEFT JOIN rp on r.id = rp.resource
+    LEFT JOIN rp ON r.id = rp.resource
   WHERE
-    r.movable='true';
+    r.movable = 'true';
 
   -- Generate resources that end up in the debris field
   -- in a similar way to the resources pillaged.
@@ -494,12 +494,16 @@ BEGIN
       json_to_recordset(debris) AS t(resource uuid, amount numeric(15, 5))
     )
   SELECT
-    string_agg(concat_ws(' unit(s) of ', floor(rp.amount)::integer::text, r.name), ', ')
+    string_agg(concat_ws(' unit(s) of ', floor(COALESCE(rp.amount, 0.0))::integer::text, r.name), ', ')
   INTO
     resources_dispersed
   FROM
-    rp
-    INNER JOIN resources AS r ON rp.resource = r.id;
+    resources AS r
+    LEFT JOIN rp ON r.id = rp.resource
+  WHERE
+    r.dispersable = 'true';
+
+  RAISE NOTICE 'pillage: %, dispersed: %, rebuilt: %', resources_pillaged, resources_dispersed, rebuilt;
 
   -- Create the message entry.
   SELECT * INTO footer_id FROM create_message_for(player_id, 'fight_report_footer', resources_pillaged, resources_dispersed, rebuilt::text);

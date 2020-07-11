@@ -583,17 +583,18 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION fleet_update_to_return_time(fleet_id uuid) RETURNS VOID AS $$
 DECLARE
   wait_time integer;
+  deployed boolean;
 BEGIN
   -- Select the wait time for this fleet at its target
   -- destination. This will indicate whether we should
   -- make the fleet return immediately or wait at its
   -- destination.
-  SELECT deployment_time INTO wait_time FROM fleets WHERE id = fleet_id;
+  SELECT deployment_time, is_deployed INTO wait_time, deployed FROM fleets WHERE id = fleet_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invalid deployment time for fleet % in update return time operation', fleet_id;
   END IF;
 
-  IF wait_time > 0 THEN
+  IF wait_time > 0 AND deployed = 'false' THEN
     UPDATE actions_queue
       SET completion_time = arrival_time + make_interval(secs := CAST(wait_time AS DOUBLE PRECISION))
     FROM
@@ -601,6 +602,9 @@ BEGIN
     WHERE
       f.id = fleet_id
       AND action = fleet_id;
+
+    -- Indicate that this fleet is now deployed.
+    UPDATE fleets SET is_deployed = 'true' WHERE id = fleet_id;
   ELSE
     -- Update the corresponding entry in the actions queue.
     UPDATE actions_queue
@@ -612,8 +616,14 @@ BEGIN
       AND action = fleet_id;
 
     -- Indicate that this fleet is now returning to its
-    -- source.
-    UPDATE fleets SET is_returning = 'true' WHERE id = fleet_id;
+    -- source and is no longer deployed (also work if it
+    -- was never deployed in the first place).
+    UPDATE fleets
+    SET
+      is_returning = 'true',
+      is_deployed = 'false'
+    WHERE
+      id = fleet_id;
   END IF;
 END
 $$ LANGUAGE plpgsql;
@@ -1688,6 +1698,7 @@ DECLARE
   return_date timestamp with time zone;
 
   fleet_returning boolean;
+  fleet_deployed boolean;
 
   target_planet_id uuid;
   target_planet_kind text;
@@ -1713,7 +1724,8 @@ BEGIN
     f.target_type,
     f.source,
     f.source_type,
-    f.is_returning
+    f.is_returning,
+    f.is_deployed
   INTO
     arrival_date,
     deployment_duration,
@@ -1723,7 +1735,8 @@ BEGIN
     target_planet_kind,
     source_planet_id,
     source_planet_kind,
-    fleet_returning
+    fleet_returning,
+    fleet_deployed
   FROM
     fleets AS f
   WHERE
@@ -1814,11 +1827,7 @@ BEGIN
   -- In case the current time is posterior to the arrival
   -- time, indicate to both the source and target players
   -- that the fleet is now deployed.
-  IF arrival_date < processing_time AND fleet_returning = 'false' AND (deployment_duration > 0  AND deployment_date < processing_time) THEN
-    -- TODO: We need to make sure that the message is only
-    -- posted once: we could add a `is_deployed` boolean
-    -- in the `fleets` table and see whether this makes
-    -- sense.
+  IF arrival_date < processing_time AND fleet_returning = 'false' AND fleet_deployed = 'false' THEN
     PERFORM create_message_for(target_player_id, 'acs_defend_arrival_receiver', source_planet_name, source_coords, source_player_name, target_planet_name, target_coords);
     PERFORM create_message_for(source_player_id, 'acs_defend_arrival_owner', source_planet_name, source_coords, target_planet_name, target_coords, target_player_name);
 

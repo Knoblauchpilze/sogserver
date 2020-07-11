@@ -110,6 +110,9 @@ import (
 //
 // The `returning` allows to determine whether the
 // fleet is returning to its source or not.
+//
+// The `deployed` allows to determine whether the
+// fleet is currently deployed to another planet.
 type Fleet struct {
 	ID             string                          `json:"id"`
 	Universe       string                          `json:"universe"`
@@ -130,6 +133,7 @@ type Fleet struct {
 	Cargo          map[string]model.ResourceAmount `json:"cargo"`
 	flightTime     time.Duration
 	returning      bool
+	deployed       bool
 }
 
 // ShipInFleet :
@@ -477,6 +481,7 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 			"deployment_time",
 			"return_time",
 			"is_returning",
+			"is_deployed",
 		},
 		Table: "fleets",
 		Filters: []db.Filter{
@@ -529,6 +534,7 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 		&f.DeploymentTime,
 		&f.ReturnTime,
 		&f.returning,
+		&f.deployed,
 	)
 
 	var errC error
@@ -963,6 +969,7 @@ func (f *Fleet) Convert() interface{} {
 		DeploymentTime int       `json:"deployment_time"`
 		ReturnTime     time.Time `json:"return_time"`
 		IsReturning    bool      `json:"is_returning"`
+		IsDeployed     bool      `json:"is_deployed"`
 	}{
 		ID:             f.ID,
 		Universe:       f.Universe,
@@ -980,6 +987,7 @@ func (f *Fleet) Convert() interface{} {
 		DeploymentTime: f.DeploymentTime,
 		ReturnTime:     f.ReturnTime,
 		IsReturning:    f.returning,
+		IsDeployed:     f.deployed,
 	}
 }
 
@@ -1293,8 +1301,10 @@ func (f *Fleet) ConsolidateArrivalTime(data Instance, p *Planet, ratio float32) 
 
 	f.ReturnTime = f.ArrivalTime.Add(f.flightTime).Add(time.Duration(f.DeploymentTime) * time.Second)
 
-	// The fleet is not yet retruning from its mission.
+	// The fleet is not yet retruning from its mission
+	// nor already deployed.
 	f.returning = false
+	f.deployed = false
 
 	return nil
 }

@@ -17,6 +17,7 @@ import (
 // TODO: Use the token mechanism to make sure that a client has access
 // to some information (typically to the data for a planet or a player).
 // TODO: Add consumption for ACS defend case.
+// TODO: `created_at` in messages should be changed.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

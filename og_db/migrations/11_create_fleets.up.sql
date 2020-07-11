@@ -28,6 +28,7 @@ CREATE TABLE fleets (
   deployment_time integer NOT NULL,
   return_time TIMESTAMP WITH TIME ZONE NOT NULL,
   is_returning boolean NOT NULL DEFAULT false,
+  is_deployed boolean NOT NULL DEFAULT false,
   PRIMARY KEY (id),
   FOREIGN KEY (universe) REFERENCES universes(id),
   FOREIGN KEY (objective) REFERENCES fleets_objectives(id),

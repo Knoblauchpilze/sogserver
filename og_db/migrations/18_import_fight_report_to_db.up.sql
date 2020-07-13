@@ -503,8 +503,6 @@ BEGIN
   WHERE
     r.dispersable = 'true';
 
-  RAISE NOTICE 'pillage: %, dispersed: %, rebuilt: %', resources_pillaged, resources_dispersed, rebuilt;
-
   -- Create the message entry.
   SELECT * INTO footer_id FROM create_message_for(player_id, 'fight_report_footer', resources_pillaged, resources_dispersed, rebuilt::text);
 

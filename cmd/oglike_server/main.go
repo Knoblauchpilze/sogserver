@@ -18,7 +18,6 @@ import (
 // to some information (typically to the data for a planet or a player).
 // TODO: Add consumption for ACS defend case.
 // TODO: `created_at` in messages should be changed.
-// TODO: Seems like the ACS defend is not correctly taken into account.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

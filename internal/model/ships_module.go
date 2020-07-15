@@ -77,12 +77,19 @@ type ShipsModule struct {
 // journey to get the total consumption. It is not
 // linked to the propulsion technology but rather to
 // the intrinsic properties of the ship.
+//
+// The `deployment` is an association table that
+// defines for each resource the deployment cost
+// of this ship orbiting a foreign planet. Note
+// that the consumption is expressed in units
+// per hour.
 type shipProps struct {
 	cargo       int
 	shield      int
 	weapon      int
 	engines     []Engine
 	consumption []Consumption
+	deployment  []Consumption
 }
 
 // Engine :
@@ -148,7 +155,16 @@ type Consumption struct {
 // The `Weapon` defines the attack value for this
 // ship.
 //
-// The `Speed` defines the base speed for this ship.
+// The `Engines` defines the list of engines that
+// are associated to this ship along with the lvl
+// at which it applies.
+//
+// The `Consumption` defines the cost of the ship
+// when it flies from a planet to another in units
+// per distance.
+//
+// The `Deployment` defines the deployment cost
+// for this ship when orbiting a foreign planet.
 //
 // The `RFVSShips` defines the rapid fire this ship
 // has against other ships.
@@ -166,6 +182,7 @@ type ShipDesc struct {
 	Weapon       int           `json:"weapon,omitempty"`
 	Engines      []Engine      `json:"engines"`
 	Consumption  []Consumption `json:"consumption,omitempty"`
+	Deployment   []Consumption `json:"deployment_cost,omitempty"`
 	RFVSShips    []RapidFire   `json:"rf_against_ships,omitempty"`
 	RFVSDefenses []RapidFire   `json:"rf_against_defenses,omitempty"`
 	Cost         FixedCost     `json:"cost"`
@@ -457,6 +474,21 @@ func (sm *ShipsModule) initCharacteristics(proxy db.Proxy) error {
 		}
 		if len(props.engines) == 0 {
 			sm.trace(logger.Error, fmt.Sprintf("Didn't fetch any engine for \"%s\"", ID))
+			inconsistent = true
+
+			continue
+		}
+
+		// Retrieve the deployment cost for this ship.
+		props.deployment, err = sm.fetchDeploymentCostForShip(ID, proxy)
+		if err != nil {
+			sm.trace(logger.Error, fmt.Sprintf("Failure to fetch deployment costs for ships \"%s\" (err: %v)", ID, err))
+			inconsistent = true
+
+			continue
+		}
+		if len(props.deployment) == 0 {
+			sm.trace(logger.Error, fmt.Sprintf("Didn't fetch any deployment cost for \"%s\"", ID))
 			inconsistent = true
 
 			continue
@@ -853,6 +885,92 @@ func (sm *ShipsModule) fetchEnginesForShip(ID string, proxy db.Proxy) ([]Engine,
 	return engines, nil
 }
 
+// fetchDeploymentCostForShip :
+// Used in a similar way to `fetchConsumptionForShip` to
+// fetch the deployment cost associated to a ship.
+//
+// The `ID` defines the identifier of the ship for which
+// the deployment costs should be retrieved.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns the deployment costs for this ship along with
+// any error.
+func (sm *ShipsModule) fetchDeploymentCostForShip(ID string, proxy db.Proxy) ([]Consumption, error) {
+	depCosts := make([]Consumption, 0)
+
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"res",
+			"cost",
+		},
+		Table: "ships_deployment_cost",
+		Filters: []db.Filter{
+			{
+				Key:    "ship",
+				Values: []interface{}{ID},
+			},
+		},
+	}
+
+	rows, err := proxy.FetchFromDB(query)
+	defer rows.Close()
+
+	if err != nil {
+		sm.trace(logger.Error, fmt.Sprintf("Unable to initialize ships (err: %v)", err))
+		return depCosts, ErrNotInitialized
+	}
+	if rows.Err != nil {
+		sm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize ships (err: %v)", rows.Err))
+		return depCosts, ErrNotInitialized
+	}
+
+	// Analyze the query and populate internal values.
+	var cost ResourceAmount
+
+	override := false
+	inconsistent := false
+
+	sanity := make(map[string]bool)
+
+	for rows.Next() {
+		err := rows.Scan(
+			&cost.Resource,
+			&cost.Amount,
+		)
+
+		if err != nil {
+			sm.trace(logger.Error, fmt.Sprintf("Failed to initialize ship engine from row (err: %v)", err))
+			inconsistent = true
+
+			continue
+		}
+
+		// Check for overrides.
+		_, ok := sanity[cost.Resource]
+		if ok {
+			sm.trace(logger.Error, fmt.Sprintf("Prevented override of ship \"%s\" deployment cost for resource \"%s\"", ID, cost.Resource))
+			override = true
+
+			continue
+		}
+
+		sanity[cost.Resource] = true
+
+		c := Consumption{
+			ResourceAmount: cost,
+		}
+		depCosts = append(depCosts, c)
+	}
+
+	if override || inconsistent {
+		return depCosts, ErrInconsistentDB
+	}
+
+	return depCosts, nil
+}
+
 // Ships :
 // Used to retrieve the ships matching the input filters
 // from the data model. Note that if the DB has not yet
@@ -961,6 +1079,7 @@ func (sm *ShipsModule) GetShipFromID(ID string) (ShipDesc, error) {
 	desc.Weapon = props.weapon
 	desc.Engines = props.engines
 	desc.Consumption = props.consumption
+	desc.Deployment = props.deployment
 
 	return desc, nil
 }

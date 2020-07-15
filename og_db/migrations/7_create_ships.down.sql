@@ -5,6 +5,9 @@ DROP TABLE ships_rapid_fire_defenses;
 -- Drop the rapid fire table.
 DROP TABLE ships_rapid_fire;
 
+-- Drop the deployment cost table.
+DROP TABLE ships_deployment_cost;
+
 -- Drop the propulsion cost table.
 DROP TABLE ships_propulsion_cost;
 

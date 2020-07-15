@@ -52,6 +52,16 @@ CREATE TABLE ships_propulsion_cost (
   UNIQUE (ship, res)
 );
 
+-- Create the table defining the deployment cost.
+CREATE TABLE ships_deployment_cost (
+  ship uuid NOT NULL,
+  res uuid NOT NULL,
+  cost numeric(15, 5),
+  FOREIGN KEY (ship) REFERENCES ships(id),
+  FOREIGN KEY (res) REFERENCES resources(id),
+  UNIQUE (ship, res)
+);
+
 -- Create the table defining the rapid fire between each ship and any
 -- other ship.
 CREATE TABLE ships_rapid_fire (
@@ -681,6 +691,92 @@ INSERT INTO public.ships_propulsion_cost ("ship", "res", "amount")
     (SELECT id FROM ships WHERE name='colony ship'),
     (SELECT id FROM resources WHERE name='deuterium'),
     1000
+  );
+
+-- Seed the ships deployment cost.
+INSERT INTO public.ships_deployment_cost ("ship", "res", "cost")
+  VALUES(
+    (SELECT id FROM ships WHERE name='small cargo ship'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    5.0
+  );
+INSERT INTO public.ships_deployment_cost ("ship", "res", "cost")
+  VALUES(
+    (SELECT id FROM ships WHERE name='large cargo ship'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    5.0
+  );
+INSERT INTO public.ships_deployment_cost ("ship", "res", "cost")
+  VALUES(
+    (SELECT id FROM ships WHERE name='light fighter'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    2.0
+  );
+INSERT INTO public.ships_deployment_cost ("ship", "res", "cost")
+  VALUES(
+    (SELECT id FROM ships WHERE name='heavy fighter'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    7.0
+  );
+INSERT INTO public.ships_deployment_cost ("ship", "res", "cost")
+  VALUES(
+    (SELECT id FROM ships WHERE name='cruiser'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    30.0
+  );
+INSERT INTO public.ships_deployment_cost ("ship", "res", "cost")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battleship'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    50.0
+  );
+INSERT INTO public.ships_deployment_cost ("ship", "res", "cost")
+  VALUES(
+    (SELECT id FROM ships WHERE name='battlecruiser'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    25.0
+  );
+INSERT INTO public.ships_deployment_cost ("ship", "res", "cost")
+  VALUES(
+    (SELECT id FROM ships WHERE name='bomber'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    100.0
+  );
+INSERT INTO public.ships_deployment_cost ("ship", "res", "cost")
+  VALUES(
+    (SELECT id FROM ships WHERE name='destroyer'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    100.0
+  );
+INSERT INTO public.ships_deployment_cost ("ship", "res", "cost")
+  VALUES(
+    (SELECT id FROM ships WHERE name='deathstar'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    0.1
+  );
+INSERT INTO public.ships_deployment_cost ("ship", "res", "cost")
+  VALUES(
+    (SELECT id FROM ships WHERE name='recycler'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    30.0
+  );
+INSERT INTO public.ships_deployment_cost ("ship", "res", "cost")
+  VALUES(
+    (SELECT id FROM ships WHERE name='espionage probe'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    0.1
+  );
+INSERT INTO public.ships_deployment_cost ("ship", "res", "cost")
+  VALUES(
+    (SELECT id FROM ships WHERE name='solar satellite'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    0.0
+  );
+INSERT INTO public.ships_deployment_cost ("ship", "res", "cost")
+  VALUES(
+    (SELECT id FROM ships WHERE name='colony ship'),
+    (SELECT id FROM resources WHERE name='deuterium'),
+    100.0
   );
 
 -- Seed the ships rapid fire against other ships.

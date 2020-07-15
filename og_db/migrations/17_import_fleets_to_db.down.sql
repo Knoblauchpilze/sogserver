@@ -54,4 +54,4 @@ DROP FUNCTION create_acs_fleet(acs_id uuid, fleet json, ships json, resources js
 DROP FUNCTION create_fleet(fleet json, ships json, resources json, consumption json);
 
 -- Drop the message creation function.
-DROP FUNCTION create_message_for(player_id uuid, message_name text, VARIADIC args text[]);
+DROP FUNCTION create_message_for(player_id uuid, message_name text, moment timestamp with time zone, VARIADIC args text[]);

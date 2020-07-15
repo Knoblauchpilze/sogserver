@@ -1,18 +1,19 @@
 
 -- Create a function allowing to register a message with
 -- the specified type for a given player.
-CREATE OR REPLACE FUNCTION create_message_for(player_id uuid, message_name text, VARIADIC args text[]) RETURNS uuid AS $$
+CREATE OR REPLACE FUNCTION create_message_for(player_id uuid, message_name text, moment timestamp with time zone, VARIADIC args text[]) RETURNS uuid AS $$
 DECLARE
   msg_id uuid := uuid_generate_v4();
   pos integer := 0;
   arg text;
 BEGIN
   -- Insert the message itself.
-  INSERT INTO messages_players("id", "player", "message")
+  INSERT INTO messages_players("id", "player", "message", "created_at")
     SELECT
       msg_id,
       player_id,
-      mi.id
+      mi.id,
+      moment
     FROM
       messages_ids AS mi
     WHERE
@@ -463,10 +464,10 @@ BEGIN
     -- fleet or both the fleet and the planet we will
     -- generate different messages.
     IF source_player_id = target_player_id THEN
-      PERFORM create_message_for(source_player_id, 'transport_arrival_owner', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, resources_txt);
+      PERFORM create_message_for(source_player_id, 'transport_arrival_owner', arrival_date, source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, resources_txt);
     ELSE
-      PERFORM create_message_for(source_player_id, 'transport_arrival_sender', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, target_player_name, resources_txt);
-      PERFORM create_message_for(target_player_id, 'transport_arrival_receiver', source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, resources_txt);
+      PERFORM create_message_for(source_player_id, 'transport_arrival_sender', arrival_date, source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, target_player_name, resources_txt);
+      PERFORM create_message_for(target_player_id, 'transport_arrival_receiver', arrival_date, source_planet_name, source_planet_coords, target_planet_name, target_planet_coords, resources_txt);
     END IF;
   END IF;
 
@@ -644,17 +645,21 @@ DECLARE
 
   objective_name text;
 
+  moment timestamp with time zone;
+
   resources_txt text;
 BEGIN
   -- Fetch information for this fleet.
   SELECT
     f.player,
     f.target_type,
-    fo.name
+    fo.name,
+    f.arrival_time
   INTO
     player_id,
     target_kind,
-    objective_name
+    objective_name,
+    moment
   FROM
     fleets AS f
     INNER JOIN fleets_objectives AS fo ON fo.id = f.objective
@@ -738,15 +743,15 @@ BEGIN
   -- does not bring back any resources.
   IF objective_name = 'harvesting' THEN
     IF resources_txt IS NULL THEN
-      PERFORM create_message_for(player_id, 'fleet_return_owner_harvest_no_resources', target_coords);
+      PERFORM create_message_for(player_id, 'fleet_return_owner_harvest_no_resources', moment, target_coords);
     ELSE
-      PERFORM create_message_for(player_id, 'fleet_return_owner_harvest', target_coords, resources_txt);
+      PERFORM create_message_for(player_id, 'fleet_return_owner_harvest', moment, target_coords, resources_txt);
     END IF;
   ELSE
     IF resources_txt IS NULL THEN
-      PERFORM create_message_for(player_id, 'fleet_return_owner_no_resources', target_name, target_coords, target_player_name);
+      PERFORM create_message_for(player_id, 'fleet_return_owner_no_resources', moment, target_name, target_coords, target_player_name);
     ELSE
-      PERFORM create_message_for(player_id, 'fleet_return_owner', target_name, target_coords, target_player_name, resources_txt);
+      PERFORM create_message_for(player_id, 'fleet_return_owner', moment, target_name, target_coords, target_player_name, resources_txt);
     END IF;
   END IF;
 END
@@ -965,7 +970,7 @@ BEGIN
   WHERE
     id = fleet_id;
 
-  PERFORM create_message_for(player_id, 'colonization_suceeded', coordinates);
+  PERFORM create_message_for(player_id, 'colonization_suceeded', arrival_date, coordinates);
 
   -- Dump the resources transported by the fleet to the
   -- new planet.
@@ -1036,10 +1041,21 @@ CREATE OR REPLACE FUNCTION fleet_colonization_failed(fleet_id uuid) RETURNS VOID
 DECLARE
   player_id uuid;
   coordinates text;
+
+  moment timestamp with time zone;
 BEGIN
   -- We need to register a new message indicating the
   -- coordinate that was not colonizable.
-  SELECT player INTO player_id FROM fleets WHERE id = fleet_id;
+  SELECT
+    player,
+    arrival_time
+  INTO
+    player_id,
+    moment
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invalid player for fleet % in colonization operation', fleet_id;
   END IF;
@@ -1055,7 +1071,7 @@ BEGIN
   WHERE
     id = fleet_id;
 
-  PERFORM create_message_for(player_id, 'colonization_failed', coordinates);
+  PERFORM create_message_for(player_id, 'colonization_failed', moment, coordinates);
 END
 $$ LANGUAGE plpgsql;
 
@@ -1071,12 +1087,23 @@ DECLARE
 
   coordinates text;
 
+  moment timestamp with time zone;
+
   dispersed text;
   gathered text;
 BEGIN
   -- Attempt to retrieve the player as it will be
   -- needed afterwards anyways.
-  SELECT player INTO player_id FROM fleets WHERE id = fleet_id;
+  SELECT
+    player,
+    arrival_time
+  INTO
+    player_id,
+    moment
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invalid player for fleet % in harvesting operation', fleet_id;
   END IF;
@@ -1243,7 +1270,7 @@ BEGIN
 
   -- We need to register a new message indicating the
   -- resources that were harvested.
-  PERFORM create_message_for(player_id, 'harvesting_report', recyclers_count::text, recyclers_capacity::text, coordinates, dispersed, gathered);
+  PERFORM create_message_for(player_id, 'harvesting_report', moment, recyclers_count::text, recyclers_capacity::text, coordinates, dispersed, gathered);
 END
 $$ LANGUAGE plpgsql;
 
@@ -1258,11 +1285,22 @@ DECLARE
   moon_id uuid;
   deathstars_count integer;
   coordinates text;
+
+  moment timestamp with time zone;
 BEGIN
   -- Attempt to retrieve the player as it will be needed
   -- afterwards anyways. We will also retrieve the target
   -- of the fleet.
-  SELECT player INTO player_id FROM fleets WHERE id = fleet_id;
+  SELECT
+    player,
+    arrival_time
+  INTO
+    player_id,
+    moment
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invalid player for fleet % in destruction operation', fleet_id;
   END IF;
@@ -1360,13 +1398,13 @@ BEGIN
   -- We need to register a new message indicating whether
   -- the fleet/moon were destroyed.
   IF moon_destroyed AND fleet_destroyed THEN
-    PERFORM create_message_for(player_id, 'destruction_report_all_destroyed', deathstars_count, coordinates);
+    PERFORM create_message_for(player_id, 'destruction_report_all_destroyed', moment, deathstars_count, coordinates);
   ELSEIF moon_destroyed THEN
-    PERFORM create_message_for(player_id, 'destruction_report_moon_destroyed', deathstars_count, coordinates);
+    PERFORM create_message_for(player_id, 'destruction_report_moon_destroyed', moment, deathstars_count, coordinates);
   ELSEIF fleet_destroyed THEN
-    PERFORM create_message_for(player_id, 'destruction_report_fleet_destroyed', deathstars_count, coordinates);
+    PERFORM create_message_for(player_id, 'destruction_report_fleet_destroyed', moment, deathstars_count, coordinates);
   ELSE
-    PERFORM create_message_for(player_id, 'destruction_report_failed', deathstars_count, coordinates);
+    PERFORM create_message_for(player_id, 'destruction_report_failed', moment, deathstars_count, coordinates);
   END IF;
 END
 $$ LANGUAGE plpgsql;
@@ -1828,8 +1866,8 @@ BEGIN
   -- time, indicate to both the source and target players
   -- that the fleet is now deployed.
   IF arrival_date < processing_time AND fleet_returning = 'false' AND fleet_deployed = 'false' THEN
-    PERFORM create_message_for(target_player_id, 'acs_defend_arrival_receiver', source_planet_name, source_coords, source_player_name, target_planet_name, target_coords);
-    PERFORM create_message_for(source_player_id, 'acs_defend_arrival_owner', source_planet_name, source_coords, target_planet_name, target_coords, target_player_name);
+    PERFORM create_message_for(target_player_id, 'acs_defend_arrival_receiver', arrival_date, source_planet_name, source_coords, source_player_name, target_planet_name, target_coords);
+    PERFORM create_message_for(source_player_id, 'acs_defend_arrival_owner', arrival_date, source_planet_name, source_coords, target_planet_name, target_coords, target_player_name);
 
     -- We also need to update the return time and the next
     -- action for this fleet.
@@ -1839,8 +1877,8 @@ BEGIN
   -- In case the deployment phase of this fleet is over
   -- we need to notify players as well.
   IF deployment_duration > 0 AND deployment_date < processing_time AND fleet_returning = 'false' THEN
-    PERFORM create_message_for(target_player_id, 'acs_defend_leaving_receiver', source_planet_name, source_coords, source_player_name, target_planet_name, target_coords);
-    PERFORM create_message_for(source_player_id, 'acs_defend_leaving_owner', source_planet_name, source_coords, target_planet_name, target_coords, target_player_name);
+    PERFORM create_message_for(target_player_id, 'acs_defend_leaving_receiver', arrival_date, source_planet_name, source_coords, source_player_name, target_planet_name, target_coords);
+    PERFORM create_message_for(source_player_id, 'acs_defend_leaving_owner', arrival_date, source_planet_name, source_coords, target_planet_name, target_coords, target_player_name);
 
     -- Update the return time of the fleet.
     PERFORM fleet_update_to_return_time(fleet_id);

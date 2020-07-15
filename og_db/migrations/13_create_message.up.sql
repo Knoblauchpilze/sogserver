@@ -23,14 +23,11 @@ CREATE TABLE messages_players (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   player uuid NOT NULL,
   message uuid NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   FOREIGN KEY(player) REFERENCES players(id),
   FOREIGN KEY(message) REFERENCES messages_ids
 );
-
--- Create the trigger on the table to update the `created_at` field.
-CREATE TRIGGER update_messages_creation BEFORE INSERT ON messages_players FOR EACH ROW EXECUTE PROCEDURE update_created_at();
 
 -- Create the table referencing the arguments for messages.
 CREATE TABLE messages_arguments (

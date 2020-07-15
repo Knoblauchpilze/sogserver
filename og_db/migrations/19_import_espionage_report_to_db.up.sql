@@ -15,9 +15,20 @@ DECLARE
   spy_planet_name text;
   spy_coordinates text;
   spy_name text;
+
+  moment timestamp with time zone;
 BEGIN
   -- Fetch information on the spy.
-  SELECT source_type INTO spy_planet_kind FROM fleets WHERE id = fleet_id;
+  SELECT
+    source_type,
+    arrival_time
+  INTO
+    spy_planet_kind,
+    moment
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invalid spy planet kind for fleet % in counter espionage operation', fleet_id;
   END IF;
@@ -100,7 +111,7 @@ BEGIN
 
   -- Perform the generation of the counter espionage
   -- report for the target of the fleet.
-  PERFORM create_message_for(spied_id, 'counter_espionage_report', spy_planet_name, spy_coordinates, spy_name, spied_planet_name, spied_coordinates, prob::text);
+  PERFORM create_message_for(spied_id, 'counter_espionage_report', moment, spy_planet_name, spy_coordinates, spy_name, spied_planet_name, spied_coordinates, prob::text);
 END
 $$ LANGUAGE plpgsql;
 
@@ -115,12 +126,22 @@ DECLARE
   spied_coordinates text;
   spied_name text;
 
+  moment timestamp with time zone;
   moment_text text;
 
   header_id uuid;
 BEGIN
   -- Fetch information on the spied guy.
-  SELECT target_type INTO spied_planet_kind FROM fleets WHERE id = fleet_id;
+  SELECT
+    target_type,
+    arrival_time
+  INTO
+    spied_planet_kind,
+    moment
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invalid spied planet kind for fleet % in report header for espionage operation', fleet_id;
   END IF;
@@ -165,7 +186,7 @@ BEGIN
   END IF;
 
   -- Perform the creation of the message.
-  SELECT * INTO header_id FROM create_message_for(player_id, 'espionage_report_header', spied_planet_name, spied_coordinates, spied_name, moment_text);
+  SELECT * INTO header_id FROM create_message_for(player_id, 'espionage_report_header', moment, spied_planet_name, spied_coordinates, spied_name, moment_text);
 
   -- Register this header as the first argument
   -- of the parent espionage report.
@@ -239,11 +260,12 @@ BEGIN
       -- Create the message representing this resource.
       resource_msg_id := uuid_generate_v4();
 
-      INSERT INTO messages_players(id, player, message)
+      INSERT INTO messages_players("id", "player", "message", "created_at")
         SELECT
           resource_msg_id,
           player_id,
-          mi.id
+          mi.id,
+          moment
         FROM
           messages_ids AS mi
         WHERE
@@ -284,11 +306,12 @@ BEGIN
       -- Create the message representing this resource.
       resource_msg_id := uuid_generate_v4();
 
-      INSERT INTO messages_players(id, player, message)
+      INSERT INTO messages_players("id", "player", "message", "created_at")
         SELECT
           resource_msg_id,
           player_id,
-          mi.id
+          mi.id,
+          moment
         FROM
           messages_ids AS mi
         WHERE
@@ -334,7 +357,7 @@ DECLARE
   activity_id uuid;
 BEGIN
   -- Fetch information on the spied guy.
-  SELECT target_type INTO spied_planet_kind FROM fleets WHERE id = fleet_id;
+  SELECT target_type, arrival_time INTO spied_planet_kind, moment FROM fleets WHERE id = fleet_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invalid spied planet kind for fleet % in report activity for espionage operation', fleet_id;
   END IF;
@@ -375,13 +398,13 @@ BEGIN
   limit_for_activity = last_activity - interval '1 hour';
 
   IF limit_for_activity < moment THEN
-    SELECT * INTO activity_id FROM create_message_for(player_id, 'espionage_report_no_activity', VARIADIC '{}'::text[]);
+    SELECT * INTO activity_id FROM create_message_for(player_id, 'espionage_report_no_activity', moment, VARIADIC '{}'::text[]);
   END IF;
 
   IF limit_for_activity >= moment THEN
     SELECT EXTRACT(MINUTE FROM moment - last_activity) INTO minutes_elapsed;
 
-    SELECT * INTO activity_id FROM create_message_for(player_id, 'espionage_report_some_activity', minutes_elapsed);
+    SELECT * INTO activity_id FROM create_message_for(player_id, 'espionage_report_some_activity', moment, minutes_elapsed);
   END IF;
 
   -- Register this header as an argument of the
@@ -401,6 +424,8 @@ DECLARE
   spied_planet_kind text;
   spied_planet_id uuid;
 
+  moment timestamp with time zone;
+
   temprow record;
   ship_msg_id uuid;
 BEGIN
@@ -417,10 +442,12 @@ BEGIN
   -- Gather information about the spied planet.
   SELECT
     target_type,
-    target
+    target,
+    arrival_time
   INTO
     spied_planet_kind,
-    spied_planet_id
+    spied_planet_id,
+    moment
   FROM
     fleets
   WHERE
@@ -439,11 +466,12 @@ BEGIN
       -- Create the message representing this ship.
       ship_msg_id := uuid_generate_v4();
 
-      INSERT INTO messages_players(id, player, message)
+      INSERT INTO messages_players("id", "player", "message", "created_at")
         SELECT
           ship_msg_id,
           player_id,
-          mi.id
+          mi.id,
+          moment
         FROM
           messages_ids AS mi
         WHERE
@@ -477,11 +505,12 @@ BEGIN
       -- Create the message representing this ship.
       ship_msg_id := uuid_generate_v4();
 
-      INSERT INTO messages_players(id, player, message)
+      INSERT INTO messages_players("id", "player", "message", "created_at")
         SELECT
           resourceship_msg_id_msg_id,
           player_id,
-          mi.id
+          mi.id,
+          moment
         FROM
           messages_ids AS mi
         WHERE
@@ -519,6 +548,8 @@ DECLARE
   spied_planet_kind text;
   spied_planet_id uuid;
 
+  moment timestamp with time zone;
+
   temprow record;
   defense_msg_id uuid;
 BEGIN
@@ -536,10 +567,12 @@ BEGIN
   -- Gather information about the spied planet.
   SELECT
     target_type,
-    target
+    target,
+    arrival_time
   INTO
     spied_planet_kind,
-    spied_planet_id
+    spied_planet_id,
+    moment
   FROM
     fleets
   WHERE
@@ -558,11 +591,12 @@ BEGIN
       -- Create the message representing this defense.
       defense_msg_id := uuid_generate_v4();
 
-      INSERT INTO messages_players(id, player, message)
+      INSERT INTO messages_players("id", "player", "message", "created_at")
         SELECT
           defense_msg_id,
           player_id,
-          mi.id
+          mi.id,
+          moment
         FROM
           messages_ids AS mi
         WHERE
@@ -596,11 +630,12 @@ BEGIN
       -- Create the message representing this defense.
       defense_msg_id := uuid_generate_v4();
 
-      INSERT INTO messages_players(id, player, message)
+      INSERT INTO messages_players("id", "player", "message", "created_at")
         SELECT
           defense_msg_id,
           player_id,
-          mi.id
+          mi.id,
+          moment
         FROM
           messages_ids AS mi
         WHERE
@@ -638,6 +673,8 @@ DECLARE
   spied_planet_kind text;
   spied_planet_id uuid;
 
+  moment timestamp with time zone;
+
   temprow record;
   building_msg_id uuid;
 BEGIN
@@ -648,10 +685,12 @@ BEGIN
   -- Gather information about the spied planet.
   SELECT
     target_type,
-    target
+    target,
+    arrival_time
   INTO
     spied_planet_kind,
-    spied_planet_id
+    spied_planet_id,
+    moment
   FROM
     fleets
   WHERE
@@ -670,11 +709,12 @@ BEGIN
       -- Create the message representing this building.
       building_msg_id := uuid_generate_v4();
 
-      INSERT INTO messages_players(id, player, message)
+      INSERT INTO messages_players("id", "player", "message", "created_at")
         SELECT
           building_msg_id,
           player_id,
-          mi.id
+          mi.id,
+          moment
         FROM
           messages_ids AS mi
         WHERE
@@ -708,11 +748,12 @@ BEGIN
       -- Create the message representing this building.
       building_msg_id := uuid_generate_v4();
 
-      INSERT INTO messages_players(id, player, message)
+      INSERT INTO messages_players("id", "player", "message", "created_at")
         SELECT
           building_msg_id,
           player_id,
-          mi.id
+          mi.id,
+          moment
         FROM
           messages_ids AS mi
         WHERE
@@ -751,6 +792,8 @@ DECLARE
   spied_planet_id uuid;
   spied_player_id uuid;
 
+  moment timestamp with time zone;
+
   temprow record;
   tech_msg_id uuid;
 BEGIN
@@ -766,10 +809,12 @@ BEGIN
   -- and player.
   SELECT
     target_type,
-    target
+    target,
+    arrival_time
   INTO
     spied_planet_kind,
-    spied_planet_id
+    spied_planet_id,
+    moment
   FROM
     fleets
   WHERE
@@ -817,11 +862,12 @@ BEGIN
     -- Create the message representing this building.
     tech_msg_id := uuid_generate_v4();
 
-    INSERT INTO messages_players(id, player, message)
+    INSERT INTO messages_players("id", "player", "message", "created_at")
       SELECT
         tech_msg_id,
         player_id,
-        mi.id
+        mi.id,
+        moment
       FROM
         messages_ids AS mi
       WHERE
@@ -860,13 +906,15 @@ DECLARE
 
   spy_planet_kind text;
   spy_id uuid;
+
+  moment timestamp with time zone;
 BEGIN
   -- We need to generate the counter espionage report for
   -- the player that was targeted by the fleet.
   PERFORM generate_counter_espionage_report(fleet_id, counter_espionage);
 
   -- Retrieve the player's identifier from the fleet.
-  SELECT source_type INTO spy_planet_kind FROM fleets WHERE id = fleet_id;
+  SELECT source_type, arrival_time INTO spy_planet_kind, moment FROM fleets WHERE id = fleet_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invalid spy planet kind for fleet % in espionage operation', fleet_id;
   END IF;
@@ -905,11 +953,12 @@ BEGIN
   -- First we need to create the wrapper around the
   -- espionage message: this will be used by the parts
   -- of the report to link to the parent report.
-  INSERT INTO messages_players(id, player, message)
+  INSERT INTO messages_players("id", "player", "message", "created_at")
     SELECT
       report_id,
       spy_id,
-      mi.id
+      mi.id,
+      moment
     FROM
       messages_ids AS mi
     WHERE

@@ -41,7 +41,7 @@ BEGIN
   END IF;
 
   -- Create the message for the specified player.
-  SELECT * INTO header_id FROM create_message_for(player_id, 'fight_report_header', planet_name, planet_coordinates, moment_text);
+  SELECT * INTO header_id FROM create_message_for(player_id, 'fight_report_header', moment, planet_name, planet_coordinates, moment_text);
 
   -- Register the header as an argument of the
   -- parent report. Note that the header is
@@ -71,10 +71,21 @@ DECLARE
   units_lost integer;
 
   msg_id uuid;
+
+  moment timestamp with time zone;
 BEGIN
   -- Fetch information about the source planet of the
   -- participant.
-  SELECT source_type INTO source_kind FROM fleets WHERE id = fleet_id;
+  SELECT
+    source_type,
+    arrival_time
+  INTO
+    source_kind,
+    moment
+  FROM
+    fleets
+  WHERE
+    id = fleet_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invalid source type for fleet % in fleet fight report attacker participant operation', fleet_id;
   END IF;
@@ -187,7 +198,7 @@ BEGIN
     AND r.dispersable = 'true';
 
   -- Create the message for the specified player.
-  SELECT * INTO msg_id FROM create_message_for(player_id, 'fight_report_participant', hostile_status::text, source_player_name, source_name, source_coordinates, units_count::text, units_lost::text, weapon_tech, shielding_tech, armour_tech);
+  SELECT * INTO msg_id FROM create_message_for(player_id, 'fight_report_participant', moment, hostile_status::text, source_player_name, source_name, source_coordinates, units_count::text, units_lost::text, weapon_tech, shielding_tech, armour_tech);
 
   -- Register this participant as a child of the
   -- parent fight report.
@@ -204,7 +215,7 @@ $$ LANGUAGE plpgsql;
 -- only be used for the owner of the planet where
 -- the fleet is fighting as it includes the sum
 -- of the defense systems existing on the planet.
-CREATE OR REPLACE FUNCTION fleet_fight_report_indigenous_participant(player_id uuid, planet_id uuid, kind text, ships_remains json, def_remains json, report_id uuid, pOffset integer) RETURNS integer AS $$
+CREATE OR REPLACE FUNCTION fleet_fight_report_indigenous_participant(player_id uuid, planet_id uuid, kind text, ships_remains json, def_remains json, moment timestamp with time zone, report_id uuid, pOffset integer) RETURNS integer AS $$
 DECLARE
   target_player_id uuid;
   target_name text;
@@ -410,7 +421,7 @@ BEGIN
   -- Create the message for the specified player.
   -- Note that the indigenous participant to a
   -- fight is obviously not hostile.
-  SELECT * INTO msg_id FROM create_message_for(player_id, 'fight_report_participant', 'false', target_player_name, target_name, target_coordinates, (ships_count + defenses_count)::text, (ships_lost + defenses_lost)::text, weapon_tech, shielding_tech, armour_tech);
+  SELECT * INTO msg_id FROM create_message_for(player_id, 'fight_report_participant', moment, 'false', target_player_name, target_name, target_coordinates, (ships_count + defenses_count)::text, (ships_lost + defenses_lost)::text, weapon_tech, shielding_tech, armour_tech);
 
   -- Register this participant as a child of the
   -- parent fight report.
@@ -425,7 +436,7 @@ $$ LANGUAGE plpgsql;
 -- Generate the status of the fight. Depending on the
 -- provided outcome the correct message will be posted
 -- to the specified player.
-CREATE OR REPLACE FUNCTION fleet_fight_report_status(player_id uuid, outcome text, report_id uuid, pOffset integer) RETURNS integer AS $$
+CREATE OR REPLACE FUNCTION fleet_fight_report_status(player_id uuid, outcome text, moment timestamp with time zone, report_id uuid, pOffset integer) RETURNS integer AS $$
 DECLARE
   status_id uuid;
 BEGIN
@@ -435,15 +446,15 @@ BEGIN
   -- a dummy array so that the variadic condition
   -- is satisfied.
   IF outcome = 'victory' THEN
-    SELECT * INTO status_id FROM create_message_for(player_id, 'fight_report_result_defender_win', VARIADIC '{}'::text[]);
+    SELECT * INTO status_id FROM create_message_for(player_id, 'fight_report_result_defender_win', moment, VARIADIC '{}'::text[]);
   END IF;
 
   IF outcome = 'draw' THEN
-    SELECT * INTO status_id FROM create_message_for(player_id, 'fight_report_result_draw', VARIADIC '{}'::text[]);
+    SELECT * INTO status_id FROM create_message_for(player_id, 'fight_report_result_draw', moment, VARIADIC '{}'::text[]);
   END IF;
 
   IF outcome = 'loss' THEN
-    SELECT * INTO status_id FROM create_message_for(player_id, 'fight_report_result_attacker_win', VARIADIC '{}'::text[]);
+    SELECT * INTO status_id FROM create_message_for(player_id, 'fight_report_result_attacker_win', moment, VARIADIC '{}'::text[]);
   END IF;
 
   -- Register the status as an argument of the
@@ -459,7 +470,7 @@ $$ LANGUAGE plpgsql;
 -- Generate the report indicating the final result
 -- of the fight including the generated debris field
 -- and the plundered resources if any.
-CREATE OR REPLACE FUNCTION fleet_fight_report_footer(player_id uuid, pillage json, debris json, rebuilt integer, report_id uuid, pOffset integer) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION fleet_fight_report_footer(player_id uuid, pillage json, debris json, rebuilt integer, moment timestamp with time zone, report_id uuid, pOffset integer) RETURNS VOID AS $$
 DECLARE
   resources_pillaged text;
   resources_dispersed text;
@@ -504,7 +515,7 @@ BEGIN
     r.dispersable = 'true';
 
   -- Create the message entry.
-  SELECT * INTO footer_id FROM create_message_for(player_id, 'fight_report_footer', resources_pillaged, resources_dispersed, rebuilt::text);
+  SELECT * INTO footer_id FROM create_message_for(player_id, 'fight_report_footer', moment, resources_pillaged, resources_dispersed, rebuilt::text);
 
   -- Register the footer as an argument of the
   -- parent report.
@@ -529,11 +540,12 @@ DECLARE
 BEGIN
   -- Start to assemble the fight report for this
   -- player.
-  INSERT INTO messages_players(id, player, message)
+  INSERT INTO messages_players("id", "player", "message", "created_at")
     SELECT
       report_id,
       player_id,
-      mi.id
+      mi.id,
+      moment
     FROM
       messages_ids AS mi
     WHERE
@@ -558,13 +570,13 @@ BEGIN
     SELECT * INTO pOffset FROM fleet_fight_report_outsider_participant(player_id, fleet_id, fleet_remains, report_id, pOffset);
   END LOOP;
 
-  SELECT * INTO pOffset FROM fleet_fight_report_indigenous_participant(player_id, planet_id, planet_kind, ships_remains, def_remains, report_id, pOffset);
+  SELECT * INTO pOffset FROM fleet_fight_report_indigenous_participant(player_id, planet_id, planet_kind, ships_remains, def_remains, moment, report_id, pOffset);
 
   -- Generate status.
-  SELECT * INTO pOffset FROM fleet_fight_report_status(player_id, outcome, report_id, pOffset);
+  SELECT * INTO pOffset FROM fleet_fight_report_status(player_id, outcome, moment, report_id, pOffset);
 
   -- Generate footer.
-  PERFORM fleet_fight_report_footer(player_id, pillage, debris, rebuilt, report_id, pOffset);
+  PERFORM fleet_fight_report_footer(player_id, pillage, debris, rebuilt, moment, report_id, pOffset);
 END
 $$ LANGUAGE plpgsql;
 

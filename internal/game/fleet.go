@@ -1194,6 +1194,26 @@ func (f *Fleet) consolidateConsumption(data Instance, p *Planet, mul Multipliers
 		}
 	}
 
+	// Handle the deployment time of the fleet.
+	if f.DeploymentTime > 0 {
+		// For each ship, add the consumption knowing that the
+		// deployment time is expressed in seconds.
+		dTimeH := float64(f.DeploymentTime) / 3600.0
+
+		for _, ship := range f.Ships {
+			sd, err := data.Ships.GetShipFromID(ship.ID)
+			if err != nil {
+				return err
+			}
+
+			for _, fuel := range sd.Deployment {
+				ex := consumption[fuel.Resource]
+				ex += float64(fuel.Amount) * dTimeH * float64(ship.Count)
+				consumption[fuel.Resource] = ex
+			}
+		}
+	}
+
 	// Save the data in the fleet itself. We will also
 	// use the consumption ratio to scale the amount of
 	// fuel needed.

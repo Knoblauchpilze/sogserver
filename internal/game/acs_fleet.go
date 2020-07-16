@@ -641,6 +641,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 			result.debris,
 			result.moon,
 			result.diameter,
+			result.date,
 		},
 	}
 

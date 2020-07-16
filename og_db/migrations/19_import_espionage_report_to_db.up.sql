@@ -903,6 +903,7 @@ DECLARE
   arg_count integer := 1;
 
   spy_planet_kind text;
+  spy_planet_id uuid;
   spy_id uuid;
 
   moment timestamp with time zone;
@@ -912,7 +913,7 @@ BEGIN
   PERFORM generate_counter_espionage_report(fleet_id, counter_espionage);
 
   -- Retrieve the player's identifier from the fleet.
-  SELECT source_type, arrival_time INTO spy_planet_kind, moment FROM fleets WHERE id = fleet_id;
+  SELECT source_type, target, arrival_time INTO spy_planet_kind, spy_planet_id, moment FROM fleets WHERE id = fleet_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invalid spy planet kind for fleet % in espionage operation', fleet_id;
   END IF;
@@ -984,6 +985,18 @@ BEGIN
 
   IF info_level > 3 THEN
     PERFORM generate_technologies_report(spy_id, fleet_id, arg_count, report_id);
+  END IF;
+
+  -- Update the last activity on the target planet. This
+  -- needs to be done after the generation of the report
+  -- so as not to get a false indication in the activity
+  -- status.
+  IF spy_planet_kind = 'target' THEN
+    UPDATE planets SET last_activity = moment WHERE id = spy_planet_id;
+  END IF;
+
+  IF spy_planet_kind = 'moon' THEN
+    UPDATE moons SET last_activity = moment WHERE id = spy_planet_id;
   END IF;
 END
 $$ LANGUAGE plpgsql;

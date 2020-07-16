@@ -144,6 +144,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 			result.debris,
 			result.moon,
 			result.diameter,
+			result.date,
 		},
 	}
 

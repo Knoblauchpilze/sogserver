@@ -771,23 +771,23 @@ DECLARE
   deployment_date timestamp with time zone;
   deployment_duration integer;
 BEGIN
-  SELECT arrival_time, return_time INTO arrival_date, return_date FROM fleets WHERE id = fleet_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid arrival/return time for fleet % in return to base operation', fleet_id;
-  END IF;
-
   SELECT
+    arrival_time,
+    return_time,
     arrival_time + make_interval(secs := CAST(deployment_time AS DOUBLE PRECISION)),
     deployment_time
   INTO
+    arrival_date,
+    return_date,
     deployment_date,
     deployment_duration
   FROM
     fleets
   WHERE
     id = fleet_id;
+
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid deployment time for fleet % in return to base operation', fleet_id;
+    RAISE EXCEPTION 'Invalid arrival/return time for fleet % in return to base operation', fleet_id;
   END IF;
 
   -- Update the next activation time for this fleet if it
@@ -820,6 +820,16 @@ BEGIN
 
     -- Restore the ships to the source.
     PERFORM fleet_ships_deployment(fleet_id, source_id, source_kind);
+
+    -- Update the activity on the source planet (i.e. the
+    -- return point of the fleet).
+    IF source_kind = 'planet' THEN
+      UPDATE planets SET last_activity = return_date WHERE id = source_id;
+    END IF;
+
+    IF source_kind = 'moon' THEN
+      UPDATE moons SET last_activity = return_date WHERE id = source_id;
+    END IF;
 
     -- Delete the fleet from the DB.
     PERFORM fleet_deletion(fleet_id);
@@ -885,6 +895,15 @@ BEGIN
     -- Update the next time the fleet needs processing
     -- to be the return time.
     PERFORM fleet_update_to_return_time(fleet_id);
+
+    -- Update the last activity for the target planet.
+    IF target_planet_kind = 'planet' THEN
+      UPDATE planets SET last_activity = arrival_date WHERE id = target_planet_id;
+    END IF;
+
+    IF target_planet_kind = 'moon' THEN
+      UPDATE moons SET last_activity = arrival_date WHERE id = target_planet_id;
+    END IF;
   END IF;
 
   -- Handle the return of the fleet to its source in case
@@ -895,6 +914,15 @@ BEGIN
 
     -- Restore the ships to the source.
     PERFORM fleet_ships_deployment(fleet_id, source_planet_id, source_planet_kind);
+
+    -- Update the last activity for the source planet.
+    IF source_planet_kind = 'planet' THEN
+      UPDATE planets SET last_activity = arrival_date WHERE id = source_planet_id;
+    END IF;
+
+    IF source_planet_kind = 'moon' THEN
+      UPDATE moons SET last_activity = arrival_date WHERE id = source_planet_id;
+    END IF;
 
     -- Delete the fleet from the DB.
     PERFORM fleet_deletion(fleet_id);
@@ -907,16 +935,26 @@ CREATE OR REPLACE FUNCTION fleet_deployment(fleet_id uuid) RETURNS VOID AS $$
 DECLARE
   target_id uuid;
   target_kind text;
+
+  arrival_date timestamp with time zone;
 BEGIN
   -- Fetch the target of the fleet along with its kind.
-  SELECT target INTO target_id FROM fleets WHERE id = fleet_id AND target IS NOT NULL;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid target destination for fleet % in deploy operation', fleet_id;
-  END IF;
+  SELECT
+    target,
+    target_type,
+    arrival_time
+  INTO
+    target_id,
+    target_kind,
+    arrival_date
+  FROM
+    fleets
+  WHERE
+    id = fleet_id
+    AND target IS NOT NULL;
 
-  SELECT target_type INTO target_kind FROM fleets WHERE id = fleet_id;
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invalid target kind for fleet % in deploy operation', fleet_id;
+    RAISE EXCEPTION 'Invalid target for fleet % in deploy operation', fleet_id;
   END IF;
 
   -- Deposit the resources of the fleet at the target
@@ -925,6 +963,15 @@ BEGIN
 
   -- Add the ships in the target destination.
   PERFORM fleet_ships_deployment(fleet_id, target_id, target_kind);
+
+  -- Update the last activity for the source planet.
+  IF target_kind = 'planet' THEN
+    UPDATE planets SET last_activity = arrival_date WHERE id = target_id;
+  END IF;
+
+  IF target_kind = 'moon' THEN
+    UPDATE moons SET last_activity = arrival_date WHERE id = target_id;
+  END IF;
 
   -- Delete the fleet from the DB as its mission is
   -- now complete.
@@ -1393,6 +1440,9 @@ BEGIN
   -- moon and reroute any fleet to the parent planet.
   IF moon_destroyed THEN
     PERFORM delete_moon(moon_id);
+  ELSE
+    -- Update the last activity on the moon.
+    UPDATE moons SET last_activity = moment WHERE id = moon_id;
   END IF;
 
   -- We need to register a new message indicating whether
@@ -1409,7 +1459,7 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION planet_fight_aftermath(target_id uuid, kind text, planet_ships json, planet_defenses json, pillage json, debris json, moon boolean, diameter integer) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION planet_fight_aftermath(target_id uuid, kind text, planet_ships json, planet_defenses json, pillage json, debris json, moon boolean, diameter integer, moment timestamp with time zone) RETURNS VOID AS $$
 DECLARE
   field_id uuid;
   target_galaxy integer;
@@ -1484,6 +1534,9 @@ BEGIN
         PERFORM create_moon(moon_id, target_id, diameter);
       END IF;
     END IF;
+
+    -- Update the last activity on the planet.
+    UPDATE planets SET last_activity = moment WHERE id = target_id;
   END IF;
 
   IF kind = 'moon' THEN
@@ -1531,6 +1584,9 @@ BEGIN
     WHERE
       md.planet = target_id
       AND md.defense = rs.defense;
+
+    -- Update the last activity on the moon.
+    UPDATE moons SET last_activity = moment WHERE id = target_id;
   END IF;
 
   -- Create the debris field and insert the resources in

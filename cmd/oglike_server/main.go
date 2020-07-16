@@ -16,8 +16,6 @@ import (
 
 // TODO: Use the token mechanism to make sure that a client has access
 // to some information (typically to the data for a planet or a player).
-// TODO: Make sure that the deployment time is set to `0` when the obj
-// is not consistent in a fleet.
 // TODO: Should update the last_activity when needed.
 
 // usage :

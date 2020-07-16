@@ -1046,6 +1046,13 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 		return ErrNoShipToPerformObjective
 	}
 
+	// Update deployment time based on the objective
+	// of the fleet (as all objectives do not allow a
+	// deployment phase).
+	if purpose(obj.Name) != "ACS defend" && purpose(obj.Name) != "expedition" {
+		f.DeploymentTime = 0
+	}
+
 	// Make sure that the location of the target
 	// is consistent with the objective.
 	if purpose(obj.Name) == harvesting && f.TargetCoords.Type != Debris {

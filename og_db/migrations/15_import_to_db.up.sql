@@ -164,6 +164,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION update_planet(planet_id uuid, inputs json) RETURNS VOID AS $$
 DECLARE
   p_name text;
+  processing_time TIMESTAMP WITH TIME ZONE := NOW();
 BEGIN
   -- Fetch the data from the `inputs` and update only
   -- values that are filled. For now there's only the
@@ -172,7 +173,7 @@ BEGIN
 
   -- Update each prop if it is defined.
   IF p_name != '' THEN
-    UPDATE planets SET name = p_name WHERE id = planet_id;
+    UPDATE planets SET name = p_name, last_activity = processing_time WHERE id = planet_id;
   END IF;
 END
 $$ LANGUAGE plpgsql;
@@ -274,6 +275,8 @@ $$ LANGUAGE plpgsql;
 
 -- Delete a moon from the corresponding table.
 CREATE OR REPLACE FUNCTION delete_moon(moon_id uuid) RETURNS VOID AS $$
+DECLARE
+  processing_time TIMESTAMP WITH TIME ZONE := NOW();
 BEGIN
   -- Delete moon's resources.
   DELETE FROM moons_defenses WHERE moon = moon_id;
@@ -313,10 +316,22 @@ BEGIN
   FROM
     moons AS m
     INNER JOIN planets AS p ON m.planet = p.id
+    INNER JOIN players AS pl ON p.player = pl.id
   WHERE
     f.target_galaxy = p.galaxy
     AND f.target_solar_system = p.solar_system
-    AND f.target_position = p.position;
+    AND f.target_position = p.position
+    AND f.universe = pl.universe;
+
+  -- Update the last activity for the planet
+  -- associated to the moon.
+  UPDATE planets
+    SET p.last_activity = processing_time
+  FROM
+    moons AS m
+    INNER JOIN planets AS p ON m.planet = p.id
+  WHERE
+    m.id = moon_id;
 
   -- Delete the moon itself.
   DELETE FROM moons WHERE moon = moon_id;

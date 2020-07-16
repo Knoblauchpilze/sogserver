@@ -364,8 +364,7 @@ BEGIN
 
   IF spied_planet_kind = 'planet' THEN
     SELECT
-      -- TODO: We should add some mechanism to account for the activity of a planet.
-      p.created_at,
+      p.last_activity,
       f.arrival_time
     INTO
       last_activity,
@@ -379,8 +378,7 @@ BEGIN
 
   IF spied_planet_kind = 'moon' THEN
     SELECT
-      -- TODO: We should add some mechanism to account for the activity of a planet.
-      p.created_at,
+      m.last_activity,
       f.arrival_time
     INTO
       last_activity,
@@ -395,7 +393,7 @@ BEGIN
 
   -- Compute whether the planet was active in the
   -- last hour.
-  limit_for_activity = last_activity - interval '1 hour';
+  limit_for_activity = last_activity + interval '1 hour';
 
   IF limit_for_activity < moment THEN
     SELECT * INTO activity_id FROM create_message_for(player_id, 'espionage_report_no_activity', moment, VARIADIC '{}'::text[]);
@@ -404,7 +402,7 @@ BEGIN
   IF limit_for_activity >= moment THEN
     SELECT EXTRACT(MINUTE FROM moment - last_activity) INTO minutes_elapsed;
 
-    SELECT * INTO activity_id FROM create_message_for(player_id, 'espionage_report_some_activity', moment, minutes_elapsed);
+    SELECT * INTO activity_id FROM create_message_for(player_id, 'espionage_report_some_activity', moment, minutes_elapsed::text);
   END IF;
 
   -- Register this header as an argument of the

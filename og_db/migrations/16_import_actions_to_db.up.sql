@@ -1,6 +1,8 @@
 
 -- Import building upgrade action in the dedicated table.
 CREATE OR REPLACE FUNCTION create_building_upgrade_action(upgrade json, costs json, production_effects json, storage_effects json, fields_effects json, kind text) RETURNS VOID AS $$
+DECLARE
+  processing_time TIMESTAMP WITH TIME ZONE := NOW();
 BEGIN
   -- The `kind` can reference either a planet or a moon.
   -- We have to make sure that it's a valid value before
@@ -65,6 +67,9 @@ BEGIN
       AND pr.res = rc.resource
       AND r.storable = 'true';
 
+    -- Update the last activity time for this planet.
+    UPDATE planets SET last_activity = processing_time WHERE id = (upgrade->>'planet')::uuid;
+
     -- Register this action in the actions system.
     INSERT INTO actions_queue
       SELECT
@@ -113,6 +118,9 @@ BEGIN
       AND mr.res = rc.resource
       AND r.storable = 'true';
 
+    -- Update the last activity time for this moon.
+    UPDATE moons SET last_activity = processing_time WHERE id = (upgrade->>'planet')::uuid;
+
     -- Register this action in the actions system.
     INSERT INTO actions_queue
       SELECT
@@ -129,6 +137,8 @@ $$ LANGUAGE plpgsql;
 
 -- Import technology upgrade action in the dedicated table.
 CREATE OR REPLACE FUNCTION create_technology_upgrade_action(upgrade json, costs json) RETURNS VOID AS $$
+DECLARE
+  processing_time TIMESTAMP WITH TIME ZONE := NOW();
 BEGIN
   -- Insert the construction action in the related table.
   INSERT INTO construction_actions_technologies
@@ -158,6 +168,9 @@ BEGIN
     AND pr.res = rc.resource
     AND r.storable = 'true';
 
+  -- Update the last activity time for this planet.
+  UPDATE planets SET last_activity = processing_time WHERE id = (upgrade->>'planet')::uuid;
+
   -- Register this action in the actions system.
   INSERT INTO actions_queue
     SELECT
@@ -173,6 +186,8 @@ $$ LANGUAGE plpgsql;
 
 -- Import ship upgrade action in the dedicated table.
 CREATE OR REPLACE FUNCTION create_ship_upgrade_action(upgrade json, costs json, kind text) RETURNS VOID AS $$
+DECLARE
+  processing_time TIMESTAMP WITH TIME ZONE := NOW();
 BEGIN
   -- Make sure the kind describes a known action.
   IF kind != 'planet' AND kind != 'moon' THEN
@@ -206,6 +221,9 @@ BEGIN
       pr.planet = (upgrade->>'planet')::uuid
       AND pr.res = rc.resource
       AND r.storable = 'true';
+
+    -- Update the last activity time for this planet.
+    UPDATE planets SET last_activity = processing_time WHERE id = (upgrade->>'planet')::uuid;
 
     -- Register this action in the actions system. Note
     -- that the completion time will be computed from
@@ -247,6 +265,9 @@ BEGIN
       AND mr.res = rc.resource
       AND r.storable = 'true';
 
+    -- Update the last activity time for this planet.
+    UPDATE moons SET last_activity = processing_time WHERE id = (upgrade->>'planet')::uuid;
+
     -- See comment in above section.
     INSERT INTO actions_queue
       SELECT
@@ -263,6 +284,8 @@ $$ LANGUAGE plpgsql;
 
 -- Import defense upgrade action in the dedicated table.
 CREATE OR REPLACE FUNCTION create_defense_upgrade_action(upgrade json, costs json, kind text) RETURNS VOID AS $$
+DECLARE
+  processing_time TIMESTAMP WITH TIME ZONE := NOW();
 BEGIN
   -- The `kind` can reference either a planet or a moon.
   -- We have to make sure that it's a valid value before
@@ -299,6 +322,9 @@ BEGIN
       pr.planet = (upgrade->>'planet')::uuid
       AND pr.res = rc.resource
       AND r.storable = 'true';
+
+    -- Update the last activity time for this planet.
+    UPDATE planets SET last_activity = processing_time WHERE id = (upgrade->>'planet')::uuid;
 
     -- Register this action in the actions system. Note
     -- that the completion time will be computed from
@@ -339,6 +365,9 @@ BEGIN
       mr.moon = (upgrade->>'planet')::uuid
       AND mr.res = rc.resource
       AND r.storable = 'true';
+
+    -- Update the last activity time for this planet.
+    UPDATE moons SET last_activity = processing_time WHERE id = (upgrade->>'planet')::uuid;
 
     -- See comment in above section.
     INSERT INTO actions_queue

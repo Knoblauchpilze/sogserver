@@ -253,27 +253,29 @@ func (p *Planet) Convert() interface{} {
 	}
 
 	return struct {
-		ID       string `json:"id"`
-		Player   string `json:"player"`
-		Name     string `json:"name"`
-		MinTemp  int    `json:"min_temperature"`
-		MaxTemp  int    `json:"max_temperature"`
-		Fields   int    `json:"fields"`
-		Galaxy   int    `json:"galaxy"`
-		System   int    `json:"solar_system"`
-		Position int    `json:"position"`
-		Diameter int    `json:"diameter"`
+		ID           string    `json:"id"`
+		Player       string    `json:"player"`
+		Name         string    `json:"name"`
+		MinTemp      int       `json:"min_temperature"`
+		MaxTemp      int       `json:"max_temperature"`
+		Fields       int       `json:"fields"`
+		Galaxy       int       `json:"galaxy"`
+		System       int       `json:"solar_system"`
+		Position     int       `json:"position"`
+		Diameter     int       `json:"diameter"`
+		LastActivity time.Time `json:"last_activity"`
 	}{
-		ID:       p.ID,
-		Player:   p.Player,
-		Name:     p.Name,
-		MinTemp:  p.MinTemp,
-		MaxTemp:  p.MaxTemp,
-		Fields:   p.Fields,
-		Galaxy:   p.Coordinates.Galaxy,
-		System:   p.Coordinates.System,
-		Position: p.Coordinates.Position,
-		Diameter: p.Diameter,
+		ID:           p.ID,
+		Player:       p.Player,
+		Name:         p.Name,
+		MinTemp:      p.MinTemp,
+		MaxTemp:      p.MaxTemp,
+		Fields:       p.Fields,
+		Galaxy:       p.Coordinates.Galaxy,
+		System:       p.Coordinates.System,
+		Position:     p.Coordinates.Position,
+		Diameter:     p.Diameter,
+		LastActivity: p.LastActivity,
 	}
 }
 
@@ -325,6 +327,7 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 		SourceFleets         []string           `json:"source_fleets,omitempty"`
 		IncomingFleets       []string           `json:"incoming_fleets,omitempty"`
 		CreatedAt            time.Time          `json:"created_at"`
+		LastActivity         time.Time          `json:"last_activity"`
 	}
 
 	// Copy the planet's data.
@@ -344,6 +347,7 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 		SourceFleets:         p.SourceFleets,
 		IncomingFleets:       p.IncomingFleets,
 		CreatedAt:            p.CreatedAt,
+		LastActivity:         p.LastActivity,
 	}
 
 	// Copy resources from map to slice.

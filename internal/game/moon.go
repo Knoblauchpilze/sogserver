@@ -147,6 +147,10 @@ func NewMoon(p *Planet, diameter int) *Planet {
 		SourceFleets:   make([]string, 0),
 		IncomingFleets: make([]string, 0),
 
+		// The last activity is when the moon is
+		// created by default.
+		LastActivity: time.Now(),
+
 		technologies: p.technologies,
 
 		Moon:   true,
@@ -180,6 +184,8 @@ func (p *Planet) fetchMoonInfo(data Instance) error {
 			"p.solar_system",
 			"p.position",
 			"m.diameter",
+			"m.created_at",
+			"m.last_activity",
 		},
 		Table: "moons m inner join planets p on m.planet=p.id",
 		Filters: []db.Filter{
@@ -216,6 +222,8 @@ func (p *Planet) fetchMoonInfo(data Instance) error {
 			&system,
 			&position,
 			&p.Diameter,
+			&p.CreatedAt,
+			&p.LastActivity,
 		)
 
 		if err != nil {

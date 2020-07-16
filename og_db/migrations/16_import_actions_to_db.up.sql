@@ -265,7 +265,7 @@ BEGIN
       AND mr.res = rc.resource
       AND r.storable = 'true';
 
-    -- Update the last activity time for this planet.
+    -- Update the last activity time for this moon.
     UPDATE moons SET last_activity = processing_time WHERE id = (upgrade->>'planet')::uuid;
 
     -- See comment in above section.
@@ -366,7 +366,7 @@ BEGIN
       AND mr.res = rc.resource
       AND r.storable = 'true';
 
-    -- Update the last activity time for this planet.
+    -- Update the last activity time for this moon.
     UPDATE moons SET last_activity = processing_time WHERE id = (upgrade->>'planet')::uuid;
 
     -- See comment in above section.
@@ -453,13 +453,11 @@ BEGIN
     -- the building.
     -- 2.a) Update resources to reach the current time.
     SELECT completion_time INTO moment FROM construction_actions_buildings WHERE id = action_id;
-
     IF NOT FOUND THEN
       RAISE EXCEPTION 'Unable to fetch completion time for action %', action_id;
     END IF;
 
     SELECT planet INTO planet_id FROM construction_actions_buildings WHERE id = action_id;
-
     IF NOT FOUND THEN
       RAISE EXCEPTION 'Unable to fetch planet id for action %', action_id;
     END IF;
@@ -501,6 +499,9 @@ BEGIN
       cabfe.action = action_id
       AND p.id = cab.planet;
 
+    -- 2.e) Update the last activity time for this planet.
+    UPDATE planets SET last_activity = moment WHERE id = planet_id;
+
     -- 3. Destroy the processed action effects.
     DELETE FROM construction_actions_buildings_production_effects WHERE action = action_id;
 
@@ -516,6 +517,12 @@ BEGIN
   END IF;
 
   IF kind = 'moon' THEN
+    -- Fetch the identifier of the moon.
+    SELECT moon INTO planet_id FROM construction_actions_buildings_moon WHERE id = action_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Unable to fetch moon id for action %', action_id;
+    END IF;
+
     -- 1. See comment in above section.
     UPDATE moons_buildings AS mb
       SET level = cabm.desired_level
@@ -538,6 +545,9 @@ BEGIN
     WHERE
       cabfem.action = action_id
       AND m.id = cabm.moon;
+
+    -- 2.e) Update the last activity time for this moon.
+    UPDATE moons SET last_activity = moment WHERE id = planet_id;
 
     -- 3. Only fields effects can be applied in the case of
     -- moon buildings.
@@ -568,6 +578,14 @@ BEGIN
 
   -- 2. Remove the processed action from the events queue.
   DELETE FROM actions_queue WHERE action = action_id;
+
+  -- 2.a) Update the last activity time for this moon.
+  UPDATE planets AS p
+    SET last_activity = cat.completion_time
+  FROM
+    construction_actions_technologies AS cab
+  WHERE
+    p.id = cat.planet;
 
   -- 3. And finally delete the processed action.
   DELETE FROM construction_actions_technologies WHERE id = action_id;
@@ -623,6 +641,9 @@ BEGIN
     WHERE
       id = action_id;
 
+    -- 2.a) Update the last activity time for this planet.
+    -- TODO: Handle this.
+
     -- 3. Update elements in actions queue based on the next completion time.
     UPDATE actions_queue AS aq
       SET completion_time = cas.created_at + (1 + cas.amount - cas.remaining) * cas.completion_time
@@ -668,6 +689,9 @@ BEGIN
         )
     WHERE
       id = action_id;
+
+    -- 2.a) Update the last activity time for this moon.
+    -- TODO: Handle this.
 
     -- 3. See comment in above section.
     UPDATE actions_queue AS aq
@@ -738,6 +762,9 @@ BEGIN
     WHERE
       id = action_id;
 
+    -- 2.a) Update the last activity time for this planet.
+    -- TODO: Handle this.
+
     -- 3. Update elements in actions queue based on the next completion time.
     UPDATE actions_queue AS aq
       SET completion_time = cad.created_at + (1 + cad.amount - cad.remaining) * cad.completion_time
@@ -783,6 +810,9 @@ BEGIN
         )
     WHERE
       id = action_id;
+
+    -- 2.a) Update the last activity time for this moon.
+    -- TODO: Handle this.
 
     -- 3. Update elements in actions queue based on the next completion time.
     UPDATE actions_queue AS aq

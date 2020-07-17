@@ -642,7 +642,29 @@ BEGIN
       id = action_id;
 
     -- 2.a) Update the last activity time for this planet.
-    -- TODO: Handle this.
+    UPDATE planets AS p
+      SET last_activity =
+        -- This extract the number of items that were
+        -- completed capping to the maximum number of
+        -- items that were requested.
+        LEAST(
+          EXTRACT(EPOCH FROM processing_time - cas.created_at) / EXTRACT(EPOCH FROM cas.completion_time),
+          CAST(cas.amount AS DOUBLE PRECISION)
+        )
+        -- From there we can multiply by the duration
+        -- of a single completion time to get the
+        -- total elapsed duration to build the amount
+        -- of ships.
+        * cas.completion_time
+        -- And add that to the creation time so that
+        -- we have the time at which the element was
+        -- finished.
+        + cas.created_at
+    FROM
+      construction_actions_ships AS cas
+    WHERE
+      cas.id = action_id
+      AND m.id = cas.moon;
 
     -- 3. Update elements in actions queue based on the next completion time.
     UPDATE actions_queue AS aq
@@ -691,7 +713,29 @@ BEGIN
       id = action_id;
 
     -- 2.a) Update the last activity time for this moon.
-    -- TODO: Handle this.
+    UPDATE moons AS m
+      SET last_activity =
+        -- This extract the number of items that were
+        -- completed capping to the maximum number of
+        -- items that were requested.
+        LEAST(
+          EXTRACT(EPOCH FROM processing_time - casm.created_at) / EXTRACT(EPOCH FROM casm.completion_time),
+          CAST(casm.amount AS DOUBLE PRECISION)
+        )
+        -- From there we can multiply by the duration
+        -- of a single completion time to get the
+        -- total elapsed duration to build the amount
+        -- of ships.
+        * casm.completion_time
+        -- And add that to the creation time so that
+        -- we have the time at which the element was
+        -- finished.
+        + casm.created_at
+    FROM
+      construction_actions_ships_moon AS casm
+    WHERE
+      casm.id = action_id
+      AND m.id = casm.moon;
 
     -- 3. See comment in above section.
     UPDATE actions_queue AS aq
@@ -763,7 +807,31 @@ BEGIN
       id = action_id;
 
     -- 2.a) Update the last activity time for this planet.
-    -- TODO: Handle this.
+    -- It should be updated to the last time a defense has
+    -- actually been produced.
+    UPDATE planets AS p
+      SET last_activity =
+        -- This extract the number of items that were
+        -- completed capping to the maximum number of
+        -- items that were requested.
+        LEAST(
+          EXTRACT(EPOCH FROM processing_time - cad.created_at) / EXTRACT(EPOCH FROM cad.completion_time),
+          CAST(cad.amount AS DOUBLE PRECISION)
+        )
+        -- From there we can multiply by the duration
+        -- of a single completion time to get the
+        -- total elapsed duration to build the amount
+        -- of defense systems.
+        * cad.completion_time
+        -- And add that to the creation time so that
+        -- we have the time at which the element was
+        -- finished.
+        + cad.created_at
+    FROM
+      construction_actions_defenses AS cad
+    WHERE
+      cad.id = action_id
+      AND p.id = cad.planet;
 
     -- 3. Update elements in actions queue based on the next completion time.
     UPDATE actions_queue AS aq
@@ -812,7 +880,29 @@ BEGIN
       id = action_id;
 
     -- 2.a) Update the last activity time for this moon.
-    -- TODO: Handle this.
+    UPDATE moons AS m
+      SET last_activity =
+        -- This extract the number of items that were
+        -- completed capping to the maximum number of
+        -- items that were requested.
+        LEAST(
+          EXTRACT(EPOCH FROM processing_time - cadm.created_at) / EXTRACT(EPOCH FROM cadm.completion_time),
+          CAST(cadm.amount AS DOUBLE PRECISION)
+        )
+        -- From there we can multiply by the duration
+        -- of a single completion time to get the
+        -- total elapsed duration to build the amount
+        -- of defense systems.
+        * cadm.completion_time
+        -- And add that to the creation time so that
+        -- we have the time at which the element was
+        -- finished.
+        + cadm.created_at
+    FROM
+      construction_actions_defenses_moon AS cadm
+    WHERE
+      cadm.id = action_id
+      AND m.id = cadm.moon;
 
     -- 3. Update elements in actions queue based on the next completion time.
     UPDATE actions_queue AS aq

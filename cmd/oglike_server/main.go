@@ -16,8 +16,6 @@ import (
 
 // TODO: Use the token mechanism to make sure that a client has access
 // to some information (typically to the data for a planet or a player).
-// TODO: We should find a way to make sure that any event is set to
-// generate an activity on the planet/moon where it occurs.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

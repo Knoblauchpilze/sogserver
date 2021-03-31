@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gorilla/handlers"
 	"github.com/spf13/viper"
 )
 
@@ -283,6 +284,10 @@ func (s *Server) Serve() error {
 	// Setup routes.
 	s.routes()
 
+	// Wrap the router in a server allowing all origins.
+	aOrigins := handlers.AllowedOrigins([]string{"*"})
+	corsRouter := handlers.CORS(aOrigins)(s.router)
+
 	// Create the server which will serve requests. The
 	// idiom used to serve requests is inspired from the
 	// following link:
@@ -291,7 +296,7 @@ func (s *Server) Serve() error {
 	// HTTP server. We figure it's worth doing it.
 	server := &http.Server{
 		Addr:    ":" + strconv.FormatInt(int64(s.port), 10),
-		Handler: s.router,
+		Handler: corsRouter,
 	}
 
 	// Start the routine which will handle the automatic

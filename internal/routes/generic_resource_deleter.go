@@ -164,7 +164,7 @@ func (dre *DeleteResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFun
 			if err == game.ErrElementNotFound {
 				http.Error(w, fmt.Sprintf("%v", err), http.StatusNotFound)
 			} else {
-				http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+				http.Error(w, InternalServerErrorString, http.StatusInternalServerError)
 			}
 
 			return

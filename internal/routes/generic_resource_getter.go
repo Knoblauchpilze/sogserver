@@ -259,7 +259,7 @@ func (gre *GetResourceEndpoint) ServeRoute(log logger.Logger) http.HandlerFunc {
 			if err == game.ErrElementNotFound {
 				http.Error(w, fmt.Sprintf("%v", err), http.StatusNotFound)
 			} else {
-				http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+				http.Error(w, InternalServerErrorString, http.StatusInternalServerError)
 			}
 
 			return
@@ -406,7 +406,7 @@ func marshalAndSend(data interface{}, w http.ResponseWriter, req *http.Request) 
 	// be able to return this value.
 	out, err := json.Marshal(data)
 	if err != nil {
-		http.Error(w, InternalServerErrorString(), http.StatusInternalServerError)
+		http.Error(w, InternalServerErrorString, http.StatusInternalServerError)
 
 		return ErrMarshallingError
 	}

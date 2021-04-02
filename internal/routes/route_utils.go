@@ -93,11 +93,12 @@ var ErrInvalidRoute = fmt.Errorf("Invalid route provided in input")
 // Used to provide a unique string that can be used in case an
 // error occurs while serving a client request and we need to
 // provide an answer.
-//
-// Returns a common string to indicate an error.
-func InternalServerErrorString() string {
-	return "Unexpected server error"
-}
+var InternalServerErrorString = "Unexpected server error"
+
+// maxRoutePropsSizeInMemory :
+// Defines the maximum number of bytes that a route property
+// can be before being dumped to the disk.
+var maxRoutePropsSizeInMemory int64 = 1024 * 1024
 
 // sanitizeRoute :
 // Used to remove any '/' characters leading or trailing the
@@ -367,15 +368,21 @@ func extractRouteData(route string, dataKey string, r *http.Request) (RouteData,
 	// for multiple instances of the same key we need to call the
 	// `ParseForm` method (as described in the documentation of
 	// the `FormValue` method).
-	err = r.ParseForm()
+	// Note however that for some reason the `FormValue` is instead
+	// calling the `ParseMultipartForm` method so we'll go with
+	// this option as well. We need to provide a maximum memory
+	// value: this value represents the maximum size loaded in
+	// memory before things begin being dumped to disk. We will
+	// use a large default values.
+	err = r.ParseMultipartForm(maxRoutePropsSizeInMemory)
 	if err != nil {
 		return elems, ErrInvalidRequest
 	}
 
 	// Search for the relevant key.
-	value, ok := r.Form[dataKey]
+	values, ok := r.Form[dataKey]
 	if ok {
-		elems.Data = append(elems.Data, value...)
+		elems.Data = append(elems.Data, values...)
 	}
 
 	return elems, nil

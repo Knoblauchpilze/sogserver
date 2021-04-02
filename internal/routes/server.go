@@ -285,8 +285,10 @@ func (s *Server) Serve() error {
 	s.routes()
 
 	// Wrap the router in a server allowing all origins.
+	aMethods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
 	aOrigins := handlers.AllowedOrigins([]string{"*"})
-	corsRouter := handlers.CORS(aOrigins)(s.router)
+	aHeaders := handlers.AllowedHeaders([]string{"Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"})
+	corsRouter := handlers.CORS(aHeaders, aOrigins, aMethods)(s.router)
 
 	// Create the server which will serve requests. The
 	// idiom used to serve requests is inspired from the

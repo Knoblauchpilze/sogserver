@@ -33,6 +33,30 @@ func (s *Server) listAccounts() http.HandlerFunc {
 	return ed.ServeRoute(s.log)
 }
 
+// listAccountsPlayers :
+// Used to perform the creation of a handler allowing to server
+// the requests on players linked to an account.
+//
+// Returns the handler that can be executed to serve said reqs.
+func (s *Server) listAccountsPlayers() http.HandlerFunc {
+	// Create the endpoint with the suited route.
+	ed := NewGetResourceEndpoint("accounts")
+
+	allowed := map[string]string{
+		"id": "id",
+	}
+
+	// Configure the endpoint.
+	ed.WithFilters(allowed).WithIDFilter("account").WithModule("accounts").WithLocker(s.og)
+	ed.WithDataFunc(
+		func(filters []db.Filter) (interface{}, error) {
+			return s.players.Players(filters)
+		},
+	)
+
+	return ed.ServeRoute(s.log)
+}
+
 // createAccount :
 // Used to perform the creation of a handler allowing to serve
 // the requests to create accounts.

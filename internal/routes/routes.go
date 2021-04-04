@@ -14,6 +14,7 @@ func (s *Server) routes() {
 	s.route("GET", "/resources", s.listResources())
 	s.route("GET", "/universes", s.listUniverses())
 	s.route("GET", "/accounts", s.listAccounts())
+	s.route("GET", "/accounts/[a-zA-Z0-9-]+/players", s.listAccountsPlayers())
 	s.route("GET", "/buildings", s.listBuildings())
 	s.route("GET", "/technologies", s.listTechnologies())
 	s.route("GET", "/ships", s.listShips())

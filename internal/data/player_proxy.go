@@ -5,6 +5,7 @@ import (
 	"oglike_server/internal/game"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -189,9 +190,17 @@ func (p *PlayerProxy) Messages(filters []db.Filter) ([]game.Message, error) {
 // the failure reason). Also returns the identifier of
 // the player that was created.
 func (p *PlayerProxy) Create(player game.Player) (string, error) {
-	// Assign a valid identifier if this is not already the case.
+	// Assign a valid identifier if this is not already
+	// the case.
 	if player.ID == "" {
 		player.ID = uuid.New().String()
+	}
+
+	// Assign a valid name in case it's not already the
+	// case.
+	// TODO: Improve this.
+	if player.Name == "" {
+		player.Name = fmt.Sprintf("Emperor Jonsu %s", time.Now())
 	}
 
 	err := player.SaveToDB(p.data.Proxy)

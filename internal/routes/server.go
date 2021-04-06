@@ -170,6 +170,7 @@ func parseConfiguration() configuration {
 func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 	// Create modules to handle data model and initialize each one
 	// of them.
+	cm := model.NewCountriesModule(log)
 	bm := model.NewBuildingsModule(log)
 	tm := model.NewTechnologiesModule(log)
 	sm := model.NewShipsModule(log)
@@ -178,7 +179,12 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 	om := model.NewFleetObjectivesModule(log)
 	mm := model.NewMessagesModule(log)
 
-	err := bm.Init(proxy, false)
+	err := cm.Init(proxy, false)
+	if err != nil {
+		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+	}
+
+	err = bm.Init(proxy, false)
 	if err != nil {
 		panic(fmt.Errorf("Cannot create server (err: %v)", err))
 	}
@@ -216,6 +222,7 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 	// Create the data model from it.
 	ogDataModel := game.NewInstance(proxy, log)
 
+	ogDataModel.Countries = cm
 	ogDataModel.Buildings = bm
 	ogDataModel.Technologies = tm
 	ogDataModel.Ships = sm

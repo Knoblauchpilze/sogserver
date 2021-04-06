@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"oglike_server/pkg/db"
 	"strconv"
+	"time"
 )
 
 // Universe :
@@ -11,86 +12,92 @@ import (
 // of planets gathered in a certain number of galaxies and
 // a set of parameters that configure the economic, combat
 // and technologies available in it.
-//
-// The `ID` defines the unique identifier for this universe.
-//
-// The `Name` defines a human-readable name for it.
-//
-// The `EcoSpeed` is a value in the range `[0; inf]` which
-// defines a multiplication factor that is added to shorten
-// the economy (i.e. building construction time, etc.).
-//
-// The `FleetSpeed` is similar to the `EcoSpeed` but controls
-// the speed boost for fleets travel time.
-//
-// The `ResearchSpeed` controls how researches are shortened
-// compared to the base value.
-//
-// The `FleetsToRuins` defines the percentage of resources
-// that go into a debris fields when a ship is destroyed in
-// a battle.
-//
-// The `DefensesToRuins` defines a similar percentage for
-// defenses in the event of a battle.
-//
-// The `FleetConsumption` is a value in the range `[0; 1]`
-// defining how the consumption is biased compared to the
-// canonical value.
-//
-// The `GalaxiesCount` defines the number of galaxies in
-// the universe.
-//
-// The `GalaxySize` defines the number of solar systems
-// in a single galaxy.
-//
-// The `SolarSystemSize` defines the number of planets in
-// each solar system of each galaxy.
 type Universe struct {
-	ID               string  `json:"id"`
-	Name             string  `json:"name"`
-	EcoSpeed         int     `json:"economic_speed"`
-	FleetSpeed       int     `json:"fleet_speed"`
-	ResearchSpeed    int     `json:"research_speed"`
-	FleetsToRuins    float32 `json:"fleets_to_ruins_ratio"`
-	DefensesToRuins  float32 `json:"defenses_to_ruins_ratio"`
+	// ID defines the unique identifier for this universe.
+	ID string `json:"id"`
+
+	// Name defines a human-readable name for it.
+	Name string `json:"name"`
+
+	// Country defines the identifier of the country for
+	// this universe.
+	Country string `json:"country"`
+
+	// Age defines the age in days for this universe.
+	Age int `json:"age"`
+
+	// EcoSpeed is a value in the range `[0; inf]` which
+	// defines a multiplication factor that is added to
+	// shorten the economy (i.e. building construction
+	// time, etc.).
+	EcoSpeed int `json:"economic_speed"`
+
+	// FleetSpeed is similar to the `EcoSpeed` but controls
+	// the speed boost for fleets travel time.
+	FleetSpeed int `json:"fleet_speed"`
+
+	// ResearchSpeed controls how researches are shortened
+	// compared to the base value.
+	ResearchSpeed int `json:"research_speed"`
+
+	// FleetsToRuins defines the percentage of resources
+	// that go into a debris fields when a ship is destroyed
+	// in a battle.
+	FleetsToRuins float32 `json:"fleets_to_ruins_ratio"`
+
+	// DefensesToRuins defines a similar percentage for
+	// defenses in the event of a battle.
+	DefensesToRuins float32 `json:"defenses_to_ruins_ratio"`
+
+	// FleetConsumption is a value in the range `[0; 1]`
+	// defining how the consumption is biased compared
+	// to the canonical value.
 	FleetConsumption float32 `json:"fleets_consumption_ratio"`
-	GalaxiesCount    int     `json:"galaxies_count"`
-	GalaxySize       int     `json:"galaxy_size"`
-	SolarSystemSize  int     `json:"solar_system_size"`
+
+	// GalaxiesCount defines the number of galaxies in the
+	// universe.
+	GalaxiesCount int `json:"galaxies_count"`
+
+	// GalaxySize defines the number of solar systems in a
+	// single galaxy.
+	GalaxySize int `json:"galaxy_size"`
+
+	// SolarSystemSize defines the number of planets in each
+	// solar system of each galaxy.
+	SolarSystemSize int `json:"solar_system_size"`
 }
 
 // Multipliers :
 // Used as a convenience structure to keep
 // track of the multipliers to apply to the
 // variables used for actions in a universe.
-//
-// The `Economy` defines a multiplier that
-// is applied for economic actions such as
-// building a building and the production.
-//
-// The `Fleet` is used to reduce the flight
-// time of fleets.
-//
-// The `Research` defines the multiplier
-// to use for researches.
-//
-// The `ShipsToRuins` defines how much of
-// the construction cost of a ship goes to
-// the debris field.
-//
-// The `DefensesToRuins` plays a similar
-// role for defenses.
-//
-// The `Consumption` defines the ratio of
-// the fuel that is actually needed by the
-// fleets.
 type Multipliers struct {
-	Economy         float32
-	Fleet           float32
-	Research        float32
-	ShipsToRuins    float32
+	// The `Economy` defines a multiplier that
+	// is applied for economic actions such as
+	// building a building and the production.
+	Economy float32
+
+	// The `Fleet` is used to reduce the flight
+	// time of fleets.
+	Fleet float32
+
+	// The `Research` defines the multiplier
+	// to use for researches.
+	Research float32
+
+	// The `ShipsToRuins` defines how much of
+	// the construction cost of a ship goes to
+	// the debris field.
+	ShipsToRuins float32
+
+	// The `DefensesToRuins` plays a similar
+	// role for defenses.
 	DefensesToRuins float32
-	Consumption     float32
+
+	// The `Consumption` defines the ratio of
+	// the fuel that is actually needed by the
+	// fleets.
+	Consumption float32
 }
 
 // ErrDuplicatedCoordinates : Indicates that some coordites appeared twice.
@@ -104,6 +111,9 @@ var ErrInvalidCoordinates = fmt.Errorf("Invalid coordinates relative to universe
 
 // ErrDuplicatedPlanet : Indicates that there several planets share the same coordinates.
 var ErrDuplicatedPlanet = fmt.Errorf("Several planets share the same coordinates")
+
+// ErrInvalidCountry : The country is not valid.
+var ErrInvalidCountry = fmt.Errorf("Invalid or empty country")
 
 // ErrInvalidEcoSpeed : The economic speed is not within admissible range.
 var ErrInvalidEcoSpeed = fmt.Errorf("Economic speed is not within admissible range")
@@ -143,6 +153,9 @@ func (u *Universe) valid() error {
 	}
 	if u.Name == "" {
 		return ErrInvalidName
+	}
+	if u.Country == "" {
+		return ErrInvalidCountry
 	}
 	if u.EcoSpeed <= 0 {
 		return ErrInvalidEcoSpeed
@@ -205,21 +218,23 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"name",
-			"economic_speed",
-			"fleet_speed",
-			"research_speed",
-			"fleets_to_ruins_ratio",
-			"defenses_to_ruins_ratio",
-			"fleets_consumption_ratio",
-			"galaxies_count",
-			"galaxy_size",
-			"solar_system_size",
+			"u.name",
+			"c.name",
+			"u.economic_speed",
+			"u.fleet_speed",
+			"u.research_speed",
+			"u.fleets_to_ruins_ratio",
+			"u.defenses_to_ruins_ratio",
+			"u.fleets_consumption_ratio",
+			"u.galaxies_count",
+			"u.galaxy_size",
+			"u.solar_system_size",
+			"u.created_at",
 		},
-		Table: "universes",
+		Table: "universes u inner join countries c on u.country = c.id",
 		Filters: []db.Filter{
 			{
-				Key:    "id",
+				Key:    "u.id",
 				Values: []interface{}{u.ID},
 			},
 		},
@@ -242,8 +257,11 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 		return u, ErrElementNotFound
 	}
 
+	var creationTime time.Time
+
 	err = dbRes.Scan(
 		&u.Name,
+		&u.Country,
 		&u.EcoSpeed,
 		&u.FleetSpeed,
 		&u.ResearchSpeed,
@@ -253,7 +271,11 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 		&u.GalaxiesCount,
 		&u.GalaxySize,
 		&u.SolarSystemSize,
+		&creationTime,
 	)
+
+	// Convert the age in days.
+	u.Age = int(time.Now().Sub(creationTime).Hours())
 
 	// Make sure that it's the only universe.
 	if dbRes.Next() {

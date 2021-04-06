@@ -45,6 +45,7 @@ import (
 // prevent any unauthorized use of the DB.
 type Instance struct {
 	Proxy        db.Proxy
+	Countries    *model.CountriesModule
 	Buildings    *model.BuildingsModule
 	Technologies *model.TechnologiesModule
 	Ships        *model.ShipsModule

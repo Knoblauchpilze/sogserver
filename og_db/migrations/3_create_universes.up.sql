@@ -3,6 +3,7 @@
 CREATE TABLE universes (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
+  country uuid NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   economic_speed integer NOT NULL,
   fleet_speed integer NOT NULL,
@@ -14,6 +15,7 @@ CREATE TABLE universes (
   galaxy_size integer NOT NULL,
   solar_system_size integer NOT NULL,
   PRIMARY KEY (id),
+  FOREIGN KEY (country) REFERENCES countries(id),
   UNIQUE (name)
 );
 

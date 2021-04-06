@@ -101,10 +101,6 @@ func (p *UniverseProxy) Universes(filters []db.Filter) ([]game.Universe, error) 
 		universes = append(universes, uni)
 	}
 
-	if len(universes) == 0 {
-		return universes, game.ErrElementNotFound
-	}
-
 	return universes, nil
 }
 

@@ -275,7 +275,7 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 	)
 
 	// Convert the age in days.
-	u.Age = int(time.Now().Sub(creationTime).Hours())
+	u.Age = int(time.Now().Sub(creationTime).Hours() / 24.0)
 
 	// Make sure that it's the only universe.
 	if dbRes.Next() {

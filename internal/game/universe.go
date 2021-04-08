@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"math/rand"
 	"oglike_server/pkg/db"
 	"strconv"
 	"time"
@@ -100,8 +101,11 @@ type Multipliers struct {
 	Consumption float32
 }
 
-// ErrDuplicatedCoordinates : Indicates that some coordites appeared twice.
+// ErrDuplicatedCoordinates : Indicates that some coordinates appeared twice.
 var ErrDuplicatedCoordinates = fmt.Errorf("Invalid duplicated coordinates")
+
+// ErrDuplicatedName : Indicates that some name appeared twice.
+var ErrDuplicatedName = fmt.Errorf("Invalid duplicated name")
 
 // ErrPlanetNotFound : No planet exists at the specified coordinates.
 var ErrPlanetNotFound = fmt.Errorf("No planet at the specified coordinates")
@@ -111,6 +115,9 @@ var ErrInvalidCoordinates = fmt.Errorf("Invalid coordinates relative to universe
 
 // ErrDuplicatedPlanet : Indicates that there several planets share the same coordinates.
 var ErrDuplicatedPlanet = fmt.Errorf("Several planets share the same coordinates")
+
+// ErrNoRemainingName : Indicates that no name could be generated for a player.
+var ErrNoRemainingName = fmt.Errorf("Failed to generate name for player")
 
 // ErrInvalidCountry : The country is not valid.
 var ErrInvalidCountry = fmt.Errorf("Invalid or empty country")
@@ -484,6 +491,143 @@ func (u *Universe) UsedCoords(proxy db.Proxy) (map[int]Coordinate, error) {
 	}
 
 	return coords, nil
+}
+
+// UsedNames :
+// Used to find and generate a list of the used names in
+// this universe. Note that the list is only some snapshot
+// of the state of the names which can evolve through time.
+// In order to be practical the list of used names is
+// returned as a map. The keys corresponds to the used
+// names and the values to dummy booleans.
+//
+// The `proxy` defines a way to access the DB to fetch the
+// used names.
+//
+// Returns the list of used names along with any error.
+func (u *Universe) UsedNames(proxy db.Proxy) (map[string]bool, error) {
+	// Create the query allowing to fetch all the names of
+	// players registered in the current universe.
+	query := db.QueryDesc{
+		Props: []string{
+			"name",
+		},
+		Table: "players",
+		Filters: []db.Filter{
+			{
+				Key:    "universe",
+				Values: []interface{}{u.ID},
+			},
+		},
+	}
+
+	dbRes, err := proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return map[string]bool{}, err
+	}
+	if dbRes.Err != nil {
+		return map[string]bool{}, dbRes.Err
+	}
+
+	// Traverse all the names and populate the list.
+	names := make(map[string]bool)
+	var name string
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&name,
+		)
+
+		if err != nil {
+			return names, db.ErrInvalidScan
+		}
+
+		// In case these coordinates already exist this is an issue.
+		if _, ok := names[name]; ok {
+			return names, ErrDuplicatedName
+		}
+
+		names[name] = true
+	}
+
+	return names, nil
+}
+
+// GenerateName :
+// Used to perform the generation of a name that is
+// not yet used in this universe. We only do so many
+// trials before considering that no more names can
+// be generated.
+//
+// The `proxy` allows to access to the DB.
+//
+// The `trials` defines how many trials will be done
+// before considering that a new name can't be found.
+//
+// Returns the generated name along with any error.
+func (u *Universe) GenerateName(proxy db.Proxy, trials int) (string, error) {
+	// Generate the used names for this universe.
+	used, err := u.UsedNames(proxy)
+	if err != nil {
+		return "", err
+	}
+
+	// Fetch names and titles from the DB: we'll
+	// directly cross join both tables to obtain
+	// the full list of names.
+	query := db.QueryDesc{
+		Props: []string{
+			"concat(title, ' ', name)",
+		},
+		Table: "players_titles cross join players_names",
+	}
+
+	dbRes, err := proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return "", err
+	}
+	if dbRes.Err != nil {
+		return "", dbRes.Err
+	}
+
+	// Traverse all the names and populate the list.
+	var names []string
+	var name string
+
+	for dbRes.Next() {
+		err = dbRes.Scan(
+			&name,
+		)
+
+		if err != nil {
+			return "", db.ErrInvalidScan
+		}
+
+		names = append(names, name)
+	}
+
+	// Attempt to find a name.
+	name = ""
+	for t := 0; t < trials && name == ""; t++ {
+		id := rand.Intn(len(names))
+		name = names[id]
+
+		if _, ok := used[name]; ok {
+			name = ""
+		}
+	}
+
+	if name == "" {
+		return "", ErrNoRemainingName
+	}
+
+	return name, nil
 }
 
 // GetPlanetAt :

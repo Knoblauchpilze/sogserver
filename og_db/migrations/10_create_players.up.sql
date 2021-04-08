@@ -39,3 +39,30 @@ CREATE TABLE players_technologies (
   FOREIGN KEY (player) REFERENCES players(id),
   FOREIGN KEY (technology) REFERENCES technologies(id)
 );
+
+-- Create a table to define title for player names.
+CREATE TABLE players_titles (
+  title text NOT NULL,
+  UNIQUE (title)
+);
+
+-- Create a table to define names for players.
+CREATE TABLE players_names (
+  name text NOT NULL,
+  UNIQUE (name)
+);
+
+-- Seed the players' titles.
+INSERT INTO public.players_titles ("title") VALUES('Emperor');
+INSERT INTO public.players_titles ("title") VALUES('Constable');
+INSERT INTO public.players_titles ("title") VALUES('Warlord');
+INSERT INTO public.players_titles ("title") VALUES('Engineer');
+INSERT INTO public.players_titles ("title") VALUES('Seneschal');
+INSERT INTO public.players_titles ("title") VALUES('Hotshot');
+
+-- Seed the player's names.
+INSERT INTO public.players_names ("name") VALUES('Jonzy');
+INSERT INTO public.players_names ("name") VALUES('Bighanta');
+INSERT INTO public.players_names ("name") VALUES('Choupeau');
+INSERT INTO public.players_names ("name") VALUES('Knoppgrunt');
+INSERT INTO public.players_names ("name") VALUES('Lesfruits');

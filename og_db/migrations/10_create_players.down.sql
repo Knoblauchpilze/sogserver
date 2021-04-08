@@ -1,4 +1,8 @@
 
+-- Drop tables allowing to generate names for players.
+DROP TABLE players_names;
+DROP TABLE players_titles;
+
 -- Drop the table referencing the technologies per player.
 DROP TABLE players_technologies;
 

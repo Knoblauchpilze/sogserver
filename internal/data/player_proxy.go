@@ -5,10 +5,12 @@ import (
 	"oglike_server/internal/game"
 	"oglike_server/pkg/db"
 	"oglike_server/pkg/logger"
-	"time"
 
 	"github.com/google/uuid"
 )
+
+// maxNameTrials : Number of trials to perform to generate a name.
+var maxNameTrials = 50
 
 // PlayerProxy :
 // Intended as a wrapper to access properties of players
@@ -198,9 +200,16 @@ func (p *PlayerProxy) Create(player game.Player) (string, error) {
 
 	// Assign a valid name in case it's not already the
 	// case.
-	// TODO: Improve this.
-	if player.Name == "" {
-		player.Name = fmt.Sprintf("Emperor Jonsu %s", time.Now())
+	if player.Name == "" && player.Universe != "" {
+		u, err := game.NewUniverseFromDB(player.Universe, p.data)
+		if err != nil {
+			return player.ID, err
+		}
+
+		player.Name, err = u.GenerateName(p.data.Proxy, maxNameTrials)
+		if err != nil {
+			return player.ID, err
+		}
 	}
 
 	err := player.SaveToDB(p.data.Proxy)

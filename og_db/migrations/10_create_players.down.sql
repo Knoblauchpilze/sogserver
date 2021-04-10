@@ -3,6 +3,9 @@
 DROP TABLE players_names;
 DROP TABLE players_titles;
 
+-- Drop table referencing players points.
+DROP TABLE players_points;
+
 -- Drop the table referencing the technologies per player.
 DROP TABLE players_technologies;
 

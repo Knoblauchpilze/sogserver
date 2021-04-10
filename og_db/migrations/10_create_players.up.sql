@@ -40,6 +40,17 @@ CREATE TABLE players_technologies (
   FOREIGN KEY (technology) REFERENCES technologies(id)
 );
 
+-- Create a table representing the points accumulated for a player.
+CREATE TABLE players_points (
+  player uuid NOT NULL,
+  economy_points integer NOT NULL DEFAULT 0,
+  research_points integer NOT NULL DEFAULT 0,
+  military_points_built integer NOT NULL DEFAULT 0,
+  military_points_lost integer NOT NULL DEFAULT 0,
+  military_points_destroyed integer NOT NULL DEFAULT 0,
+  FOREIGN KEY (player) REFERENCES players(id)
+);
+
 -- Create a table to define title for player names.
 CREATE TABLE players_titles (
   title text NOT NULL,

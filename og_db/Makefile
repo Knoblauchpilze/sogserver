@@ -4,7 +4,7 @@ DB_HOST ?= localhost
 DB_PORT ?= 5500
 DB_USER ?= og_administrator
 DB_PASSWORD ?= Ww76hQWbbt7zi2ItM6cNo4YYT
-DEMIGRATION_STEPS ?= 1
+MIGRATION_STEPS ?= 1
 
 # Target allowing to build the docker image for the db.
 docker_db:
@@ -35,6 +35,11 @@ connect:
 .PHONY: migrate
 migrate:
 	migrate -path ${PWD}/migrations -database postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable up
+	# Target allowing to migrate the db to latest defined step.
+
+# Target allowing to migrate the db one step further.
+migrateO:
+	migrate -path ${PWD}/migrations -database postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable up ${MIGRATION_STEPS}
 
 # Target allowing to migrate the db to initial state.
 demigrate:
@@ -42,4 +47,4 @@ demigrate:
 
 # Demigrate only the last step of the DB creation.
 demigrateO:
-	migrate -path ${PWD}/migrations -database postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable down ${DEMIGRATION_STEPS}
+	migrate -path ${PWD}/migrations -database postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable down ${MIGRATION_STEPS}

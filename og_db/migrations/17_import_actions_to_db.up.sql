@@ -395,9 +395,22 @@ BEGIN
   -- Note that even if the production is expressed in hours,
   -- we need to extract the number of seconds in order to be
   -- able to obtain fractions of an hour to update the value.
+  -- The final amount is obtained by first taking the maximum
+  -- value between the current amount and the storage capacity
+  -- (so that we keep excess brought by fleets for example)
+  -- and we take the minimum of this and the amount that would
+  -- exist if the production was still running (assuming that
+  -- if the current value is less than that it means that we
+  -- reached the storage capacity).
   UPDATE planets_resources
   SET
-    amount = amount + EXTRACT(EPOCH FROM moment - updated_at) * production / 3600.0,
+    amount = LEAST(
+      amount + EXTRACT(EPOCH FROM NOW() - updated_at) * production / 3600.0,
+      GREATEST(
+        amount,
+        storage_capacity
+      )
+    ),
     updated_at = moment
   FROM
     resources AS r

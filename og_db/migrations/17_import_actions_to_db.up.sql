@@ -515,6 +515,21 @@ BEGIN
     -- 2.e) Update the last activity time for this planet.
     UPDATE planets SET last_activity = moment WHERE id = planet_id;
 
+    -- 2.f) Add the cost of the action to the points of the
+    -- player in the economy section.
+    WITH points AS (
+      SELECT
+        SUM(bc.cost)/1000.0 AS sum
+      FROM
+        construction_actions_buildings AS cab
+        INNER JOIN buildings AS b ON cab.element = b.id
+        INNER JOIN buildings_costs AS bc ON b.id = bc.element
+      )
+    UPDATE players_points
+      SET economy_points = economy_points + sum
+    FROM
+      points;
+
     -- 3. Destroy the processed action effects.
     DELETE FROM construction_actions_buildings_production_effects WHERE action = action_id;
 
@@ -562,6 +577,21 @@ BEGIN
     -- 2.e) Update the last activity time for this moon.
     UPDATE moons SET last_activity = moment WHERE id = planet_id;
 
+    -- 2.f) Add the cost of the action to the points of the
+    -- player in the economy section.
+    WITH points AS (
+      SELECT
+        SUM(bc.cost)/1000.0 AS sum
+      FROM
+        construction_actions_buildings_moon AS cabm
+        INNER JOIN buildings AS b ON cabm.element = b.id
+        INNER JOIN buildings_costs AS bc ON b.id = bc.element
+      )
+    UPDATE players_points
+      SET economy_points = economy_points + sum
+    FROM
+      points;
+
     -- 3. Only fields effects can be applied in the case of
     -- moon buildings.
     DELETE FROM construction_actions_buildings_fields_effects_moon WHERE action = action_id;
@@ -596,9 +626,24 @@ BEGIN
   UPDATE planets AS p
     SET last_activity = cat.completion_time
   FROM
-    construction_actions_technologies AS cab
+    construction_actions_technologies AS cat
   WHERE
     p.id = cat.planet;
+
+  -- 2.b) Add the cost of the action to the points of the
+  -- player in the research section.
+  WITH points AS (
+    SELECT
+      SUM(bc.cost)/1000.0 AS sum
+    FROM
+      construction_actions_technologies AS cat
+      INNER JOIN buildings AS b ON cat.element = b.id
+      INNER JOIN buildings_costs AS bc ON b.id = bc.element
+    )
+  UPDATE players_points
+    SET research_points = research_points + sum
+  FROM
+    points;
 
   -- 3. And finally delete the processed action.
   DELETE FROM construction_actions_technologies WHERE id = action_id;
@@ -633,7 +678,9 @@ BEGIN
     UPDATE planets_ships AS ps
       SET count = count - (cas.amount - cas.remaining) +
         LEAST(
-          EXTRACT(EPOCH FROM processing_time - cas.created_at) / EXTRACT(EPOCH FROM cas.completion_time),
+          FLOOR(
+            EXTRACT(EPOCH FROM processing_time - cas.created_at) / EXTRACT(EPOCH FROM cas.completion_time)
+          ),
           CAST(cas.amount AS DOUBLE PRECISION)
         )
       FROM
@@ -643,12 +690,47 @@ BEGIN
         AND ps.planet = cas.planet
         AND ps.ship = cas.element;
 
+    -- 1.b) Add the cost of the action to the points of the
+    -- player in the military built section. We need to do
+    -- that *before* updating the number of remaining elems
+    -- to be sure to get the same number of built items and
+    -- thus count all the points.
+    -- We use the same piece of code to compute how many
+    -- items have been built and thus how many points will
+    -- be added.
+    WITH points AS (
+      WITH build AS (
+        SELECT
+          LEAST(
+            FLOOR(
+              EXTRACT(EPOCH FROM processing_time - cas.created_at) / EXTRACT(EPOCH FROM cas.completion_time)
+            ),
+            CAST (cas.amount AS DOUBLE PRECISION)
+          ) AS items
+        FROM
+          construction_actions_ships AS cas
+        )
+      SELECT
+        SUM(sc.cost * items)/1000.0 AS sum
+      FROM
+        construction_actions_ships AS cas
+        INNER JOIN ships AS s ON cas.element = s.id
+        INNER JOIN ships_costs AS sc ON sc.element = s.id
+        CROSS JOIN build
+      )
+    UPDATE players_points
+      SET military_points_built = military_points_built + sum
+    FROM
+      points;
+
     -- 2. Update remaining action with an amount decreased by an
     -- amount consistent with the duration elapsed since the creation.
     UPDATE construction_actions_ships
       SET remaining = amount -
         LEAST(
-          EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time),
+          FLOOR(
+            EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time)
+          ),
           CAST(amount AS DOUBLE PRECISION)
         )
     WHERE
@@ -661,7 +743,9 @@ BEGIN
         -- completed capping to the maximum number of
         -- items that were requested.
         LEAST(
-          EXTRACT(EPOCH FROM processing_time - cas.created_at) / EXTRACT(EPOCH FROM cas.completion_time),
+          FLOOR(
+            EXTRACT(EPOCH FROM processing_time - cas.created_at) / EXTRACT(EPOCH FROM cas.completion_time)
+          ),
           CAST(cas.amount AS DOUBLE PRECISION)
         )
         -- From there we can multiply by the duration
@@ -677,7 +761,7 @@ BEGIN
       construction_actions_ships AS cas
     WHERE
       cas.id = action_id
-      AND m.id = cas.moon;
+      AND p.id = cas.planet;
 
     -- 3. Update elements in actions queue based on the next completion time.
     UPDATE actions_queue AS aq
@@ -705,21 +789,51 @@ BEGIN
     UPDATE moons_ships AS ms
       SET count = count - (casm.amount - casm.remaining) +
         LEAST(
-          EXTRACT(EPOCH FROM processing_time - casm.created_at) / EXTRACT(EPOCH FROM casm.completion_time),
+          FLOOR(
+            EXTRACT(EPOCH FROM processing_time - casm.created_at) / EXTRACT(EPOCH FROM casm.completion_time)
+          ),
           CAST(casm.amount AS DOUBLE PRECISION)
         )
       FROM
         construction_actions_ships_moon AS casm
       WHERE
         casm.id = action_id
-        AND ms.planet = casm.planet
+        AND ms.moon = casm.moon
         AND ms.ship = casm.element;
+
+    -- 1.b) See comment in above section.
+    WITH points AS (
+      WITH build AS (
+        SELECT
+          LEAST(
+            FLOOR(
+              EXTRACT(EPOCH FROM processing_time - cacasmdm.created_at) / EXTRACT(EPOCH FROM casm.completion_time)
+            ),
+            CAST (casm.amount AS DOUBLE PRECISION)
+          ) AS items
+        FROM
+          construction_actions_ships_moon AS casm
+        )
+      SELECT
+        SUM(sc.cost * items)/1000.0 AS sum
+      FROM
+        construction_actions_ships_moon AS casm
+        INNER JOIN ships AS s ON casm.element = s.id
+        INNER JOIN ships_costs AS sc ON sc.element = s.id
+        CROSS JOIN build
+      )
+    UPDATE players_points
+      SET military_points_built = military_points_built + sum
+    FROM
+      points;
 
     -- 2. See comment in above section.
     UPDATE construction_actions_ships_moon
       SET remaining = amount -
         LEAST(
-          EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time),
+          FLOOR(
+            EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time)
+          ),
           CAST(amount AS DOUBLE PRECISION)
         )
     WHERE
@@ -732,7 +846,9 @@ BEGIN
         -- completed capping to the maximum number of
         -- items that were requested.
         LEAST(
-          EXTRACT(EPOCH FROM processing_time - casm.created_at) / EXTRACT(EPOCH FROM casm.completion_time),
+          FLOOR(
+            EXTRACT(EPOCH FROM processing_time - casm.created_at) / EXTRACT(EPOCH FROM casm.completion_time)
+          ),
           CAST(casm.amount AS DOUBLE PRECISION)
         )
         -- From there we can multiply by the duration
@@ -798,7 +914,9 @@ BEGIN
     UPDATE planets_defenses AS pd
       SET count = count - (cad.amount - cad.remaining) +
         LEAST(
-          EXTRACT(EPOCH FROM processing_time - cad.created_at) / EXTRACT(EPOCH FROM cad.completion_time),
+          FLOOR(
+            EXTRACT(EPOCH FROM processing_time - cad.created_at) / EXTRACT(EPOCH FROM cad.completion_time)
+          ),
           CAST(cad.amount AS DOUBLE PRECISION)
         )
       FROM
@@ -808,12 +926,47 @@ BEGIN
         AND pd.planet = cad.planet
         AND pd.defense = cad.element;
 
+    -- 1.b) Add the cost of the action to the points of the
+    -- player in the military built section. We need to do
+    -- that *before* updating the number of remaining elems
+    -- to be sure to get the same number of built items and
+    -- thus count all the points.
+    -- We use the same piece of code to compute how many
+    -- items have been built and thus how many points will
+    -- be added.
+    WITH points AS (
+      WITH build AS (
+        SELECT
+          LEAST(
+            FLOOR(
+              EXTRACT(EPOCH FROM processing_time - cad.created_at) / EXTRACT(EPOCH FROM cad.completion_time)
+            ),
+            CAST (cad.amount AS DOUBLE PRECISION)
+          ) AS items
+        FROM
+          construction_actions_defenses AS cad
+        )
+      SELECT
+        SUM(dc.cost * items)/1000.0 AS sum
+      FROM
+        construction_actions_defenses AS cad
+        INNER JOIN defenses AS d ON cad.element = d.id
+        INNER JOIN defenses_costs AS dc ON dc.element = d.id
+        CROSS JOIN build
+      )
+    UPDATE players_points
+      SET military_points_built = military_points_built + sum
+    FROM
+      points;
+
     -- 2. Update remaining action with an amount decreased by an
     -- amount consistent with the duration elapsed since the creation.
     UPDATE construction_actions_defenses
       SET remaining = amount -
         LEAST(
-          EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time),
+          FLOOR(
+            EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time)
+          ),
           CAST(amount AS DOUBLE PRECISION)
         )
     WHERE
@@ -828,7 +981,9 @@ BEGIN
         -- completed capping to the maximum number of
         -- items that were requested.
         LEAST(
-          EXTRACT(EPOCH FROM processing_time - cad.created_at) / EXTRACT(EPOCH FROM cad.completion_time),
+          FLOOR(
+            EXTRACT(EPOCH FROM processing_time - cad.created_at) / EXTRACT(EPOCH FROM cad.completion_time)
+          ),
           CAST(cad.amount AS DOUBLE PRECISION)
         )
         -- From there we can multiply by the duration
@@ -869,24 +1024,54 @@ BEGIN
 
   IF kind = 'moon' THEN
     -- 1. See comment in above section.
-    UPDATE planets_defenses AS pd
+    UPDATE moons_defenses AS md
       SET count = count - (cadm.amount - cadm.remaining) +
         LEAST(
-          EXTRACT(EPOCH FROM processing_time - cadm.created_at) / EXTRACT(EPOCH FROM cadm.completion_time),
+          FLOOR(
+            EXTRACT(EPOCH FROM processing_time - cadm.created_at) / EXTRACT(EPOCH FROM cadm.completion_time)
+          ),
           CAST(cadm.amount AS DOUBLE PRECISION)
         )
       FROM
         construction_actions_defenses_moon AS cadm
       WHERE
         cadm.id = action_id
-        AND pd.planet = cadm.planet
-        AND pd.defense = cadm.element;
+        AND md.moon = cadm.moon
+        AND md.defense = cadm.element;
+
+    -- 1.b) See comment in above section.
+    WITH points AS (
+      WITH build AS (
+        SELECT
+          LEAST(
+            FLOOR(
+              EXTRACT(EPOCH FROM processing_time - cadm.created_at) / EXTRACT(EPOCH FROM cadm.completion_time)
+            ),
+            CAST (cadm.amount AS DOUBLE PRECISION)
+          ) AS items
+        FROM
+          construction_actions_defenses_moon AS cadm
+        )
+      SELECT
+        SUM(dc.cost * items)/1000.0 AS sum
+      FROM
+        construction_actions_defenses_moon AS cadm
+        INNER JOIN defenses AS d ON cadm.element = d.id
+        INNER JOIN defenses_costs AS dc ON dc.element = d.id
+        CROSS JOIN build
+      )
+    UPDATE players_points
+      SET military_points_built = military_points_built + sum
+    FROM
+      points;
 
     -- 2. See comment in above section.
     UPDATE construction_actions_defenses_moon
       SET remaining = amount -
         LEAST(
-          EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time),
+          FLOOR(
+            EXTRACT(EPOCH FROM processing_time - created_at) / EXTRACT(EPOCH FROM completion_time)
+          ),
           CAST(amount AS DOUBLE PRECISION)
         )
     WHERE
@@ -899,7 +1084,9 @@ BEGIN
         -- completed capping to the maximum number of
         -- items that were requested.
         LEAST(
-          EXTRACT(EPOCH FROM processing_time - cadm.created_at) / EXTRACT(EPOCH FROM cadm.completion_time),
+          FLOOR(
+            EXTRACT(EPOCH FROM processing_time - cadm.created_at) / EXTRACT(EPOCH FROM cadm.completion_time)
+          ),
           CAST(cadm.amount AS DOUBLE PRECISION)
         )
         -- From there we can multiply by the duration

@@ -214,7 +214,7 @@ func (a *FixedAction) computeCompletionTime(data Instance, cost model.FixedCost,
 	shipyard := p.Buildings[shipyardID]
 	nanite := p.Buildings[naniteID]
 
-	// Retrieve the cost in metal and crystal as it is
+	// Retrieve the cost in metal and crystal as these are
 	// the only costs that matters.
 	metalDesc, err := data.Resources.GetResourceFromName("metal")
 	if err != nil {

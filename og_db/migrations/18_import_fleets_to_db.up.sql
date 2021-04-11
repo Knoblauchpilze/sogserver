@@ -1324,8 +1324,8 @@ $$ LANGUAGE plpgsql;
 -- Handle the destruction operation of a moon by a fleet
 -- of deathstars. We will both perform the deletion of a
 -- moon (which includes removing the moon from the list
--- of bodies registered but also rerouting the fleets to
--- the parent planet for example).
+-- of bodies registered) but also rerouting the fleets to
+-- the parent planet for example.
 CREATE OR REPLACE FUNCTION fleet_destroy(fleet_id uuid, moon_destroyed boolean, fleet_destroyed boolean) RETURNS VOID AS $$
 DECLARE
   player_id uuid;

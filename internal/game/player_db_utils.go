@@ -179,6 +179,7 @@ func (p *Player) MarshalJSON() ([]byte, error) {
 		Name         string      `json:"name"`
 		Technologies []lightInfo `json:"technologies"`
 		Planets      []string    `json:"planets"`
+		Score        Points      `json:"score"`
 	}
 
 	// Copy the planet's data.
@@ -188,6 +189,7 @@ func (p *Player) MarshalJSON() ([]byte, error) {
 		Universe: p.Universe,
 		Name:     p.Name,
 		Planets:  p.Planets,
+		Score:    p.Score,
 	}
 
 	// Make shallow copy of the buildings, ships and

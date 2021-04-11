@@ -11,39 +11,63 @@ import (
 // a particular universe. We can access to the nickname of
 // the player in this universe along with the account it
 // belongs to and the universe associated to it.
-//
-//
-// The `ID` represents the unique ID for this player.
-//
-// The `Account` represents the identifier of the main
-// account associated with this player. An account can be
-// registered on any number of universes (with a limit of
-// `1` character per universe).
-//
-// The `Universe` is the identifier of the universe in which
-// this player is registered. This determines where it can
-// perform actions.
-//
-// The `Name` represents the in-game display name for this
-// player. It is distinct from the account's name.
-//
-// The `Technologies` defines each technology that this
-// player has already researched with their associated
-// level.
-//
-// The `Planets` defines the list of the identifiers of
-// the planets owned by this player.
-//
-// The `planetsCount` allows to count how many planets
-// this player already possesses.
 type Player struct {
-	ID           string                    `json:"id"`
-	Account      string                    `json:"account"`
-	Universe     string                    `json:"universe"`
-	Name         string                    `json:"name"`
+	// The `ID` represents the unique ID for this player.
+	ID string `json:"id"`
+
+	// The `Account` represents the identifier of the main
+	// account associated with this player. An account can be
+	// registered on any number of universes (with a limit of
+	// `1` character per universe).
+	Account string `json:"account"`
+
+	// The `Universe` is the identifier of the universe in which
+	// this player is registered. This determines where it can
+	// perform actions.
+	Universe string `json:"universe"`
+
+	// The `Name` represents the in-game display name for this
+	// player. It is distinct from the account's name.
+	Name string `json:"name"`
+
+	// The `Technologies` defines each technology that this
+	// player has already researched with their associated
+	// level.
 	Technologies map[string]TechnologyInfo `json:"-"`
-	Planets      []string                  `json:"planets"`
+
+	// The `Planets` defines the list of the identifiers of
+	// the planets owned by this player.
+	Planets []string `json:"planets"`
+
+	// The `planetsCount` allows to count how many planets
+	// this player already possesses.
 	planetsCount int
+
+	// The `Points` defines the accumulated score of the
+	// player.
+	Score Points `json:"score"`
+}
+
+// Points :
+// Define the score of a player by counting the points
+// accumulated in various categories.
+type Points struct {
+	// The number of economy points gained by the player.
+	Economy float32 `json:"economy"`
+
+	// The number of research points gained by the player.
+	Research float32 `json:"research"`
+
+	// The number of military points built by the
+	// player.
+	MilitaryBuilt float32 `json:"military_built"`
+
+	// The number of military points lost by the player.
+	MilitaryLost float32 `json:"military_lost"`
+
+	// The number of military points destroyed by the
+	// player.
+	MilitaryDestroyed float32 `json:"military_destroyed"`
 }
 
 // TechnologyInfo :
@@ -51,12 +75,15 @@ type Player struct {
 // player. It reuses most of the base description
 // for a technology with the addition of a level to
 // indicate the current state reached by the player.
-//
-// The `Level` defines the level reached by this
-// technology for a given player.
 type TechnologyInfo struct {
+	// Reuses most of the base description for a
+	// technology with the addition of a level to
+	// indicate the current state reached by the
+	// player.
 	model.TechnologyDesc
 
+	// The `Level` defines the level reached by this
+	// technology for a given player.
 	Level int `json:"level"`
 }
 
@@ -162,14 +189,19 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"account",
-			"universe",
-			"name",
+			"p.account",
+			"p.universe",
+			"p.name",
+			"pl.economy_points",
+			"pl.research_points",
+			"pl.military_points_built",
+			"pl.military_points_lost",
+			"pl.military_points_destroyed",
 		},
-		Table: "players",
+		Table: "players p inner join players_points pl on p.id = pl.player",
 		Filters: []db.Filter{
 			{
-				Key:    "id",
+				Key:    "p.id",
 				Values: []interface{}{p.ID},
 			},
 		},
@@ -196,6 +228,11 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 		&p.Account,
 		&p.Universe,
 		&p.Name,
+		&p.Score.Economy,
+		&p.Score.Research,
+		&p.Score.MilitaryBuilt,
+		&p.Score.MilitaryLost,
+		&p.Score.MilitaryDestroyed,
 	)
 
 	// Make sure that it's the only player.

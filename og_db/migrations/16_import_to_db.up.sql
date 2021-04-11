@@ -72,6 +72,26 @@ BEGIN
       0
     FROM
       technologies AS t;
+
+  -- Insert points with a value of `0` in the table. Note
+  -- that as the `inputs` correspond to the value needed
+  -- by the `players` table, we have to reconstruct some
+  -- valid value for the `players_points` table. This is
+  -- explained nicely here:
+  -- https://rudism.com/inserting-json-data-with-default-values-in-postgresql/
+  -- As we know we will only pass the player's identifier
+  -- we can use the first proposed method.
+  WITH points_data AS (
+    SELECT
+      *
+    FROM
+      json_populate_record(null::players_points, json_build_object('player', (inputs->>'id')::uuid))
+    )
+  INSERT INTO players_points (player)
+    SELECT
+      player
+    FROM
+      points_data;
 END
 $$ LANGUAGE plpgsql;
 

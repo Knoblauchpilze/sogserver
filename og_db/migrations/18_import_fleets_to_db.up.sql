@@ -1391,6 +1391,29 @@ BEGIN
   -- In case the fleet is destroyed, we need to remove
   -- any deathstar from the attacking fleet.
   IF fleet_destroyed THEN
+    -- First remove the points that have just been lost
+    -- as the desthstars have been destroyed. We also
+    -- have to register more military points that have
+    -- been destroyed.
+    WITH costs AS (
+      SELECT
+        sum(sc.cost * fs.count)/1000.0 AS cost
+      FROM
+        fleets_ships AS fs
+        INNER JOIN ships_costs AS sc ON fs.ship = sc.element
+        INNER JOIN ships AS s ON sc.element = s.id
+      WHERE
+        s.name = 'deathstar'
+      )
+    UPDATE players_points
+      SET military_points = military_points - cost,
+      military_points_lost = military_points_lost + cost
+    FROM
+      costs
+    WHERE
+      player = player_id;
+
+    -- Then remove the ships from the fleet.
     DELETE FROM fleets_ships AS fs
       USING ships AS s
     WHERE
@@ -1491,6 +1514,36 @@ BEGIN
       pr.planet = target_id
       AND pr.res = rp.resource;
 
+    -- Delete points from lost ships.
+    WITH costs AS (
+      WITH destroyed AS (
+        SELECT
+          t.ship,
+          t.count
+        FROM
+          json_to_recordset(planet_ships) AS t(ship uuid, count integer)
+        )
+      SELECT
+        sum(sc.cost * (ps.count - d.count))/1000.0 AS cost,
+        target_id AS planet
+      FROM
+        planets_ships AS ps
+        INNER JOIN ships_costs AS sc ON ps.ship = sc.element
+        INNER JOIN destroyed AS d ON d.ship = ps.ship
+      WHERE
+        ps.planet = target_id
+      )
+    UPDATE players_points
+      SET military_points = military_points - cost,
+      military_points_lost = military_points_lost + cost
+    FROM
+      costs AS c
+      INNER JOIN planets AS p ON c.planet = p.id
+    WHERE
+      players_points.player = p.player;
+
+    -- Update ships with their remaining count after
+    -- the battle.
     WITH rs AS (
       SELECT
         t.ship,
@@ -1506,6 +1559,36 @@ BEGIN
       ps.planet = target_id
       AND ps.ship = rs.ship;
 
+    -- Delete points from lost defenses.
+    WITH costs AS (
+      WITH destroyed AS (
+        SELECT
+          t.defense,
+          t.count
+        FROM
+          json_to_recordset(planet_defenses) AS t(defense uuid, count integer)
+        )
+      SELECT
+        sum(dc.cost * (pd.count - d.count))/1000.0 AS cost,
+        target_id AS planet
+      FROM
+        planets_defenses AS pd
+        INNER JOIN defenses_costs AS dc ON pd.defense = dc.element
+        INNER JOIN destroyed AS d ON d.defense = pd.defense
+      WHERE
+        pd.planet = target_id
+    )
+    UPDATE players_points
+      SET military_points = military_points - cost,
+      military_points_lost = military_points_lost + cost
+    FROM
+      costs AS c
+      INNER JOIN planets AS p ON c.planet = p.id
+    WHERE
+      players_points.player = p.player;
+
+    -- Update defenses with their remaining count after
+    -- the battle.
     WITH rs AS (
       SELECT
         t.defense,
@@ -1555,6 +1638,37 @@ BEGIN
       mr.moon = target_id
       AND mr.res = rp.resource;
 
+    -- Delete points from lost ships.
+    WITH costs AS (
+      WITH destroyed AS (
+        SELECT
+          t.ship,
+          t.count
+        FROM
+          json_to_recordset(planet_ships) AS t(ship uuid, count integer)
+        )
+      SELECT
+        sum(sc.cost * (ms.count - d.count))/1000.0 AS cost,
+        target_id AS moon
+      FROM
+        moons_ships AS ms
+        INNER JOIN ships_costs AS sc ON ms.ship = sc.element
+        INNER JOIN destroyed AS d ON d.ship = ms.ship
+      WHERE
+        ms.moon = target_id
+      )
+    UPDATE players_points
+      SET military_points = military_points - cost,
+      military_points_lost = military_points_lost + cost
+    FROM
+      costs AS c
+      INNER JOIN moons AS m ON c.moon = m.id
+      INNER JOIN planets AS p ON m.planet = m.id
+    WHERE
+      players_points.player = p.player;
+
+    -- Update ships with their remaining count after
+    -- the battle.
     WITH rs AS (
       SELECT
         t.ship,
@@ -1570,6 +1684,37 @@ BEGIN
       ms.moon = target_id
       AND ms.ship = rs.ship;
 
+    -- Delete points from lost defenses.
+    WITH costs AS (
+      WITH destroyed AS (
+        SELECT
+          t.defense,
+          t.count
+        FROM
+          json_to_recordset(planet_defenses) AS t(defense uuid, count integer)
+        )
+      SELECT
+        sum(dc.cost * (md.count - d.count))/1000.0 AS cost,
+        target_id AS moon
+      FROM
+        moons_defenses AS md
+        INNER JOIN defenses_costs AS dc ON md.defense = dc.element
+        INNER JOIN destroyed AS d ON d.defense = md.defense
+      WHERE
+        md.moon = target_id
+    )
+    UPDATE players_points
+      SET military_points = military_points - cost,
+      military_points_lost = military_points_lost + cost
+    FROM
+      costs AS c
+      INNER JOIN moons AS m ON c.moon = m.id
+      INNER JOIN planets AS p ON m.planet = p.id
+    WHERE
+      players_points.player = p.player;
+
+    -- Update defenses with their remaining count after
+    -- the battle.
     WITH rs AS (
       SELECT
         t.defense,
@@ -1688,20 +1833,34 @@ BEGIN
     WHERE
       t.amount > 0;
 
-  WITH rs AS (
-    SELECT
-      t.ship,
-      t.count
-    FROM
+  -- Remove points from lost ships.
+  WITH costs AS (
+    WITH destroyed AS (
+      SELECT
+        t.ship,
+        t.count
+      FROM
       json_to_recordset(ships) AS t(ship uuid, count integer)
+      )
+    SELECT
+      sum(sc.cost * (fs.count - d.count))/1000.0 AS cost,
+      fleet_id AS fleet
+    FROM
+      fleets_ships AS fs
+      INNER JOIN ships_costs AS sc ON fs.ship = sc.element
+      INNER JOIN ships AS s ON sc.element = s.id
+      INNER JOIN destroyed AS d ON d.ship = fs.ship
+    WHERE
+      fs.fleet = fleet_id
     )
-  UPDATE fleets_ships AS fs
-    SET count = rs.count
+  UPDATE players_points
+    SET military_points = military_points - cost,
+    military_points_lost = military_points_lost + cost
   FROM
-    rs
+    costs AS c
+    INNER JOIN fleets AS f ON c.fleet = f.id
   WHERE
-    fs.fleet = fleet_id
-    AND fs.ship = rs.ship;
+    players_points.player = f.player;
 
   -- Update the fleet's data: the input `fleet` should
   -- contain the description of remaining ships.

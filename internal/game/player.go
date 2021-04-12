@@ -58,6 +58,10 @@ type Points struct {
 	// The number of research points gained by the player.
 	Research float32 `json:"research"`
 
+	// The current amount of military points owned by this
+	// player.
+	Military float32 `json:"military"`
+
 	// The number of military points built by the
 	// player.
 	MilitaryBuilt float32 `json:"military_built"`
@@ -194,6 +198,7 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 			"p.name",
 			"pl.economy_points",
 			"pl.research_points",
+			"pl.military_points",
 			"pl.military_points_built",
 			"pl.military_points_lost",
 			"pl.military_points_destroyed",
@@ -230,6 +235,7 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 		&p.Name,
 		&p.Score.Economy,
 		&p.Score.Research,
+		&p.Score.Military,
 		&p.Score.MilitaryBuilt,
 		&p.Score.MilitaryLost,
 		&p.Score.MilitaryDestroyed,

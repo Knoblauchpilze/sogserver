@@ -129,6 +129,8 @@ BEGIN
 
   DELETE FROM players_technologies WHERE player = player_id;
 
+  DELETE FROM players_points WHERE player = player_id;
+
   DELETE FROM players WHERE id = player_id;
 END
 $$ LANGUAGE plpgsql;

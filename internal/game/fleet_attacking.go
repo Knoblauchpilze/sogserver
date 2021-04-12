@@ -569,7 +569,7 @@ func (f *Fleet) toAttacker(data Instance) (attacker, error) {
 }
 
 // handleDumbMove :
-// Unsed this quite provocative name this method
+// Despite its quite provocative name this method
 // is used to perform the verification that the
 // ships remaining in the attacker fleet after
 // the fight is still enough to actually carry

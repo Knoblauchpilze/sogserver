@@ -45,6 +45,7 @@ CREATE TABLE players_points (
   player uuid NOT NULL,
   economy_points numeric(15, 5) NOT NULL DEFAULT 0,
   research_points numeric(15, 5) NOT NULL DEFAULT 0,
+  military_points numeric(15, 5) NOT NULL DEFAULT 0,
   military_points_built numeric(15, 5) NOT NULL DEFAULT 0,
   military_points_lost numeric(15, 5) NOT NULL DEFAULT 0,
   military_points_destroyed numeric(15, 5) NOT NULL DEFAULT 0,

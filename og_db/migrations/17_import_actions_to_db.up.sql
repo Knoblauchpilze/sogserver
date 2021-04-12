@@ -519,16 +519,24 @@ BEGIN
     -- player in the economy section.
     WITH points AS (
       SELECT
-        SUM(bc.cost)/1000.0 AS sum
+        SUM(bc.cost)/1000.0 AS sum,
+        cab.planet AS planet
       FROM
         construction_actions_buildings AS cab
         INNER JOIN buildings AS b ON cab.element = b.id
         INNER JOIN buildings_costs AS bc ON b.id = bc.element
+      WHERE
+        cab.id = action_id
+      GROUP BY
+        cab.planet
       )
     UPDATE players_points
       SET economy_points = economy_points + sum
     FROM
-      points;
+      points AS p
+      INNER JOIN planets AS pl ON p.planet = pl.id
+    WHERE
+      pl.player = players_points.player;
 
     -- 3. Destroy the processed action effects.
     DELETE FROM construction_actions_buildings_production_effects WHERE action = action_id;
@@ -581,16 +589,25 @@ BEGIN
     -- player in the economy section.
     WITH points AS (
       SELECT
-        SUM(bc.cost)/1000.0 AS sum
+        SUM(bc.cost)/1000.0 AS sum,
+        cabm.moon AS moon
       FROM
         construction_actions_buildings_moon AS cabm
         INNER JOIN buildings AS b ON cabm.element = b.id
         INNER JOIN buildings_costs AS bc ON b.id = bc.element
+      WHERE
+        cabm.id = action_id
+      GROUP BY
+        cabm.moon
       )
     UPDATE players_points
       SET economy_points = economy_points + sum
     FROM
-      points;
+      points AS p
+      INNER JOIN moons AS m ON p.moon = m.id
+      INNER JOIN planets AS pl ON m.planet = pl.id
+    WHERE
+      pl.player = players_points.player;
 
     -- 3. Only fields effects can be applied in the case of
     -- moon buildings.
@@ -634,16 +651,24 @@ BEGIN
   -- player in the research section.
   WITH points AS (
     SELECT
-      SUM(bc.cost)/1000.0 AS sum
+      SUM(bc.cost)/1000.0 AS sum,
+      cat.planet as planet
     FROM
       construction_actions_technologies AS cat
       INNER JOIN buildings AS b ON cat.element = b.id
       INNER JOIN buildings_costs AS bc ON b.id = bc.element
+    WHERE
+      cat.id = action_id
+    GROUP BY
+      cat.planet
     )
   UPDATE players_points
     SET research_points = research_points + sum
   FROM
-    points;
+    points AS p
+    INNER JOIN planets AS pl ON p.planet = pl.id
+  WHERE
+    pl.player = players_points.player;
 
   -- 3. And finally delete the processed action.
   DELETE FROM construction_actions_technologies WHERE id = action_id;
@@ -709,19 +734,30 @@ BEGIN
           ) AS items
         FROM
           construction_actions_ships AS cas
+        WHERE
+          cas.id = action_id
         )
       SELECT
-        SUM(sc.cost * items)/1000.0 AS sum
+        sum(sc.cost * items)/1000 AS sum,
+        cas.planet AS planet
       FROM
         construction_actions_ships AS cas
         INNER JOIN ships AS s ON cas.element = s.id
         INNER JOIN ships_costs AS sc ON sc.element = s.id
         CROSS JOIN build
+      WHERE
+        cas.id = action_id
+      GROUP BY
+        cas.planet
       )
     UPDATE players_points
-      SET military_points_built = military_points_built + sum
+      SET military_points = military_points + sum,
+      military_points_built = military_points_built + sum
     FROM
-      points;
+      points AS p
+      INNER JOIN planets AS pl ON p.planet = pl.id
+    WHERE
+      pl.player = players_points.player;
 
     -- 2. Update remaining action with an amount decreased by an
     -- amount consistent with the duration elapsed since the creation.
@@ -807,25 +843,37 @@ BEGIN
         SELECT
           LEAST(
             FLOOR(
-              EXTRACT(EPOCH FROM processing_time - cacasmdm.created_at) / EXTRACT(EPOCH FROM casm.completion_time)
+              EXTRACT(EPOCH FROM processing_time - casm.created_at) / EXTRACT(EPOCH FROM casm.completion_time)
             ),
             CAST (casm.amount AS DOUBLE PRECISION)
           ) AS items
         FROM
           construction_actions_ships_moon AS casm
+        WHERE
+          casm.id = action_id
         )
       SELECT
-        SUM(sc.cost * items)/1000.0 AS sum
+        sum(sc.cost * items)/1000 AS sum,
+        casm.moon AS moon
       FROM
         construction_actions_ships_moon AS casm
         INNER JOIN ships AS s ON casm.element = s.id
         INNER JOIN ships_costs AS sc ON sc.element = s.id
         CROSS JOIN build
+      WHERE
+        casm.id = action_id
+      GROUP BY
+        casm.moon
       )
     UPDATE players_points
-      SET military_points_built = military_points_built + sum
+      SET military_points = military_points + sum,
+      military_points_built = military_points_built + sum
     FROM
-      points;
+      points AS p
+      INNER JOIN moons AS m ON p.moon = m.id
+      INNER JOIN planets AS pl ON m.planet = pl.id
+    WHERE
+      pl.player = players_points.player;
 
     -- 2. See comment in above section.
     UPDATE construction_actions_ships_moon
@@ -945,19 +993,30 @@ BEGIN
           ) AS items
         FROM
           construction_actions_defenses AS cad
+        WHERE
+          cad.id = action_id
         )
       SELECT
-        SUM(dc.cost * items)/1000.0 AS sum
+        sum(dc.cost * items)/1000 AS sum,
+        cad.planet AS planet
       FROM
         construction_actions_defenses AS cad
         INNER JOIN defenses AS d ON cad.element = d.id
         INNER JOIN defenses_costs AS dc ON dc.element = d.id
         CROSS JOIN build
+      WHERE
+        cad.id = action_id
+      GROUP BY
+        cad.planet
       )
     UPDATE players_points
-      SET military_points_built = military_points_built + sum
+      SET military_points = military_points + sum,
+      military_points_built = military_points_built + sum
     FROM
-      points;
+      points AS p
+      INNER JOIN planets AS pl ON p.planet = pl.id
+    WHERE
+      pl.player = players_points.player;
 
     -- 2. Update remaining action with an amount decreased by an
     -- amount consistent with the duration elapsed since the creation.
@@ -1051,19 +1110,31 @@ BEGIN
           ) AS items
         FROM
           construction_actions_defenses_moon AS cadm
+        WHERE
+          cadm.id = action_id
         )
       SELECT
-        SUM(dc.cost * items)/1000.0 AS sum
+        sum(dc.cost * items)/1000 AS sum,
+        cadm.moon AS moon
       FROM
         construction_actions_defenses_moon AS cadm
         INNER JOIN defenses AS d ON cadm.element = d.id
         INNER JOIN defenses_costs AS dc ON dc.element = d.id
         CROSS JOIN build
+      WHERE
+        cadm.id = action_id
+      GROUP BY
+        cadm.moon
       )
     UPDATE players_points
-      SET military_points_built = military_points_built + sum
+      SET military_points = military_points + sum,
+      military_points_built = military_points_built + sum
     FROM
-      points;
+      points AS p
+      INNER JOIN moons AS m ON p.moon = m.id
+      INNER JOIN planets AS pl ON m.planet = pl.id
+    WHERE
+      pl.player = players_points.player;
 
     -- 2. See comment in above section.
     UPDATE construction_actions_defenses_moon

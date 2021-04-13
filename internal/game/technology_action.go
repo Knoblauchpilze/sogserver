@@ -10,14 +10,18 @@ import (
 // Used as a way to refine the `ProgressAction` for the
 // specific case of technologies. It mostly add the info
 // to compute the completion time for a technology.
-//
-// The `Player` defines the player owning the planet on
-// which this action is performed.
 type TechnologyAction struct {
+	// Reuses the notion of a progress action.
 	ProgressAction
 
+	// The `Player` defines the player owning the planet on
+	// which this action is performed.
 	Player string `json:"player"`
 }
+
+// ErrInvalidPointsForAction : Indicates that the number of points brought by the
+// action is not valid.
+var ErrInvalidPointsForAction = fmt.Errorf("Invalid completion points for action")
 
 // ErrNonExistingPlayer : Indicates that the parent player for the action does not exist.
 var ErrNonExistingPlayer = fmt.Errorf("Parent player does not exist")
@@ -37,6 +41,10 @@ func (a *TechnologyAction) valid() error {
 	}
 	if a.DesiredLevel != a.CurrentLevel+1 {
 		return ErrInvalidLevelForAction
+	}
+
+	if a.Points <= 0.0 {
+		return ErrInvalidPointsForAction
 	}
 
 	return nil
@@ -168,6 +176,7 @@ func (a *TechnologyAction) Convert() interface{} {
 		Element        string    `json:"element"`
 		CurrentLevel   int       `json:"current_level"`
 		DesiredLevel   int       `json:"desired_level"`
+		Points         float32   `json:"points"`
 		CompletionTime time.Time `json:"completion_time"`
 		CreatedAt      time.Time `json:"created_at"`
 	}{
@@ -177,9 +186,48 @@ func (a *TechnologyAction) Convert() interface{} {
 		Element:        a.Element,
 		CurrentLevel:   a.CurrentLevel,
 		DesiredLevel:   a.DesiredLevel,
+		Points:         a.Points,
 		CompletionTime: a.CompletionTime,
 		CreatedAt:      a.creationTime,
 	}
+}
+
+// ConsolidateEffects :
+// Used to make sure that the number of points granted
+// when completing this action are consistent with the
+// desired level of the building.
+//
+// The `data` defines a way to access to the duration
+// and costs of technologies.
+//
+// The `p` defines the parent planet where the action
+// is meant to be performed.
+//
+// Returns any error.
+func (a *TechnologyAction) ConsolidateEffects(data Instance, p *Planet) error {
+	// Consistency.
+	if a.Planet != p.ID {
+		return ErrMismatchInVerification
+	}
+
+	// We need to retrieve the technology related to this
+	// action.
+	td, err := data.Technologies.GetTechnologyFromID(a.Element)
+	if err != nil {
+		return err
+	}
+
+	// Now we can compute the additional points that will
+	// be brought by this action upon completing it.
+	costs := td.Cost.ComputeCost(a.CurrentLevel)
+
+	a.Points = 0.0
+	for _, cost := range costs {
+		a.Points += float32(cost)
+	}
+	a.Points /= 1000
+
+	return nil
 }
 
 // consolidateCompletionTime :

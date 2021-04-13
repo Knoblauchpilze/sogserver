@@ -521,10 +521,10 @@ BEGIN
     UPDATE players_points
       SET economy_points = economy_points + points
     FROM
-      construction_actions_buildings AS cas
-      INNER JOIN planets AS p ON cas.planet = p.id
+      construction_actions_buildings AS cab
+      INNER JOIN planets AS p ON cab.planet = p.id
     WHERE
-      cas.id = action_id
+      cab.id = action_id
       AND p.player = players_points.player;
 
     -- 3. Destroy the processed action effects.
@@ -576,27 +576,15 @@ BEGIN
 
     -- 2.f) Add the cost of the action to the points of the
     -- player in the economy section.
-    WITH points AS (
-      SELECT
-        SUM(bc.cost)/1000.0 AS sum,
-        cabm.moon AS moon
-      FROM
-        construction_actions_buildings_moon AS cabm
-        INNER JOIN buildings AS b ON cabm.element = b.id
-        INNER JOIN buildings_costs AS bc ON b.id = bc.element
-      WHERE
-        cabm.id = action_id
-      GROUP BY
-        cabm.moon
-      )
     UPDATE players_points
-      SET economy_points = economy_points + sum
+      SET economy_points = economy_points + points
     FROM
-      points AS p
-      INNER JOIN moons AS m ON p.moon = m.id
-      INNER JOIN planets AS pl ON m.planet = pl.id
+      construction_actions_buildings_moon AS cabm
+      INNER JOIN moons AS m ON cabm.moon = m.id
+      INNER JOIN planets AS p ON m.planet = p.id
     WHERE
-      pl.player = players_points.player;
+      cabm.id = action_id
+      AND p.player = players_points.player;
 
     -- 3. Only fields effects can be applied in the case of
     -- moon buildings.
@@ -638,6 +626,15 @@ BEGIN
 
   -- 2.b) Add the cost of the action to the points of the
   -- player in the research section.
+  UPDATE players_points
+    SET research_points = research_points + points
+  FROM
+    construction_actions_technologies AS cat
+    INNER JOIN planets AS p ON cat.planet = p.id
+  WHERE
+    cat.id = action_id
+    AND p.player = players_points.player;
+
   WITH points AS (
     SELECT
       SUM(bc.cost)/1000.0 AS sum,

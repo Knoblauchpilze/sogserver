@@ -99,6 +99,7 @@ CREATE TABLE construction_actions_buildings_moon (
   element uuid NOT NULL,
   current_level integer NOT NULL,
   desired_level integer NOT NULL,
+  points numeric(15, 5) NOT NULL,
   completion_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),

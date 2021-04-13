@@ -556,17 +556,13 @@ func (a *BuildingAction) ConsolidateEffects(data Instance, p *Planet, ratio floa
 
 	// Finally compute the additional points that will
 	// be brought by this action upon completing it.
-	bd, err = data.Buildings.GetBuildingFromID(a.Element)
-	if err != nil {
-		return err
-	}
-
 	costs := bd.Cost.ComputeCost(a.CurrentLevel)
 
 	a.Points = 0.0
 	for _, cost := range costs {
 		a.Points += float32(cost)
 	}
+	a.Points /= 1000
 
 	return nil
 }

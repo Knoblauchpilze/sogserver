@@ -151,6 +151,14 @@ func (p *ActionProxy) CreateTechnologyAction(a game.TechnologyAction) (string, e
 		return a.ID, err
 	}
 
+	// Consolidate the action (typically number of points that
+	// are granted upon completing this action).
+	err = a.ConsolidateEffects(p.data, &planet)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not consolidate building action effects (err: %v)", err))
+		return a.ID, err
+	}
+
 	// Validate the action's data against its parent planet
 	err = a.Validate(p.data, &planet, mul.Research)
 	if err != nil {

@@ -533,7 +533,6 @@ BEGIN
       SET points = planets_buildings.points + cab.points
     FROM
       construction_actions_buildings AS cab
-      INNER JOIN planets AS p ON cab.planet = p.id
     WHERE
       cab.id = action_id
       AND planets_buildings.planet = cab.planet
@@ -597,6 +596,17 @@ BEGIN
     WHERE
       cabm.id = action_id
       AND p.player = players_points.player;
+
+      -- 2.g) Add the cost of this building to the total
+      -- cost for this building on this moon.
+    UPDATE moons_buildings
+      SET points = moons_buildings.points + cabm.points
+    FROM
+      construction_actions_buildings_moon AS cabm
+    WHERE
+      cabm.id = action_id
+      AND moons_buildings.moon = cabm.moon
+      AND moons_buildings.building = cabm.element;
 
     -- 3. Only fields effects can be applied in the case of
     -- moon buildings.

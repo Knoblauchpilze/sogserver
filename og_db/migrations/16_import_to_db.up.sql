@@ -217,6 +217,9 @@ BEGIN
   SELECT id INTO moon_id FROM moons WHERE planet = planet_id;
 
   IF FOUND THEN
+    -- Delete moon's points.
+    PERFORM delete_points_of_moon(moon_id);
+
     DELETE FROM moons_resources WHERE moon = moon_id;
 
     DELETE FROM moons_buildings WHERE moon = moon_id;
@@ -225,6 +228,9 @@ BEGIN
 
     DELETE FROM moons WHERE id = moon_id;
   END IF;
+
+  -- Delete planet's points.
+  PERFORM delete_points_of_planet(planet_id);
 
   DELETE FROM planets_resources WHERE planet = planet_id;
 
@@ -253,11 +259,12 @@ BEGIN
       resources AS r;
 
   -- Insert base buildings, ships, defenses on the moon.
-  INSERT INTO moons_buildings(moon, building, level)
+  INSERT INTO moons_buildings(moon, building, level, points)
     SELECT
       moon_id,
       b.id,
-      0
+      0,
+      0.0
     FROM
       buildings AS b;
 
@@ -301,6 +308,9 @@ CREATE OR REPLACE FUNCTION delete_moon(moon_id uuid) RETURNS VOID AS $$
 DECLARE
   processing_time TIMESTAMP WITH TIME ZONE := NOW();
 BEGIN
+  -- Delete moon's points.
+  PERFORM delete_points_of_moon(moon_id);
+
   -- Delete moon's resources.
   DELETE FROM moons_defenses WHERE moon = moon_id;
   DELETE FROM moons_ships WHERE moon = moon_id;
@@ -358,5 +368,140 @@ BEGIN
 
   -- Delete the moon itself.
   DELETE FROM moons WHERE moon = moon_id;
+END
+$$ LANGUAGE plpgsql;
+
+-- Remove points associated to a planet from the
+-- associated player's data.
+CREATE OR REPLACE FUNCTION delete_points_of_planet(planet_id uuid) RETURNS VOID AS $$
+DECLARE
+BEGIN
+  -- Delete points from ships deployed on this
+  -- planet.
+  WITH points AS (
+    SELECT
+      sum(ps.count * sc.cost)/1000 AS sum,
+      planet_id AS planet
+    FROM
+      planets_ships AS ps
+      INNER JOIN ships_costs AS sc ON ps.ship = sc.element
+    WHERE
+      ps.planet = planet_id
+    )
+  UPDATE players_points
+    SET military_points = military_points - p.sum
+  FROM
+    points AS p
+    INNER JOIN planets AS pl ON p.planet = pl.id
+  WHERE
+    players_points.player = pl.player;
+
+  -- Delete points from defenses build on this
+  -- planet.
+  WITH points AS (
+    SELECT
+      sum(pd.count * dc.cost)/1000 AS sum,
+      planet_id AS planet
+    FROM
+      planets_defenses AS pd
+      INNER JOIN defenses_costs AS dc ON pd.defense = dc.element
+    WHERE
+      pd.planet = planet_id
+    )
+  UPDATE players_points
+    SET military_points = military_points - p.sum
+  FROM
+    points AS p
+    INNER JOIN planets AS pl ON p.planet = pl.id
+  WHERE
+    players_points.player = pl.player;
+
+  -- Delete points from buildings built on this
+  -- planet.
+  WITH points AS (
+    SELECT
+      sum(pb.points) AS sum,
+      planet_id AS planet
+    FROM
+      planets_buildings AS pb
+    WHERE
+      pb.planet = planet_id
+    )
+  UPDATE players_points
+    SET economy_points = economy_points - p.sum
+  FROM
+    points AS p
+    INNER JOIN planets AS pl ON p.planet = pl.id
+  WHERE
+    players_points.player = pl.player;
+END
+$$ LANGUAGE plpgsql;
+
+-- Remove points associated to a moon from the
+-- associated player's data.
+CREATE OR REPLACE FUNCTION delete_points_of_moon(moon_id uuid) RETURNS VOID AS $$
+DECLARE
+BEGIN
+  -- Delete points from ships deployed on this
+  -- moon.
+  WITH points AS (
+    SELECT
+      sum(ms.count * sc.cost)/1000 AS sum,
+      moon_id AS moon
+    FROM
+      moons_ships AS ms
+      INNER JOIN ships_costs AS sc ON ms.ship = sc.element
+    WHERE
+      ms.moon = moon_id
+    )
+  UPDATE players_points
+    SET military_points = military_points - p.sum
+  FROM
+    points AS p
+    INNER JOIN moons AS m ON p.moon = m.id
+    INNER JOIN planets AS pl ON m.planet = pl.id
+  WHERE
+    players_points.player = pl.player;
+
+  -- Delete points from defenses build on this
+  -- moon.
+  WITH points AS (
+    SELECT
+      sum(md.count * dc.cost)/1000 AS sum,
+      moon_id AS moon
+    FROM
+      moons_defenses AS md
+      INNER JOIN defenses_costs AS dc ON md.defense = dc.element
+    WHERE
+      md.moon = moon_id
+    )
+  UPDATE players_points
+    SET military_points = military_points - p.sum
+  FROM
+    points AS p
+    INNER JOIN moons AS m ON p.moon = m.id
+    INNER JOIN planets AS pl ON m.planet = pl.id
+  WHERE
+    players_points.player = pl.player;
+
+  -- Delete points from buildings built on this
+  -- moon.
+  WITH points AS (
+    SELECT
+      sum(mb.points) AS sum,
+      moon_id AS moon
+    FROM
+      moons_buildings AS mb
+    WHERE
+      mb.moon = moon_id
+    )
+  UPDATE players_points
+    SET economy_points = economy_points - p.sum
+  FROM
+    points AS p
+    INNER JOIN moons AS m ON p.moon = m.id
+    INNER JOIN planets AS pl ON m.planet = pl.id
+  WHERE
+    players_points.player = pl.player;
 END
 $$ LANGUAGE plpgsql;

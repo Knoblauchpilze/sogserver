@@ -1,4 +1,10 @@
 
+-- Drop the moon's points suppression script.
+DROP FUNCTION delete_points_of_moon(moon_id uuid);
+
+-- Drop the planet's points suppression script.
+DROP FUNCTION delete_points_of_planet(planet_id uuid);
+
 -- Drop the moon's deletion script.
 DROP FUNCTION delete_moon(moon_id uuid);
 

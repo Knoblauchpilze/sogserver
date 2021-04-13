@@ -516,27 +516,16 @@ BEGIN
     UPDATE planets SET last_activity = moment WHERE id = planet_id;
 
     -- 2.f) Add the cost of the action to the points of the
-    -- player in the economy section.
-    WITH points AS (
-      SELECT
-        SUM(bc.cost)/1000.0 AS sum,
-        cab.planet AS planet
-      FROM
-        construction_actions_buildings AS cab
-        INNER JOIN buildings AS b ON cab.element = b.id
-        INNER JOIN buildings_costs AS bc ON b.id = bc.element
-      WHERE
-        cab.id = action_id
-      GROUP BY
-        cab.planet
-      )
+    -- player in the economy section. The cost is directly
+    -- registered in the action.
     UPDATE players_points
-      SET economy_points = economy_points + sum
+      SET economy_points = economy_points + points
     FROM
-      points AS p
-      INNER JOIN planets AS pl ON p.planet = pl.id
+      construction_actions_buildings AS cas
+      INNER JOIN planets AS p ON cas.planet = p.id
     WHERE
-      pl.player = players_points.player;
+      cas.id = action_id
+      AND p.player = players_points.player;
 
     -- 3. Destroy the processed action effects.
     DELETE FROM construction_actions_buildings_production_effects WHERE action = action_id;

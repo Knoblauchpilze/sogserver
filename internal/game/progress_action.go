@@ -15,21 +15,26 @@ import (
 // two levels (the current one and the desired one)
 // and a way to compute the total cost needed for
 // the upgrade.
-//
-// The `CurrentLevel` represents the current level
-// of the element to upgrade.
-//
-// The `DesiredLevel` represents the desired level
-// of the element after the upgrade action is done.
-//
-// The `CompletionTime` will be computed from the
-// cost of the action and the facilities existing
-// on the planet where the action is triggered.
 type ProgressAction struct {
+	// Reuses the notion of a simple action.
 	action
 
-	CurrentLevel   int       `json:"current_level"`
-	DesiredLevel   int       `json:"desired_level"`
+	// The `CurrentLevel` represents the current level
+	// of the element to upgrade.
+	CurrentLevel int `json:"current_level"`
+
+	// The `DesiredLevel` represents the desired level
+	// of the element after the upgrade action is done.
+	DesiredLevel int `json:"desired_level"`
+
+	// Points defined how many points will this level
+	// of the progress action will bring to the player
+	// successfully completing it.
+	Points float32 `json:"points"`
+
+	// The `CompletionTime` will be computed from the
+	// cost of the action and the facilities existing
+	// on the planet where the action is triggered.
 	CompletionTime time.Time `json:"completion_time"`
 }
 
@@ -106,6 +111,7 @@ func newProgressActionFromDB(ID string, data Instance, table string, moon bool) 
 			"element",
 			"current_level",
 			"desired_level",
+			"points",
 			"completion_time",
 			"created_at",
 		},
@@ -140,6 +146,7 @@ func newProgressActionFromDB(ID string, data Instance, table string, moon bool) 
 		&a.Element,
 		&a.CurrentLevel,
 		&a.DesiredLevel,
+		&a.Points,
 		&a.CompletionTime,
 		&a.creationTime,
 	)

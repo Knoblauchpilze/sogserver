@@ -11,25 +11,25 @@ import (
 // Used as a way to refine the `ProgressAction` for
 // the specific case of buildings. It mostly add the
 // info to compute the completion time for a building.
-//
-// The `ProdEffects` describes the production changes
-// to apply in case this action completes. It will used
-// to add this value to the production of said resource
-// on the planet where this action is performed.
-//
-// The `StorageEffects` are similar to the production
-// effects except it applies to the storage capacities
-// of a resource on a planet.
-//
-// The `Fields` is similar to the above fields but is
-// used to describe the fields effects of a building
-// action.
 type BuildingAction struct {
+	// Reuses the notion of a progress action.
 	ProgressAction
 
+	// The `ProdEffects` describes the production changes
+	// to apply in case this action completes. It will used
+	// to add this value to the production of said resource
+	// on the planet where this action is performed.
 	Production []ProductionEffect `json:"production_effects,omitempty"`
-	Storage    []StorageEffect    `json:"storage_effects,omitempty"`
-	Fields     FieldsEffect       `json:"fields_effects,omitempty"`
+
+	// The `StorageEffects` are similar to the production
+	// effects except it applies to the storage capacities
+	// of a resource on a planet.
+	Storage []StorageEffect `json:"storage_effects,omitempty"`
+
+	// The `Fields` is similar to the above fields but is
+	// used to describe the fields effects of a building
+	// action.
+	Fields FieldsEffect `json:"fields_effects,omitempty"`
 }
 
 // ProductionEffect :
@@ -470,6 +470,7 @@ func (a *BuildingAction) Convert() interface{} {
 		Element        string    `json:"element"`
 		CurrentLevel   int       `json:"current_level"`
 		DesiredLevel   int       `json:"desired_level"`
+		Points         float32   `json:"points"`
 		CompletionTime time.Time `json:"completion_time"`
 		CreatedAt      time.Time `json:"created_at"`
 	}{
@@ -478,6 +479,7 @@ func (a *BuildingAction) Convert() interface{} {
 		Element:        a.Element,
 		CurrentLevel:   a.CurrentLevel,
 		DesiredLevel:   a.DesiredLevel,
+		Points:         a.Points,
 		CompletionTime: a.CompletionTime,
 		CreatedAt:      a.creationTime,
 	}
@@ -549,8 +551,22 @@ func (a *BuildingAction) ConsolidateEffects(data Instance, p *Planet, ratio floa
 		a.Storage = append(a.Storage, e)
 	}
 
-	// And finally fields effects.
+	// And fields effects.
 	a.Fields.Additional = bd.Fields.ComputeFields(a.DesiredLevel)
+
+	// Finally compute the additional points that will
+	// be brought by this action upon completing it.
+	bd, err = data.Buildings.GetBuildingFromID(a.Element)
+	if err != nil {
+		return err
+	}
+
+	costs := bd.Cost.ComputeCost(a.CurrentLevel)
+
+	a.Points = 0.0
+	for _, cost := range costs {
+		a.Points += float32(cost)
+	}
 
 	return nil
 }

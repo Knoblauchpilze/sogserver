@@ -156,11 +156,12 @@ BEGIN
       json_populate_recordset(null::planets_resources, resources);
 
   -- Insert base buildings, ships, defenses on the planet.
-  INSERT INTO planets_buildings(planet, building, level)
+  INSERT INTO planets_buildings(planet, building, level, points)
     SELECT
       (planet_data->>'id')::uuid,
       b.id,
-      0
+      0,
+      0.0
     FROM
       buildings AS b;
 

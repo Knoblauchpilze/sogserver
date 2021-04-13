@@ -91,6 +91,7 @@ CREATE TABLE planets_buildings (
   planet uuid NOT NULL,
   building uuid NOT NULL,
   level integer NOT NULL DEFAULT 0,
+  points numeric(15, 5) NOT NULL,
   FOREIGN KEY (planet) REFERENCES planets(id),
   FOREIGN KEY (building) REFERENCES buildings(id),
   UNIQUE (planet, building)
@@ -121,6 +122,7 @@ CREATE TABLE moons_buildings (
   moon uuid NOT NULL,
   building uuid NOT NULL,
   level integer NOT NULL DEFAULT 0,
+  points numeric(15, 5) NOT NULL,
   FOREIGN KEY (moon) REFERENCES moons(id),
   FOREIGN KEY (building) REFERENCES buildings(id),
   UNIQUE (moon, building)

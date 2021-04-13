@@ -527,6 +527,18 @@ BEGIN
       cab.id = action_id
       AND p.player = players_points.player;
 
+      -- 2.g) Add the cost of this building to the total
+      -- cost for this building on this planet.
+    UPDATE planets_buildings
+      SET points = planets_buildings.points + cab.points
+    FROM
+      construction_actions_buildings AS cab
+      INNER JOIN planets AS p ON cab.planet = p.id
+    WHERE
+      cab.id = action_id
+      AND planets_buildings.planet = cab.planet
+      AND planets_buildings.building = cab.element;
+
     -- 3. Destroy the processed action effects.
     DELETE FROM construction_actions_buildings_production_effects WHERE action = action_id;
 

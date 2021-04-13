@@ -16,6 +16,7 @@ import (
 
 // TODO: Use the token mechanism to make sure that a client has access
 // to some information (typically to the data for a planet or a player).
+// TODO: Maybe the energy shouldn't be affected by the speed of the uni.
 
 // usage :
 // Displays the usage of the server. Typically requires a configuration

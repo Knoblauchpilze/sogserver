@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"oglike_server/pkg/db"
@@ -90,6 +91,36 @@ func (pc ProgressCost) ComputeCost(level int) map[string]int {
 	}
 
 	return costs
+}
+
+// MarshalJSON :
+// Used to marshal the content defined by this progress
+// cost in order to make it available to other tools.
+// This implements the marshaller interface.
+//
+// Returns the marshalled content and an error.
+func (pc ProgressCost) MarshalJSON() ([]byte, error) {
+	var costs []ResourceAmount
+
+	for res, amount := range pc.InitCosts {
+		costs = append(
+			costs,
+			ResourceAmount{
+				Resource: res,
+				Amount:   float32(amount),
+			},
+		)
+	}
+
+	o := struct {
+		Resources   []ResourceAmount `json:"init_costs"`
+		Progression float32          `json:"progression"`
+	}{
+		Resources:   costs,
+		Progression: pc.ProgressionRule,
+	}
+
+	return json.Marshal(o)
 }
 
 // newProgressCostsModule :

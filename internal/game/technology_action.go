@@ -367,7 +367,7 @@ func (a *TechnologyAction) fetchResearchPower(data Instance, planet *Planet) (in
 		},
 		// Note that we add `1` to the number of research labs in order
 		// to account for the lab doing the research. Level `1` actually
-		// tells that 1 lab can researching the same techno at the same
+		// tells that 1 lab can research the same techno at the same
 		// time than the one launching the research.
 		Ordering: fmt.Sprintf("order by level desc limit %d", labCount+1),
 	}

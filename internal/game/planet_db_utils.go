@@ -317,15 +317,15 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 		MaxTemp              int                `json:"max_temperature"`
 		Diameter             int                `json:"diameter"`
 		Resources            []ResourceInfo     `json:"resources"`
-		Buildings            []lightInfo        `json:"buildings,omitempty"`
-		Ships                []lightCount       `json:"ships,omitempty"`
-		Defenses             []lightCount       `json:"defenses,omitempty"`
-		BuildingsUpgrade     []BuildingAction   `json:"buildings_upgrade,omitempty"`
-		TechnologiesUpgrade  []TechnologyAction `json:"technologies_upgrade,omitempty"`
-		ShipsConstruction    []ShipAction       `json:"ships_construction,omitempty"`
-		DefensesConstruction []DefenseAction    `json:"defenses_construction,omitempty"`
-		SourceFleets         []string           `json:"source_fleets,omitempty"`
-		IncomingFleets       []string           `json:"incoming_fleets,omitempty"`
+		Buildings            []lightInfo        `json:"buildings"`
+		Ships                []lightCount       `json:"ships"`
+		Defenses             []lightCount       `json:"defenses"`
+		BuildingsUpgrade     []BuildingAction   `json:"buildings_upgrade"`
+		TechnologiesUpgrade  []TechnologyAction `json:"technologies_upgrade"`
+		ShipsConstruction    []ShipAction       `json:"ships_construction"`
+		DefensesConstruction []DefenseAction    `json:"defenses_construction"`
+		SourceFleets         []string           `json:"source_fleets"`
+		IncomingFleets       []string           `json:"incoming_fleets"`
 		CreatedAt            time.Time          `json:"created_at"`
 		LastActivity         time.Time          `json:"last_activity"`
 	}

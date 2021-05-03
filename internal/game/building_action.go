@@ -556,11 +556,23 @@ func (a *BuildingAction) ConsolidateEffects(data Instance, p *Planet, ratio floa
 
 	// Finally compute the additional points that will
 	// be brought by this action upon completing it.
-	costs := bd.Cost.ComputeCost(a.CurrentLevel)
+	// Note that in case the building is actually being
+	// destroyed, we need to subtract points.
+	var costs map[string]int
+
+	if a.CurrentLevel < a.DesiredLevel {
+		costs = bd.Cost.ComputeCost(a.CurrentLevel)
+	} else {
+		costs = bd.Cost.ComputeCost(a.DesiredLevel)
+	}
 
 	a.Points = 0.0
 	for _, cost := range costs {
-		a.Points += float32(cost)
+		if a.CurrentLevel < a.DesiredLevel {
+			a.Points += float32(cost)
+		} else {
+			a.Points -= float32(cost)
+		}
 	}
 	a.Points /= 1000
 

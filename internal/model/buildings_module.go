@@ -122,11 +122,11 @@ type BuildingDesc struct {
 // production of a resource looks something like this:
 // `TemperatureCoeff * T + TemperatureOffset`.
 type ProductionRule struct {
-	Resource          string
-	InitProd          int
-	ProgressionRule   float32
-	TemperatureCoeff  float32
-	TemperatureOffset float32
+	Resource          string  `json:"resource"`
+	InitProd          int     `json:"init_production"`
+	ProgressionRule   float32 `json:"progression"`
+	TemperatureCoeff  float32 `json:"temp_coeff"`
+	TemperatureOffset float32 `json:"temp_offset"`
 }
 
 // newProductionRule :

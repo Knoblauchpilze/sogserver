@@ -87,8 +87,8 @@ func (u upgradable) String() string {
 type UpgradableDesc struct {
 	ID               string       `json:"id"`
 	Name             string       `json:"name"`
-	BuildingsDeps    []Dependency `json:"buildings_dependencies,omitempty"`
-	TechnologiesDeps []Dependency `json:"technologies_dependencies,omitempty"`
+	BuildingsDeps    []Dependency `json:"buildings_dependencies"`
+	TechnologiesDeps []Dependency `json:"technologies_dependencies"`
 }
 
 // Dependency :

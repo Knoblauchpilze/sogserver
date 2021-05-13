@@ -1,6 +1,7 @@
 package game
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"oglike_server/internal/model"
@@ -14,25 +15,24 @@ import (
 // that concerns a unit-like element. These elements are
 // not upgradable but rather built in a certain amount
 // on a planet.
-//
-// The `Amount` defines the number of the unit to be
-// produced by this action.
-//
-// The `Remaining` defines how many elements are still
-// to be built at the moment of the analysis.
-//
-// The `CompletionTime`  defines the time it takes to
-// complete the construction of a single unit of this
-// element. The remaining time is thus given by the
-// following: `Remaining * CompletionTime`. Note that
-// it is a bit different to what is provided by the
-// `ProgressAction` where the completion time is some
-// absolute time at which the action is finished.
 type FixedAction struct {
 	action
 
-	Amount         int               `json:"amount"`
-	Remaining      int               `json:"remaining"`
+	// The `Amount` defines the number of the unit to be
+	// produced by this action.
+	Amount int `json:"amount"`
+
+	// The `Remaining` defines how many elements are still
+	// to be built at the moment of the analysis.
+	Remaining int `json:"remaining"`
+
+	// The `CompletionTime` defines the time it takes to
+	// complete the construction of a single unit of this
+	// element. The remaining time is thus given by the
+	// following: `Remaining * CompletionTime`. Note that
+	// it is a bit different to what is provided by the
+	// `ProgressAction` where the completion time is some
+	// absolute time at which the action is finished.
 	CompletionTime duration.Duration `json:"completion_time"`
 }
 
@@ -277,4 +277,35 @@ func (a *FixedAction) computeCompletionTime(data Instance, cost model.FixedCost,
 	a.CompletionTime = duration.NewDuration(t)
 
 	return nil
+}
+
+// MarshalJSON :
+// Used to marshal the content defined by this fixed
+// cost action in order to make it available to other
+// tools.
+// This implements the marshaller interface.
+//
+// Returns the marshalled content and an error.
+func (a *FixedAction) MarshalJSON() ([]byte, error) {
+	o := struct {
+		ID      string `json:"id"`
+		Planet  string `json:"planet,omitempty"`
+		Element string `json:"element"`
+
+		Amount         int               `json:"amount"`
+		Remaining      int               `json:"remaining"`
+		CompletionTime duration.Duration `json:"completion_time"`
+		CreationTime   time.Time         `json:"created_at"`
+	}{
+		ID:      a.ID,
+		Planet:  a.Planet,
+		Element: a.Element,
+
+		Amount:         a.Amount,
+		Remaining:      a.Remaining,
+		CompletionTime: a.CompletionTime,
+		CreationTime:   a.creationTime,
+	}
+
+	return json.Marshal(o)
 }

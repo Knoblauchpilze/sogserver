@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"oglike_server/pkg/db"
@@ -69,6 +70,34 @@ func (fc FixedCost) ComputeCost(count int) map[string]int {
 	}
 
 	return costs
+}
+
+// MarshalJSON :
+// Used to marshal the content defined by this fixed
+// cost in order to make it available to other tools.
+// This implements the marshaller interface.
+//
+// Returns the marshalled content and an error.
+func (fc FixedCost) MarshalJSON() ([]byte, error) {
+	var costs []ResourceAmount
+
+	for res, amount := range fc.InitCosts {
+		costs = append(
+			costs,
+			ResourceAmount{
+				Resource: res,
+				Amount:   float32(amount),
+			},
+		)
+	}
+
+	o := struct {
+		Resources []ResourceAmount `json:"init_costs"`
+	}{
+		Resources: costs,
+	}
+
+	return json.Marshal(o)
 }
 
 // newFixedCostsModule :

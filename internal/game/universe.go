@@ -75,8 +75,13 @@ type Universe struct {
 type Multipliers struct {
 	// The `Economy` defines a multiplier that
 	// is applied for economic actions such as
-	// building a building and the production.
+	// the construction time.
 	Economy float32
+
+	// The `EconomySpeedup` defines a multiplier
+	// applied to the production part of the
+	// economic action.
+	EconomySpeedup float32
 
 	// The `Fleet` is used to reduce the flight
 	// time of fleets.
@@ -307,6 +312,7 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 func NewMultipliersFromDB(uni string, data Instance) (Multipliers, error) {
 	mul := Multipliers{
 		Economy:         1.0,
+		EconomySpeedup:  1.0,
 		Fleet:           1.0,
 		Research:        1.0,
 		ShipsToRuins:    0.3,
@@ -362,6 +368,7 @@ func NewMultipliersFromDB(uni string, data Instance) (Multipliers, error) {
 	)
 
 	mul.Economy = 1.0 / float32(economy)
+	mul.EconomySpeedup = float32(economy)
 	mul.Fleet = 1.0 / float32(fleet)
 	mul.Research = 1.0 / float32(research)
 

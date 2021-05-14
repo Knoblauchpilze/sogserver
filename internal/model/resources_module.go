@@ -32,14 +32,13 @@ import (
 // the resources information from the DB, but other items
 // in this package are designed in a similar way: they
 // just handle different aspects of the game.
-//
-// The `characteristics` defines the properties of the
-// resources such as their base production, storage or
-// whether or not it can be accumulated.
 type ResourcesModule struct {
 	associationTable
 	baseModule
 
+	// The `characteristics` defines the properties of the
+	// resources such as their base production, storage or
+	// whether or not it can be accumulated.
 	characteristics map[string]resProps
 }
 
@@ -47,43 +46,47 @@ type ResourcesModule struct {
 // Defines the abstract representation of a resource which
 // is bascially an identifier and the actual name of the
 // resource plus some base properties of the resource.
-//
-// The `ID` defines the identifier of the resource in the
-// table gathering all the in-game resources. This is used
-// in most of the other operations referencing resources.
-//
-// The `Name` defines the human-readable name of the res
-// as displayed to the user.
-//
-// The `BaseProd` defines the production without modifiers
-// for this resource on each planet. It represents a way
-// for the user to get resources without building anything
-// else.
-//
-// The `BaseStorage` defines the base capacity to store
-// the resource without any modifiers (usually hangars).
-//
-// The `BaseAmount` defines the base amount for this res
-// that can be found on any new planet in the game.
-//
-// The `Movable` defines whether this resources can be
-// plundered by an attacking fleet or transported by an
-// allied fleet to another planet.
-//
-// The `Storable` defines whether the resources can be
-// stored on a planet or not.
-//
-// The `Dispersable` defines whether this resource can
-// be scattered in a debris field after a fight.
 type ResourceDesc struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	BaseProd    int    `json:"base_production"`
-	BaseStorage int    `json:"base_storage"`
-	BaseAmount  int    `json:"base_amount"`
-	Movable     bool   `json:"movable"`
-	Storable    bool   `json:"storable"`
-	Dispersable bool   `json:"dispersable"`
+	// The `ID` defines the identifier of the resource in the
+	// table gathering all the in-game resources. This is used
+	// in most of the other operations referencing resources.
+	ID string `json:"id"`
+
+	// The `Name` defines the human-readable name of the res
+	// as displayed to the user.
+	Name string `json:"name"`
+
+	// The `BaseProd` defines the production without modifiers
+	// for this resource on each planet. It represents a way
+	// for the user to get resources without building anything
+	// else.
+	BaseProd int `json:"base_production"`
+
+	// The `BaseStorage` defines the base capacity to store
+	// the resource without any modifiers (usually hangars).
+	BaseStorage int `json:"base_storage"`
+
+	// The `BaseAmount` defines the base amount for this res
+	// that can be found on any new planet in the game.
+	BaseAmount int `json:"base_amount"`
+
+	// The `Movable` defines whether this resources can be
+	// plundered by an attacking fleet or transported by an
+	// allied fleet to another planet.
+	Movable bool `json:"movable"`
+
+	// The `Storable` defines whether the resources can be
+	// stored on a planet or not.
+	Storable bool `json:"storable"`
+
+	// The `Dispersable` defines whether this resource can
+	// be scattered in a debris field after a fight.
+	Dispersable bool `json:"dispersable"`
+
+	// The `Scalable` defines whether or not the values
+	// that use this resource will be affected by the
+	// coefficient of universe (like economy speed).
+	Scalable bool `json:"scalable"`
 }
 
 // resProps :
@@ -91,35 +94,39 @@ type ResourceDesc struct {
 // It describes most of the properties of the resource
 // as defined in the `ResourceDesc` without the ID and
 // name.
-//
-// The `prod` defines the base production for this res.
-//
-// The `storage` defines the available storage for the
-// resource by default.
-//
-// The `amount` defines the base amount of this res in
-// any new planet.
-//
-// The `movable` defines whether this resource can be
-// moved from a planet to another.
-//
-// The `storable` defines whether or not this res is
-// allowed to be stored. Resources that do not have
-// this property will not be accumulated by the game
-// on a planet. This can represent resources where
-// the production is actually used at each time step
-// like energy for example.
-//
-// The `dispersable` prop defines whether this res
-// can be dispersed in a debris field after a fight
-// for example.
 type resProps struct {
-	prod        int
-	storage     int
-	amount      int
-	movable     bool
-	storable    bool
+	// The `prod` defines the base production for this res.
+	prod int
+
+	// The `storage` defines the available storage for the
+	// resource by default.
+	storage int
+
+	// The `amount` defines the base amount of this res in
+	// any new planet.
+	amount int
+
+	// The `movable` defines whether this resource can be
+	// moved from a planet to another.
+	movable bool
+
+	// The `storable` defines whether or not this res is
+	// allowed to be stored. Resources that do not have
+	// this property will not be accumulated by the game
+	// on a planet. This can represent resources where
+	// the production is actually used at each time step
+	// like energy for example.
+	storable bool
+
+	// The `dispersable` prop defines whether this res
+	// can be dispersed in a debris field after a fight
+	// for example.
 	dispersable bool
+
+	// The `scalable` defines whether or not the values
+	// that use this resource will be affected by the
+	// coefficient of universe (like economy speed).
+	scalable bool
 }
 
 // ResourceAmount :
@@ -195,6 +202,7 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 			"movable",
 			"storable",
 			"dispersable",
+			"economy_scalable",
 		},
 		Table:   "resources",
 		Filters: []db.Filter{},
@@ -230,6 +238,7 @@ func (rm *ResourcesModule) Init(proxy db.Proxy, force bool) error {
 			&props.movable,
 			&props.storable,
 			&props.dispersable,
+			&props.scalable,
 		)
 
 		if err != nil {
@@ -302,6 +311,7 @@ func (rm *ResourcesModule) GetResourceFromID(id string) (ResourceDesc, error) {
 	res.Movable = props.movable
 	res.Storable = props.storable
 	res.Dispersable = props.dispersable
+	res.Scalable = props.scalable
 
 	return res, nil
 }
@@ -396,6 +406,7 @@ func (rm *ResourcesModule) Resources(proxy db.Proxy, filters []db.Filter) ([]Res
 			desc.Movable = props.movable
 			desc.Storable = props.storable
 			desc.Dispersable = props.dispersable
+			desc.Scalable = props.scalable
 		}
 
 		descs = append(descs, desc)

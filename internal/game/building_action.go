@@ -525,8 +525,17 @@ func (a *BuildingAction) ConsolidateEffects(data Instance, p *Planet, ratio floa
 	a.Production = make([]ProductionEffect, 0)
 
 	for _, rule := range bd.Production {
-		curProd := ratio * rule.ComputeProduction(a.CurrentLevel, p.AverageTemperature())
-		desiredProd := ratio * rule.ComputeProduction(a.DesiredLevel, p.AverageTemperature())
+		res, err := data.Resources.GetResourceFromID(rule.Resource)
+		if err != nil {
+			return err
+		}
+
+		curProd := rule.ComputeProduction(a.CurrentLevel, p.AverageTemperature())
+		desiredProd := rule.ComputeProduction(a.DesiredLevel, p.AverageTemperature())
+		if res.Scalable {
+			curProd *= ratio
+			desiredProd *= ratio
+		}
 
 		e := ProductionEffect{
 			Resource:   rule.Resource,

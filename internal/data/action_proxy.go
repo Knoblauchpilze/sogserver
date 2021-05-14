@@ -81,7 +81,7 @@ func (p *ActionProxy) CreateBuildingAction(a game.BuildingAction) (string, error
 
 	// Consolidate the action (typically completion time
 	// and effects).
-	err = a.ConsolidateEffects(p.data, &planet, mul.Economy)
+	err = a.ConsolidateEffects(p.data, &planet, mul.EconomySpeedup)
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not consolidate building action effects (err: %v)", err))
 		return a.ID, err

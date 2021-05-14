@@ -609,7 +609,12 @@ func (a *BuildingAction) consolidateCompletionTime(data Instance, p *Planet, rat
 		return err
 	}
 
-	costs := bd.Cost.ComputeCost(a.CurrentLevel)
+	var costs map[string]int
+	if a.CurrentLevel < a.DesiredLevel {
+		costs = bd.Cost.ComputeCost(a.CurrentLevel)
+	} else {
+		costs = bd.Cost.ComputeCost(a.DesiredLevel)
+	}
 
 	// Populate the cost.
 	a.Costs = make([]Cost, 0)

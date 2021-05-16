@@ -75,9 +75,9 @@ type BuildingDesc struct {
 	AllowedOnPlanet bool             `json:"allowed_on_planet"`
 	AllowedOnMoon   bool             `json:"allowed_on_moon"`
 	Cost            ProgressCost     `json:"cost"`
-	Production      []ProductionRule `json:"production,omitempty"`
-	Storage         []StorageRule    `json:"storage,omitempty"`
-	Fields          FieldsRule       `json:"fields,omitempty"`
+	Production      []ProductionRule `json:"production"`
+	Storage         []StorageRule    `json:"storage"`
+	Fields          FieldsRule       `json:"fields"`
 }
 
 // ProductionRule :

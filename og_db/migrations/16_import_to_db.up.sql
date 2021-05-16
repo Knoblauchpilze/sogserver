@@ -144,12 +144,13 @@ BEGIN
     FROM json_populate_record(null::planets, planet_data);
 
   -- Insert the base resources of the planet.
-  INSERT INTO planets_resources(planet, res, amount, production, storage_capacity, updated_at)
+  INSERT INTO planets_resources(planet, res, amount, production, production_factor, storage_capacity, updated_at)
     SELECT
       (planet_data->>'id')::uuid,
       res,
       amount,
       production,
+      1.0, -- By default the production factor is 100%
       storage_capacity,
       moment
     FROM

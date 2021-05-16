@@ -405,7 +405,7 @@ BEGIN
   UPDATE planets_resources
   SET
     amount = LEAST(
-      amount + EXTRACT(EPOCH FROM NOW() - updated_at) * production / 3600.0,
+      amount + EXTRACT(EPOCH FROM NOW() - updated_at) * production * production_factor / 3600.0,
       GREATEST(
         amount,
         storage_capacity

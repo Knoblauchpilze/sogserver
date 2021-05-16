@@ -59,6 +59,7 @@ CREATE TABLE planets_resources (
   res uuid NOT NULL,
   amount numeric(15, 5) NOT NULL,
   production numeric(15, 5) NOT NULL,
+  production_factor numeric(15, 5) NOT NULL,
   storage_capacity numeric(15, 5) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (planet) REFERENCES planets(id),

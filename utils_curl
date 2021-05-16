@@ -1,6 +1,10 @@
 Create universe:
 
-curl http://localhost:3000/universes -d 'universe-data={"id":"1c44a525-126d-4a5f-9bd5-973011ef15dc","name":"oberon","economic_speed":2,"fleet_speed":600,"research_speed":4,"fleets_to_ruins_ratio":0.3,"defenses_to_ruins_ratio":0.1,"fleets_consumption_ratio":1.0,"galaxies_count":1,"galaxy_size":499,"solar_system_size":15}' | jq
+curl http://localhost:3001/universes -F 'universe-data={"id":"1c44a525-126d-4a5f-9bd5-973011ef15dc","name":"oberon","economic_speed":2,"fleet_speed":600,"research_speed":4,"fleets_to_ruins_ratio":0.3,"defenses_to_ruins_ratio":0.1,"fleets_consumption_ratio":1.0,"galaxies_count":1,"galaxy_size":499,"solar_system_size":15,"country":""}' | jq
+
+curl http://localhost:3001/universes -F 'universe-data={"id":"2c44a525-126d-4a5f-9bd5-973011ef15dd","name":"some_uni","economic_speed":1,"fleet_speed":30,"research_speed":4,"fleets_to_ruins_ratio":0.3,"defenses_to_ruins_ratio":0.1,"fleets_consumption_ratio":1.0,"galaxies_count":1,"galaxy_size":499,"solar_system_size":15,"country":"a36d86af-a52e-4e04-8b47-2635d7348bbf"}' | jq
+
+curl http://localhost:3001/universes -F 'universe-data={"id":"3c44a525-126d-4a5f-9bd5-973011ef15de","name":"another_one","economic_speed":10,"fleet_speed":30,"research_speed":4,"fleets_to_ruins_ratio":0.3,"defenses_to_ruins_ratio":0.1,"fleets_consumption_ratio":1.0,"galaxies_count":1,"galaxy_size":499,"solar_system_size":15,"country":"806387fd-dc0d-4bcd-bfb2-28c8721921ab"}' | jq
 
 Create account:
 

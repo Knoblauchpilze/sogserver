@@ -202,6 +202,28 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
+-- Update production of resources for a planet.
+CREATE OR REPLACE FUNCTION update_planet_production(planet_id uuid, resources json) RETURNS VOID AS $$
+BEGIN
+  -- Update the production factor from the input data
+  -- and clamping any invalid value.
+  WITH res AS (
+    SELECT
+      r.resource AS id,
+      r.production_factor
+    FROM
+      json_to_recordset(resources) AS r(resource uuid, production_factor NUMERIC(15,5))
+    )
+  UPDATE planets_resources AS pr
+    SET production_factor = LEAST(1.0, GREATEST(0.0, res.production_factor))
+  FROM
+    res
+  WHERE
+    planet=planet_id
+    AND pr.res = res.id;
+END
+$$ LANGUAGE plpgsql;
+
 -- Delete data for an existing planet.
 CREATE OR REPLACE FUNCTION delete_planet(planet_id uuid) RETURNS VOID AS $$
 DECLARE

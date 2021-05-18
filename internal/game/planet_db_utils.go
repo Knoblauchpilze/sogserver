@@ -95,6 +95,38 @@ func (p *Planet) UpdateInDB(proxy db.Proxy) error {
 	return p.analyzeDBError(err)
 }
 
+// UpdateProduction :
+// used to update the production of resources on a planet in
+// the DB.
+//
+// The `resources` defines the list of resources whose production
+// should be updated.
+//
+// The `proxy` allows to access to the DB.
+//
+// Returns any error.
+func (p *Planet) UpdateProduction(resources []ResourceInfo, proxy db.Proxy) error {
+	// Make sure that the identifier of the planet is valid.
+	if p.ID == "" {
+		return ErrInvalidUpdateData
+	}
+
+	// Create the query and execute it. In a similar way we
+	// need to provide some analysis of any error.
+	query := db.InsertReq{
+		Script: "update_planet_production",
+		Args: []interface{}{
+			p.ID,
+			resources,
+		},
+		Verbose: true,
+	}
+
+	err := proxy.InsertToDB(query)
+
+	return p.analyzeDBError(err)
+}
+
 // isEligibleForDeletion :
 // Defines whether this planet is eligible to be
 // deleted from the DB. This only include the

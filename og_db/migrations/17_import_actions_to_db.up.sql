@@ -416,7 +416,7 @@ BEGIN
     )
   UPDATE planets_resources AS pr
     SET amount = LEAST(
-      pr.amount + EXTRACT(EPOCH FROM moment - pr.updated_at) * rp.production / 3600.0,
+      pr.amount + EXTRACT(EPOCH FROM moment - pr.updated_at) * (rp.production + r.base_production) / 3600.0,
       GREATEST(
         pr.amount,
         pr.storage_capacity

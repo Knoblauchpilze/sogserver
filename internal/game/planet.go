@@ -1358,24 +1358,46 @@ func (p *Planet) fetchResources(data Instance) error {
 		return err
 	}
 
-	// Create the query and execute it.
+	// Create the query and execute it: the goal of
+	// this request is to gather first the total prod
+	// per resource on all buildings (the innermost
+	// with clause), then add the base revenue of the
+	// the resource (needs to be done afterwards to
+	// only add one instance) (outermost with clause)
+	// and finally link that to the resources data
+	// for the planet (storage capacity, etc).
 	query := db.QueryDesc{
 		WithName: "prod_conso",
+		// Outermost with clause adding the base revenue
+		// for a resource.
 		With: &db.QueryDesc{
-			Props: []string{
-				"pbpr.planet",
-				"pbpr.res",
-				"sum(pbpr.production) AS production",
-				"sum(pbpr.consumption) AS consumption",
-			},
-			Table: "planets_buildings_production_resources as pbpr inner join resources as r on pbpr.res = r.id",
-			Filters: []db.Filter{
-				{
-					Key:    "pbpr.planet",
-					Values: []interface{}{p.ID},
+			WithName: "temp_prod_conso",
+			// Innermost with clause, grouping the production
+			// of resource by aggregating buildings individual
+			// production.
+			With: &db.QueryDesc{
+				Props: []string{
+					"pbpr.planet",
+					"pbpr.res",
+					"sum(pbpr.production) AS production",
+					"sum(pbpr.consumption) AS consumption",
 				},
+				Table: "planets_buildings_production_resources as pbpr inner join resources as r on pbpr.res = r.id",
+				Filters: []db.Filter{
+					{
+						Key:    "pbpr.planet",
+						Values: []interface{}{p.ID},
+					},
+				},
+				Ordering: "group by pbpr.planet, pbpr.res order by pbpr.res",
 			},
-			Ordering: "group by pbpr.planet, pbpr.res order by pbpr.res",
+			Props: []string{
+				"tpc.planet",
+				"tpc.res",
+				"(tpc.production + r.base_production) as production",
+				"tpc.consumption",
+			},
+			Table: "temp_prod_conso as tpc inner join resources as r on tpc.res = r.id",
 		},
 		Props: []string{
 			"pr.res",

@@ -217,10 +217,10 @@ BEGIN
   -- and clamping any invalid value.
   WITH prod AS (
     SELECT
-      p.building AS id,
+      p.id AS id,
       p.production_factor AS factor
     FROM
-      json_to_recordset(productions) AS p(building uuid, production_factor NUMERIC(15,5))
+      json_to_recordset(productions) AS p(id uuid, production_factor NUMERIC(15,5))
     )
   UPDATE planets_buildings_production AS pbr
     SET factor = LEAST(1.0, GREATEST(0.0, prod.factor))

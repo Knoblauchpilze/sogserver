@@ -99,13 +99,13 @@ func (p *Planet) UpdateInDB(proxy db.Proxy) error {
 // used to update the production of resources on a planet in
 // the DB.
 //
-// The `resources` defines the list of resources whose production
-// should be updated.
+// The `production` defines the list of buildings whose factor
+// of production should be updated.
 //
 // The `proxy` allows to access to the DB.
 //
 // Returns any error.
-func (p *Planet) UpdateProduction(resources []ResourceInfo, proxy db.Proxy) error {
+func (p *Planet) UpdateProduction(production []BuildingInfo, proxy db.Proxy) error {
 	// Make sure that the identifier of the planet is valid.
 	if p.ID == "" {
 		return ErrInvalidUpdateData
@@ -117,7 +117,7 @@ func (p *Planet) UpdateProduction(resources []ResourceInfo, proxy db.Proxy) erro
 		Script: "update_planet_production",
 		Args: []interface{}{
 			p.ID,
-			resources,
+			production,
 		},
 		Verbose: true,
 	}

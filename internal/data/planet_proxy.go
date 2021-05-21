@@ -326,17 +326,18 @@ func (p *PlanetProxy) Update(planet game.Planet) (string, error) {
 // The `planetID` defines the identifier of the planet for which
 // the production should be updated.
 //
-// The `resources` defines the list of resources to update.
+// The `production` defines the list of production factor to use
+// for buildings on the planet.
 //
 // Returns any error along with the identifier of the planet for
 // which the update should be performed.
-func (p *PlanetProxy) UpdateProduction(planetID string, resources []game.ResourceInfo) (string, error) {
+func (p *PlanetProxy) UpdateProduction(planetID string, production []game.BuildingInfo) (string, error) {
 	planet := game.Planet{
 		ID: planetID,
 	}
 
-	// Update the account in the DB.
-	err := planet.UpdateProduction(resources, p.data.Proxy)
+	// Update the planet in the DB.
+	err := planet.UpdateProduction(production, p.data.Proxy)
 
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not update planet \"%s\" (err: %v)", planet.ID, err))

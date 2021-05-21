@@ -144,13 +144,12 @@ BEGIN
     FROM json_populate_record(null::planets, planet_data);
 
   -- Insert the base resources of the planet.
-  INSERT INTO planets_resources(planet, res, amount, production, production_factor, storage_capacity, updated_at)
+  INSERT INTO planets_resources(planet, res, amount, production, storage_capacity, updated_at)
     SELECT
       (planet_data->>'id')::uuid,
       res,
       amount,
       production,
-      1.0, -- By default the production factor is 100%
       storage_capacity,
       moment
     FROM
@@ -181,6 +180,15 @@ BEGIN
       0
     FROM
       defenses AS d;
+
+  -- Insert production factor for buildings.
+  INSERT INTO planets_buildings_production(planet, building, factor)
+    SELECT
+      (planet_data->>'id')::uuid,
+      b.id,
+      1.0
+    FROM
+      buildings AS b;
 END
 $$ LANGUAGE plpgsql;
 
@@ -203,24 +211,24 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Update production of resources for a planet.
-CREATE OR REPLACE FUNCTION update_planet_production(planet_id uuid, resources json) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION update_planet_production(planet_id uuid, productions json) RETURNS VOID AS $$
 BEGIN
   -- Update the production factor from the input data
   -- and clamping any invalid value.
-  WITH res AS (
+  WITH prod AS (
     SELECT
-      r.resource AS id,
-      r.production_factor
+      p.building AS id,
+      p.production_factor AS factor
     FROM
-      json_to_recordset(resources) AS r(resource uuid, production_factor NUMERIC(15,5))
+      json_to_recordset(productions) AS p(building uuid, production_factor NUMERIC(15,5))
     )
-  UPDATE planets_resources AS pr
-    SET production_factor = LEAST(1.0, GREATEST(0.0, res.production_factor))
+  UPDATE planets_buildings_production AS pbr
+    SET factor = LEAST(1.0, GREATEST(0.0, prod.factor))
   FROM
-    res
+    prod
   WHERE
     planet=planet_id
-    AND pr.res = res.id;
+    AND pbr.building = prod.id;
 END
 $$ LANGUAGE plpgsql;
 
@@ -260,6 +268,8 @@ BEGIN
   DELETE FROM planets_buildings WHERE planet = planet_id;
   DELETE FROM planets_ships WHERE planet = planet_id;
   DELETE FROM planets_defenses WHERE planet = planet_id;
+
+  DELETE FROM planets_buildings_production WHERE planet = planet_id;
 
   DELETE FROM planets WHERE id = planet_id;
 END

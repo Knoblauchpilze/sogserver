@@ -59,7 +59,6 @@ CREATE TABLE planets_resources (
   res uuid NOT NULL,
   amount numeric(15, 5) NOT NULL,
   production numeric(15, 5) NOT NULL,
-  production_factor numeric(15, 5) NOT NULL,
   storage_capacity numeric(15, 5) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (planet) REFERENCES planets(id),
@@ -93,6 +92,16 @@ CREATE TABLE planets_buildings (
   building uuid NOT NULL,
   level integer NOT NULL DEFAULT 0,
   points numeric(15, 5) NOT NULL,
+  FOREIGN KEY (planet) REFERENCES planets(id),
+  FOREIGN KEY (building) REFERENCES buildings(id),
+  UNIQUE (planet, building)
+);
+
+-- Create the buildings production factor per planet table.
+CREATE TABLE planets_buildings_production (
+  planet uuid NOT NULL,
+  building uuid NOT NULL,
+  factor numeric(15, 5) NOT NULL DEFAULT 1,
   FOREIGN KEY (planet) REFERENCES planets(id),
   FOREIGN KEY (building) REFERENCES buildings(id),
   UNIQUE (planet, building)

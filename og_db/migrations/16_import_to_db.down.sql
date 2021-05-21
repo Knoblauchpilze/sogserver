@@ -18,7 +18,7 @@ DROP FUNCTION create_moon(moon_id uuid, planet_id uuid, diameter integer);
 DROP FUNCTION delete_planet(planet_id uuid);
 
 -- Drop the planet's production script.
-DROP FUNCTION update_planet_production(planet_id uuid, resources json);
+DROP FUNCTION update_planet_production(planet_id uuid, productions json);
 
 -- Drop the planet's update script.
 DROP FUNCTION update_planet(planet_id uuid, inputs json);

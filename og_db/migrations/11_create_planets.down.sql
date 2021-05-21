@@ -5,7 +5,7 @@ DROP TABLE moons_defenses;
 -- Drop the table representing the ships on each moon.
 DROP TABLE moons_ships;
 
--- Drop the planets referencing buildings on moons.
+-- Drop the table referencing buildings on moons.
 DROP TABLE moons_buildings;
 
 -- Drop the table representing the defenses by planets.
@@ -14,7 +14,10 @@ DROP TABLE planets_defenses;
 -- Create the table containing the ships on each planet.
 DROP TABLE planets_ships;
 
--- Drop the planets referencing buildings on planets.
+-- Drop the table referencing production factor for buildings.
+DROP TABLE planets_buildings_production;
+
+-- Drop the table referencing buildings on planets.
 DROP TABLE planets_buildings;
 
 -- Drop the resources per debris fields.

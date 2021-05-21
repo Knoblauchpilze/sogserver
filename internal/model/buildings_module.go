@@ -184,24 +184,23 @@ func (pr ProductionRule) ComputeProduction(level int, temperature float32) float
 // Used to define the prgoression rule for a storage.
 // It defines the way storage scale with the level as
 // it increases.
-//
-// The `Resource` defines the id of the resource that
-// the storage hold.
-//
-// The `InitStorage` defines some base storage that
-// is used in the formula to compute the capacity at
-// each level.
-//
-// The `Multiplier` defines another parameter for the
-// formula to compute the capacity.
-//
-// The `Progress` defines the exponential constant in
-// used to make the storage capacity progres.
 type StorageRule struct {
-	Resource    string
-	InitStorage int
-	Multiplier  float32
-	Progress    float32
+	// The `Resource` defines the id of the resource that
+	// the storage hold.
+	Resource string `json:"resource"`
+
+	// The `InitStorage` defines some base storage that
+	// is used in the formula to compute the capacity at
+	// each level.
+	InitStorage int `json:"init_storage"`
+
+	// The `Multiplier` defines another parameter for the
+	// formula to compute the capacity.
+	Multiplier float32 `json:"multiplier"`
+
+	// The `Progress` defines the exponential constant in
+	// used to make the storage capacity progres.
+	Progress float32 `json:"progress"`
 }
 
 // newStorageRule :

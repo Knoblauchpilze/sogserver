@@ -183,11 +183,6 @@ type ResourceInfo struct {
 	// stopped (in case the storage is full for example).
 	// The production is given in units per hour.
 	Production float32 `json:"production"`
-
-	// The `ProductionFactor` defines the percentage of
-	// the production that is effectively produced each
-	// hour.
-	ProductionFactor float32 `json:"production_factor"`
 }
 
 // BuildingInfo :
@@ -202,6 +197,10 @@ type BuildingInfo struct {
 	// The `Level` defines the level reached by this
 	// building on a particular planet.
 	Level int `json:"level"`
+
+	// The `Production` defines the factor to apply
+	// to the production of resources for this building.
+	Production float32 `json:"production_factor"`
 }
 
 // ShipInfo :
@@ -1355,7 +1354,6 @@ func (p *Planet) fetchResources(data Instance) error {
 			"res",
 			"amount",
 			"production",
-			"production_factor",
 			"storage_capacity",
 		},
 		Table: "planets_resources",
@@ -1388,7 +1386,6 @@ func (p *Planet) fetchResources(data Instance) error {
 			&res.Resource,
 			&res.Amount,
 			&res.Production,
-			&res.ProductionFactor,
 			&res.Storage,
 		)
 
@@ -1418,22 +1415,33 @@ func (p *Planet) fetchResources(data Instance) error {
 func (p *Planet) fetchBuildings(data Instance) error {
 	p.Buildings = make(map[string]BuildingInfo, 0)
 
-	// Create the query and execute it.
-	table := "planets_buildings"
-	if p.Moon {
-		table = "moons_buildings"
+	// Create the query and execute it. Note that depending
+	// on whether we have a moon or a planet we won't fetch
+	// the production factors.
+	table := "planets_buildings as pb"
+	table += " inner join planets_buildings_production as pbr"
+	table += " on pb.building = pbr.building and pb.planet = pbr.planet"
+
+	key := "pb.planet"
+
+	props := []string{
+		"pb.building",
+		"pb.level",
+		"pbr.factor",
 	}
 
-	key := "planet"
 	if p.Moon {
+		table = "moons_buildings"
 		key = "moon"
+
+		props = []string{
+			"building",
+			"level",
+		}
 	}
 
 	query := db.QueryDesc{
-		Props: []string{
-			"building",
-			"level",
-		},
+		Props: props,
 		Table: table,
 		Filters: []db.Filter{
 			{
@@ -1461,10 +1469,20 @@ func (p *Planet) fetchBuildings(data Instance) error {
 	sanity := make(map[string]bool)
 
 	for dbRes.Next() {
-		err = dbRes.Scan(
-			&ID,
-			&b.Level,
-		)
+		if p.Moon {
+			err = dbRes.Scan(
+				&ID,
+				&b.Level,
+			)
+
+			b.Production = 1.0
+		} else {
+			err = dbRes.Scan(
+				&ID,
+				&b.Level,
+				&b.Production,
+			)
+		}
 
 		if err != nil {
 			return err

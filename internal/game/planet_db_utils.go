@@ -328,9 +328,10 @@ func (p *Planet) Convert() interface{} {
 // with any error.
 func (p *Planet) MarshalJSON() ([]byte, error) {
 	type lightInfo struct {
-		ID    string `json:"id"`
-		Name  string `json:"name"`
-		Level int    `json:"level"`
+		ID         string  `json:"id"`
+		Name       string  `json:"name"`
+		Level      int     `json:"level"`
+		Production float32 `json:"production"`
 	}
 
 	type lightCount struct {
@@ -391,9 +392,10 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 	// defenses without including the tech deps.
 	for _, b := range p.Buildings {
 		lb := lightInfo{
-			ID:    b.ID,
-			Name:  b.Name,
-			Level: b.Level,
+			ID:         b.ID,
+			Name:       b.Name,
+			Level:      b.Level,
+			Production: b.Production,
 		}
 
 		lp.Buildings = append(lp.Buildings, lb)

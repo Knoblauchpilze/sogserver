@@ -1379,13 +1379,13 @@ func (p *Planet) fetchResources(data Instance) error {
 				Props: []string{
 					"pbpr.planet",
 					"pbpr.res",
-					"sum(pbpr.production) AS production",
-					"sum(pbpr.consumption) AS consumption",
+					"sum(pbpr.production * pbpf.factor) AS production",
+					"sum(pbpr.consumption * pbpf.factor) AS consumption",
 				},
-				Table: "planets_buildings_production_resources as pbpr inner join resources as r on pbpr.res = r.id",
+				Table: "planets_buildings_production_factor as pbpf inner join planets_buildings_production_resources as pbpr on pbpf.planet = pbpr.planet and pbpr.building = pbpf.building",
 				Filters: []db.Filter{
 					{
-						Key:    "pbpr.planet",
+						Key:    "pbpf.planet",
 						Values: []interface{}{p.ID},
 					},
 				},

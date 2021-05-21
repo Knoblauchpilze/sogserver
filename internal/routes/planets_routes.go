@@ -140,7 +140,7 @@ func (s *Server) changeProduction() http.HandlerFunc {
 		func(input RouteData) ([]string, error) {
 			// We need to iterate over the data retrieved from the route and
 			// create planets from it.
-			var production game.ResourceInfo
+			var production []game.ResourceInfo
 			resources := make([]string, 0)
 
 			// Make sure that there's a route element.
@@ -163,7 +163,7 @@ func (s *Server) changeProduction() http.HandlerFunc {
 				}
 
 				// Update the planet.
-				res, err := s.planets.UpdateProduction(planetID, []game.ResourceInfo{production})
+				res, err := s.planets.UpdateProduction(planetID, production)
 				if err != nil {
 					return resources, err
 				}

@@ -481,15 +481,25 @@ BEGIN
     -- 2.b) Proceed to update the mines with their new prod
     -- values.
     -- TODO: Change to update `planets_buildings_production_resources` instead.
-    UPDATE planets_resources AS pr
-      SET production = production + cabpe.production_change
+    WITH prod_effects AS (
+      SELECT
+        cab.element AS building,
+        cab.planet AS planet,
+        cabpe.production_change AS change,
+        cabpe.resource AS resource
+      FROM
+        construction_actions_buildings AS cab
+        INNER JOIN construction_actions_buildings_production_effects AS cabpe ON cab.id = cabpe.action
+      )
+    UPDATE planets_buildings_production_resources AS pbpr
+      SET production = production + GREATEST(0, pe.change),
+          consumption = consumption + LEAST(0, pe.change)
     FROM
-      construction_actions_buildings_production_effects AS cabpe
-      INNER JOIN construction_actions_buildings AS cab ON cabpe.action = cab.id
+      prod_effects AS pe
     WHERE
-      cabpe.action = action_id
-      AND pr.planet = cab.planet
-      AND pr.res = cabpe.resource;
+      pe.planet = pbpr.planet
+      AND pe.building = pbpr.building
+      AND pe.resource = pbpr.res;
 
     -- 2.c) Update the storage facilities with their new
     -- values.

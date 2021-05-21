@@ -58,7 +58,6 @@ CREATE TABLE planets_resources (
   planet uuid NOT NULL,
   res uuid NOT NULL,
   amount numeric(15, 5) NOT NULL,
-  production numeric(15, 5) NOT NULL,
   storage_capacity numeric(15, 5) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (planet) REFERENCES planets(id),
@@ -98,13 +97,26 @@ CREATE TABLE planets_buildings (
 );
 
 -- Create the buildings production factor per planet table.
-CREATE TABLE planets_buildings_production (
+CREATE TABLE planets_buildings_production_factor (
   planet uuid NOT NULL,
   building uuid NOT NULL,
   factor numeric(15, 5) NOT NULL DEFAULT 1,
   FOREIGN KEY (planet) REFERENCES planets(id),
   FOREIGN KEY (building) REFERENCES buildings(id),
   UNIQUE (planet, building)
+);
+
+-- Creahe the production of resources for each building.
+CREATE TABLE planets_buildings_production_resources (
+  planet uuid NOT NULL,
+  building uuid NOT NULL,
+  res uuid NOT NULL,
+  production numeric(15, 5) NOT NULL DEFAULT 0,
+  consumption numeric(15, 5) NOT NULL DEFAULT 0,
+  FOREIGN KEY (planet) REFERENCES planets(id),
+  FOREIGN KEY (building) REFERENCES buildings(id),
+  FOREIGN KEY (res) REFERENCES resources(id),
+  UNIQUE (planet, building, res)
 );
 
 -- Create the table containing the ships on each planet.

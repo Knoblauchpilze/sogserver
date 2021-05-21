@@ -15,7 +15,10 @@ DROP TABLE planets_defenses;
 DROP TABLE planets_ships;
 
 -- Drop the table referencing production factor for buildings.
-DROP TABLE planets_buildings_production;
+DROP TABLE planets_buildings_production_factor;
+
+-- Drop the table referencing the production of resources from buildings.
+DROP TABLE planets_buildings_production_resources;
 
 -- Drop the table referencing buildings on planets.
 DROP TABLE planets_buildings;

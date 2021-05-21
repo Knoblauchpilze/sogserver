@@ -402,10 +402,11 @@ BEGIN
   -- exist if the production was still running (assuming that
   -- if the current value is less than that it means that we
   -- reached the storage capacity).
+  -- TODO: Handle this.
   UPDATE planets_resources
   SET
     amount = LEAST(
-      amount + EXTRACT(EPOCH FROM NOW() - updated_at) * production / 3600.0,
+      amount + EXTRACT(EPOCH FROM NOW() - updated_at) * 1 / 3600.0,
       GREATEST(
         amount,
         storage_capacity
@@ -479,6 +480,7 @@ BEGIN
 
     -- 2.b) Proceed to update the mines with their new prod
     -- values.
+    -- TODO: Change to update `planets_buildings_production_resources` instead.
     UPDATE planets_resources AS pr
       SET production = production + cabpe.production_change
     FROM

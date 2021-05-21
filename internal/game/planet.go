@@ -183,6 +183,12 @@ type ResourceInfo struct {
 	// stopped (in case the storage is full for example).
 	// The production is given in units per hour.
 	Production float32 `json:"production"`
+
+	// The `Consumption` defines consumption of this
+	// resource for this planet. This indicates that
+	// the resource may be used by other buildings to
+	// generate other services.
+	Consumption float32 `json:"consumption"`
 }
 
 // BuildingInfo :
@@ -200,7 +206,11 @@ type BuildingInfo struct {
 
 	// The `Production` defines the factor to apply
 	// to the production of resources for this building.
-	Production float32 `json:"production_factor"`
+	ProductionFactor float32 `json:"production_factor"`
+
+	// The `Production` defines the list of resources
+	// that are produced or consumed by this building.
+	Production []model.ResourceAmount `json:"production"`
 }
 
 // ShipInfo :
@@ -1350,16 +1360,34 @@ func (p *Planet) fetchResources(data Instance) error {
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
-		Props: []string{
-			"res",
-			"amount",
-			"production",
-			"storage_capacity",
+		WithName: "prod_conso",
+		With: &db.QueryDesc{
+			Props: []string{
+				"pbpr.planet",
+				"pbpr.res",
+				"sum(pbpr.production) AS production",
+				"sum(pbpr.consumption) AS consumption",
+			},
+			Table: "planets_buildings_production_resources as pbpr inner join resources as r on pbpr.res = r.id",
+			Filters: []db.Filter{
+				{
+					Key:    "pbpr.planet",
+					Values: []interface{}{p.ID},
+				},
+			},
+			Ordering: "group by pbpr.planet, pbpr.res order by pbpr.res",
 		},
-		Table: "planets_resources",
+		Props: []string{
+			"pr.res",
+			"pr.amount",
+			"pr.storage_capacity",
+			"pc.production",
+			"pc.consumption",
+		},
+		Table: "planets_resources as pr inner join prod_conso as pc on pr.res = pc.res",
 		Filters: []db.Filter{
 			{
-				Key:    "planet",
+				Key:    "pr.planet",
 				Values: []interface{}{p.ID},
 			},
 		},
@@ -1385,8 +1413,9 @@ func (p *Planet) fetchResources(data Instance) error {
 		err = dbRes.Scan(
 			&res.Resource,
 			&res.Amount,
-			&res.Production,
 			&res.Storage,
+			&res.Production,
+			&res.Consumption,
 		)
 
 		if err != nil {
@@ -1419,7 +1448,7 @@ func (p *Planet) fetchBuildings(data Instance) error {
 	// on whether we have a moon or a planet we won't fetch
 	// the production factors.
 	table := "planets_buildings as pb"
-	table += " inner join planets_buildings_production as pbr"
+	table += " inner join planets_buildings_production_factor as pbr"
 	table += " on pb.building = pbr.building and pb.planet = pbr.planet"
 
 	key := "pb.planet"
@@ -1475,12 +1504,12 @@ func (p *Planet) fetchBuildings(data Instance) error {
 				&b.Level,
 			)
 
-			b.Production = 1.0
+			b.ProductionFactor = 1.0
 		} else {
 			err = dbRes.Scan(
 				&ID,
 				&b.Level,
-				&b.Production,
+				&b.ProductionFactor,
 			)
 		}
 

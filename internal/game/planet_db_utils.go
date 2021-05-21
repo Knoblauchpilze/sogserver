@@ -119,7 +119,6 @@ func (p *Planet) UpdateProduction(production []BuildingInfo, proxy db.Proxy) err
 			p.ID,
 			production,
 		},
-		Verbose: true,
 	}
 
 	err := proxy.InsertToDB(query)
@@ -328,10 +327,10 @@ func (p *Planet) Convert() interface{} {
 // with any error.
 func (p *Planet) MarshalJSON() ([]byte, error) {
 	type lightInfo struct {
-		ID         string  `json:"id"`
-		Name       string  `json:"name"`
-		Level      int     `json:"level"`
-		Production float32 `json:"production"`
+		ID               string  `json:"id"`
+		Name             string  `json:"name"`
+		Level            int     `json:"level"`
+		ProductionFactor float32 `json:"production_factor"`
 	}
 
 	type lightCount struct {
@@ -392,10 +391,10 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 	// defenses without including the tech deps.
 	for _, b := range p.Buildings {
 		lb := lightInfo{
-			ID:         b.ID,
-			Name:       b.Name,
-			Level:      b.Level,
-			Production: b.Production,
+			ID:               b.ID,
+			Name:             b.Name,
+			Level:            b.Level,
+			ProductionFactor: b.ProductionFactor,
 		}
 
 		lp.Buildings = append(lp.Buildings, lb)

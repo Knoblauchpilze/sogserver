@@ -144,12 +144,11 @@ BEGIN
     FROM json_populate_record(null::planets, planet_data);
 
   -- Insert the base resources of the planet.
-  INSERT INTO planets_resources(planet, res, amount, production, storage_capacity, updated_at)
+  INSERT INTO planets_resources(planet, res, amount, storage_capacity, updated_at)
     SELECT
       (planet_data->>'id')::uuid,
       res,
       amount,
-      production,
       storage_capacity,
       moment
     FROM
@@ -182,13 +181,25 @@ BEGIN
       defenses AS d;
 
   -- Insert production factor for buildings.
-  INSERT INTO planets_buildings_production(planet, building, factor)
+  INSERT INTO planets_buildings_production_factor(planet, building, factor)
     SELECT
       (planet_data->>'id')::uuid,
       b.id,
       1.0
     FROM
       buildings AS b;
+
+  -- Insert production for buildings for this planet.
+  INSERT INTO planets_buildings_production_resources(planet, building, res, production, consumption)
+    SELECT
+      (planet_data->>'id')::uuid,
+      b.id,
+      r.id,
+      0.0,
+      0.0
+    FROM
+      buildings AS b
+      CROSS JOIN resources AS r;
 END
 $$ LANGUAGE plpgsql;
 
@@ -222,7 +233,7 @@ BEGIN
     FROM
       json_to_recordset(productions) AS p(id uuid, production_factor NUMERIC(15,5))
     )
-  UPDATE planets_buildings_production AS pbr
+  UPDATE planets_buildings_production_factor AS pbr
     SET factor = LEAST(1.0, GREATEST(0.0, prod.factor))
   FROM
     prod
@@ -269,7 +280,8 @@ BEGIN
   DELETE FROM planets_ships WHERE planet = planet_id;
   DELETE FROM planets_defenses WHERE planet = planet_id;
 
-  DELETE FROM planets_buildings_production WHERE planet = planet_id;
+  DELETE FROM planets_buildings_production_factor WHERE planet = planet_id;
+  DELETE FROM planets_buildings_production_resources WHERE planet = planet_id;
 
   DELETE FROM planets WHERE id = planet_id;
 END

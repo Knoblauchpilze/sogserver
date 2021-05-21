@@ -402,23 +402,34 @@ BEGIN
   -- exist if the production was still running (assuming that
   -- if the current value is less than that it means that we
   -- reached the storage capacity).
-  -- TODO: Handle this.
-  UPDATE planets_resources
-  SET
-    amount = LEAST(
-      amount + EXTRACT(EPOCH FROM NOW() - updated_at) * 1 / 3600.0,
+  WITH res_prod AS (
+    SELECT
+      pbpr.res AS res,
+      sum(pbpr.production + pbpr.consumption) AS production,
+      planet_id AS planet
+    FROM
+      planets_buildings_production_resources AS pbpr
+    WHERE
+      pbpr.planet=planet_id
+    GROUP BY
+      pbpr.res
+    )
+  UPDATE planets_resources AS pr
+    SET amount = LEAST(
+      pr.amount + EXTRACT(EPOCH FROM moment - pr.updated_at) * rp.production / 3600.0,
       GREATEST(
-        amount,
-        storage_capacity
+        pr.amount,
+        pr.storage_capacity
       )
     ),
     updated_at = moment
   FROM
-    resources AS r
+    res_prod AS rp
+    INNER JOIN resources AS r ON rp.res = r.id
   WHERE
-    planet = planet_id
-    AND res = r.id
-    AND r.storable='true';
+    pr.res = rp.res
+    AND pr.planet = rp.planet
+    AND r.storable = 'true';
 END
 $$ LANGUAGE plpgsql;
 
@@ -480,7 +491,6 @@ BEGIN
 
     -- 2.b) Proceed to update the mines with their new prod
     -- values.
-    -- TODO: Change to update `planets_buildings_production_resources` instead.
     WITH prod_effects AS (
       SELECT
         cab.element AS building,

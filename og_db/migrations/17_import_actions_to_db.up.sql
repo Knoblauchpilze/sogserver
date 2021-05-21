@@ -403,14 +403,16 @@ BEGIN
   -- if the current value is less than that it means that we
   -- reached the storage capacity).
   WITH res_prod AS (
-    SELECT
+    select
       pbpr.res AS res,
-      sum(pbpr.production + pbpr.consumption) AS production,
+      sum(pbpf.factor * (pbpr.production + pbpr.consumption)) AS production,
       planet_id AS planet
     FROM
-      planets_buildings_production_resources AS pbpr
+      planets_buildings_production_factor AS pbpf
+      INNER JOIN planets_buildings_production_resources AS pbpr ON pbpf.building = pbpr.building AND pbpf.planet = pbpr.planet
+      INNER JOIN resources AS r ON pbpr.res = r.id
     WHERE
-      pbpr.planet=planet_id
+      pbpf.planet = planet_id
     GROUP BY
       pbpr.res
     )

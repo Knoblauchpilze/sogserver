@@ -14,39 +14,47 @@ import (
 // configured to adapt in a certain extent to various
 // queries.
 // The produced query will be something like below:
-// `select [props] from [table] where [filters]`.
-//
-// The `Props` define the list of properties to select
-// by the query. Each property will be listed in order
-// compared to the order defined in this slice. They
-// will be joined by a ',' character and not prefixed
-// by any table.
-//
-// The `Table` defines the table into which the props
-// should be queried. Note that it is perfectly valid
-// to have a composed table in here as long as the
-// props account for that (typically if the table is
-// `aTable a inner join anotherTable b on a.id=b.id`
-// the properties should either be unique or prefixed
-// with the name of the table).
-//
-// The `filters` will be appended in the `where`
-// clause of the generated SQL query. Each filter is
-// added as a `and` statement to the others.
-//
-// The `Ordering` defines additional properties that
-// will be appended after the filters and which can
-// refer to sort order, count limit, etc.
-//
-// The `Verbose` parameter allows to make the query
-// display itself before being run. Especially used
-// while debugging.
+// `[with WithName as With] select [props] from [table] where [filters]`.
 type QueryDesc struct {
-	Props    []string
-	Table    string
-	Filters  []Filter
+	// The `Props` define the list of properties to select
+	// by the query. Each property will be listed in order
+	// compared to the order defined in this slice. They
+	// will be joined by a ',' character and not prefixed
+	// by any table.
+	Props []string
+
+	// The `With` statement defines a subquery to be used
+	// as a `with` clause in the generated query.
+	With *QueryDesc
+
+	// The `WithName` defines the name of the clause to
+	// attach to the with clause. Only interpreted if the
+	// with clause is not empty.
+	WithName string
+
+	// The `Table` defines the table into which the props
+	// should be queried. Note that it is perfectly valid
+	// to have a composed table in here as long as the
+	// props account for that (typically if the table is
+	// `aTable a inner join anotherTable b on a.id=b.id`
+	// the properties should either be unique or prefixed
+	// with the name of the table).
+	Table string
+
+	// The `filters` will be appended in the `where`
+	// clause of the generated SQL query. Each filter is
+	// added as a `and` statement to the others.
+	Filters []Filter
+
+	// The `Ordering` defines additional properties that
+	// will be appended after the filters and which can
+	// refer to sort order, count limit, etc.
 	Ordering string
-	Verbose  bool
+
+	// The `Verbose` parameter allows to make the query
+	// display itself before being run. Especially used
+	// while debugging.
+	Verbose bool
 }
 
 // valid :
@@ -69,8 +77,14 @@ func (q QueryDesc) valid() bool {
 // is only guaranteed to be valid if `q.valid()` is
 // `true`.
 func (q QueryDesc) generate() string {
+	// Generate the with clause.
+	with := ""
+	if q.With != nil {
+		with = fmt.Sprintf("with %s as (%s)", q.WithName, q.With.generate())
+	}
+
 	// Generate base query.
-	str := fmt.Sprintf("select %s from %s", strings.Join(q.Props, ", "), q.Table)
+	str := fmt.Sprintf("%s select %s from %s", with, strings.Join(q.Props, ", "), q.Table)
 
 	// Append filters if any.
 	if len(q.Filters) > 0 {

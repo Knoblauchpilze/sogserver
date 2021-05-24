@@ -1397,7 +1397,7 @@ BEGIN
     -- been destroyed.
     WITH costs AS (
       SELECT
-        sum(sc.cost * fs.count)/1000.0 AS cost
+        SUM(sc.cost * fs.count)/1000.0 AS cost
       FROM
         fleets_ships AS fs
         INNER JOIN ships_costs AS sc ON fs.ship = sc.element
@@ -1524,7 +1524,7 @@ BEGIN
           json_to_recordset(planet_ships) AS t(ship uuid, count integer)
         )
       SELECT
-        sum(sc.cost * (ps.count - d.count))/1000.0 AS cost,
+        SUM(sc.cost * (ps.count - d.count))/1000.0 AS cost,
         target_id AS planet
       FROM
         planets_ships AS ps
@@ -1569,7 +1569,7 @@ BEGIN
           json_to_recordset(planet_defenses) AS t(defense uuid, count integer)
         )
       SELECT
-        sum(dc.cost * (pd.count - d.count))/1000.0 AS cost,
+        SUM(dc.cost * (pd.count - d.count))/1000.0 AS cost,
         target_id AS planet
       FROM
         planets_defenses AS pd
@@ -1648,7 +1648,7 @@ BEGIN
           json_to_recordset(planet_ships) AS t(ship uuid, count integer)
         )
       SELECT
-        sum(sc.cost * (ms.count - d.count))/1000.0 AS cost,
+        SUM(sc.cost * (ms.count - d.count))/1000.0 AS cost,
         target_id AS moon
       FROM
         moons_ships AS ms
@@ -1694,7 +1694,7 @@ BEGIN
           json_to_recordset(planet_defenses) AS t(defense uuid, count integer)
         )
       SELECT
-        sum(dc.cost * (md.count - d.count))/1000.0 AS cost,
+        SUM(dc.cost * (md.count - d.count))/1000.0 AS cost,
         target_id AS moon
       FROM
         moons_defenses AS md
@@ -1843,7 +1843,7 @@ BEGIN
       json_to_recordset(ships) AS t(ship uuid, count integer)
       )
     SELECT
-      sum(sc.cost * (fs.count - d.count))/1000.0 AS cost,
+      SUM(sc.cost * (fs.count - d.count))/1000.0 AS cost,
       fleet_id AS fleet
     FROM
       fleets_ships AS fs

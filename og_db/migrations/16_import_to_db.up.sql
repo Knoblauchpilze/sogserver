@@ -425,7 +425,7 @@ BEGIN
   -- planet.
   WITH points AS (
     SELECT
-      sum(ps.count * sc.cost)/1000 AS sum,
+      SUM(ps.count * sc.cost)/1000 AS sum,
       planet_id AS planet
     FROM
       planets_ships AS ps
@@ -445,7 +445,7 @@ BEGIN
   -- planet.
   WITH points AS (
     SELECT
-      sum(pd.count * dc.cost)/1000 AS sum,
+      SUM(pd.count * dc.cost)/1000 AS sum,
       planet_id AS planet
     FROM
       planets_defenses AS pd
@@ -465,7 +465,7 @@ BEGIN
   -- planet.
   WITH points AS (
     SELECT
-      sum(pb.points) AS sum,
+      SUM(pb.points) AS sum,
       planet_id AS planet
     FROM
       planets_buildings AS pb
@@ -491,7 +491,7 @@ BEGIN
   -- moon.
   WITH points AS (
     SELECT
-      sum(ms.count * sc.cost)/1000 AS sum,
+      SUM(ms.count * sc.cost)/1000 AS sum,
       moon_id AS moon
     FROM
       moons_ships AS ms
@@ -512,7 +512,7 @@ BEGIN
   -- moon.
   WITH points AS (
     SELECT
-      sum(md.count * dc.cost)/1000 AS sum,
+      SUM(md.count * dc.cost)/1000 AS sum,
       moon_id AS moon
     FROM
       moons_defenses AS md
@@ -533,7 +533,7 @@ BEGIN
   -- moon.
   WITH points AS (
     SELECT
-      sum(mb.points) AS sum,
+      SUM(mb.points) AS sum,
       moon_id AS moon
     FROM
       moons_buildings AS mb

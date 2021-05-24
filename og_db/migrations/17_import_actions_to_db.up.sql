@@ -402,23 +402,50 @@ BEGIN
   -- exist if the production was still running (assuming that
   -- if the current value is less than that it means that we
   -- reached the storage capacity).
-  WITH res_prod AS (
-    select
+  WITH energy_prod AS (
+    WITH energy_factor AS (
+      WITH use_factor AS (
+        SELECT
+          r.id AS res,
+          GREATEST(
+            LEAST(
+              COALESCE(SUM(pbpr.production * pbpf.factor) / NULLIF(-SUM(pbpr.consumption * pbpf.factor), 0), 1),
+              1
+            ),
+            0
+          ) AS use_ratio
+        FROM
+          planets_buildings_production_factor AS pbpf
+          INNER JOIN planets_buildings_production_resources AS pbpr  ON pbpf.planet = pbpr.planet AND pbpf.building = pbpr.building
+          INNER JOIN resources AS r ON pbpr.res = r.id
+        WHERE
+          pbpf.planet = planet_id
+        GROUP BY
+          r.id
+        )
+      SELECT
+        pbpr.building,
+        uf.use_ratio
+      FROM
+        planets_buildings_production_resources AS pbpr
+        INNER JOIN use_factor AS uf ON pbpr.res = uf.res
+      WHERE
+        pbpr.consumption < 0
+      )
+    SELECT
       pbpr.res AS res,
-      sum(pbpf.factor * (pbpr.production + pbpr.consumption)) AS production,
+      SUM(pbpf.factor * ef.use_ratio * pbpr.production) AS prod,
       planet_id AS planet
     FROM
       planets_buildings_production_factor AS pbpf
       INNER JOIN planets_buildings_production_resources AS pbpr ON pbpf.building = pbpr.building AND pbpf.planet = pbpr.planet
-      INNER JOIN resources AS r ON pbpr.res = r.id
-    WHERE
-      pbpf.planet = planet_id
+      INNER JOIN energy_factor AS ef ON pbpf.building = ef.building
     GROUP BY
       pbpr.res
     )
-  UPDATE planets_resources AS pr
+  UPDATE planets_resources as pr
     SET amount = LEAST(
-      pr.amount + EXTRACT(EPOCH FROM moment - pr.updated_at) * (rp.production + r.base_production) / 3600.0,
+      pr.amount + EXTRACT(EPOCH FROM moment - pr.updated_at) * (ep.prod + r.base_production) / 3600.0,
       GREATEST(
         pr.amount,
         pr.storage_capacity
@@ -426,11 +453,11 @@ BEGIN
     ),
     updated_at = moment
   FROM
-    res_prod AS rp
-    INNER JOIN resources AS r ON rp.res = r.id
+    energy_prod AS ep
+    INNER JOIN resources AS r ON ep.res = r.id
   WHERE
-    pr.res = rp.res
-    AND pr.planet = rp.planet
+    pr.res = ep.res
+    AND pr.planet = ep.planet
     AND r.storable = 'true';
 END
 $$ LANGUAGE plpgsql;
@@ -770,7 +797,7 @@ BEGIN
           cas.id = action_id
         )
       SELECT
-        sum(sc.cost * items)/1000 AS sum,
+        SUM(sc.cost * items)/1000 AS sum,
         cas.planet AS planet
       FROM
         construction_actions_ships AS cas
@@ -885,7 +912,7 @@ BEGIN
           casm.id = action_id
         )
       SELECT
-        sum(sc.cost * items)/1000 AS sum,
+        SUM(sc.cost * items)/1000 AS sum,
         casm.moon AS moon
       FROM
         construction_actions_ships_moon AS casm
@@ -1029,7 +1056,7 @@ BEGIN
           cad.id = action_id
         )
       SELECT
-        sum(dc.cost * items)/1000 AS sum,
+        SUM(dc.cost * items)/1000 AS sum,
         cad.planet AS planet
       FROM
         construction_actions_defenses AS cad
@@ -1146,7 +1173,7 @@ BEGIN
           cadm.id = action_id
         )
       SELECT
-        sum(dc.cost * items)/1000 AS sum,
+        SUM(dc.cost * items)/1000 AS sum,
         cadm.moon AS moon
       FROM
         construction_actions_defenses_moon AS cadm

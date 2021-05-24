@@ -204,9 +204,15 @@ type BuildingInfo struct {
 	// building on a particular planet.
 	Level int `json:"level"`
 
-	// The `Production` defines the factor to apply
+	// The `ProductionFactor` defines the factor to apply
 	// to the production of resources for this building.
 	ProductionFactor float32 `json:"production_factor"`
+
+	// The `EnergyFactor` defines the factor to apply to
+	// the production based on the energy requirements
+	// of the building compared to the available energy
+	// on the planet.
+	EnergyFactor float32 `json:"energ_factor"`
 
 	// The `Production` defines the list of resources
 	// that are produced or consumed by this building.
@@ -1485,18 +1491,51 @@ func (p *Planet) fetchBuildings(data Instance) error {
 
 	// Create the query and execute it. Note that depending
 	// on whether we have a moon or a planet we won't fetch
-	// the production factors.
+	// the production factors. This also includes the energy
+	// factor.
 	table := "planets_buildings as pb"
 	table += " inner join planets_buildings_production_factor as pbr"
 	table += " on pb.building = pbr.building and pb.planet = pbr.planet"
+	table += " left join energy_factor as ef on pb.building = ef.building"
 
-	key := "pb.planet"
+	with := db.QueryDesc{
+		WithName: "use_factor",
+		With: &db.QueryDesc{
+			Props: []string{
+				"r.id as res",
+				"GREATEST(LEAST(COALESCE(SUM(pbpr.production * pbpf.factor) / NULLIF(-SUM(pbpr.consumption * pbpf.factor), 0), 1), 1), 0) as use_ratio",
+			},
+			Table: "planets_buildings_production_factor as pbpf inner join planets_buildings_production_resources as pbpr on pbpf.planet = pbpr.planet AND pbpf.building = pbpr.building inner join resources as r on pbpr.res = r.id",
+			Filters: []db.Filter{
+				{
+					Key:    "pbpf.planet",
+					Values: []interface{}{p.ID},
+				},
+			},
+			Ordering: "group by r.id",
+		},
+		Props: []string{
+			"pbpr.building",
+			"uf.use_ratio",
+		},
+		Table: "planets_buildings_production_resources as pbpr inner join use_factor as uf on pbpr.res = uf.res",
+		Filters: []db.Filter{
+			{
+				Key:      "pbpr.consumption",
+				Values:   []interface{}{0},
+				Operator: db.LessThan,
+			},
+		},
+	}
 
 	props := []string{
 		"pb.building",
 		"pb.level",
 		"pbr.factor",
+		"coalesce(ef.use_ratio, 1)",
 	}
+
+	key := "pb.planet"
 
 	if p.Moon {
 		table = "moons_buildings"
@@ -1508,15 +1547,31 @@ func (p *Planet) fetchBuildings(data Instance) error {
 		}
 	}
 
-	query := db.QueryDesc{
-		Props: props,
-		Table: table,
-		Filters: []db.Filter{
-			{
-				Key:    key,
-				Values: []interface{}{p.ID},
+	var query db.QueryDesc
+	if !p.Moon {
+		query = db.QueryDesc{
+			WithName: "energy_factor",
+			With:     &with,
+			Props:    props,
+			Table:    table,
+			Filters: []db.Filter{
+				{
+					Key:    key,
+					Values: []interface{}{p.ID},
+				},
 			},
-		},
+		}
+	} else {
+		query = db.QueryDesc{
+			Props: props,
+			Table: table,
+			Filters: []db.Filter{
+				{
+					Key:    key,
+					Values: []interface{}{p.ID},
+				},
+			},
+		}
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
@@ -1544,11 +1599,13 @@ func (p *Planet) fetchBuildings(data Instance) error {
 			)
 
 			b.ProductionFactor = 1.0
+			b.EnergyFactor = 1.0
 		} else {
 			err = dbRes.Scan(
 				&ID,
 				&b.Level,
 				&b.ProductionFactor,
+				&b.EnergyFactor,
 			)
 		}
 

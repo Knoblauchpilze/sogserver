@@ -331,6 +331,7 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 		Name             string  `json:"name"`
 		Level            int     `json:"level"`
 		ProductionFactor float32 `json:"production_factor"`
+		EnergyFactor     float32 `json:"energy_factor"`
 	}
 
 	type lightCount struct {
@@ -395,6 +396,7 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 			Name:             b.Name,
 			Level:            b.Level,
 			ProductionFactor: b.ProductionFactor,
+			EnergyFactor:     b.EnergyFactor,
 		}
 
 		lp.Buildings = append(lp.Buildings, lb)

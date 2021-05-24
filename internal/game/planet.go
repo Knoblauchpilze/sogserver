@@ -1358,55 +1358,72 @@ func (p *Planet) fetchResources(data Instance) error {
 		return err
 	}
 
-	// Create the query and execute it: the goal of
-	// this request is to gather first the total prod
-	// per resource on all buildings (the innermost
-	// with clause), then add the base revenue of the
-	// the resource (needs to be done afterwards to
-	// only add one instance) (outermost with clause)
-	// and finally link that to the resources data
-	// for the planet (storage capacity, etc).
+	// Create the query and execute it:
+	//  - we first need to compute the consumption of
+	//    resources that are being depleted to compute
+	//    some sort of 'use factor': this will define
+	//    how other buildings using the resources are
+	//    able to scale based on the resource they are
+	//    using.
+	//    Note that the production factor of buildings
+	//    will have an impact on the final 'use factor'.
+	//  - second we can compute the production per
+	//    resource (by adding the individual production
+	//    of buildings based on the energy factor).
+	//  - from there we can return the production of
+	//    each resource.
+	// The request is quite complex and for now we don't
+	// extract it into a dedicated script.
+
 	query := db.QueryDesc{
-		WithName: "prod_conso",
-		// Outermost with clause adding the base revenue
-		// for a resource.
+		WithName: "energy_prod",
 		With: &db.QueryDesc{
-			WithName: "temp_prod_conso",
-			// Innermost with clause, grouping the production
-			// of resource by aggregating buildings individual
-			// production.
+			WithName: "energy_factor",
 			With: &db.QueryDesc{
-				Props: []string{
-					"pbpr.planet",
-					"pbpr.res",
-					"sum(pbpr.production * pbpf.factor) AS production",
-					"sum(pbpr.consumption * pbpf.factor) AS consumption",
+				WithName: "use_factor",
+				With: &db.QueryDesc{
+					Props: []string{
+						"r.id as res",
+						"GREATEST(LEAST(COALESCE(SUM(pbpr.production * pbpf.factor) / NULLIF(-SUM(pbpr.consumption * pbpf.factor), 0), 1), 1), 0) as use_ratio",
+					},
+					Table: "planets_buildings_production_factor as pbpf inner join planets_buildings_production_resources as pbpr  on pbpf.planet = pbpr.planet AND pbpf.building = pbpr.building inner join resources as r on pbpr.res = r.id",
+					Filters: []db.Filter{
+						{
+							Key:    "pbpf.planet",
+							Values: []interface{}{p.ID},
+						},
+					},
+					Ordering: "group by r.id",
 				},
-				Table: "planets_buildings_production_factor as pbpf inner join planets_buildings_production_resources as pbpr on pbpf.planet = pbpr.planet and pbpr.building = pbpf.building",
+				Props: []string{
+					"pbpr.building",
+					"uf.use_ratio",
+				},
+				Table: "planets_buildings_production_resources as pbpr inner join use_factor as uf on pbpr.res = uf.res",
 				Filters: []db.Filter{
 					{
-						Key:    "pbpf.planet",
-						Values: []interface{}{p.ID},
+						Key:      "pbpr.consumption",
+						Values:   []interface{}{0},
+						Operator: db.LessThan,
 					},
 				},
-				Ordering: "group by pbpr.planet, pbpr.res order by pbpr.res",
 			},
 			Props: []string{
-				"tpc.planet",
-				"tpc.res",
-				"(tpc.production + r.base_production) as production",
-				"tpc.consumption",
+				"pbpr.res as res",
+				"SUM(pbpf.factor * ef.use_ratio * pbpr.production) as prod",
+				"SUM(pbpf.factor * ef.use_ratio * pbpr.consumption) as conso",
 			},
-			Table: "temp_prod_conso as tpc inner join resources as r on tpc.res = r.id",
+			Table:    "planets_buildings_production_factor as pbpf inner join planets_buildings_production_resources as pbpr on pbpf.building = pbpr.building AND pbpf.planet = pbpr.planet inner join energy_factor as ef on pbpf.building = ef.building",
+			Ordering: "group by pbpr.res",
 		},
 		Props: []string{
-			"pr.res",
+			"ep.res",
 			"pr.amount",
 			"pr.storage_capacity",
-			"pc.production",
-			"pc.consumption",
+			"ep.prod + r.base_production as prod",
+			"ep.conso",
 		},
-		Table: "planets_resources as pr inner join prod_conso as pc on pr.res = pc.res",
+		Table: "planets_resources as pr inner join energy_prod as ep on pr.res = ep.res inner join resources as r on pr.res = r.id",
 		Filters: []db.Filter{
 			{
 				Key:    "pr.planet",

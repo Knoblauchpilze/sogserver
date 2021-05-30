@@ -105,8 +105,6 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]game.Planet, error) {
 	planets := make([]game.Planet, 0)
 
 	for _, ID = range IDs {
-		// Protect the fetching of the planet's data with a
-		// lock on the player.
 		pla, err := game.NewPlanetFromDB(ID, p.data)
 
 		if err != nil {
@@ -176,8 +174,6 @@ func (p *PlanetProxy) Moons(filters []db.Filter) ([]game.Planet, error) {
 	moons := make([]game.Planet, 0)
 
 	for _, ID = range IDs {
-		// Protect the fetching of the moon's data with a
-		// lock on the player.
 		m, err := game.NewMoonFromDB(ID, p.data)
 
 		if err != nil {
@@ -189,6 +185,74 @@ func (p *PlanetProxy) Moons(filters []db.Filter) ([]game.Planet, error) {
 	}
 
 	return moons, nil
+}
+
+// Debris :
+// Return a list of debris registered so far in the DB. A debris
+// field is linked to a position. The input filters might help
+// to narrow the search a bit by providing coordinates to look
+// for and a uni to look into.
+//
+// The `filters` define some filtering properties that can
+// be applied to the SQL query to only select part of all
+// the debris available. Each one is appended `as-is` to the
+// query.
+//
+// Returns the list of debris registered in the DB and matching
+// the input list of filters. In case the error is not `nil` the
+// value of the array should be ignored.
+func (p *PlanetProxy) Debris(filters []db.Filter) ([]game.DebrisField, error) {
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"d.id",
+		},
+		Table:   "debris_fields d inner join debris_fields_resources dfr on d.id = dfr.field",
+		Filters: filters,
+	}
+
+	dbRes, err := p.data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch debris fields (err: %v)", err))
+		return []game.DebrisField{}, err
+	}
+	if dbRes.Err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch debris fields (err: %v)", dbRes.Err))
+		return []game.DebrisField{}, dbRes.Err
+	}
+
+	// Fetch the data for each planet.
+	var ID string
+	IDs := make([]string, 0)
+
+	for dbRes.Next() {
+		err = dbRes.Scan(&ID)
+
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Error while fetching debris field ID (err: %v)", err))
+			continue
+		}
+
+		IDs = append(IDs, ID)
+	}
+
+	debris := make([]game.DebrisField, 0)
+
+	for _, ID = range IDs {
+		d, err := game.NewDebrisFieldFromDB(ID, p.data)
+
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Unable to fetch debris field \"%s\" data from DB (err: %v)", ID, err))
+			continue
+		}
+
+		debris = append(debris, d)
+	}
+
+	return debris, nil
 }
 
 // CreateFor :

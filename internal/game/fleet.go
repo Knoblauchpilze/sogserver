@@ -1091,7 +1091,7 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 	// to make sure that the debris fields actually
 	// exist.
 	if purpose(obj.Name) == harvesting {
-		_, err = NewDebrisFieldFromDB(f.TargetCoords, f.Universe, data)
+		_, err = NewDebrisFieldFromCoords(f.TargetCoords, f.Universe, data)
 
 		if err != nil && err != ErrElementNotFound {
 			return err

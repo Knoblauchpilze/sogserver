@@ -66,6 +66,34 @@ func (s *Server) listMoons() http.HandlerFunc {
 	return ed.ServeRoute(s.log)
 }
 
+// listDebris :
+// Used to perform the creation of a handler allowing to serve
+// the requests on debris.
+//
+// Returns the handler that can be executed to serve said reqs.
+func (s *Server) listDebris() http.HandlerFunc {
+	// Create the endpoint with the suited route.
+	ed := NewGetResourceEndpoint("debris")
+
+	allowed := map[string]string{
+		"id":           "d.id",
+		"universe":     "d.universe",
+		"galaxy":       "d.galaxy",
+		"solar_system": "d.solar_system",
+		"position":     "d.position",
+	}
+
+	// Configure the endpoint.
+	ed.WithFilters(allowed).WithResourceFilter("d.id").WithModule("debris").WithLocker(s.og)
+	ed.WithDataFunc(
+		func(filters []db.Filter) (interface{}, error) {
+			return s.planets.Debris(filters)
+		},
+	)
+
+	return ed.ServeRoute(s.log)
+}
+
 // changePlanets :
 // Used to perform the creation of a handler allowing to serve
 // the requests to change a planet.

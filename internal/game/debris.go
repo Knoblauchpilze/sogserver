@@ -38,6 +38,44 @@ type DebrisField struct {
 
 // NewDebrisFieldFromDB :
 // Used to fetch the content of the debris field in
+// the DB from its identifier.
+//
+// The `ID` defines the ID of the debris field to get.
+// It is fetched from the DB and should refer to an
+// existing debris field.
+//
+// The `data` allows to actually perform the DB
+// requests to fetch the debris field's data.
+//
+// Returns the debris field as fetched from the DB along
+// with any errors.
+func NewDebrisFieldFromDB(ID string, data Instance) (DebrisField, error) {
+	// Create the fleet.
+	df := DebrisField{
+		ID: ID,
+	}
+
+	// Consistency.
+	if !validUUID(df.ID) {
+		return df, ErrInvalidElementID
+	}
+
+	// Fetch the debris field's content.
+	err := df.fetchGeneralInfo(data)
+	if err != nil {
+		return df, err
+	}
+
+	err = df.fetchResources(data)
+	if err != nil {
+		return df, err
+	}
+
+	return df, nil
+}
+
+// NewDebrisFieldFromCoords :
+// Used to fetch the content of the debris field in
 // the DB from the input coordinates. No checks are
 // performed on the coordinates relatively to the
 // parent universe but it is considered an error if
@@ -54,7 +92,7 @@ type DebrisField struct {
 //
 // Returns the field as fetched from the DB along
 // with any errors.
-func NewDebrisFieldFromDB(coordinates Coordinate, universe string, data Instance) (DebrisField, error) {
+func NewDebrisFieldFromCoords(coordinates Coordinate, universe string, data Instance) (DebrisField, error) {
 	// Create the debris field.
 	df := DebrisField{
 		Universe:    universe,
@@ -78,6 +116,74 @@ func NewDebrisFieldFromDB(coordinates Coordinate, universe string, data Instance
 	}
 
 	return df, nil
+}
+
+// fetchGeneralInfo :
+// Used internally when building a debris field from
+// the DB to retrieve general information such as the
+// coordinates.
+//
+// The `data` defines the object to access the DB.
+//
+// Returns any error.
+func (df *DebrisField) fetchGeneralInfo(data Instance) error {
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"universe",
+			"galaxy",
+			"solar_system",
+			"position",
+			"created_at",
+		},
+		Table: "debris_fields",
+		Filters: []db.Filter{
+			{
+				Key:    "id",
+				Values: []interface{}{df.ID},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+	defer dbRes.Close()
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Scan the fleet's data.
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return ErrElementNotFound
+	}
+
+	var g, s, p int
+
+	err = dbRes.Scan(
+		&df.Universe,
+		&g,
+		&s,
+		&p,
+		&df.CreatedAt,
+	)
+
+	var errC error
+	df.Coordinates, errC = newCoordinate(g, s, p, Debris)
+	if errC != nil {
+		return errC
+	}
+
+	// Make sure that it's the only fleet.
+	if dbRes.Next() {
+		return ErrDuplicatedElement
+	}
+
+	return err
 }
 
 // fetchDescription :
@@ -139,7 +245,7 @@ func (df *DebrisField) fetchDescription(data Instance) error {
 		&df.CreatedAt,
 	)
 
-	// Make sure that it's the only fleet.
+	// Make sure that it's the only debris field.
 	if dbRes.Next() {
 		return ErrDuplicatedElement
 	}

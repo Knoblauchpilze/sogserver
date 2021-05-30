@@ -35,7 +35,7 @@ func (f *Fleet) harvest(data Instance) (string, error) {
 
 		// Retrieve the description of the debris
 		// field from the DB.
-		df, err := NewDebrisFieldFromDB(f.TargetCoords, f.Universe, data)
+		df, err := NewDebrisFieldFromCoords(f.TargetCoords, f.Universe, data)
 		if err != nil {
 			return "", ErrUnableToSimulateFleet
 		}

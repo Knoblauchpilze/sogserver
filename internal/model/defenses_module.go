@@ -58,9 +58,9 @@ type defenseProps struct {
 type DefenseDesc struct {
 	UpgradableDesc
 
-	Shield int       `json:"shield,omitempty"`
-	Weapon int       `json:"weapon,omitempty"`
-	Cost   FixedCost `json:"cost,omitempty"`
+	Shield int       `json:"shield"`
+	Weapon int       `json:"weapon"`
+	Cost   FixedCost `json:"cost"`
 }
 
 // NewDefensesModule :

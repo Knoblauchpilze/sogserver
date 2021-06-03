@@ -1416,10 +1416,10 @@ func (p *Planet) fetchResources(data Instance) error {
 			},
 			Props: []string{
 				"pbpr.res as res",
-				"SUM(pbpf.factor * ef.use_ratio * pbpr.production) as prod",
-				"SUM(pbpf.factor * ef.use_ratio * pbpr.consumption) as conso",
+				"SUM(pbpf.factor * COALESCE(ef.use_ratio, 0) * pbpr.production) as prod",
+				"SUM(pbpf.factor * COALESCE(ef.use_ratio, 0) * pbpr.consumption) as conso",
 			},
-			Table:    "planets_buildings_production_factor as pbpf inner join planets_buildings_production_resources as pbpr on pbpf.building = pbpr.building AND pbpf.planet = pbpr.planet inner join energy_factor as ef on pbpf.building = ef.building",
+			Table:    "planets_buildings_production_factor as pbpf inner join planets_buildings_production_resources as pbpr on pbpf.building = pbpr.building AND pbpf.planet = pbpr.planet left join energy_factor as ef on pbpf.building = ef.building",
 			Ordering: "group by pbpr.res",
 		},
 		Props: []string{

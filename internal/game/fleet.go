@@ -18,122 +18,121 @@ import (
 // to be a valid planet/moon and a target which can either
 // be another planet or moon or an unassigned location for
 // some objectives.
-//
-// The `ID` represents a way to uniquely identify the fleet.
-//
-// The `Universe` defines the ID of the universe this fleet
-// belongs to. This allows to check the coordinates of the
-// source and target to be sure that they're valid.
-//
-// The `Objective` defines the identifier of the objective
-// this fleet is serving. It is checked to make sure it is
-// consistent with the rest of the data (typically if no
-// target is provided, the objective should allow it).
-//
-// The `Player` defines the identifier of the player to
-// which this fleet is related to. It should also be the
-// owner of the source of the fleet.
-//
-// The `Source` defines the identifier of the fleet's
-// source. It should correspond to a valid planet or
-// moon within the specified universe.
-//
-// The `SourceType` defines the type of element that is
-// represented by the source. It is used to distinguish
-// between a planet and a moon as starting coordinates.
-//
-// The `TargetCoords` defines the coordinates of the
-// target destination of the fleet. It can either be
-// the only indication of the purpose of the fleet in
-// case the objective allows a fleet not directed to
-// a target or the coordinates of the planet/moon to
-// which this fleet is directed to.
-//
-// The `Target` defines the identifier of the planet
-// or moon to whicht his fleet is directed. Note that
-// this value may be empty if the objective allows it.
-//
-// The `ACS` defines the identifier of the ACS into
-// which this fleet is included. This value might be
-// empty in case the fleet is not related to any ACS.
-//
-// The `Speed` defines the speed percentage that is
-// used by the fleet to travel at. It will be used
-// when computing the flight time and the consumption.
-// This value should be in the range `[0; 1]`.
-//
-// The `CreatedAt` defines the time at which the
-// fleet was created. It is the launch time.
-//
-// The `ArrivalTime` represents the time at which
-// the fleet should arrive at its destination. This
-// value is computed in the server and any data
-// provided when registering the fleet is overriden.
-//
-// The `DeploymentTime` defines the duration in seconds
-// of the deployment phase of this fleet. This might be
-// `0` in case the fleet does not deploy but for example
-// in the case of expeditions or ACS defend, the fleet
-// will be deployed for a certain amount of time at its
-// destination. This duration is taken into account when
-// the `ReturnTime` is computed.
-//
-// The `ReturnTime` defines the time at which the
-// fleet will be back to its starting location in
-// case the fleet proceeds to its destination. This
-// value may be updated if the user calls back the
-// fleet beforehand, or ignored altogether in case
-// the fleet is no longer able to perform its duty
-// (like a completely destroyed fleet during a fight
-// or a deployment mission).
-//
-// The `Ships` defines the ships that are part of
-// the fleet along with the amount of each one of
-// them included in the fleet.
-//
-// The `Consumption` defines a slice containing all
-// the fuel needed for this fleet. It contains the
-// list of resources that need to be existing on the
-// launch body to be able to create the fleet. This
-// value is computed internally.
-//
-// The `Cargo` defines the requested resources to
-// be transported by the fleet. It will be checked
-// against the available resources on the source
-// body.
-//
-// The `flightTime` represents the duration of the
-// flight from the source destination to the target
-// in seconds. This should be the interval between
-// the `CreatedAt` and `ArrivalTime` but also from
-// `ArrivalTime` to `ReturnTime`.
-//
-// The `returning` allows to determine whether the
-// fleet is returning to its source or not.
-//
-// The `deployed` allows to determine whether the
-// fleet is currently deployed to another planet.
 type Fleet struct {
-	ID             string                          `json:"id"`
-	Universe       string                          `json:"universe"`
-	Objective      string                          `json:"objective"`
-	Player         string                          `json:"player"`
-	Source         string                          `json:"source"`
-	SourceType     Location                        `json:"source_type"`
-	TargetCoords   Coordinate                      `json:"target_coordinates"`
-	Target         string                          `json:"target"`
-	ACS            string                          `json:"acs"`
-	Speed          float32                         `json:"speed"`
-	CreatedAt      time.Time                       `json:"created_at"`
-	ArrivalTime    time.Time                       `json:"arrival_time"`
-	DeploymentTime int                             `json:"deployment_time"`
-	ReturnTime     time.Time                       `json:"return_time"`
-	Ships          ShipsInFleet                    `json:"ships"`
-	Consumption    []model.ResourceAmount          `json:"-"`
-	Cargo          map[string]model.ResourceAmount `json:"cargo"`
-	flightTime     time.Duration
-	returning      bool
-	deployed       bool
+	// The `ID` represents a way to uniquely identify the fleet.
+	ID string `json:"id"`
+
+	// The `Universe` defines the ID of the universe this fleet
+	// belongs to. This allows to check the coordinates of the
+	// source and target to be sure that they're valid.
+	Universe string `json:"universe"`
+
+	// The `Objective` defines the identifier of the objective
+	// this fleet is serving. It is checked to make sure it is
+	// consistent with the rest of the data (typically if no
+	// target is provided, the objective should allow it).
+	Objective string `json:"objective"`
+
+	// The `Player` defines the identifier of the player to
+	// which this fleet is related to. It should also be the
+	// owner of the source of the fleet.
+	Player string `json:"player"`
+
+	// The `Source` defines the identifier of the fleet's
+	// source. It should correspond to a valid planet or
+	// moon within the specified universe.
+	Source string `json:"source"`
+
+	// The `SourceType` defines the type of element that is
+	// represented by the source. It is used to distinguish
+	// between a planet and a moon as starting coordinates.
+	SourceType Location `json:"source_type"`
+
+	// The `TargetCoords` defines the coordinates of the
+	// target destination of the fleet. It can either be
+	// the only indication of the purpose of the fleet in
+	// case the objective allows a fleet not directed to
+	// a target or the coordinates of the planet/moon to
+	// which this fleet is directed to.
+	TargetCoords Coordinate `json:"target_coordinates"`
+
+	// The `Target` defines the identifier of the planet
+	// or moon to whicht his fleet is directed. Note that
+	// this value may be empty if the objective allows it.
+	Target string `json:"target"`
+
+	// The `ACS` defines the identifier of the ACS into
+	// which this fleet is included. This value might be
+	// empty in case the fleet is not related to any ACS.
+	ACS string `json:"acs"`
+
+	// The `Speed` defines the speed percentage that is
+	// used by the fleet to travel at. It will be used
+	// when computing the flight time and the consumption.
+	// This value should be in the range `[0; 1]`.
+	Speed float32 `json:"speed"`
+
+	// The `CreatedAt` defines the time at which the
+	// fleet was created. It is the launch time.
+	CreatedAt time.Time `json:"created_at"`
+
+	// The `ArrivalTime` represents the time at which
+	// the fleet should arrive at its destination. This
+	// value is computed in the server and any data
+	// provided when registering the fleet is overriden.
+	ArrivalTime time.Time `json:"arrival_time"`
+
+	// The `DeploymentTime` defines the duration in seconds
+	// of the deployment phase of this fleet. This might be
+	// `0` in case the fleet does not deploy but for example
+	// in the case of expeditions or ACS defend, the fleet
+	// will be deployed for a certain amount of time at its
+	// destination. This duration is taken into account when
+	// the `ReturnTime` is computed.
+	DeploymentTime int `json:"deployment_time"`
+
+	// The `ReturnTime` defines the time at which the
+	// fleet will be back to its starting location in
+	// case the fleet proceeds to its destination. This
+	// value may be updated if the user calls back the
+	// fleet beforehand, or ignored altogether in case
+	// the fleet is no longer able to perform its duty
+	// (like a completely destroyed fleet during a fight
+	// or a deployment mission).
+	ReturnTime time.Time `json:"return_time"`
+
+	// The `Ships` defines the ships that are part of
+	// the fleet along with the amount of each one of
+	// them included in the fleet.
+	Ships ShipsInFleet `json:"ships"`
+
+	// The `Consumption` defines a slice containing all
+	// the fuel needed for this fleet. It contains the
+	// list of resources that need to be existing on the
+	// launch body to be able to create the fleet. This
+	// value is computed internally.
+	Consumption []model.ResourceAmount `json:"-"`
+
+	// The `Cargo` defines the requested resources to
+	// be transported by the fleet. It will be checked
+	// against the available resources on the source
+	// body.
+	Cargo map[string]model.ResourceAmount `json:"cargo"`
+
+	// The `flightTime` represents the duration of the
+	// flight from the source destination to the target
+	// in seconds. This should be the interval between
+	// the `CreatedAt` and `ArrivalTime` but also from
+	// `ArrivalTime` to `ReturnTime`.
+	flightTime time.Duration
+
+	// The `returning` allows to determine whether the
+	// fleet is returning to its source or not.
+	returning bool
+
+	// The `deployed` allows to determine whether the
+	// fleet is currently deployed to another planet.
+	deployed bool
 }
 
 // ShipInFleet :
@@ -143,15 +142,14 @@ type Fleet struct {
 // type that are included in a fleet.
 // All the ships belong to a single player and are
 // launched from a single planet.
-//
-// The `ID` defines the identifier of the ship that
-// is involved in the fleet.
-//
-// The `Count` defines how many ships of this type
-// are involved.
 type ShipInFleet struct {
-	ID    string `json:"ship"`
-	Count int    `json:"count"`
+	// The `ID` defines the identifier of the ship that
+	// is involved in the fleet.
+	ID string `json:"ship"`
+
+	// The `Count` defines how many ships of this type
+	// are involved.
+	Count int `json:"count"`
 }
 
 // ShipsInFleet :

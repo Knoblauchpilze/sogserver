@@ -24,27 +24,26 @@ import (
 // This is really interesting as it allows to make more
 // shots in a single round. Rapid fires can be defined
 // against other ships or against defense systems.
-//
-// The `characteristics` defines the properties of the
-// ships such as their base weapon, shield and armour
-// values or base speed.
-//
-// The `rfVSShips` defines a map where the rapid fires
-// of ships against other ships can be loaded from DB.
-//
-// The `rfVSDefenses` defines the rapid fires of ships
-// against defense systems.
-//
-// The `propulsion` defines the propulsion how much a
-// single level of a propulsion technology increases
-// the speed of the ships using this tech.
 type ShipsModule struct {
 	fixedCostsModule
 
+	// The `characteristics` defines the properties of the
+	// ships such as their base weapon, shield and armour
+	// values or base speed.
 	characteristics map[string]shipProps
-	rfVSShips       map[string][]RapidFire
-	rfVSDefenses    map[string][]RapidFire
-	propulsion      map[string]int
+
+	// The `rfVSShips` defines a map where the rapid fires
+	// of ships against other ships can be loaded from DB.
+	rfVSShips map[string][]RapidFire
+
+	// The `rfVSDefenses` defines the rapid fires of ships
+	// against defense systems.
+	rfVSDefenses map[string][]RapidFire
+
+	// The `propulsion` defines the propulsion how much a
+	// single level of a propulsion technology increases
+	// the speed of the ships using this tech.
+	propulsion map[string]int
 }
 
 // shipProps :
@@ -55,41 +54,40 @@ type ShipsModule struct {
 // It also defines the cost of the propulsion system
 // for this ship and the technology that influences
 // it.
-//
-// The `cargo` defines the available space to hold
-// any resource. The larger this value the more of
-// resources can be carried.
-//
-// The `shield` defines the base shielding value for
-// this ship.
-//
-// The `weapon` is analogous to the `shield` to set
-// the base attack value of the ship.
-//
-// The `engines` defines the possible engines that
-// are associated to this ship depending on the
-// research level of the player.
-//
-// The `consumption` is an association table that
-// defines for each resource the consumption of the
-// ship to move a single space distance. This value
-// is then multiplied by the total length of the
-// journey to get the total consumption. It is not
-// linked to the propulsion technology but rather to
-// the intrinsic properties of the ship.
-//
-// The `deployment` is an association table that
-// defines for each resource the deployment cost
-// of this ship orbiting a foreign planet. Note
-// that the consumption is expressed in units
-// per hour.
 type shipProps struct {
-	cargo       int
-	shield      int
-	weapon      int
-	engines     []Engine
+	// The `cargo` defines the available space to hold
+	// any resource. The larger this value the more of
+	// resources can be carried.
+	cargo int
+
+	// The `shield` defines the base shielding value for
+	// this ship.
+	shield int
+
+	// The `weapon` is analogous to the `shield` to set
+	// the base attack value of the ship.
+	weapon int
+
+	// The `engines` defines the possible engines that
+	// are associated to this ship depending on the
+	// research level of the player.
+	engines []Engine
+
+	// The `consumption` is an association table that
+	// defines for each resource the consumption of the
+	// ship to move a single space distance. This value
+	// is then multiplied by the total length of the
+	// journey to get the total consumption. It is not
+	// linked to the propulsion technology but rather to
+	// the intrinsic properties of the ship.
 	consumption []Consumption
-	deployment  []Consumption
+
+	// The `deployment` is an association table that
+	// defines for each resource the deployment cost
+	// of this ship orbiting a foreign planet. Note
+	// that the consumption is expressed in units
+	// per hour.
+	deployment []Consumption
 }
 
 // Engine :
@@ -99,20 +97,19 @@ type shipProps struct {
 // and a minimum level which indicates the research
 // level that should be reached for this engine to
 // be unlocked.
-//
-// The `Propulsion` defines an identifier for the
-// technology used to build the engine.
-//
-// The `MinLevel` defines the minimum level of the
-// propulsion technology in order for this engine
-// to be used.
-//
-// The `Speed` defines the base speed provided by
-// the engine.
 type Engine struct {
-	Propulsion PropulsionDesc
-	MinLevel   int
-	Speed      int
+	// The `Propulsion` defines an identifier for the
+	// technology used to build the engine.
+	Propulsion PropulsionDesc `json:"propulsion_desc"`
+
+	// The `MinLevel` defines the minimum level of the
+	// propulsion technology in order for this engine
+	// to be used.
+	MinLevel int `json:"min_level"`
+
+	// The `Speed` defines the base speed provided by
+	// the engine.
+	Speed int `json:"speed"`
 }
 
 // PropulsionDesc :
@@ -120,16 +117,15 @@ type Engine struct {
 // an aggregate of a propulsion technology and a
 // factor describing the increase in speed that a
 // single level increase brings.
-//
-// The `Propulsion` defines the identifier of the
-// propulsion technology.
-//
-// The `Increase` defines the increase in speed
-// that each level of the propulsion technology
-// brings to the speed of the ship.
 type PropulsionDesc struct {
+	// The `Propulsion` defines the identifier of the
+	// propulsion technology.
 	Propulsion string `json:"propulsion"`
-	Increase   int    `json:"increase"`
+
+	// The `Increase` defines the increase in speed
+	// that each level of the propulsion technology
+	// brings to the speed of the ship.
+	Increase int `json:"increase"`
 }
 
 // Consumption :

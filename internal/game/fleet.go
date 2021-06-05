@@ -288,6 +288,12 @@ var ErrCargoNotMovable = fmt.Errorf("Resource cannot be moved by a fleet")
 // ErrInsufficientCargoForFleet : Indicates that the fleet has insufficient cargo space.
 var ErrInsufficientCargoForFleet = fmt.Errorf("Insufficient cargo space to hold resources in fleet")
 
+// ErrFuelNotMovable : Indicates that one of the resource defined in the fuel is not movable.
+var ErrFuelNotMovable = fmt.Errorf("Resource cannot be used as fuel by a fleet")
+
+// ErrInsufficientTankForFleet : Indicates that the fleet has insufficient fuel tank space.
+var ErrInsufficientTankForFleet = fmt.Errorf("Insufficient fuel tank space to hold resources in fleet")
+
 // ErrInvalidPropulsionSystem : Indicates that the propulsion system of a ship is not compatible with
 // the researched technologies of the starting location of a fleet.
 var ErrInvalidPropulsionSystem = fmt.Errorf("Unknown propulsion system for ship for a fleet")
@@ -1135,6 +1141,26 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 
 	if totNeeded > float32(totCargo) {
 		return ErrInsufficientCargoForFleet
+	}
+
+	// Make sure that the amount of fuel needed for
+	// this fleet can be stored in the tanks. We use
+	// a separate tank to store the fuel.
+	totNeeded = 0
+	for _, res := range f.Consumption {
+		rDesc, err := data.Resources.GetResourceFromID(res.Resource)
+		if err != nil {
+			return err
+		}
+		if !rDesc.Movable {
+			return ErrFuelNotMovable
+		}
+
+		totNeeded += res.Amount
+	}
+
+	if totNeeded > float32(totCargo) {
+		return ErrInsufficientTankForFleet
 	}
 
 	// Validate the amount of fuel available on the

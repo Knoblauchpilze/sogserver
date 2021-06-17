@@ -48,6 +48,11 @@ type Planet struct {
 	// and a universe.
 	Player string `json:"player"`
 
+	// The `PlayerName` defines the name of the player who
+	// owns this planet. It is relative to an account and
+	// a universe.
+	PlayerName string `json:"player_name"`
+
 	// The `Coordinates` define the position of the planet
 	// in its parent universe. All needed coordinates are
 	// guaranteed to be valid within it.
@@ -442,6 +447,7 @@ func NewPlanet(player string, coords Coordinate, homeworld bool, data Instance) 
 	p := &Planet{
 		ID:          ID,
 		Player:      player,
+		PlayerName:  "",
 		Coordinates: coords,
 		Name:        getDefaultPlanetName(homeworld),
 		Fields:      0,
@@ -852,22 +858,23 @@ func (p *Planet) fetchGeneralInfo(data Instance) error {
 	// Create the query and execute it.
 	query := db.QueryDesc{
 		Props: []string{
-			"player",
-			"name",
-			"min_temperature",
-			"max_temperature",
-			"fields",
-			"galaxy",
-			"solar_system",
-			"position",
-			"diameter",
-			"created_at",
-			"last_activity",
+			"p.player",
+			"pl.name",
+			"p.name",
+			"p.min_temperature",
+			"p.max_temperature",
+			"p.fields",
+			"p.galaxy",
+			"p.solar_system",
+			"p.position",
+			"p.diameter",
+			"p.created_at",
+			"p.last_activity",
 		},
-		Table: "planets",
+		Table: "planets p inner join players pl on p.player = pl.id",
 		Filters: []db.Filter{
 			{
-				Key:    "id",
+				Key:    "p.id",
 				Values: []interface{}{p.ID},
 			},
 		},
@@ -890,6 +897,7 @@ func (p *Planet) fetchGeneralInfo(data Instance) error {
 	for dbRes.Next() {
 		err = dbRes.Scan(
 			&p.Player,
+			&p.PlayerName,
 			&p.Name,
 			&p.MinTemp,
 			&p.MaxTemp,

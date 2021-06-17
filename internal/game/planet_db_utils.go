@@ -343,6 +343,7 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 	type lightPlanet struct {
 		ID                   string             `json:"id"`
 		Player               string             `json:"player"`
+		PlayerName           string             `json:"player_name"`
 		Coordinates          Coordinate         `json:"coordinate"`
 		Name                 string             `json:"name"`
 		Fields               int                `json:"fields"`
@@ -367,6 +368,7 @@ func (p *Planet) MarshalJSON() ([]byte, error) {
 	lp := lightPlanet{
 		ID:                   p.ID,
 		Player:               p.Player,
+		PlayerName:           p.PlayerName,
 		Coordinates:          p.Coordinates,
 		Name:                 p.Name,
 		Fields:               p.Fields,

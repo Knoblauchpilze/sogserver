@@ -9,21 +9,21 @@ import (
 
 // ErrActionStillInProgress : Indicates that an action is still running on a planet
 // hence preventing its deletion.
-var ErrActionStillInProgress = fmt.Errorf("Unable to delete planet due to an action still being in progress")
+var ErrActionStillInProgress = fmt.Errorf("unable to delete planet due to an action still being in progress")
 
 // ErrFleetNotYetReturned : Indicates that a fleet did not yet returned to the
 // planet hence preventing its deletion.
-var ErrFleetNotYetReturned = fmt.Errorf("Unable to delete planet due to fleet not yet returned")
+var ErrFleetNotYetReturned = fmt.Errorf("unable to delete planet due to fleet not yet returned")
 
 // ErrFleetNotYetArrived : Indicates that a fleet did not yet arrived to the planet
 // hence preventing its deletion.
-var ErrFleetNotYetArrived = fmt.Errorf("Unable to delete planet due to fleet not yet arrived")
+var ErrFleetNotYetArrived = fmt.Errorf("unable to delete planet due to fleet not yet arrived")
 
 // ErrCannotDeleteMoon : Indicates that it is not possible to voluntarily delete a moon.
-var ErrCannotDeleteMoon = fmt.Errorf("Cannot voluntarily delete a moon")
+var ErrCannotDeleteMoon = fmt.Errorf("cannot voluntarily delete a moon")
 
 // ErrHomeworldCannotBeDeleted : Indicates that a deletion of the homeworld is not possible.
-var ErrHomeworldCannotBeDeleted = fmt.Errorf("Cannot delete homeworld for player")
+var ErrHomeworldCannotBeDeleted = fmt.Errorf("cannot delete homeworld for player")
 
 // SaveToDB :
 // Used to save the content of this planet to

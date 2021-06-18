@@ -108,11 +108,11 @@ type Server struct {
 
 // ErrUnexpectedServeError : Indicates that an error occurred
 // while serving the root endpoint.
-var ErrUnexpectedServeError = fmt.Errorf("Unexpected error occurred while serving http requests")
+var ErrUnexpectedServeError = fmt.Errorf("unexpected error occurred while serving http requests")
 
 // ErrServerShutdownError : Indicates that an error occurred
 // while shutting down the server.
-var ErrServerShutdownError = fmt.Errorf("Unexpected error occurred while shutting down the server")
+var ErrServerShutdownError = fmt.Errorf("unexpected error occurred while shutting down the server")
 
 // configuration :
 // Defines the custom properties that can be defined for the
@@ -181,42 +181,42 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 
 	err := cm.Init(proxy, false)
 	if err != nil {
-		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+		panic(fmt.Errorf("cannot create server (err: %v)", err))
 	}
 
 	err = bm.Init(proxy, false)
 	if err != nil {
-		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+		panic(fmt.Errorf("cannot create server (err: %v)", err))
 	}
 
 	err = tm.Init(proxy, false)
 	if err != nil {
-		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+		panic(fmt.Errorf("cannot create server (err: %v)", err))
 	}
 
 	err = sm.Init(proxy, false)
 	if err != nil {
-		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+		panic(fmt.Errorf("cannot create server (err: %v)", err))
 	}
 
 	err = dm.Init(proxy, false)
 	if err != nil {
-		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+		panic(fmt.Errorf("cannot create server (err: %v)", err))
 	}
 
 	err = rm.Init(proxy, false)
 	if err != nil {
-		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+		panic(fmt.Errorf("cannot create server (err: %v)", err))
 	}
 
 	err = om.Init(proxy, false)
 	if err != nil {
-		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+		panic(fmt.Errorf("cannot create server (err: %v)", err))
 	}
 
 	err = mm.Init(proxy, false)
 	if err != nil {
-		panic(fmt.Errorf("Cannot create server (err: %v)", err))
+		panic(fmt.Errorf("cannot create server (err: %v)", err))
 	}
 
 	// Create the data model from it.
@@ -283,7 +283,7 @@ func NewServer(port int, proxy db.Proxy, log logger.Logger) Server {
 func (s *Server) Serve() error {
 	// Create a new router if one is not already started.
 	if s.router != nil {
-		panic(fmt.Errorf("Cannot start serving OG server, process already running"))
+		panic(fmt.Errorf("cannot start serving OG server, process already running"))
 	}
 
 	s.router = dispatcher.NewRouter(s.log)

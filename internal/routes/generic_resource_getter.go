@@ -94,15 +94,15 @@ type GetResourceEndpoint struct {
 
 // ErrMarshallingError :
 // Used to indicate an error while marshalling output data.
-var ErrMarshallingError = fmt.Errorf("Unable to marshal data to send back to client")
+var ErrMarshallingError = fmt.Errorf("unable to marshal data to send back to client")
 
 // ErrGzipCompressionError :
 // Used to indicate an error while gzipping the output data.
-var ErrGzipCompressionError = fmt.Errorf("Unable to gzip content to send back")
+var ErrGzipCompressionError = fmt.Errorf("unable to gzip content to send back")
 
 // ErrWriteError :
 // Used to indicate an error when sending the data back.
-var ErrWriteError = fmt.Errorf("Unable to send data back to the client")
+var ErrWriteError = fmt.Errorf("unable to send data back to the client")
 
 // NewGetResourceEndpoint :
 // Creates a new empty endpoint description with the provided

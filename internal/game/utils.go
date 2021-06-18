@@ -20,16 +20,16 @@ func validUUID(id string) bool {
 }
 
 // ErrInvalidElementID : Indicates that the element has no identifier.
-var ErrInvalidElementID = fmt.Errorf("Empty or invalid identifier provided for element")
+var ErrInvalidElementID = fmt.Errorf("empty or invalid identifier provided for element")
 
 // ErrDuplicatedElement : Indicates that the element identifier is not unique.
-var ErrDuplicatedElement = fmt.Errorf("Invalid not unique element")
+var ErrDuplicatedElement = fmt.Errorf("invalid not unique element")
 
 // ErrElementNotFound : Indicates that no element with specified ID exists.
-var ErrElementNotFound = fmt.Errorf("Identifier does not correspond to any known element")
+var ErrElementNotFound = fmt.Errorf("identifier does not correspond to any known element")
 
 // ErrInvalidName : Indicates that the name is invalid or already exists.
-var ErrInvalidName = fmt.Errorf("Invalid or already existing name")
+var ErrInvalidName = fmt.Errorf("invalid or already existing name")
 
 // ErrInvalidUpdateData : Indicates that the update data is not valid.
-var ErrInvalidUpdateData = fmt.Errorf("Invalid update data")
+var ErrInvalidUpdateData = fmt.Errorf("invalid update data")

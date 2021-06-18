@@ -11,7 +11,7 @@ import (
 
 // ErrPlanetIsNotAMoon : Indicates that an attempt to save a planet
 // as a moon was detected.
-var ErrPlanetIsNotAMoon = fmt.Errorf("Cannot save planet as moon")
+var ErrPlanetIsNotAMoon = fmt.Errorf("cannot save planet as moon")
 
 // NewMoonFromDB :
 // Used in a similar way to `NewPlanetFromDB` but to
@@ -134,10 +134,10 @@ func NewMoon(p *Planet, diameter int) *Planet {
 		MinTemp:   p.MinTemp,
 		MaxTemp:   p.MaxTemp,
 		Diameter:  diameter,
-		Resources: make(map[string]ResourceInfo, 0),
-		Buildings: make(map[string]BuildingInfo, 0),
-		Ships:     make(map[string]ShipInfo, 0),
-		Defenses:  make(map[string]DefenseInfo, 0),
+		Resources: make(map[string]ResourceInfo),
+		Buildings: make(map[string]BuildingInfo),
+		Ships:     make(map[string]ShipInfo),
+		Defenses:  make(map[string]DefenseInfo),
 
 		BuildingsUpgrade:     make([]BuildingAction, 0),
 		TechnologiesUpgrade:  make([]TechnologyAction, 0),
@@ -197,12 +197,13 @@ func (p *Planet) fetchMoonInfo(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -244,7 +245,7 @@ func (p *Planet) fetchMoonInfo(data Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchMoonResources(data Instance) error {
-	p.Resources = make(map[string]ResourceInfo, 0)
+	p.Resources = make(map[string]ResourceInfo)
 
 	// Do not update the resources of the moon: as
 	// there is no production of resources on a moon
@@ -269,12 +270,13 @@ func (p *Planet) fetchMoonResources(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}

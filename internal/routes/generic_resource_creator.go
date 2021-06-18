@@ -78,12 +78,12 @@ type CreateResourceEndpoint struct {
 // ErrNoData :
 // Used to indicate that there is not data provided to perform
 // the creation of the resource.
-var ErrNoData = fmt.Errorf("No data provided to perform resource creation")
+var ErrNoData = fmt.Errorf("no data provided to perform resource creation")
 
 // ErrInvalidData :
 // Used as a generic error in case the data provided as input
 // of a creation request could not be read.
-var ErrInvalidData = fmt.Errorf("Unable to parse input data")
+var ErrInvalidData = fmt.Errorf("unable to parse input data")
 
 // NewCreateResourceEndpoint :
 // Creates a new empty endpoint description with the provided

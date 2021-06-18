@@ -10,7 +10,7 @@ import (
 
 // ErrFleetFightSimulationFailure : Indicates that an error has occurred
 // while simulating a fleet fight.
-var ErrFleetFightSimulationFailure = fmt.Errorf("Failure to simulate fleet fight")
+var ErrFleetFightSimulationFailure = fmt.Errorf("failure to simulate fleet fight")
 
 // attack :
 // Used to perform the attack of the input planet
@@ -167,7 +167,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 				fID,
 				d.convertShipsForFleet(fID),
 				emptyRes,
-				fmt.Sprintf("%s", result.outcome),
+				result.outcome.String(),
 			},
 		}
 
@@ -184,7 +184,7 @@ func (f *Fleet) attack(p *Planet, data Instance) (string, error) {
 			f.ID,
 			a.convertShipsForFleet(f.ID),
 			carried,
-			fmt.Sprintf("%s", result.outcome),
+			result.outcome.String(),
 		},
 	}
 

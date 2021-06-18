@@ -32,7 +32,7 @@ var planetGenerationMaxTrials = 10
 // ErrTooManyTrials :
 // Used to indicate that the planet was not generated due
 // to too many failure when trying to select cooridnates.
-var ErrTooManyTrials = fmt.Errorf("Could not create planet after %d trial(s)", planetGenerationMaxTrials)
+var ErrTooManyTrials = fmt.Errorf("could not create planet after %d trial(s)", planetGenerationMaxTrials)
 
 // NewPlanetProxy :
 // Create a new proxy allowing to serve the requests
@@ -75,13 +75,14 @@ func (p *PlanetProxy) Planets(filters []db.Filter) ([]game.Planet, error) {
 	}
 
 	dbRes, err := p.data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch planets (err: %v)", err))
 		return []game.Planet{}, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch planets (err: %v)", dbRes.Err))
 		return []game.Planet{}, dbRes.Err
@@ -144,13 +145,14 @@ func (p *PlanetProxy) Moons(filters []db.Filter) ([]game.Planet, error) {
 	}
 
 	dbRes, err := p.data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch moons (err: %v)", err))
 		return []game.Planet{}, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch moons (err: %v)", dbRes.Err))
 		return []game.Planet{}, dbRes.Err
@@ -212,13 +214,14 @@ func (p *PlanetProxy) Debris(filters []db.Filter) ([]game.DebrisField, error) {
 	}
 
 	dbRes, err := p.data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch debris fields (err: %v)", err))
 		return []game.DebrisField{}, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch debris fields (err: %v)", dbRes.Err))
 		return []game.DebrisField{}, dbRes.Err
@@ -282,6 +285,10 @@ func (p *PlanetProxy) CreateFor(player game.Player) (string, error) {
 	// Retrieve the list of coordinates that are already
 	// used in the universe the player's in.
 	usedCoords, err := uni.UsedCoords(p.data.Proxy)
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Failed to fetch used coordinates in \"%s\" (err: %v)", player.Universe, err))
+		return "", err
+	}
 	totalPlanets := uni.GalaxiesCount * uni.GalaxySize * uni.SolarSystemSize
 
 	// Try to insert the planet in the DB while we have some

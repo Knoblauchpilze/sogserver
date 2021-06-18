@@ -92,27 +92,27 @@ type TechnologyInfo struct {
 }
 
 // ErrInvalidUniverseForPlayer : Indicates that the universe for a player is not valid.
-var ErrInvalidUniverseForPlayer = fmt.Errorf("Invalid universe identifier for player")
+var ErrInvalidUniverseForPlayer = fmt.Errorf("invalid universe identifier for player")
 
 // ErrInvalidAccountForPlayer : Indicates that the account for a player is not valid.
-var ErrInvalidAccountForPlayer = fmt.Errorf("Invalid account identifier for player")
+var ErrInvalidAccountForPlayer = fmt.Errorf("invalid account identifier for player")
 
 // ErrMultipleAccountInUniverse : Indicates that a player tries to register multiple
 // times in a single universe.
-var ErrMultipleAccountInUniverse = fmt.Errorf("Cannot register account twice in a universe")
+var ErrMultipleAccountInUniverse = fmt.Errorf("cannot register account twice in a universe")
 
 // ErrNameAlreadyInUse : Indicates that the name for a player is already in use.
-var ErrNameAlreadyInUse = fmt.Errorf("Name is already in use in universe")
+var ErrNameAlreadyInUse = fmt.Errorf("name is already in use in universe")
 
 // ErrNonExistingAccount : Indicates that the account does not exist for this player.
-var ErrNonExistingAccount = fmt.Errorf("Inexisting parent account")
+var ErrNonExistingAccount = fmt.Errorf("inexisting parent account")
 
 // ErrNonExistingUniverse : Indicates that the universe does not exist for this player.
-var ErrNonExistingUniverse = fmt.Errorf("Inexisting parent universe")
+var ErrNonExistingUniverse = fmt.Errorf("inexisting parent universe")
 
 // ErrInconsistentPlanetFound : Indicates that inconsistencies were found for the
 // planets of a player.
-var ErrInconsistentPlanetFound = fmt.Errorf("Inconsistencies found for planets of a player")
+var ErrInconsistentPlanetFound = fmt.Errorf("inconsistencies found for planets of a player")
 
 // valid :
 // Determines whether the player is valid. By valid we only mean
@@ -213,12 +213,13 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -257,7 +258,7 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 //
 // Returns any error.
 func (p *Player) fetchTechnologies(data Instance) error {
-	p.Technologies = make(map[string]TechnologyInfo, 0)
+	p.Technologies = make(map[string]TechnologyInfo)
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
@@ -275,12 +276,13 @@ func (p *Player) fetchTechnologies(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -348,12 +350,13 @@ func (p *Player) fetchPlanets(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}

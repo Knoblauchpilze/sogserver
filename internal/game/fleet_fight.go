@@ -408,11 +408,11 @@ type defenderUnits struct {
 
 // ErrInvalidDefenderStruct : Indicates that the structure provided
 // to update from defender units is not correct.
-var ErrInvalidDefenderStruct = fmt.Errorf("Invalid defender structure to update from units")
+var ErrInvalidDefenderStruct = fmt.Errorf("invalid defender structure to update from units")
 
 // ErrInvalidAttackerStruct : Indicates that the structure provided
 // to update from attacker units is not correct.
-var ErrInvalidAttackerStruct = fmt.Errorf("Invalid attacker structure to update from units")
+var ErrInvalidAttackerStruct = fmt.Errorf("invalid attacker structure to update from units")
 
 // maxCombatRounds : Indicates the maximum combat rounds
 // that can occur.
@@ -573,8 +573,7 @@ func (a *attacker) convertToUnits() attackerUnits {
 			if !ok {
 				rfs[u.Ship] = len(au.rfs)
 
-				var rfObj rf
-				rfObj = make(map[string]int)
+				rfObj := make(map[string]int)
 
 				for _, r := range u.RFVSShips {
 					rfObj[r.Receiver] = r.RF
@@ -812,8 +811,7 @@ func (d *defender) convertToUnits() defenderUnits {
 		if !ok {
 			rfs[shp.Ship] = len(du.rfs)
 
-			var rfObj rf
-			rfObj = make(map[string]int)
+			rfObj := make(map[string]int)
 
 			for _, r := range shp.RFVSShips {
 				rfObj[r.Receiver] = r.RF
@@ -831,8 +829,7 @@ func (d *defender) convertToUnits() defenderUnits {
 		if !ok {
 			rfs[shp.Ship] = len(du.rfs)
 
-			var rfObj rf
-			rfObj = make(map[string]int)
+			rfObj := make(map[string]int)
 
 			for _, r := range shp.RFVSShips {
 				rfObj[r.Receiver] = r.RF
@@ -1496,7 +1493,7 @@ func (d *defender) generateReports(a *attacker, fr fightResult, pillage []model.
 			d.location,
 			kind,
 			fr.date,
-			fmt.Sprintf("%s", fr.outcome),
+			fr.outcome.String(),
 			remains,
 			d.convertShips(),
 			d.convertDefenses(),

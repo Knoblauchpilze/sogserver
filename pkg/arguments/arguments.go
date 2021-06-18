@@ -89,7 +89,7 @@ func Parse(configFile string) AppMetadata {
 	// Find and read the config file.
 	err := viper.ReadInConfig()
 	if err != nil {
-		panic(fmt.Errorf("Could not parse input configuration \"%s\" (err: %v)", configFile, err))
+		panic(fmt.Errorf("could not parse input configuration \"%s\" (err: %v)", configFile, err))
 	}
 
 	// Create the default application properties.

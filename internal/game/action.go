@@ -67,29 +67,29 @@ type Cost struct {
 }
 
 // ErrInvalidPlanetForAction : The planet associated to an action is not valid.
-var ErrInvalidPlanetForAction = fmt.Errorf("Invalid planet associated to action")
+var ErrInvalidPlanetForAction = fmt.Errorf("invalid planet associated to action")
 
 // ErrInvalidPlayerForAction : The player associated to an action is not valid.
-var ErrInvalidPlayerForAction = fmt.Errorf("Invalid player associated to action")
+var ErrInvalidPlayerForAction = fmt.Errorf("invalid player associated to action")
 
 // ErrInvalidElementForAction : The element associated to an action is not valid.
-var ErrInvalidElementForAction = fmt.Errorf("Invalid element associated to action")
+var ErrInvalidElementForAction = fmt.Errorf("invalid element associated to action")
 
 // ErrMismatchInVerification : Indicates that the element provided to verify the
 // action mismatched the expected values.
-var ErrMismatchInVerification = fmt.Errorf("Mismatch in verification data for action")
+var ErrMismatchInVerification = fmt.Errorf("mismatch in verification data for action")
 
 // ErrInvalidDuration : Indicates that the duration of an action could not be validated.
-var ErrInvalidDuration = fmt.Errorf("Cannot convert completion time to duration for action")
+var ErrInvalidDuration = fmt.Errorf("cannot convert completion time to duration for action")
 
 // ErrNonExistingPlanet : Indicates that the planet for the action does not exist.
-var ErrNonExistingPlanet = fmt.Errorf("Parent planet does not exist")
+var ErrNonExistingPlanet = fmt.Errorf("parent planet does not exist")
 
 // ErrNonExistingMoon : Indicates that the moon for the action does not exist.
-var ErrNonExistingMoon = fmt.Errorf("Parent moon does not exist")
+var ErrNonExistingMoon = fmt.Errorf("parent moon does not exist")
 
 // ErrNonExistingElement : Indicates that the element for the action does not exist.
-var ErrNonExistingElement = fmt.Errorf("Invalid upgraded element for action")
+var ErrNonExistingElement = fmt.Errorf("invalid upgraded element for action")
 
 // valid :
 // Determines whether the action is valid. By valid we only

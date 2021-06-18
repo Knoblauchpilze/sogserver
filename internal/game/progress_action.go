@@ -39,14 +39,14 @@ type ProgressAction struct {
 }
 
 // ErrInvalidLevelForAction : Indicates that the action has an invalid level.
-var ErrInvalidLevelForAction = fmt.Errorf("Invalid level provided for action")
+var ErrInvalidLevelForAction = fmt.Errorf("invalid level provided for action")
 
 // ErrLevelIncorrect : The level provided for the action is not consistent
 // what's available in the verification data.
-var ErrLevelIncorrect = fmt.Errorf("Invalid level compared to planet for action")
+var ErrLevelIncorrect = fmt.Errorf("invalid level compared to planet for action")
 
 // ErrOnlyOneActionAuthorized : Indicates that another action of the same kind is already running.
-var ErrOnlyOneActionAuthorized = fmt.Errorf("Only a single action of that kind allowed")
+var ErrOnlyOneActionAuthorized = fmt.Errorf("only a single action of that kind allowed")
 
 // valid :
 // Determines whether this action is valid. By valid we
@@ -125,12 +125,13 @@ func newProgressActionFromDB(ID string, data Instance, table string, moon bool) 
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return a, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return a, dbRes.Err
 	}

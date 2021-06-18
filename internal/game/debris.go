@@ -146,12 +146,13 @@ func (df *DebrisField) fetchGeneralInfo(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -223,12 +224,13 @@ func (df *DebrisField) fetchDescription(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -279,12 +281,13 @@ func (df *DebrisField) fetchResources(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -306,20 +309,4 @@ func (df *DebrisField) fetchResources(data Instance) error {
 	}
 
 	return nil
-}
-
-// amountDispersed :
-// Allows to fetch the total amount of resources
-// dispersed in this field.
-//
-// Returns the total amount of resources that are
-// dispersed in the field.
-func (df *DebrisField) amountDispersed() float32 {
-	tot := float32(0.0)
-
-	for _, r := range df.Resources {
-		tot += r.Amount
-	}
-
-	return tot
 }

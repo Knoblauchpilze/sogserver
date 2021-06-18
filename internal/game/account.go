@@ -34,13 +34,13 @@ type Account struct {
 }
 
 // ErrInvalidPassword : Indicates that the account has an invalid password.
-var ErrInvalidPassword = fmt.Errorf("Empty password provided for account")
+var ErrInvalidPassword = fmt.Errorf("empty password provided for account")
 
 // ErrInvalidMail : Indicates that the mail does not seem to have a valid syntax.
-var ErrInvalidMail = fmt.Errorf("Invalid syntax for mail")
+var ErrInvalidMail = fmt.Errorf("invalid syntax for mail")
 
 // ErrDuplicatedMail : Indicates that the mail associated to an account already exists.
-var ErrDuplicatedMail = fmt.Errorf("Already existing mail")
+var ErrDuplicatedMail = fmt.Errorf("already existing mail")
 
 // valid :
 // Determines whether the account is valid. By valid we only mean
@@ -50,7 +50,7 @@ var ErrDuplicatedMail = fmt.Errorf("Already existing mail")
 func (a *Account) valid() error {
 	// Note that we *verified* the following regular expression
 	// does compile so we don't check for errors.
-	exp, _ := regexp.Compile("^[a-zA-Z0-9]*[a-zA-Z0-9_.+-][a-zA-Z0-9]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$")
+	exp, _ := regexp.Compile(`^[a-zA-Z0-9]*[a-zA-Z0-9_.+-][a-zA-Z0-9]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$`)
 
 	if !validUUID(a.ID) {
 		return ErrInvalidElementID
@@ -113,12 +113,13 @@ func NewAccountFromDB(ID string, data Instance) (Account, error) {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return a, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return a, dbRes.Err
 	}
@@ -183,7 +184,7 @@ func (a *Account) UpdateInDB(proxy db.Proxy) error {
 	// Make sure that at least one of the name, mail
 	// or password are valid. We want also to be sure
 	// that in case the mail is provided it is valid.
-	exp, _ := regexp.Compile("^[a-zA-Z0-9]*[a-zA-Z0-9_.+-][a-zA-Z0-9]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$")
+	exp, _ := regexp.Compile(`^[a-zA-Z0-9]*[a-zA-Z0-9_.+-][a-zA-Z0-9]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$`)
 
 	if a.Name == "" && a.Password == "" {
 		// No mail nor password, check the case of the

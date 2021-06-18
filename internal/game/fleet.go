@@ -231,83 +231,83 @@ const (
 )
 
 // ErrInvalidShipCount : Indicates that an invalid number of ships is requested.
-var ErrInvalidShipCount = fmt.Errorf("Invalid number of ships requested for fleet")
+var ErrInvalidShipCount = fmt.Errorf("invalid number of ships requested for fleet")
 
 // ErrNoShipsInFleet : Indicates that no ships are associated to a fleet.
-var ErrNoShipsInFleet = fmt.Errorf("No ships associated to fleet")
+var ErrNoShipsInFleet = fmt.Errorf("no ships associated to fleet")
 
 // ErrInvalidUniverseForFleet : Indicates that no valid universe is provided for a fleet.
-var ErrInvalidUniverseForFleet = fmt.Errorf("No valid universe for fleet")
+var ErrInvalidUniverseForFleet = fmt.Errorf("no valid universe for fleet")
 
 // ErrInvalidObjectiveForFleet : Indicates that the objective provided for a fleet is not valid.
-var ErrInvalidObjectiveForFleet = fmt.Errorf("No valid objective for a fleet")
+var ErrInvalidObjectiveForFleet = fmt.Errorf("no valid objective for a fleet")
 
 // ErrInvalidPlayerForFleet : Indicates that the player provided for a fleet is not valid.
-var ErrInvalidPlayerForFleet = fmt.Errorf("No valid player for fleet")
+var ErrInvalidPlayerForFleet = fmt.Errorf("no valid player for fleet")
 
 // ErrInvalidSourceForFleet : Indicates that the source of a fleet is not valid.
-var ErrInvalidSourceForFleet = fmt.Errorf("Source for fleet is not valid")
+var ErrInvalidSourceForFleet = fmt.Errorf("source for fleet is not valid")
 
 // ErrInvalidSourceTypeForFleet : Indicates that the source type for a fleet is not valid.
-var ErrInvalidSourceTypeForFleet = fmt.Errorf("Source type for fleet is not valid")
+var ErrInvalidSourceTypeForFleet = fmt.Errorf("source type for fleet is not valid")
 
 // ErrInvalidTargetForFleet : Indicates that the target of a fleet is not valid.
-var ErrInvalidTargetForFleet = fmt.Errorf("Target for fleet is not valid")
+var ErrInvalidTargetForFleet = fmt.Errorf("target for fleet is not valid")
 
 // ErrInvalidTargetTypeForFleet : Indicates that the target type for a fleet is not valid.
-var ErrInvalidTargetTypeForFleet = fmt.Errorf("Target type for fleet is not valid")
+var ErrInvalidTargetTypeForFleet = fmt.Errorf("target type for fleet is not valid")
 
 // ErrInvalidSpeedForFleet : Indicates that the speed provided for a fleet is not valid.
-var ErrInvalidSpeedForFleet = fmt.Errorf("Speed for fleet is not valid")
+var ErrInvalidSpeedForFleet = fmt.Errorf("speed for fleet is not valid")
 
 // ErrInvalidCargoForFleet : Indicates that a cargo resource is invalid for a fleet.
-var ErrInvalidCargoForFleet = fmt.Errorf("Invalid cargo value for fleet")
+var ErrInvalidCargoForFleet = fmt.Errorf("invalid cargo value for fleet")
 
 // ErrFleetDirectedTowardsSource : Indicates that the source is identical to the target of a fleet.
-var ErrFleetDirectedTowardsSource = fmt.Errorf("Target is identical to source for fleet")
+var ErrFleetDirectedTowardsSource = fmt.Errorf("target is identical to source for fleet")
 
 // ErrFleetInMultipleACS : Indicates that the fleet is linked to multiple ACS.
-var ErrFleetInMultipleACS = fmt.Errorf("Fleet is linked to multiple ACS")
+var ErrFleetInMultipleACS = fmt.Errorf("fleet is linked to multiple ACS")
 
 // ErrNonExistingObjective : Indicates that the objective does not exist for this fleet.
-var ErrNonExistingObjective = fmt.Errorf("Inexisting fleet objective")
+var ErrNonExistingObjective = fmt.Errorf("inexisting fleet objective")
 
 // ErrNoShipToPerformObjective : Indicates that no ship can be used to perform the fleet's objective.
-var ErrNoShipToPerformObjective = fmt.Errorf("No ships can perform the fleet's objective")
+var ErrNoShipToPerformObjective = fmt.Errorf("no ships can perform the fleet's objective")
 
 // ErrInvalidTargetForObjective : Indicates that the target is not consistent with the fleet's objective.
-var ErrInvalidTargetForObjective = fmt.Errorf("Target cannot be used for fleet's objective")
+var ErrInvalidTargetForObjective = fmt.Errorf("target cannot be used for fleet's objective")
 
 // ErrInvalidCargoForObjective : Indicates that the cargo specified for the fleet is not
 // consistent with the fleet's objective.
-var ErrInvalidCargoForObjective = fmt.Errorf("Cargo is not consistent with fleet's objective")
+var ErrInvalidCargoForObjective = fmt.Errorf("cargo is not consistent with fleet's objective")
 
 // ErrCargoNotMovable : Indicates that one of the resource defined in the cargo is not movable.
-var ErrCargoNotMovable = fmt.Errorf("Resource cannot be moved by a fleet")
+var ErrCargoNotMovable = fmt.Errorf("resource cannot be moved by a fleet")
 
 // ErrInsufficientCargoForFleet : Indicates that the fleet has insufficient cargo space.
-var ErrInsufficientCargoForFleet = fmt.Errorf("Insufficient cargo space to hold resources in fleet")
+var ErrInsufficientCargoForFleet = fmt.Errorf("insufficient cargo space to hold resources in fleet")
 
 // ErrFuelNotMovable : Indicates that one of the resource defined in the fuel is not movable.
-var ErrFuelNotMovable = fmt.Errorf("Resource cannot be used as fuel by a fleet")
+var ErrFuelNotMovable = fmt.Errorf("resource cannot be used as fuel by a fleet")
 
 // ErrInsufficientTankForFleet : Indicates that the fleet has insufficient fuel tank space.
-var ErrInsufficientTankForFleet = fmt.Errorf("Insufficient fuel tank space to hold resources in fleet")
+var ErrInsufficientTankForFleet = fmt.Errorf("insufficient fuel tank space to hold resources in fleet")
 
 // ErrInvalidPropulsionSystem : Indicates that the propulsion system of a ship is not compatible with
 // the researched technologies of the starting location of a fleet.
-var ErrInvalidPropulsionSystem = fmt.Errorf("Unknown propulsion system for ship for a fleet")
+var ErrInvalidPropulsionSystem = fmt.Errorf("unknown propulsion system for ship for a fleet")
 
 // ErrFleetObjectiveNotCorrect : Indicates that the fleet objective associated to the fleet is not
 // correct and cannot be performed by the server.
-var ErrFleetObjectiveNotCorrect = fmt.Errorf("Unknown fleet objective in simulation phase")
+var ErrFleetObjectiveNotCorrect = fmt.Errorf("unknown fleet objective in simulation phase")
 
 // ErrUnableToSimulateFleet : Indicates that an error occurred while simulating the fleet.
-var ErrUnableToSimulateFleet = fmt.Errorf("Error occurred while simulating fleet")
+var ErrUnableToSimulateFleet = fmt.Errorf("error occurred while simulating fleet")
 
 // ErrMultipliersError : Indicates that an error occurred while fetching the multipliers for the
 // parent universe of the fleet.
-var ErrMultipliersError = fmt.Errorf("Error occurred while fetching universe's multipliers")
+var ErrMultipliersError = fmt.Errorf("error occurred while fetching universe's multipliers")
 
 // Valid :
 // Determines whether the fleet is valid. By valid we only
@@ -497,12 +497,13 @@ func (f *Fleet) fetchGeneralInfo(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -585,12 +586,13 @@ func (f *Fleet) fetchACSInfo(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -629,7 +631,7 @@ func (f *Fleet) fetchACSInfo(data Instance) error {
 //
 // Returns any error.
 func (f *Fleet) fetchShips(data Instance) error {
-	f.Ships = make(map[string]ShipInFleet, 0)
+	f.Ships = make(map[string]ShipInFleet)
 
 	// Create the query and execute it.
 	query := db.QueryDesc{
@@ -647,12 +649,13 @@ func (f *Fleet) fetchShips(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -709,12 +712,13 @@ func (f *Fleet) fetchCargo(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -1123,7 +1127,7 @@ func (f *Fleet) Validate(data Instance, source *Planet, target *Planet) error {
 	}
 
 	if f.Cargo == nil {
-		f.Cargo = make(map[string]model.ResourceAmount, 0)
+		f.Cargo = make(map[string]model.ResourceAmount)
 	}
 
 	var totNeeded float32
@@ -1409,7 +1413,7 @@ func (f *Fleet) simulate(p *Planet, data Instance) error {
 	case "destroy":
 		script, err = f.destroy(p, data)
 	case "expedition":
-		return fmt.Errorf("Not implemented")
+		return fmt.Errorf("not implemented")
 	case "ACS defend":
 		script = "fleet_acs_defend"
 	case "ACS attack":

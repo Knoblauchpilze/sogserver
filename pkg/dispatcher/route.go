@@ -67,7 +67,7 @@ type Route struct {
 // ErrRouteNotValid :
 // Indicates that the expression provided to define a
 // route is not valid.
-var ErrRouteNotValid = fmt.Errorf("Invalid expression provided for route")
+var ErrRouteNotValid = fmt.Errorf("invalid expression provided for route")
 
 // routeMatch :
 // Stores the information about a matched route. Notably
@@ -114,13 +114,11 @@ type routeMatch struct {
 // the route along with any error.
 func buildRouteElements(route string) ([]*regexp.Regexp, error) {
 	// Remove the first and last '/' characters from the
-	// input route if any.
-	if strings.HasPrefix(route, "/") {
-		route = strings.TrimPrefix(route, "/")
-	}
-	if strings.HasSuffix(route, "/") {
-		route = strings.TrimSuffix(route, "/")
-	}
+	// input route if any. Do it unconditionnally as the
+	// functions are handling case where the string does
+	// not contain the element.
+	route = strings.TrimPrefix(route, "/")
+	route = strings.TrimSuffix(route, "/")
 
 	// Make sure that the route is not empty. If this
 	// is the case we will return an empty array of
@@ -192,7 +190,7 @@ func NewRoute(path string, log logger.Logger) *Route {
 	}
 
 	return &Route{
-		methods: make(map[string]bool, 0),
+		methods: make(map[string]bool),
 		elems:   tokens,
 		handler: http.Handler(NoOp(log)),
 		log:     log,
@@ -333,13 +331,11 @@ func (r *Route) matchName(uri string) int {
 	// We will also prevent matching of empty routes and
 	// other weird cases right away.
 
-	// Sanitize the input `uri`.
-	if strings.HasPrefix(uri, "/") {
-		uri = strings.TrimPrefix(uri, "/")
-	}
-	if strings.HasSuffix(uri, "/") {
-		uri = strings.TrimSuffix(uri, "/")
-	}
+	// Sanitize the input `uri`. As the `TrimSuff/Prefix`
+	// are handling the case where the prefix does not
+	// exist we do it unconditionnally.
+	uri = strings.TrimPrefix(uri, "/")
+	uri = strings.TrimSuffix(uri, "/")
 
 	if uri == "" {
 		// We only match if there are no elements to match

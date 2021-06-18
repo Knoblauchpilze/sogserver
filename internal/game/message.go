@@ -109,12 +109,13 @@ func (m *Message) fetchGeneralInfo(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -168,12 +169,13 @@ func (m *Message) fetchArguments(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}

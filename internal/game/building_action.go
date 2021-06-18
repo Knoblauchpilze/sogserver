@@ -77,11 +77,11 @@ type FieldsEffect struct {
 }
 
 // ErrNoFieldsLeft : Indicates that there are not fields left to perform the action.
-var ErrNoFieldsLeft = fmt.Errorf("No remaining fields left for action")
+var ErrNoFieldsLeft = fmt.Errorf("no remaining fields left for action")
 
 // ErrBuildingCannotBeBuilt : Indicates that the building cannot be built on this
 // celestial body.
-var ErrBuildingCannotBeBuilt = fmt.Errorf("Building cannot be built on this location")
+var ErrBuildingCannotBeBuilt = fmt.Errorf("building cannot be built on this location")
 
 // valid :
 // Determines whether this action is valid. By valid we
@@ -230,12 +230,13 @@ func (a *BuildingAction) fetchProductionEffects(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -284,12 +285,13 @@ func (a *BuildingAction) fetchStorageEffects(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -347,12 +349,13 @@ func (a *BuildingAction) fetchFieldsEffects(data Instance, moon bool) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}

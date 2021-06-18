@@ -56,22 +56,22 @@ type ACSFleet struct {
 }
 
 // ErrACSOperationMismatch : Indicates that the fleet is not added to the correct ACS operation.
-var ErrACSOperationMismatch = fmt.Errorf("Mismatch in fleet's ACS compared to actual ACS operation")
+var ErrACSOperationMismatch = fmt.Errorf("mismatch in fleet's ACS compared to actual ACS operation")
 
 // ErrACSUniverseMismacth : Indicates that the universe of the ACS and the fleet mismatch.
-var ErrACSUniverseMismacth = fmt.Errorf("Mismatch in fleet universe compared to ACS operation")
+var ErrACSUniverseMismacth = fmt.Errorf("mismatch in fleet universe compared to ACS operation")
 
 // ErrACSObjectiveMismacth : Indicates that the objective of the ACS and the fleet mismatch.
-var ErrACSObjectiveMismacth = fmt.Errorf("Mismatch in fleet objective compared to ACS operation")
+var ErrACSObjectiveMismacth = fmt.Errorf("mismatch in fleet objective compared to ACS operation")
 
 // ErrACSTargetMismacth : Indicates that the target of the ACS and the fleet mismatch.
-var ErrACSTargetMismacth = fmt.Errorf("Mismatch in fleet target compared to ACS operation")
+var ErrACSTargetMismacth = fmt.Errorf("mismatch in fleet target compared to ACS operation")
 
 // ErrACSTargetTypeMismacth : Indicates that the target type of the ACS and the fleet mismatch.
-var ErrACSTargetTypeMismacth = fmt.Errorf("Mismatch in fleet target type compared to ACS operation")
+var ErrACSTargetTypeMismacth = fmt.Errorf("mismatch in fleet target type compared to ACS operation")
 
 // ErrACSFleetDelayedTooMuch : Indicates that the fleet would delay the ACS by too much time.
-var ErrACSFleetDelayedTooMuch = fmt.Errorf("Fleet would delay ACS operation too much")
+var ErrACSFleetDelayedTooMuch = fmt.Errorf("fleet would delay ACS operation too much")
 
 // maxFleetDelay : Indicates the maximum delay in percentage of the remaining flight time that
 // a component of an ACS fleet is allowed to cause.
@@ -197,12 +197,13 @@ func (acs *ACSFleet) fetchGeneralInfo(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -255,12 +256,13 @@ func (acs *ACSFleet) fetchFleets(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -311,12 +313,13 @@ func (acs *ACSFleet) fetchArrivalTime(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -665,7 +668,7 @@ func (acs *ACSFleet) simulate(p *Planet, data Instance) error {
 				f.ID,
 				a.convertShipsForFleet(f.ID),
 				pillageForFleet,
-				fmt.Sprintf("%s", result.outcome),
+				result.outcome.String(),
 			},
 		}
 

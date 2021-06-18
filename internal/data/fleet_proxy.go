@@ -28,14 +28,14 @@ type FleetProxy struct {
 
 // ErrMismatchBetweenTargetCoordsAndID : Indicates that the coordinates of the target is
 // not consistent with the target's identifier.
-var ErrMismatchBetweenTargetCoordsAndID = fmt.Errorf("Target's coordinates not consistent with ID for fleet")
+var ErrMismatchBetweenTargetCoordsAndID = fmt.Errorf("target's coordinates not consistent with ID for fleet")
 
 // ErrPlayerDoesNotOwnSource : Indicates that the player for a fleet does not own the source.
-var ErrPlayerDoesNotOwnSource = fmt.Errorf("Player does not own source of a fleet")
+var ErrPlayerDoesNotOwnSource = fmt.Errorf("player does not own source of a fleet")
 
 // ErrUniverseMismatchForFleet : Indicates that one ore more element of the fleet do not
 // belong to the fleet's universe.
-var ErrUniverseMismatchForFleet = fmt.Errorf("Universe specified for fleet does not match the components")
+var ErrUniverseMismatchForFleet = fmt.Errorf("universe specified for fleet does not match the components")
 
 // NewFleetProxy :
 // Create a new proxy allowing to serve the requests
@@ -79,13 +79,14 @@ func (p *FleetProxy) Fleets(filters []db.Filter) ([]game.Fleet, error) {
 	}
 
 	dbRes, err := p.data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch fleets (err: %v)", err))
 		return []game.Fleet{}, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch fleets (err: %v)", dbRes.Err))
 		return []game.Fleet{}, dbRes.Err
@@ -145,13 +146,14 @@ func (p *FleetProxy) ACSFleets(filters []db.Filter) ([]game.ACSFleet, error) {
 	}
 
 	dbRes, err := p.data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch ACS fleets (err: %v)", err))
 		return []game.ACSFleet{}, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch ACS fleets (err: %v)", dbRes.Err))
 		return []game.ACSFleet{}, dbRes.Err

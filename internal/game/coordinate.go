@@ -50,7 +50,7 @@ const (
 // ErrInvalidCoordinateType :
 // Used to indicate that a coordinate was constructed with an
 // invalid location identifier.
-var ErrInvalidCoordinateType = fmt.Errorf("Unknown coordinate location type")
+var ErrInvalidCoordinateType = fmt.Errorf("unknown coordinate location type")
 
 // existsLocation :
 // Used to make sure that the input location is a valid

@@ -186,7 +186,7 @@ func (sm spyModule) counterEspionageProbability() float32 {
 
 // ErrFleetEspionageSimulationFailure : Indicates that an error has occurred
 // while simulating an espionage operation.
-var ErrFleetEspionageSimulationFailure = fmt.Errorf("Failure to simulate fleet espionage")
+var ErrFleetEspionageSimulationFailure = fmt.Errorf("failure to simulate fleet espionage")
 
 // spy :
 // Used to perform a spying operation on the planet

@@ -9,7 +9,7 @@ import (
 // ErrInvalidQuery :
 // Used in case the query to perform in the DB is either
 // `nil` or empty.
-var ErrInvalidQuery = fmt.Errorf("Invalid nil query")
+var ErrInvalidQuery = fmt.Errorf("invalid nil query")
 
 // ErrInvalidDB :
 // Provides an abstract way to define that an error
@@ -17,18 +17,18 @@ var ErrInvalidQuery = fmt.Errorf("Invalid nil query")
 // DB. This is especially useful to define whether
 // an error returned by the `Init` method of some
 // `DBModule` originates in a failure of the DB.
-var ErrInvalidDB = fmt.Errorf("Invalid nil DB")
+var ErrInvalidDB = fmt.Errorf("invalid nil DB")
 
 // ErrInvalidData :
 // Used to indicate that a marshalling error has
 // been detected when trying to import some item
 // in the DB.
-var ErrInvalidData = fmt.Errorf("Invalid data to insert to DB")
+var ErrInvalidData = fmt.Errorf("invalid data to insert to DB")
 
 // ErrInvalidScan :
 // Used to indicate that a `Scan` operation on a
 // `QueryResult` has failec.
-var ErrInvalidScan = fmt.Errorf("Invalid scan operation on DB")
+var ErrInvalidScan = fmt.Errorf("invalid scan operation on DB")
 
 // ErrNoSQLCode :
 // Defines that the error message provided in input

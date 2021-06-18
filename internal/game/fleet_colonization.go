@@ -8,7 +8,7 @@ import (
 
 // ErrColonizationStatusUnknown : Indicates that we could not determine whether
 // the colonization process could be executed.
-var ErrColonizationStatusUnknown = fmt.Errorf("Cannot determine colonization status")
+var ErrColonizationStatusUnknown = fmt.Errorf("cannot determine colonization status")
 
 // colonizationAuthorized :
 // Used to verify whether the player is authorized to

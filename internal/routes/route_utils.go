@@ -80,14 +80,14 @@ type RouteData struct {
 // ErrInvalidRequest :
 // Used to indicate that the request provided in input is not
 // valid (typically `nil`).
-var ErrInvalidRequest = fmt.Errorf("Invalid request provided in input")
+var ErrInvalidRequest = fmt.Errorf("invalid request provided in input")
 
 // ErrInvalidRoute :
 // Used to indicate that the route provided in input is not
 // consistent with the expected data. Typically it might be
 // used to indicate that the route does not start with the
 // adequate prefix.
-var ErrInvalidRoute = fmt.Errorf("Invalid route provided in input")
+var ErrInvalidRoute = fmt.Errorf("invalid route provided in input")
 
 // InternalServerErrorString :
 // Used to provide a unique string that can be used in case an
@@ -108,12 +108,8 @@ var maxRoutePropsSizeInMemory int64 = 1024 * 1024
 //
 // A string stripped from any leading or trailing '/' items.
 func sanitizeRoute(route string) string {
-	if strings.HasPrefix(route, "/") {
-		route = strings.TrimPrefix(route, "/")
-	}
-	if strings.HasSuffix(route, "/") {
-		route = strings.TrimSuffix(route, "/")
-	}
+	route = strings.TrimPrefix(route, "/")
+	route = strings.TrimSuffix(route, "/")
 
 	return route
 }
@@ -134,12 +130,8 @@ func sanitizeRoute(route string) string {
 // in the string.
 func splitRouteElements(route string) []string {
 	// Remove prefix for the route and suffix.
-	if strings.HasPrefix(route, "/") {
-		route = strings.TrimPrefix(route, "/")
-	}
-	if strings.HasSuffix(route, "/") {
-		route = strings.TrimSuffix(route, "/")
-	}
+	route = strings.TrimPrefix(route, "/")
+	route = strings.TrimSuffix(route, "/")
 
 	// Handle for empty string.
 	if len(route) == 0 {

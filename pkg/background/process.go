@@ -67,11 +67,11 @@ type OperationFunc func() (bool, error)
 
 // ErrAlreadyRunning : Indicates that this process is
 // already running and cannot be started again.
-var ErrAlreadyRunning = fmt.Errorf("Unable to start already running process")
+var ErrAlreadyRunning = fmt.Errorf("unable to start already running process")
 
 // ErrInvalidOperation : Indicates that the operation
 // associated to this process is not valid.
-var ErrInvalidOperation = fmt.Errorf("Invalid operation to start process")
+var ErrInvalidOperation = fmt.Errorf("invalid operation to start process")
 
 // NewProcess :
 // Defines a new process object with the specified
@@ -272,7 +272,6 @@ func (p *Process) activeLoop() {
 		select {
 		case connected = <-p.termination:
 			// Termination requested.
-			break
 		case t := <-ticker.C:
 			p.log.Trace(logger.Notice, p.module, fmt.Sprintf("Executing process at %v", t))
 
@@ -298,7 +297,7 @@ func (p *Process) activeLoop() {
 		}
 	}
 
-	p.log.Trace(logger.Info, p.module, fmt.Sprintf("Stopping background process"))
+	p.log.Trace(logger.Info, p.module, "Stopping background process")
 }
 
 // execute :

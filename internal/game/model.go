@@ -153,9 +153,9 @@ func (i Instance) trace(level logger.Severity, msg string) {
 // It will also perform an update of the actions
 // that are outstanding when the lock is acquired.
 func (i Instance) Lock() {
-	i.trace(logger.Verbose, fmt.Sprintf("Acquiring lock on DB"))
+	i.trace(logger.Verbose, "Acquiring lock on DB")
 	i.waiter.lock()
-	i.trace(logger.Verbose, fmt.Sprintf("Acquired lock on DB"))
+	i.trace(logger.Verbose, "Acquired lock on DB")
 
 	// Schedule the execution of the outstanding actions
 	// now that the lock is acquired.
@@ -169,9 +169,9 @@ func (i Instance) Lock() {
 // Used to release the lock previously acquired
 // on this object.
 func (i Instance) Unlock() {
-	i.trace(logger.Verbose, fmt.Sprintf("Releasing lock on DB"))
+	i.trace(logger.Verbose, "Releasing lock on DB")
 	i.waiter.unlock()
-	i.trace(logger.Verbose, fmt.Sprintf("Released lock on DB"))
+	i.trace(logger.Verbose, "Released lock on DB")
 }
 
 // scheduleActions :
@@ -206,12 +206,13 @@ func (i Instance) scheduleActions() error {
 	}
 
 	dbRes, err := i.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}

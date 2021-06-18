@@ -149,19 +149,19 @@ func parseConfiguration() configuration {
 	// configuration properties and that the rest of
 	// the values are consistent.
 	if len(config.name) == 0 {
-		panic(fmt.Errorf("Invalid DB name fetched from configuration \"%s\"", config.name))
+		panic(fmt.Errorf("invalid DB name fetched from configuration \"%s\"", config.name))
 	}
 	if len(config.user) == 0 {
-		panic(fmt.Errorf("Invalid DB user fetched from configuration \"%s\"", config.user))
+		panic(fmt.Errorf("invalid DB user fetched from configuration \"%s\"", config.user))
 	}
 	if len(config.password) == 0 {
-		panic(fmt.Errorf("Invalid DB password fetched from configuration \"%s\"", config.password))
+		panic(fmt.Errorf("invalid DB password fetched from configuration \"%s\"", config.password))
 	}
 	if config.port < 0 {
-		panic(fmt.Errorf("Invalid DB port fetched from configuration %d", config.port))
+		panic(fmt.Errorf("invalid DB port fetched from configuration %d", config.port))
 	}
 	if config.connectionsPool <= 0 {
-		panic(fmt.Errorf("Invalid DB connections pool fetched from configuration %d", config.connectionsPool))
+		panic(fmt.Errorf("invalid DB connections pool fetched from configuration %d", config.connectionsPool))
 	}
 
 	return config
@@ -184,7 +184,7 @@ func NewPool(logger logger.Logger) *DB {
 	// Verify the port.
 	maxPort := 1 << 16
 	if config.port >= maxPort {
-		panic(fmt.Errorf("Cannot use port %d to connect to DB \"%s\"", config.port, config.name))
+		panic(fmt.Errorf("cannot use port %d to connect to DB \"%s\"", config.port, config.name))
 	}
 
 	// Create the DB object.

@@ -250,19 +250,19 @@ type DefenseInfo struct {
 }
 
 // ErrNotEnoughResources : Indicates that there are not enough resources available.
-var ErrNotEnoughResources = fmt.Errorf("Not enough resources available")
+var ErrNotEnoughResources = fmt.Errorf("not enough resources available")
 
 // ErrTechDepsNotMet : Indicates that the tech dependencies are not met.
-var ErrTechDepsNotMet = fmt.Errorf("Action dependencies not met")
+var ErrTechDepsNotMet = fmt.Errorf("action dependencies not met")
 
 // ErrNoCost : Indicates that the action does not define any cost.
-var ErrNoCost = fmt.Errorf("No cost provided for action")
+var ErrNoCost = fmt.Errorf("no cost provided for action")
 
 // ErrNotEnoughFuel : Indicates that there's not enough fuel for the fleet.
-var ErrNotEnoughFuel = fmt.Errorf("Not enough fuel for fleet")
+var ErrNotEnoughFuel = fmt.Errorf("not enough fuel for fleet")
 
 // ErrNotEnoughShips : Indicates that there's not enough ships for the fleet.
-var ErrNotEnoughShips = fmt.Errorf("Not enough ships for fleet")
+var ErrNotEnoughShips = fmt.Errorf("not enough ships for fleet")
 
 // getDefaultPlanetName :
 // Used to retrieve a default name for a planet. The
@@ -454,10 +454,10 @@ func NewPlanet(player string, coords Coordinate, homeworld bool, data Instance) 
 		MinTemp:     0,
 		MaxTemp:     0,
 		Diameter:    0,
-		Resources:   make(map[string]ResourceInfo, 0),
-		Buildings:   make(map[string]BuildingInfo, 0),
-		Ships:       make(map[string]ShipInfo, 0),
-		Defenses:    make(map[string]DefenseInfo, 0),
+		Resources:   make(map[string]ResourceInfo),
+		Buildings:   make(map[string]BuildingInfo),
+		Ships:       make(map[string]ShipInfo),
+		Defenses:    make(map[string]DefenseInfo),
 
 		BuildingsUpgrade:     make([]BuildingAction, 0),
 		TechnologiesUpgrade:  make([]TechnologyAction, 0),
@@ -516,12 +516,13 @@ func UniverseOfPlanet(planet string, data Instance) (string, error) {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return uni, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return uni, dbRes.Err
 	}
@@ -575,12 +576,13 @@ func UniverseOfMoon(moon string, data Instance) (string, error) {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return uni, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return uni, dbRes.Err
 	}
@@ -825,7 +827,7 @@ func (p *Planet) generateData(data Instance) error {
 	p.MinTemp = p.MaxTemp - 50
 
 	// Generate default resources for this planet.
-	p.Resources = make(map[string]ResourceInfo, 0)
+	p.Resources = make(map[string]ResourceInfo)
 
 	allRes, err := data.Resources.Resources(data.Proxy, []db.Filter{})
 	if err != nil {
@@ -881,12 +883,13 @@ func (p *Planet) fetchGeneralInfo(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -955,12 +958,13 @@ func (p *Planet) fetchBuildingsUpgrades(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -1025,12 +1029,13 @@ func (p *Planet) fetchTechnologiesUpgrades(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -1099,12 +1104,13 @@ func (p *Planet) fetchShipsUpgrades(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -1180,12 +1186,13 @@ func (p *Planet) fetchDefensesUpgrades(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -1263,12 +1270,13 @@ func (p *Planet) fetchIncomingFleets(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -1323,12 +1331,13 @@ func (p *Planet) fetchSourceFleets(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -1356,7 +1365,7 @@ func (p *Planet) fetchSourceFleets(data Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchResources(data Instance) error {
-	p.Resources = make(map[string]ResourceInfo, 0)
+	p.Resources = make(map[string]ResourceInfo)
 
 	// The server guarantees that any action that takes
 	// or bring resources to the planet will perform an
@@ -1447,12 +1456,13 @@ func (p *Planet) fetchResources(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -1495,7 +1505,7 @@ func (p *Planet) fetchResources(data Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchBuildings(data Instance) error {
-	p.Buildings = make(map[string]BuildingInfo, 0)
+	p.Buildings = make(map[string]BuildingInfo)
 
 	// Create the query and execute it. Note that depending
 	// on whether we have a moon or a planet we won't fetch
@@ -1583,12 +1593,13 @@ func (p *Planet) fetchBuildings(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -1667,12 +1678,13 @@ func (p *Planet) fetchTechnologies(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -1713,7 +1725,7 @@ func (p *Planet) fetchTechnologies(data Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchShips(data Instance) error {
-	p.Ships = make(map[string]ShipInfo, 0)
+	p.Ships = make(map[string]ShipInfo)
 
 	// Create the query and execute it.
 	table := "planets_ships"
@@ -1741,12 +1753,13 @@ func (p *Planet) fetchShips(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}
@@ -1794,7 +1807,7 @@ func (p *Planet) fetchShips(data Instance) error {
 //
 // Returns any error.
 func (p *Planet) fetchDefenses(data Instance) error {
-	p.Defenses = make(map[string]DefenseInfo, 0)
+	p.Defenses = make(map[string]DefenseInfo)
 
 	// Create the query and execute it.
 	table := "planets_defenses"
@@ -1822,12 +1835,13 @@ func (p *Planet) fetchDefenses(data Instance) error {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return dbRes.Err
 	}

@@ -87,12 +87,12 @@ type ConcurrentLocker struct {
 // ErrInvalidResource :
 // Used in case the resource requested to lock is not
 // valid.
-var ErrInvalidResource = fmt.Errorf("Invalid resource provided as lock")
+var ErrInvalidResource = fmt.Errorf("invalid resource provided as lock")
 
 // ErrLock :
 // Used in case an error occurs when interacting with
 // a lock.
-var ErrLock = fmt.Errorf("Error while using resource lock")
+var ErrLock = fmt.Errorf("error while using resource lock")
 
 // Lock :
 // Allows to protect the access to a single resource

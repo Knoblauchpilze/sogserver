@@ -21,27 +21,27 @@ type associationTable struct {
 // ErrInvalidTable :
 // Indicates that the association table that is provided
 // to perform an operation is not valid.
-var ErrInvalidTable = fmt.Errorf("Invalid association table")
+var ErrInvalidTable = fmt.Errorf("invalid association table")
 
 // ErrDuplicatedID :
 // Indicates that a registration operation could not be
 // performed because the id already exists.
-var ErrDuplicatedID = fmt.Errorf("ID is duplicated")
+var ErrDuplicatedID = fmt.Errorf("id is duplicated")
 
 // ErrDuplicatedName :
 // Indicates that a registration operation could not be
 // performed because the name already exists.
-var ErrDuplicatedName = fmt.Errorf("Name is duplicated")
+var ErrDuplicatedName = fmt.Errorf("name is duplicated")
 
 // ErrInvalidAssociation :
 // Indicates that the association could not be performed
 // because at least one of the values is invalid.
-var ErrInvalidAssociation = fmt.Errorf("Association has one invalid member")
+var ErrInvalidAssociation = fmt.Errorf("association has one invalid member")
 
 // ErrNotFound :
 // Used to indicate that the searched element was not
 // found.
-var ErrNotFound = fmt.Errorf("Element does not exist")
+var ErrNotFound = fmt.Errorf("element does not exist")
 
 // newAssociationTable :
 // Used to create a new association table.
@@ -113,19 +113,6 @@ func (at *associationTable) registerAssociation(id string, name string) error {
 // Returns `true` if the identifier exists.
 func (at *associationTable) existsID(id string) bool {
 	_, ok := at.idsToNames[id]
-	return ok
-}
-
-// existsName :
-// Used to determine whether the name exists in this
-// association table. Not that this method succeeds
-// even if the association table is not valid.
-//
-// The `name` defines the name to search for.
-//
-// Returns `true` if the name exists.
-func (at *associationTable) existsName(name string) bool {
-	_, ok := at.namesToIDs[name]
 	return ok
 }
 

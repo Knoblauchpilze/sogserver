@@ -37,7 +37,7 @@ type FixedAction struct {
 }
 
 // ErrInvalidAmountForAction : Indicates that the action has an invalid amount.
-var ErrInvalidAmountForAction = fmt.Errorf("Invalid amount provided for action")
+var ErrInvalidAmountForAction = fmt.Errorf("invalid amount provided for action")
 
 // valid :
 // Determines whether this action is valid. By valid we
@@ -117,12 +117,13 @@ func newFixedActionFromDB(ID string, data Instance, table string, moon bool) (Fi
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return a, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return a, dbRes.Err
 	}

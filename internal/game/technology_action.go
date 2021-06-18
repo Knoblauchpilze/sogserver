@@ -21,10 +21,10 @@ type TechnologyAction struct {
 
 // ErrInvalidPointsForAction : Indicates that the number of points brought by the
 // action is not valid.
-var ErrInvalidPointsForAction = fmt.Errorf("Invalid completion points for action")
+var ErrInvalidPointsForAction = fmt.Errorf("invalid completion points for action")
 
 // ErrNonExistingPlayer : Indicates that the parent player for the action does not exist.
-var ErrNonExistingPlayer = fmt.Errorf("Parent player does not exist")
+var ErrNonExistingPlayer = fmt.Errorf("parent player does not exist")
 
 // valid :
 // Determines whether this action is valid. By valid we
@@ -373,12 +373,13 @@ func (a *TechnologyAction) fetchResearchPower(data Instance, planet *Planet) (in
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return lab.Level, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return lab.Level, dbRes.Err
 	}

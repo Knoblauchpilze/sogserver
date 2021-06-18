@@ -25,17 +25,17 @@ type DBModule interface {
 // ErrNotInitialized :
 // Used to indicate the a DB module failed to correctly
 // initialize its components from the provided DB.
-var ErrNotInitialized = fmt.Errorf("Unable to initialize DB module")
+var ErrNotInitialized = fmt.Errorf("unable to initialize DB module")
 
 // ErrInconsistentDB :
 // Used to indicate that some consistency errors were
 // detected when loading data from the DB.
-var ErrInconsistentDB = fmt.Errorf("Detected inconsistencies in DB model")
+var ErrInconsistentDB = fmt.Errorf("detected inconsistencies in DB model")
 
 // ErrInvalidID :
 // Used to indicate that the provided identifier is not
 // valid according to the internal data.
-var ErrInvalidID = fmt.Errorf("Invalid identifier")
+var ErrInvalidID = fmt.Errorf("invalid identifier")
 
 // baseModule :
 // This module allows to group the logging behavior of
@@ -79,17 +79,6 @@ func newBaseModule(log logger.Logger, module string) baseModule {
 	}
 }
 
-// setLogLevel :
-// Defines a new log level associated with the messages
-// produced by this module.
-//
-// The `level` defines the new log level allowed for
-// this module. Any message with a severity less than
-// the provided value will be discarded.
-func (bm *baseModule) setLogLevel(level logger.Severity) {
-	bm.level = level
-}
-
 // trace :
 // Used as a wrapper around the internal logger object to
 // benefit from the module defined for this element along
@@ -124,12 +113,13 @@ func (bm *baseModule) trace(level logger.Severity, msg string) {
 func (bm *baseModule) fetchIDs(query db.QueryDesc, proxy db.Proxy) ([]string, error) {
 	// Perform the query.
 	dbRes, err := proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	if err != nil {
 		bm.trace(logger.Error, fmt.Sprintf("Unable to fetch IDs (err: %v)", err))
 		return []string{}, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		bm.trace(logger.Error, fmt.Sprintf("Invalid query to initialize IDs (err: %v)", dbRes.Err))
 		return []string{}, dbRes.Err

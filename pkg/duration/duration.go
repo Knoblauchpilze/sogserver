@@ -22,7 +22,7 @@ type Duration struct {
 // ErrInvalidInput :
 // Indicates that the value provided as input cannot
 // be unmarshalled into a valid duration.
-var ErrInvalidInput = fmt.Errorf("Could not umarshal value to duration")
+var ErrInvalidInput = fmt.Errorf("could not umarshal value to duration")
 
 // NewDuration :
 // Creates a new duration from a base time.Duration.

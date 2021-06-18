@@ -107,52 +107,52 @@ type Multipliers struct {
 }
 
 // ErrDuplicatedCoordinates : Indicates that some coordinates appeared twice.
-var ErrDuplicatedCoordinates = fmt.Errorf("Invalid duplicated coordinates")
+var ErrDuplicatedCoordinates = fmt.Errorf("invalid duplicated coordinates")
 
 // ErrDuplicatedName : Indicates that some name appeared twice.
-var ErrDuplicatedName = fmt.Errorf("Invalid duplicated name")
+var ErrDuplicatedName = fmt.Errorf("invalid duplicated name")
 
 // ErrPlanetNotFound : No planet exists at the specified coordinates.
-var ErrPlanetNotFound = fmt.Errorf("No planet at the specified coordinates")
+var ErrPlanetNotFound = fmt.Errorf("no planet at the specified coordinates")
 
 // ErrInvalidCoordinates : Input coordinates are not valid given the universe structure.
-var ErrInvalidCoordinates = fmt.Errorf("Invalid coordinates relative to universe structure")
+var ErrInvalidCoordinates = fmt.Errorf("invalid coordinates relative to universe structure")
 
 // ErrDuplicatedPlanet : Indicates that there several planets share the same coordinates.
-var ErrDuplicatedPlanet = fmt.Errorf("Several planets share the same coordinates")
+var ErrDuplicatedPlanet = fmt.Errorf("several planets share the same coordinates")
 
 // ErrNoRemainingName : Indicates that no name could be generated for a player.
-var ErrNoRemainingName = fmt.Errorf("Failed to generate name for player")
+var ErrNoRemainingName = fmt.Errorf("failed to generate name for player")
 
 // ErrInvalidCountry : The country is not valid.
-var ErrInvalidCountry = fmt.Errorf("Invalid or empty country")
+var ErrInvalidCountry = fmt.Errorf("invalid or empty country")
 
 // ErrInvalidEcoSpeed : The economic speed is not within admissible range.
-var ErrInvalidEcoSpeed = fmt.Errorf("Economic speed is not within admissible range")
+var ErrInvalidEcoSpeed = fmt.Errorf("economic speed is not within admissible range")
 
 // ErrInvalidFleetSpeed : The fleet speed is not within admissible range.
-var ErrInvalidFleetSpeed = fmt.Errorf("Fleet speed is not within admissible range")
+var ErrInvalidFleetSpeed = fmt.Errorf("fleet speed is not within admissible range")
 
 // ErrInvalidResearchSpeed : The research speed is not within admissible range.
-var ErrInvalidResearchSpeed = fmt.Errorf("Research speed is not within admissible range")
+var ErrInvalidResearchSpeed = fmt.Errorf("research speed is not within admissible range")
 
 // ErrFleetsToRuins : The fleets to ruins ratio is not within admissible range.
-var ErrFleetsToRuins = fmt.Errorf("Fleets to ruins ratio is not within admissible range")
+var ErrFleetsToRuins = fmt.Errorf("fleets to ruins ratio is not within admissible range")
 
 // ErrDefensesToRuins : The defenses to ruins ratio is not within admissible range.
-var ErrDefensesToRuins = fmt.Errorf("Defenses to ruins is not within admissible range")
+var ErrDefensesToRuins = fmt.Errorf("defenses to ruins is not within admissible range")
 
 // ErrFleetConsumption : The fleet consumption is not within admissible range.
-var ErrFleetConsumption = fmt.Errorf("Fleet consumption is not within admissible range")
+var ErrFleetConsumption = fmt.Errorf("fleet consumption is not within admissible range")
 
 // ErrGalaxiesCount : The number of galaxies is not within admissible range.
-var ErrGalaxiesCount = fmt.Errorf("Galaxies count is not within admissible range")
+var ErrGalaxiesCount = fmt.Errorf("galaxies count is not within admissible range")
 
 // ErrGalaxySize : The size of a galaxy is not within admissible range.
-var ErrGalaxySize = fmt.Errorf("Galaxy size is not within admissible range")
+var ErrGalaxySize = fmt.Errorf("galaxy size is not within admissible range")
 
 // ErrSolarSystemSize : The size of a solar system is not within admissible range.
-var ErrSolarSystemSize = fmt.Errorf("Solar system size is not within admissible range")
+var ErrSolarSystemSize = fmt.Errorf("solar system size is not within admissible range")
 
 // valid :
 // Determines whether the universe is valid. By valid we only
@@ -253,12 +253,13 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return u, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return u, dbRes.Err
 	}
@@ -287,7 +288,7 @@ func NewUniverseFromDB(ID string, data Instance) (Universe, error) {
 	)
 
 	// Convert the age in days.
-	u.Age = int(time.Now().Sub(creationTime).Hours() / 24.0)
+	u.Age = int(time.Since(creationTime).Hours() / 24.0)
 
 	// Make sure that it's the only universe.
 	if dbRes.Next() {
@@ -340,12 +341,13 @@ func NewMultipliersFromDB(uni string, data Instance) (Multipliers, error) {
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return mul, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return mul, dbRes.Err
 	}
@@ -459,12 +461,13 @@ func (u *Universe) UsedCoords(proxy db.Proxy) (map[int]Coordinate, error) {
 	}
 
 	dbRes, err := proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return map[int]Coordinate{}, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return map[int]Coordinate{}, dbRes.Err
 	}
@@ -529,12 +532,13 @@ func (u *Universe) UsedNames(proxy db.Proxy) (map[string]bool, error) {
 	}
 
 	dbRes, err := proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return map[string]bool{}, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return map[string]bool{}, dbRes.Err
 	}
@@ -593,12 +597,13 @@ func (u *Universe) GenerateName(proxy db.Proxy, trials int) (string, error) {
 	}
 
 	dbRes, err := proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return "", err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return "", dbRes.Err
 	}
@@ -684,12 +689,13 @@ func (u *Universe) GetPlanetAt(coord Coordinate, data Instance) (*Planet, error)
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		return nil, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		return nil, dbRes.Err
 	}
@@ -705,6 +711,9 @@ func (u *Universe) GetPlanetAt(coord Coordinate, data Instance) (*Planet, error)
 	err = dbRes.Scan(
 		&ID,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	// Make sure that it's the only universe.
 	if dbRes.Next() {

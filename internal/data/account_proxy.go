@@ -59,13 +59,14 @@ func (p *AccountProxy) Accounts(filters []db.Filter) ([]game.Account, error) {
 	}
 
 	dbRes, err := p.data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch accounts (err: %v)", err))
 		return []game.Account{}, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch accounts (err: %v)", dbRes.Err))
 		return []game.Account{}, dbRes.Err

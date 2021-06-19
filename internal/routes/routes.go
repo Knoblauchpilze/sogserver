@@ -13,6 +13,7 @@ func (s *Server) routes() {
 	// Handle known routes.
 	s.route("GET", "/resources", s.listResources())
 	s.route("GET", "/universes", s.listUniverses())
+	s.route("GET", "/universes/[a-zA-Z0-9-]+/rankings", s.listUniverseRankings())
 	s.route("GET", "/accounts", s.listAccounts())
 	s.route("GET", "/accounts/[a-zA-Z0-9-]+/players", s.listAccountsPlayers())
 	s.route("GET", "/buildings", s.listBuildings())

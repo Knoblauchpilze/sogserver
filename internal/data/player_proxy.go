@@ -65,13 +65,14 @@ func (p *PlayerProxy) Players(filters []db.Filter) ([]game.Player, error) {
 	}
 
 	dbRes, err := p.data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch players (err: %v)", err))
 		return []game.Player{}, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch players (err: %v)", dbRes.Err))
 		return []game.Player{}, dbRes.Err
@@ -131,13 +132,14 @@ func (p *PlayerProxy) Messages(filters []db.Filter) ([]game.Message, error) {
 	}
 
 	dbRes, err := p.data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch messages (err: %v)", err))
 		return []game.Message{}, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch messages (err: %v)", dbRes.Err))
 		return []game.Message{}, dbRes.Err

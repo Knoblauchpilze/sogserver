@@ -32,6 +32,30 @@ func (s *Server) listUniverses() http.HandlerFunc {
 	return ed.ServeRoute(s.log)
 }
 
+// listUniverseRankings :
+// Used to perform the creation of a handler allowing to server
+// the requests related to rankings in universes.
+//
+// Returns the handler that can be executed to server said reqs.
+func (s *Server) listUniverseRankings() http.HandlerFunc {
+	// Create the endpoint with the suited route.
+	ed := NewGetResourceEndpoint("universes")
+
+	allowed := map[string]string{
+		"id": "p.universe",
+	}
+
+	// Configure the endpoint.
+	ed.WithFilters(allowed).WithIDFilter("p.universe").WithResourceFilter("p.id").WithModule("universes").WithLocker(s.og)
+	ed.WithDataFunc(
+		func(filters []db.Filter) (interface{}, error) {
+			return s.universes.Rankings(filters)
+		},
+	)
+
+	return ed.ServeRoute(s.log)
+}
+
 // createUniverse :
 // Used to perform the creation of a handler allowing to serve
 // the requests to create universes.

@@ -106,6 +106,36 @@ type Multipliers struct {
 	Consumption float32
 }
 
+// Ranking :
+// Defines the needed information to represent the rank of
+// a player within a universe.
+type Ranking struct {
+	// Player defines the identifier of the player associated to
+	// the ranking.
+	Player string `json:"player"`
+
+	// Rank defines the ranking of this player in the universe.
+	Rank int `json:"rank"`
+
+	// Economy defines how many economy points this player has.
+	Economy float32 `json:"economy"`
+
+	// Research defines how many research points this player has.
+	Research float32 `json:"research"`
+
+	// MilitaryBuilt defines how many military points this player
+	// has built.
+	MilitaryBuilt float32 `json:"military_built"`
+
+	// MilitaryLost defines how many military points this player
+	// has lost.
+	MilitaryLost float32 `json:"military_lost"`
+
+	// MilitaryDestroyed defines how many military points this
+	// player has destroyed.
+	MilitaryDestroyed float32 `json:"military_destroyed"`
+}
+
 // ErrDuplicatedCoordinates : Indicates that some coordinates appeared twice.
 var ErrDuplicatedCoordinates = fmt.Errorf("invalid duplicated coordinates")
 

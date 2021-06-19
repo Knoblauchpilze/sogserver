@@ -59,13 +59,14 @@ func (p *UniverseProxy) Universes(filters []db.Filter) ([]game.Universe, error) 
 	}
 
 	dbRes, err := p.data.Proxy.FetchFromDB(query)
-	defer dbRes.Close()
 
 	// Check for errors.
 	if err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch universes (err: %v)", err))
 		return []game.Universe{}, err
 	}
+	defer dbRes.Close()
+
 	if dbRes.Err != nil {
 		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch universes (err: %v)", dbRes.Err))
 		return []game.Universe{}, dbRes.Err
@@ -102,6 +103,79 @@ func (p *UniverseProxy) Universes(filters []db.Filter) ([]game.Universe, error) 
 	}
 
 	return universes, nil
+}
+
+// Rankings :
+// Return a list of the players registered in the universe
+// sorted by order and with the points associated to each
+// one.
+//
+// The `filters` define some filtering properties that can
+// be applied to the SQL query to only select part of all
+// the players. Each one is appended `as-is` to the query.
+//
+// Returns the list of rankings for the universes as fetched
+// in the DB along any errors.
+func (p *UniverseProxy) Rankings(filters []db.Filter) ([]game.Ranking, error) {
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"p.id",
+			"pp.economy_points",
+			"pp.military_points",
+			"pp.military_points_built",
+			"pp.military_points_lost",
+			"pp.military_points_destroyed",
+			"(pp.research_points + pp.military_points + pp.economy_points) as points",
+		},
+		Table:    "players p inner join players_points pp on p.id = pp.player",
+		Filters:  filters,
+		Ordering: "order by points desc",
+	}
+
+	dbRes, err := p.data.Proxy.FetchFromDB(query)
+
+	// Check for errors.
+	if err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Could not query DB to fetch rankings (err: %v)", err))
+		return []game.Ranking{}, err
+	}
+	defer dbRes.Close()
+
+	if dbRes.Err != nil {
+		p.trace(logger.Error, fmt.Sprintf("Invalid query to fetch rankings (err: %v)", dbRes.Err))
+		return []game.Ranking{}, dbRes.Err
+	}
+
+	// Traverse the fetched data and build the output array.
+	rankings := []game.Ranking{}
+	rankNum := 0
+	var pts float32
+
+	for dbRes.Next() {
+		var rank game.Ranking
+		err = dbRes.Scan(
+			&rank.Player,
+			&rank.Economy,
+			&rank.Research,
+			&rank.MilitaryBuilt,
+			&rank.MilitaryLost,
+			&rank.MilitaryDestroyed,
+			&pts,
+		)
+
+		if err != nil {
+			p.trace(logger.Error, fmt.Sprintf("Error while fetching rank %d (err: %v)", rankNum, err))
+			continue
+		}
+
+		rank.Rank = rankNum
+		rankNum++
+
+		rankings = append(rankings, rank)
+	}
+
+	return rankings, nil
 }
 
 // Create :

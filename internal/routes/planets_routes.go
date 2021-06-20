@@ -17,16 +17,17 @@ func (s *Server) listPlanets() http.HandlerFunc {
 	ed := NewGetResourceEndpoint("planets")
 
 	allowed := map[string]string{
-		"id":           "id",
-		"name":         "name",
-		"galaxy":       "galaxy",
-		"solar_system": "solar_system",
-		"position":     "position",
-		"player":       "player",
+		"id":           "p.id",
+		"name":         "p.name",
+		"galaxy":       "p.galaxy",
+		"solar_system": "p.solar_system",
+		"position":     "p.position",
+		"player":       "p.player",
+		"universe":     "pl.universe",
 	}
 
 	// Configure the endpoint.
-	ed.WithFilters(allowed).WithResourceFilter("id").WithModule("planets").WithLocker(s.og)
+	ed.WithFilters(allowed).WithResourceFilter("p.id").WithModule("planets").WithLocker(s.og)
 	ed.WithDataFunc(
 		func(filters []db.Filter) (interface{}, error) {
 			return s.planets.Planets(filters)
@@ -53,6 +54,7 @@ func (s *Server) listMoons() http.HandlerFunc {
 		"solar_system": "p.solar_system",
 		"position":     "p.position",
 		"player":       "p.player",
+		"universe":     "p.universe",
 	}
 
 	// Configure the endpoint.

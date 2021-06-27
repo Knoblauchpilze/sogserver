@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"math"
 	"oglike_server/internal/model"
 	"oglike_server/pkg/db"
 )
@@ -42,6 +43,15 @@ type Player struct {
 	// The `planetsCount` allows to count how many planets
 	// this player already possesses.
 	planetsCount int
+
+	// The `fleetsCount` allows to count how many fleets are
+	// already sent by this player. This accounts for both
+	// the regular fleets and the expeditions.
+	fleetsCount int
+
+	// The `expCount` allows to count how many expedition
+	// fleets are already sent by this player.
+	expCount int
 
 	// The `Points` defines the accumulated score of the
 	// player.
@@ -171,6 +181,11 @@ func NewPlayerFromDB(ID string, data Instance) (Player, error) {
 		return p, err
 	}
 
+	err = p.fetchFleetsCount(data)
+	if err != nil {
+		return p, err
+	}
+
 	err = p.fetchTechnologies(data)
 	if err != nil {
 		return p, err
@@ -210,6 +225,7 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 				Values: []interface{}{p.ID},
 			},
 		},
+		Verbose: true,
 	}
 
 	dbRes, err := data.Proxy.FetchFromDB(query)
@@ -240,6 +256,118 @@ func (p *Player) fetchGeneralInfo(data Instance) error {
 		&p.Score.MilitaryBuilt,
 		&p.Score.MilitaryLost,
 		&p.Score.MilitaryDestroyed,
+	)
+
+	// Make sure that it's the only player.
+	if dbRes.Next() {
+		return ErrDuplicatedElement
+	}
+
+	return err
+}
+
+// fetchFleetsCount :
+// Simialr to the `fetchGeneralInfo` but handles
+// the retrieval of the player's fleets count.
+//
+// The `data` defines the object to access the
+// DB.
+//
+// Returns any error.
+func (p *Player) fetchFleetsCount(data Instance) error {
+	// Use a function to queue both requests after one another.
+	var gErr error
+
+	func() {
+		// Create the query and execute it.
+		query := db.QueryDesc{
+			Props: []string{
+				"count(*)",
+			},
+			Table: "fleets",
+			Filters: []db.Filter{
+				{
+					Key:    "player",
+					Values: []interface{}{p.ID},
+				},
+			},
+		}
+
+		dbRes, err := data.Proxy.FetchFromDB(query)
+
+		// Check for errors.
+		if err != nil {
+			gErr = err
+			return
+		}
+		defer dbRes.Close()
+
+		if dbRes.Err != nil {
+			gErr = dbRes.Err
+			return
+		}
+
+		// Scan the player's data.
+		atLeastOne := dbRes.Next()
+		if !atLeastOne {
+			gErr = ErrElementNotFound
+			return
+		}
+
+		gErr = dbRes.Scan(
+			&p.fleetsCount,
+		)
+
+		// Make sure that it's the only player.
+		if dbRes.Next() {
+			gErr = ErrDuplicatedElement
+			return
+		}
+	}()
+
+	if gErr != nil {
+		return gErr
+	}
+
+	// Fetch expeditions count.
+	// Create the query and execute it.
+	query := db.QueryDesc{
+		Props: []string{
+			"count(*)",
+		},
+		Table: "fleets f inner join fleets_objectives fo on f.objective = fo.id",
+		Filters: []db.Filter{
+			{
+				Key:    "f.player",
+				Values: []interface{}{p.ID},
+			},
+			{
+				Key:    "fo.name",
+				Values: []interface{}{"expedition"},
+			},
+		},
+	}
+
+	dbRes, err := data.Proxy.FetchFromDB(query)
+
+	// Check for errors.
+	if err != nil {
+		return err
+	}
+	defer dbRes.Close()
+
+	if dbRes.Err != nil {
+		return dbRes.Err
+	}
+
+	// Scan the player's data.
+	atLeastOne := dbRes.Next()
+	if !atLeastOne {
+		return ErrElementNotFound
+	}
+
+	err = dbRes.Scan(
+		&p.expCount,
 	)
 
 	// Make sure that it's the only player.
@@ -461,4 +589,77 @@ func (p *Player) CanColonize(data Instance) (bool, error) {
 	maxPlanetsCount := 2 + (astro.Level-1)/2
 
 	return p.planetsCount < maxPlanetsCount, nil
+}
+
+// CanSendFleet :
+// Used to determine whether this player is able to
+// send a new fleet based on the current level of
+// the computers technology and the number of fleets
+// already created.
+//
+// The `data` allows to fetch information about the
+// fleets already available.
+//
+// `objective` the objective of the fleet. Allows to
+// potentially differientate and allow certain types
+// of fleets to be send.
+//
+// Returns `true` if the player can send a new fleet
+// along with any errors.
+func (p *Player) CanSendFleet(data Instance, objective string) (bool, error) {
+	// We will compare the level of the computers
+	// research against the number of fleets already
+	// send by the player.
+	compID, err := data.Technologies.GetIDFromName("computers")
+	if err != nil {
+		return false, err
+	}
+
+	comp, ok := p.Technologies[compID]
+
+	if !ok {
+		// The computers technology is not researched,
+		// the player can send only a single fleet.
+		return p.fleetsCount == 0, nil
+	}
+
+	astroID, err := data.Technologies.GetIDFromName("astrophysics")
+	if err != nil {
+		return false, err
+	}
+
+	astro, ok := p.Technologies[astroID]
+
+	if !ok {
+		// The astrophysics technology is not researched,
+		// the player cannot colonize beyond the homeworld.
+		return false, nil
+	}
+
+	// Compute the number of fleets that can be sent
+	// based on the following formulas:
+	// https://ogame.fandom.com/wiki/Computer_Technology
+	// https://ogame.fandom.com/wiki/Astrophysics
+	fleetsMax := comp.Level + 1
+	expMax := int(math.Floor(math.Sqrt(float64(astro.Level))))
+
+	// Determine whether the objective defines an expedition
+	// or a regular fleet.
+	expID, err := data.Objectives.GetIDFromName("expedition")
+	if err != nil {
+		return false, err
+	}
+
+	fmt.Println(fmt.Sprintf("f: %d, e: %d", p.fleetsCount, p.expCount))
+
+	// Verify that not too many expeditions have been
+	// sent already.
+	if objective == expID && p.expCount+1 > expMax {
+		// Too many expeditions.
+		return false, nil
+	}
+
+	// The total number of fleets should be smaller or
+	// equal to the authorized amount.
+	return p.fleetsCount+1 <= fleetsMax, nil
 }

@@ -37,6 +37,10 @@ var ErrPlayerDoesNotOwnSource = fmt.Errorf("player does not own source of a flee
 // belong to the fleet's universe.
 var ErrUniverseMismatchForFleet = fmt.Errorf("universe specified for fleet does not match the components")
 
+// ErrTooManyFleets : Indicates that the player cannot send
+// any more fleets considering their level of technologies.
+var ErrTooManyFleets = fmt.Errorf("cannot send any more fleet based on technologies")
+
 // NewFleetProxy :
 // Create a new proxy allowing to serve the requests
 // related to fleets.
@@ -373,6 +377,16 @@ func (p *FleetProxy) validateFleet(fleet *game.Fleet) (*game.Planet, error) {
 	mul, err := game.NewMultipliersFromDB(fleet.Universe, p.data)
 	if err != nil {
 		return &source, err
+	}
+
+	// Make sure that the player can send a new fleet.
+	allowed, err := player.CanSendFleet(p.data, fleet.Objective)
+	if err != nil {
+		return &source, err
+	}
+	if !allowed {
+		p.trace(logger.Error, fmt.Sprintf("Player cannot send any more fleet"))
+		return &source, ErrTooManyFleets
 	}
 
 	// Consolidate the arrival time for this fleet.

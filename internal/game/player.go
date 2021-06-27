@@ -650,8 +650,6 @@ func (p *Player) CanSendFleet(data Instance, objective string) (bool, error) {
 		return false, err
 	}
 
-	fmt.Println(fmt.Sprintf("f: %d, e: %d", p.fleetsCount, p.expCount))
-
 	// Verify that not too many expeditions have been
 	// sent already.
 	if objective == expID && p.expCount+1 > expMax {

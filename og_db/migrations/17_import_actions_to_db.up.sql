@@ -416,7 +416,7 @@ BEGIN
           ) AS use_ratio
         FROM
           planets_buildings_production_factor AS pbpf
-          INNER JOIN planets_buildings_production_resources AS pbpr  ON pbpf.planet = pbpr.planet AND pbpf.building = pbpr.building
+          INNER JOIN planets_buildings_production_resources AS pbpr ON pbpf.planet = pbpr.planet AND pbpf.building = pbpr.building
           INNER JOIN resources AS r ON pbpr.res = r.id
         WHERE
           pbpf.planet = planet_id
@@ -432,18 +432,18 @@ BEGIN
       WHERE
         pbpr.consumption < 0
       )
-    SELECT
+    select
       pbpr.res AS res,
-      SUM(pbpf.factor * ef.use_ratio * pbpr.production) AS prod,
-      planet_id AS planet
+      SUM(pbpf.factor * COALESCE(ef.use_ratio, 0) * pbpr.production) AS prod,
+      SUM(pbpf.factor * COALESCE(ef.use_ratio, 0) * pbpr.consumption) AS conso
     FROM
       planets_buildings_production_factor AS pbpf
       INNER JOIN planets_buildings_production_resources AS pbpr ON pbpf.building = pbpr.building AND pbpf.planet = pbpr.planet
-      INNER JOIN energy_factor AS ef ON pbpf.building = ef.building
+      LEFT JOIN energy_factor AS ef ON pbpf.building = ef.building
     GROUP BY
       pbpr.res
     )
-  UPDATE planets_resources as pr
+  UPDATE planets_resources AS pr
     SET amount = LEAST(
       pr.amount + EXTRACT(EPOCH FROM moment - pr.updated_at) * (ep.prod + r.base_production) / 3600.0,
       GREATEST(
@@ -457,7 +457,7 @@ BEGIN
     INNER JOIN resources AS r ON ep.res = r.id
   WHERE
     pr.res = ep.res
-    AND pr.planet = ep.planet
+    AND pr.planet = planet_id
     AND r.storable = 'true';
 END
 $$ LANGUAGE plpgsql;

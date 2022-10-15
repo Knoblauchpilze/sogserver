@@ -22,7 +22,7 @@ Creating the database is useful so that the server can access tot he data model 
 - Go to `og_db`.
 - Create the db: `make docker_db`.
 - Run the db: `make create_db`. Note that in case a previous operation already succeeded one should call `make remove_db` beforehand as a container with this name already exists.
-- Initialize the database by calling the `make migrate` target: this will create the schema associated to the data model of the application and populate the needed fields.
+- Initialize the database by calling the `make migrate` target: this will create the schema associated to the data model of the application and populate the needed fields. It might be needed to start the docker image running the DB with `make start_db` if a reboot happened between the creation of the DB and the migration.
 
 ### Iterate on the DB schema
 

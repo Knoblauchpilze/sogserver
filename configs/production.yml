@@ -17,5 +17,5 @@ Logger:
   ForceLocal: true
   Level: "notice"
 # Server processes
-  Server:
-    BackgroundUpdate: 60
+Server:
+  BackgroundUpdate: 60
